@@ -1,7 +1,7 @@
 # Aster OS
 
 [![status](https://img.shields.io/badge/status-pre--alpha-red.svg)](spec/roadmap.md)
-[![milestone](https://img.shields.io/badge/milestone-M0%20boot-informational.svg)](spec/roadmap.md)
+[![milestone](https://img.shields.io/badge/milestone-M1%20memory-informational.svg)](spec/roadmap.md)
 [![Zig](https://img.shields.io/badge/Zig-0.16.0-f7a41d.svg)](.zig-version)
 [![architecture](https://img.shields.io/badge/arch-x86__64-blue.svg)](spec/architecture-overview.md)
 [![bootloader](https://img.shields.io/badge/bootloader-Limine-808080.svg)](libs/limine)
@@ -23,6 +23,9 @@ This project requires the Zig version listed in [`.zig-version`](.zig-version).
 
 ## Status
 
+- **Milestone M1 (Memory) complete:** Limine memory map parsed into `BootInfo`;
+  bitmap Page Frame Allocator; first-fit heap allocator implementing `std.mem.Allocator`;
+  host unit tests (16); boot prints RAM layout; framebuffer verified as **WC** cache.
 - **Milestone M0 (Boot) complete:** deterministic, reproducible build; boots in QEMU via
   Limine; prints `ASTER BOOT OK` on serial.
 - Bootable-commit rule: **every commit must leave the system runnable in QEMU.**
@@ -76,7 +79,7 @@ If the system crashes or hangs: [`spec/debugging.md`](spec/debugging.md)
 | Milestone | Goal |
 |-----------|------|
 | M0 ✅ | Boot: deterministic build, boots in QEMU, serial marker |
-| M1 | Memory: PFA + heap allocator |
+| M1 ✅ | Memory: PFA + heap allocator |
 | M2 | CPU: IDT, APIC timer, PS/2 keyboard |
 | M3 | Graphics: framebuffer, renderer, text on screen |
 | M4 | Lua: "Hello from Lua" on screen, hot reload |
