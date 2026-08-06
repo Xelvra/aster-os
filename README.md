@@ -17,7 +17,7 @@
 > application APIs**.
 
 > Full manifesto (including what Aster is NOT and accepted trade-offs):
-> [`spec/manifest.md`](spec/manifest.md) (Czech).
+> [`spec/manifest.md`](spec/manifest.md).
 
 This project requires the Zig version listed in [`.zig-version`](.zig-version).
 
@@ -61,7 +61,11 @@ Detailed layers, interfaces, and diagram: [`spec/architecture-overview.md`](spec
 ## Documentation
 
 The complete architecture specification lives in [`spec/`](spec/README.md).
-Start with the [architecture overview](spec/architecture-overview.md) (Czech).
+Start with the [architecture overview](spec/architecture-overview.md).
+
+The internal specs are written in Czech by design — this is the author's working
+documentation, not marketing; see the language policy in
+[`spec/README.md`](spec/README.md).
 
 If the system crashes or hangs: [`spec/debugging.md`](spec/debugging.md)
 (Debugging Survival Guide) and [`spec/troubleshooting.md`](spec/troubleshooting.md)
