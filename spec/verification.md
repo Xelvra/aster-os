@@ -119,7 +119,7 @@ se přidávají **runtime testy** — hostitelské testy už na ně nestačí:
 
 ### Mechanismus
 
-1. **Pinning verze:** soubor `.zig-version` v kořeni obsahuje exaktní verzi (nyní `0.15.2`).
+1. **Pinning verze:** soubor `.zig-version` v kořeni obsahuje exaktní verzi (nyní `0.16.0`).
    `build.zig` ověří, že běžící Zig odpovídá (případně varuje/ukončí).
 2. **Pinning toolchainu:** doporučuje se oficiální tarball v `/opt/zig`, ne distro balíček
    (Arch/CachyOS pacman může mít zpoždění a jinou verzi).
@@ -166,7 +166,7 @@ Pravidlo: **každý commit musí zanechat systém spustitelný v QEMU.**
 |---|---|---|
 | `qemu-system-x86_64` | ✅ nainstalováno | |
 | `clang`, `lld`, `gcc` | ✅ nainstalováno | |
-| `zig` | ❌ chybí | instalace: oficiální tarball 0.15.2 do `/opt/zig`, viz `.zig-version` |
-| `xorriso` / `mtools` | ❌ zkontrolovat | pro ISO build; alternativně FAT disk image |
-| `limine` | ⏳ vendor | `libs/limine/` |
-| `lua 5.4.8` | ⏳ vendor | `libs/lua-5.4/` |
+| `zig` | ✅ nainstalováno (0.16.0) | instalace: oficiální tarball / distro, viz `.zig-version` |
+| `xorriso` / `mtools` | ✅ nainstalováno | ISO build ověřen v M0 |
+| `limine` | ✅ vendor | `libs/limine/` (12.5.2) |
+| `lua 5.4.8` | ✅ vendor | `libs/lua-5.4/` |

@@ -42,7 +42,8 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 | Milník | Kernel image | RAM (idle) | Kernel Entry → First Frame | Frame latency (p99) | Compile time |
 |--------|-------------:|-----------:|---------------------------:|--------------------:|-------------:|
 | **Cíl** | < 256 KB | < 32 MB | < 50 ms | < 16 ms | TBD |
-| M0 | < 64 KB | — | < 10 ms | — | TBD |
+| **M0 (měřeno)** | **12.0 KB** | — | **≈ 3.3 s wall-clock**¹ | — | TBD |
+| M0 (cíl) | < 64 KB | — | < 10 ms | — | TBD |
 | M1 | < 80 KB | ≤ 4 MB | < 15 ms | — | TBD |
 | M2 | < 96 KB | ≤ 4 MB | < 20 ms | — | TBD |
 | M3 | < 128 KB | ≤ 6 MB | < 25 ms | < 16 ms | TBD |
@@ -62,6 +63,11 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
   Latence je důležitější než FPS.
 - **RAM (idle):** rezidentní paměť systému bez spuštěných aplikací.
 
+> ¹ M0 měří `tools/bench.sh` **wall-clock** od spuštění QEMU po serial marker — zahrnuje
+> firmware/BIOS init, který je mimo kontrolu kernelu. Čistý čas **od Limine handoff po marker**
+> se změří uvnitř kernelu v M2 (tick zdroj); do té doby je hodnota jen horní hranice.
+> Kernel image je velikost strippnutého ELF (`zig-out/bin/aster`).
+
 ---
 
 ## 3. Milníky — detail
@@ -70,14 +76,14 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 
 **Cíl:** deterministický, reprodukovatelný build; QEMU bootne; serial marker.
 
-- [ ] Toolchain: Zig **0.15.2** (`.zig-version`), Limine vendored, Lua 5.4.8 vendored (zdroj).
-- [ ] `build.zig`: `zig build` → bootovatelný ISO/disk image; `zig build run` → QEMU.
-- [ ] `zig build test` → host unit testy (prázdná sada připravená).
-- [ ] Boot handoff z Limine (long mode, serial, GOP framebuffer init).
-- [ ] Serial výstup markeru `ASTER BOOT OK` (chycený `tools/qemu-smoke.sh`).
-- [ ] `tools/qemu-smoke.sh`: serial marker + timeout; `tools/bench.sh` kostra.
-- [ ] **Deterministický build:** stejný commit + stejný Zig = stejný hash binárky.
-- [ ] Výplň prvního řádku v tabulce metrik.
+- [x] Toolchain: Zig **0.16.0** (`.zig-version`), Limine vendored, Lua 5.4.8 vendored (zdroj).
+- [x] `build.zig`: `zig build` → bootovatelný ISO/disk image; `zig build run` → QEMU.
+- [x] `zig build test` → host unit testy (prázdná sada připravená).
+- [x] Boot handoff z Limine (long mode, serial, GOP framebuffer init).
+- [x] Serial výstup markeru `ASTER BOOT OK` (chycený `tools/qemu-smoke.sh`).
+- [x] `tools/qemu-smoke.sh`: serial marker + timeout; `tools/bench.sh` kostra.
+- [x] **Deterministický build:** stejný commit + stejný Zig = stejný hash binárky.
+- [x] Výplň prvního řádku v tabulce metrik.
 
 **Definition of Done (DoD):** QEMU bootne s markerem na stdout, host testy zelené,
 `zig fmt --check` čisté, metriky zapsané, commit bootovatelný.

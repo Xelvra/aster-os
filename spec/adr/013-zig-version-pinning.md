@@ -4,7 +4,7 @@
 **Datum:** 2026-08-06
 
 ## Rozhodnutí
-Verze Zigu se nedrží v názvu projektu, ale v souboru **`.zig-version`** (aktuálně `0.15.2`).
+Verze Zigu se nedrží v názvu projektu, ale v souboru **`.zig-version`** (aktuálně `0.16.0`).
 `build.zig` ověří přesnou verzi. README odkazuje na `.zig-version`.
 
 ## Odůvodnění
@@ -14,7 +14,7 @@ projektu. Distro balíček (pacman) může mít zpoždění — doporučuje se o
 ## Důsledky
 - `.zig-version` v kořeni.
 - Kontrola verze v `build.zig`.
-- Instalace: oficiální tarball 0.15.2 do `/opt/zig`.
+- Instalace: oficiální tarball / distro balíček, viz `.zig-version`.
 
 ## Související
 - ADR-014

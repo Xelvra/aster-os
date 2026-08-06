@@ -15,7 +15,7 @@ Tento projekt vyžaduje verzi Zigu uvedenou v [`.zig-version`](.zig-version).
 
 ## Prerekvizity
 
-- **Zig** — exaktní verze v [`.zig-version`](.zig-version) (0.15.2), ne distro balíček
+- **Zig** — exaktní verze v [`.zig-version`](.zig-version) (0.16.0), ne distro balíček
   (viz [`spec/verification.md`](spec/verification.md) §3).
 - **QEMU** (`qemu-system-x86_64`) — emulace cíle.
 - **Limine** — vendored v `libs/limine/` (ADR-012), žádné systémové balíčky.

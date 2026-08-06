@@ -170,7 +170,7 @@ Přiznaná dopředu, aby nebyla později "objevem". Rizika se řídí, ne ignoru
 ```
 aster-os/
 ├── build.zig / build.zig.zon     # `zig build run` → QEMU, `zig build test` → host testy
-├── .zig-version                  # exaktní verze toolchainu (0.15.2)
+├── .zig-version                  # exaktní verze toolchainu (0.16.0)
 ├── README.md                     # manifest + odkaz na .zig-version
 ├── spec/                         # TENTO SOUBOR + dílčí specifikace
 │   ├── README.md
