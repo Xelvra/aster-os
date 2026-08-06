@@ -109,6 +109,8 @@ se přidávají **runtime testy** — hostitelské testy už na ně nestačí:
 - [ ] V kódu není `TODO`, `FIXME` ani zakomentovaný blok.
 - [ ] Žádný `#noqa`/obcházení formátovače bez zdůvodnění.
 - [ ] Žádný existující test nebyl upraven/přeskočen bez schválení.
+- [ ] Ne-obvious chyba vyřešená během vývoje je zapsaná v `spec/troubleshooting.md`
+      (symptom → příčina → řešení → ověření).
 - [ ] **Systém je bootovatelný** (ADR-016).
 
 ---
@@ -133,8 +135,12 @@ se přidávají **runtime testy** — hostitelské testy už na ně nestačí:
 ### Ověření
 
 ```bash
-./tools/verify-reproducible.sh   # (volitelné) build dvakrát, porovnání hashe
+./tools/verify-reproducible.sh   # build dvakrát, porovnání hashe
 ```
+
+Ověření je **závazné** (součást DoD) — ne-obvious porušení determinismu (např. absolutní
+cache cesta v `.debug_str`, viz `spec/troubleshooting.md` D1) se bez něj tiše vrátí.
+Kontroluje se na produkčním optimize (`ReleaseSafe`).
 
 ---
 

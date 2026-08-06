@@ -27,6 +27,7 @@
 | 13 | [roadmap.md](roadmap.md) | Milníky M0–M8 s kritérii "hotovo" a tabulkou kvalitních metrik. |
 | 14 | [verification.md](verification.md) | Verifikační pipeline, deterministický build, pravidlo bootovatelného commitu. |
 | 15 | [debugging.md](debugging.md) | Debugging Survival Guide — GDB+QEMU, čtení serial dumpu, pravidla pro IRQ. |
+| 16 | [troubleshooting.md](troubleshooting.md) | Známé pasti a lekce — build API, protokoly, determinismus, tooling. |
 
 ## Jak konzultovat návrh
 

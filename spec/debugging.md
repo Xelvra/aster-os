@@ -107,3 +107,8 @@ Při podezření na pád v IRQ:
 | `objdump -d` | disassembl pro kontrolu generovaného kódu |
 | `tools/qemu-smoke.sh` | automatický boot test |
 | `tools/bench.sh` | metriky (ADR-015) |
+| `tools/verify-reproducible.sh` | deterministický build (ADR-014) |
+
+> Tento dokument řeší **runtime** ladění (pád, zamrzlý systém, IRQ). Build-time pasti —
+> Zig 0.16 API, Limine protokol, determinismus — jsou v
+> [`troubleshooting.md`](troubleshooting.md).
