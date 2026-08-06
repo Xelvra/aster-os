@@ -1,0 +1,172 @@
+# Verifikace — Pipeline, Deterministický Build, Bootable Commit
+
+**Status:** V1 (draft). **Rozhodnutí:** ADR-013, ADR-014, ADR-016.
+**Účel:** projektová verifikace pro Zig — fail fast, dokázané hotovo, ochrana proti
+regresi, deterministický build.
+
+---
+
+## 1. Verifikační pipeline (Fail Fast)
+
+Kroky běží v přesném pořadí. Při první chybě se zastaví, opraví a celá sekvence běží znovu
+od kroku 1.
+
+### Krok 0 — Baseline (před první změnou)
+
+```bash
+zig build test
+```
+
+Pokud baseline selže ještě před jakoukoli změnou, nepokračujeme — stav se hlásí.
+
+### Krok 1 — Formátování
+
+```bash
+zig fmt --check .
+```
+
+Žádné neformátované soubory.
+
+### Krok 2 — Kompilace (release + debug)
+
+```bash
+zig build
+```
+
+Build musí projít pro defaultní konfiguraci.
+
+### Krok 3 — Host unit testy
+
+```bash
+zig build test
+```
+
+Všechny host unit testy (`tests/`) musí být zelené. Host testy pokrývají čistou logiku,
+kterou jde spustit mimo cílový hardware:
+- PFA (alokace/uvolnění/fragmentace),
+- heap alokátor (coalescing, out-of-memory),
+- font blit / clipping,
+- binding marshalling,
+- kruhová fronta událostí.
+
+**Marshalling jako bezpečnostní hranice** (spec `runtime.md` §5): binding testy
+zahrnují **negativní/adversarial vstupy** — špatné typy, záporné souřadnice,
+přeplněné buffer délky, codepointy mimo font — ne jen příkladové happy path.
+Od M4 se uvažuje fuzz harness na vstupy z Lua strany (jádro běží v Ring 0,
+špatná konverze je stejně nebezpečná jako bug v jádře).
+
+### Krok 4 — QEMU smoke test
+
+```bash
+./tools/qemu-smoke.sh
+```
+
+Boot v QEMU s `-display none` + serial. Skript:
+1. spustí QEMU s timeoutem,
+2. čeká na serial marker `ASTER BOOT OK` (případně rozšířené markery),
+3. vrátí 0 při nalezení markeru, nenulový kód při timeoutu/chybě.
+
+**Toto je strojový doklad "systém bootuje".** Bez zeleného smoke testu není úkol hotový.
+
+### Krok 4b — Runtime testy v QEMU (M2+)
+
+Smoke test dokazuje jen "bootuje". Od M2 (IRQ/timer/PS2, kde logika závisí na hardwaru)
+se přidávají **runtime testy** — hostitelské testy už na ně nestačí:
+
+- Kernel se bootne v QEMU s **`isa-debug-exit`** zařízením; testy běží **uvnitř kernelu**
+  a při úspěchu/neúspěchu **ukončí QEMU definovaným exit kódem** (0 = pass, nenulový = fail).
+- Framework: minimalistický runtime test modul s `expect`/`expectEqual` — bez závislosti
+  na hostitelském test runneru. Chyba → výpis na serial + ukončení s nenulovým kódem.
+- Testy se registrují za normální kód (comptime/`@branchHint(.cold)`), v produkčním
+  buildu se stripují (compile-time flag).
+- **Idle watchdog:** pokud se test zacyklí (nekonečná smyčka, deadlock), QEMU by jinak
+  běžel věčně a skončil jen timeoutem. Watchdog sleduje dobu běhu idle vlákna — když
+  systém „nedělá nic" příliš dlouho, ukončí běh s fail kódem. Oddělí „test selhal"
+  od „test se zasekl".
+- **Rozsah:** věci nehostovatelné host unit testy — PFA na reálné paměti, IDT/fault
+  policy, tick/časovač, vstupní fronta, později Lua bindings a renderer (M4+).
+- DoD milníku zahrnuje zelený runtime test kromě host testů a smoke testu.
+
+> Rozhodnutí pro budoucí fázi: mechanismus se implementuje od M2, ne dřív (M0–M1
+> stačí smoke test). Forma je pevná už teď, aby se `tools/` nepsalo dvakrát.
+
+---
+
+## 2. Definition of Done (DoD)
+
+Úkol je hotový, teprve když platí **všechno** a v hlášení je doložen reálný výstup:
+
+- [ ] Krok 0 (baseline) proběhl před změnami.
+- [ ] `zig fmt --check .` — žádné změny.
+- [ ] `zig build` — projde.
+- [ ] `zig build test` — 100 % zelené.
+- [ ] `./tools/qemu-smoke.sh` — systém bootuje (serial marker).
+- [ ] Ke každé nové logice existuje test (host unit test) nebo zdůvodnění, proč ne.
+- [ ] Invarianty (`spec/invariants.md`) zkontrolovány bod po bodu.
+- [ ] Kvalitní metrika zapsaná do `spec/roadmap.md`, pokud milník ovlivňuje boot/RAM/velikost.
+- [ ] **Dokumentace aktualizovaná** — změněné specifikace, ADR nebo roadmapa jsou součástí
+      stejné změny; žádná feature bez zapsané dokumentace není hotová.
+- [ ] V kódu není `TODO`, `FIXME` ani zakomentovaný blok.
+- [ ] Žádný `#noqa`/obcházení formátovače bez zdůvodnění.
+- [ ] Žádný existující test nebyl upraven/přeskočen bez schválení.
+- [ ] **Systém je bootovatelný** (ADR-016).
+
+---
+
+## 3. Deterministický (reprodukovatelný) build — ADR-014
+
+**Cíl:** stejný commit + stejná verze Zigu = stejný výstupní hash binárky.
+
+### Mechanismus
+
+1. **Pinning verze:** soubor `.zig-version` v kořeni obsahuje exaktní verzi (nyní `0.15.2`).
+   `build.zig` ověří, že běžící Zig odpovídá (případně varuje/ukončí).
+2. **Pinning toolchainu:** doporučuje se oficiální tarball v `/opt/zig`, ne distro balíček
+   (Arch/CachyOS pacman může mít zpoždění a jinou verzi).
+3. **Bez timestampů:** build nevkládá aktuální čas do binárky (žádný `__DATE__`/`__TIME__`,
+   žádné generované timestampy). Verzování jde přes git hash (pokud je potřeba).
+4. **Žádná generovaná data měnící se napříč běhy:** fonty a assety jsou `@embedFile`
+   ze statických zdrojů.
+5. **Vendoring:** Limine, Lua, wasm3 — fixní revize vendored v `libs/`, ne pull z netu při
+   buildu.
+
+### Ověření
+
+```bash
+./tools/verify-reproducible.sh   # (volitelné) build dvakrát, porovnání hashe
+```
+
+---
+
+## 4. Bootovatelný commit — ADR-016
+
+Pravidlo: **každý commit musí zanechat systém spustitelný v QEMU.**
+
+- Před každým commitem se spustí `./tools/qemu-smoke.sh` — minimálně na hlavní sestavě.
+- Rozbitý boot se opravuje okamžitě, nikdy "za pár commitů".
+- Výjimky (dokumentace, čistě host code mimo boot cestu) se označí explicitně.
+
+---
+
+## 5. Nástroje
+
+| Nástroj | Účel |
+|---|---|
+| `zig` | build, test, fmt (verze v `.zig-version`) |
+| `qemu-system-x86_64` | emulace cíle (BIOS + UEFI) |
+| `xorriso` / `mtools` | tvorba bootovatelného ISO / FAT image pro Limine |
+| `tools/qemu-smoke.sh` | automatický boot test (serial marker + timeout) |
+| `tools/bench.sh` | měření metrik z `roadmap.md` |
+
+---
+
+## 6. Závislosti (nástroje) — stav k datu konsolidace specifikace
+
+| Nástroj | Stav | Poznámka |
+|---|---|---|
+| `qemu-system-x86_64` | ✅ nainstalováno | |
+| `clang`, `lld`, `gcc` | ✅ nainstalováno | |
+| `zig` | ❌ chybí | instalace: oficiální tarball 0.15.2 do `/opt/zig`, viz `.zig-version` |
+| `xorriso` / `mtools` | ❌ zkontrolovat | pro ISO build; alternativně FAT disk image |
+| `limine` | ⏳ vendor | `libs/limine/` |
+| `lua 5.4.8` | ⏳ vendor | `libs/lua-5.4/` |

@@ -1,0 +1,62 @@
+# Aster — Specifikace
+
+**Aster** je experimentální desktopový operační systém napsaný v Zigu. Tento soubor je
+úvodem do kompletní architektonické dokumentace projektu.
+
+> První implementace záměrně upřednostňuje jednoduchost před izolací: desktop, skriptovací
+> engine i runtime sdílejí jediný adresní prostor. Veřejná rozhraní jsou stabilní abstrakce,
+> takže jednotlivé subsystémy lze později přestěhovat do izolovaných procesů **bez změny
+> aplikačních API**.
+
+## Dokumenty
+
+| # | Dokument | Obsah |
+|---|----------|-------|
+| 1 | [architecture-overview.md](architecture-overview.md) | **Hlavní dokument.** Filozofie, architektura, přehled rozhodnutí, známá rizika, terminologie, struktura repozitáře. |
+| 2 | [manifest.md](manifest.md) | Manifest projektu — jednoduchost před izolací, evolvabilní rozhraní. |
+| 3 | [non-goals.md](non-goals.md) | Co systém vědomě nedělá (POSIX, SMP, USB, networking, ...). |
+| 4 | [coding-style.md](coding-style.md) | Filozofie a pravidla kódu — struktura modulů, kontrakty, paměť, review checklist. |
+| 5 | [adr/](adr/README.md) | Architektonická rozhodnutí (ADR-001..020), každé v samostatném souboru. |
+| 6 | [kernel-interface.md](kernel-interface.md) | **Kernel Interface (KI):** `sys.dispatch`, syscall čísla, moduly rozhraní, pravidla. |
+| 7 | [graphics.md](graphics.md) | Grafická podvrstva: Graphics API → Renderer → Framebuffer. |
+| 8 | [input.md](input.md) | Vstupní model: PS/2 klávesnice, fronta událostí, mapování na Lua. |
+| 9 | [runtime.md](runtime.md) | Runtime API: `Runtime.spawn`, `RuntimeKind`, vazba Runtime → Program. |
+| 10 | [timer.md](timer.md) | Čas: tick zdroj (M2), KI `timer`, kooperativní sleep. |
+| 11 | [memory.md](memory.md) | Paměť: PFA, obecný heap alokátor, `lua_Alloc`, cache atributy. |
+| 12 | [invariants.md](invariants.md) | Invarianty rozdělené na Safety / Performance / Architecture. |
+| 13 | [roadmap.md](roadmap.md) | Milníky M0–M8 s kritérii "hotovo" a tabulkou kvalitních metrik. |
+| 14 | [verification.md](verification.md) | Verifikační pipeline, deterministický build, pravidlo bootovatelného commitu. |
+| 15 | [debugging.md](debugging.md) | Debugging Survival Guide — GDB+QEMU, čtení serial dumpu, pravidla pro IRQ. |
+
+## Jak konzultovat návrh
+
+1. **Chceš přehled a proč:** čti `architecture-overview.md` celý.
+2. **Chceš důvod konkrétního rozhodnutí:** `adr/` — každé rozhodnutí je samostatný soubor.
+3. **Chceš vědět, co se nedělá:** `non-goals.md`.
+4. **Chceš kontrolní seznam pro review:** `coding-style.md` + `invariants.md`.
+5. **Chceš vědět, co se kdy dělá:** `roadmap.md`.
+
+## Stav
+
+- **Verze specifikace:** 1.0 (draft)
+- **Schváleno k implementaci:** Milníky M0–M4
+- **Aktualizace:** nová architektonická rozhodnutí se zapisují do `spec/adr/` (každé
+  samostatný soubor); přehled se udržuje v `architecture-overview.md`. Rozhodnutí se nemění
+  dodatečně — doplňují se nová.
+
+## Jazykové fáze dokumentace (proč je česky)
+
+Dokumentace se **záměrně** píše česky — je to „druhý mozek" autora, ne marketing.
+Důvody:
+
+- Před milníkem M0 by anglická dokumentace byla komunitní marketing, který hobby projekty
+  nejčastěji zabíjí: zpomalí iteraci, odvede od kódu a soustředí se na publikum, které
+  zatím neexistuje.
+- Psát pro sebe = rychlost, konzistence a soustředění na kód; čeština je pro autora
+  nejrychlejší médium přesného vyjádření.
+- **Přechod na angličtinu je vědomý, jednorázový krok** — nastane přesně ve chvíli,
+  kdy systém funguje (přibližně M4+) a projekt hledá kontributory. Tehdy se dokumentace
+  přeloží jako jeden ucelený celek, ne postupně za běhu.
+
+To se týká **dokumentace** (`README.md`, `spec/*.md`). **Kód, komentáře a commit
+messages zůstávají anglicky vždy** (`spec/coding-style.md` §0).

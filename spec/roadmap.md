@@ -1,0 +1,253 @@
+# Roadmap — Milníky a Kvalita
+
+**Status:** V1 (draft). **Rozhodnutí:** ADR-015, ADR-016.
+
+---
+
+## 1. Dvě roviny sledování
+
+Projekt se řídí **dvěma nezávislými posloupnostmi**:
+
+### 1.1 Milníky (funkcionalita)
+
+```
+M0 Boot → M1 Memory → M2 CPU → M3 Graphics → M4 Lua
+        → M5 UI → M6 Storage → M7 Runtime → M8 Stabilizace
+```
+
+### 1.2 Kvalitní metriky (musí se hlídat při KAŽDÉM milníku)
+
+```
+Kernel Entry → First Frame   (primární boot metrika, reprodukovatelná)
+Firmware → First Frame       (sledovaná, závisí na emulaci/firmwaru)
+frame latency (p99)
+binary size
+RAM usage
+compile time
+```
+
+Pravidlo: **žádná nová feature se nepovažuje za hotovou, dokud se nezměří a nezapíše
+hodnota do tabulky níže.** Jakmile by nová feature zvětšila binárku o >40 % nebo zdvojnásobila
+frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další funkcionalita.
+
+---
+
+## 2. Tabulka kvalitních metrik
+
+> Cílové hodnoty. Skutečné hodnoty se doplňují po dokončení každého milníku.
+>
+> Čísla v tabulce jsou **rozsahy a cíle, ne odhady s falešnou přesností.** Přesnou velikost
+> kernelu nikdo nezná, dokud běží — hodnoty se zapisují z měření, ne z předpovědi.
+
+| Milník | Kernel image | RAM (idle) | Kernel Entry → First Frame | Frame latency (p99) | Compile time |
+|--------|-------------:|-----------:|---------------------------:|--------------------:|-------------:|
+| **Cíl** | < 256 KB | < 32 MB | < 50 ms | < 16 ms | TBD |
+| M0 | < 64 KB | — | < 10 ms | — | TBD |
+| M1 | < 80 KB | ≤ 4 MB | < 15 ms | — | TBD |
+| M2 | < 96 KB | ≤ 4 MB | < 20 ms | — | TBD |
+| M3 | < 128 KB | ≤ 6 MB | < 25 ms | < 16 ms | TBD |
+| M4 | < 512 KB (s Lua) | ≤ 12 MB | < 40 ms | < 16 ms | TBD |
+| M5 | < 512 KB | ≤ 16 MB | < 40 ms | < 16 ms | TBD |
+| M6 | < 768 KB | ≤ 24 MB | < 50 ms | < 16 ms | TBD |
+| M7 | < 1 MB | ≤ 32 MB | < 50 ms | < 16 ms | TBD |
+| M8 | TBD | TBD | TBD | TBD | TBD |
+
+**Definice:**
+- **Kernel Entry → First Frame:** doba od Limine handoff (vstup do našeho kódu) po první
+  vykreslený snímek. **Toto je primární, reprodukovatelně měřitelná metrika** — firmware
+  a inicializace RAM jsou mimo naši kontrolu.
+- **Firmware → First Frame:** celá doba od zapnutí QEMU (BIOS/UEFI) po první snímek.
+  Měřitelná, ale závisí na emulaci/firmwaru — sledovaná, nikoli cílovaná.
+- **Frame latency (p99):** percentil 99 rozložení doby mezi `render()` a `present()`.
+  Latence je důležitější než FPS.
+- **RAM (idle):** rezidentní paměť systému bez spuštěných aplikací.
+
+---
+
+## 3. Milníky — detail
+
+### M0 — Boot
+
+**Cíl:** deterministický, reprodukovatelný build; QEMU bootne; serial marker.
+
+- [ ] Toolchain: Zig **0.15.2** (`.zig-version`), Limine vendored, Lua 5.4.8 vendored (zdroj).
+- [ ] `build.zig`: `zig build` → bootovatelný ISO/disk image; `zig build run` → QEMU.
+- [ ] `zig build test` → host unit testy (prázdná sada připravená).
+- [ ] Boot handoff z Limine (long mode, serial, GOP framebuffer init).
+- [ ] Serial výstup markeru `ASTER BOOT OK` (chycený `tools/qemu-smoke.sh`).
+- [ ] `tools/qemu-smoke.sh`: serial marker + timeout; `tools/bench.sh` kostra.
+- [ ] **Deterministický build:** stejný commit + stejný Zig = stejný hash binárky.
+- [ ] Výplň prvního řádku v tabulce metrik.
+
+**Definition of Done (DoD):** QEMU bootne s markerem na stdout, host testy zelené,
+`zig fmt --check` čisté, metriky zapsané, commit bootovatelný.
+
+### M1 — Memory
+
+**Cíl:** fyzický správce paměti.
+
+- [ ] Parsování Limine memory map (hranice RAM, rezervované regiony).
+- [ ] **Bitmapový Page Frame Allocator** (`src/kernel/mem/pfa.zig`).
+- [ ] **Obecný heap alokátor** nad PFA (`src/kernel/mem/heap.zig`, first-fit free list,
+      slouží i jako `lua_Alloc`) — spec `spec/memory.md`.
+- [ ] Host unit testy PFA i heap alokátoru: alokace/uvolnění, fragmentace,
+      out-of-memory, coalescing.
+- [ ] **Ověření cache atributu framebufferu** (UC vs WC) z Limine mapování — viz
+      `spec/memory.md` §6; pokud je UC, zaznamenat jako riziko pro M3 frame latency.
+- [ ] Zápis RAM layoutu na serial při bootu.
+- [ ] Metriky do tabulky.
+
+**DoD:** PFA + heap fungují a jsou pokryté testy; serial vypíše RAM layout; bootovatelný commit.
+
+> **Odloženo (YAGNI):** buddy allocator, VMM, per-proces adresní prostory. Paging zůstává
+> statický z Limine (ploché mapování). VMM přijde až s fází oddělování (Ring 3).
+> Výjimka: **pouze framebuffer region** se může v M3 přepnout na WC přes PAT bez plného
+> VMM (`spec/memory.md` §6).
+
+### M2 — CPU
+
+**Cíl:** přerušení, časovač, vstup.
+
+- [ ] GDT (dle potřeby), **IDT** se všemi entry, správné nastavení segmentů.
+- [ ] **Local APIC timer** jako tick zdroj (MSR `IA32_APIC_BASE`, LVT) + korektní
+      **remap a maska legacy 8259 PIC** pro PS/2 IRQ1. **Žádný I/O APIC, žádné ACPI
+      MADT parsování** — viz `spec/timer.md` §1 a `spec/non-goals.md`.
+- [ ] **Fault policy:** defaultní IDT handlers pro double fault / GPF / page fault —
+      výpis stavu na serial a halt (ne reset, ne tiché pokračování). Detail
+      `spec/invariants.md` §1 (Safety).
+- [ ] **PS/2 klávesnice** — IRQ1, scancode na serial.
+- [ ] Začátek **dispatch vrstvy** (`api/sys.zig`), KI enumerace.
+- [ ] Atomická fronta událostí (spec `input.md`), `dropped` čítač.
+- [ ] **Runtime testy v QEMU** (`isa-debug-exit`, exit kód) — první běžící runtime
+      testy (tick, IDT, fronta událostí); mechanismus spec `verification.md` Krok 4b.
+- [ ] **Freestanding backtrace** v panic/fault handleru (spec `invariants.md` §1).
+- [ ] Metriky do tabulky.
+
+**DoD:** scancody a tickery na serial; dispatch vrstva kompiluje; host testy zelené;
+první runtime testy v QEMU zelené (exit kód 0).
+
+### M3 — Graphics
+
+**Cíl:** viditelný text ve framebufferu.
+
+- [ ] GOP framebuffer init (Limine), `Framebuffer` struct.
+- [ ] **Renderer:** `fillRect`, `blit`, `fillScreen` s clippingem (spec `graphics.md`).
+- [ ] **Embedded bitmap font** + `drawGlyph`, `drawText`.
+- [ ] Graphics API modul (`api/graphics.zig`) + dispatch.
+- [ ] **Event loop** `poll() → update() → render()` (spec `input.md`).
+- [ ] Klávesnice → text na obrazovce (psaní viditelné v QEMU).
+- [ ] Metriky do tabulky.
+
+**DoD:** píšeš na obrazovku z kódu; testy rendereru (blit clipping) host-zelené.
+
+### M4 — Lua
+
+**Cíl:** "Hello from Lua" na obrazovce + hot reload.
+
+- [ ] Lua 5.4.8 kompilace jako C statická knihovna v `build.zig` (žádný system libc
+      dependency pro target).
+- [ ] `@cImport` Lua hlaviček; `api/runtime.zig` s `RuntimeKind.Lua`.
+- [ ] Bindings: `gfx.*`, `input.*`, `time.*` (konvence spec `runtime.md` §4).
+- [ ] `main.lua` **embedded** v binárce, spouštěný při bootu.
+- [ ] Lua kreslí první snímek ("Hello from Lua"), reaguje na klávesnici.
+- [ ] **GC tempo:** rozpočet `collectgarbage("step", N)` v každém `update()`, měření
+      frame latency p99; případně generační režim (spec `runtime.md` §6).
+- [ ] **Hot reload:** re-inicializace Lua státu bez restartu (klávesová zkratka);
+      teardown userdata/callbacků starého státu (spec `runtime.md` §5).
+- [ ] **Runtime testy Lua bindings** v QEMU (`verification.md` Krok 4b) — reálné
+      volání bindingů v kernel kontextu, ne jen host mocky.
+- [ ] Metriky do tabulky (velikost skočí o Lua, zdokumentovat).
+
+**DoD:** "Hello from Lua" v QEMU, klávesnice funguje z Lua, hot reload funguje, testy
+binding marshallingu zelené.
+
+### M5 — UI (Shell v Luay)
+
+**Cíl:** použitelný desktop v Luay.
+
+- [ ] Okna: seznam oken, focus, z-order, drag.
+- [ ] Taskbar, launcher, menu — vše jako Lua klienti Graphics API.
+- [ ] REPL konzole (`~`) — psaní Lua kódu do běžícího systému.
+- [ ] **Živá transformace:** příkaz v Luay okamžitě překreslí prostředí (barvy, tvary)
+      bez ztráty oken/obsahu terminalu; **F5** = manuální refresh (spec `runtime.md` §5a).
+- [ ] Restart shellu nesmí shodit jádro (error containment, `spec/runtime.md` §5).
+- [ ] Metriky do tabulky.
+
+### M6 — Storage
+
+**Cíl:** načítání souborů za běhu.
+
+- [ ] **initfs** z Limine initrd (RAM disk) — load `.lua` / assetů za běhu.
+      **Formát: tar** (jednoduchý, streamovatelný, dobře se generuje build-time;
+      rozhodnutí z fáze přípravy — implementuje se zde).
+- [ ] **Block device driver** — **virtio-blk** (standard QEMU), čtení. Bez block device
+      neexistuje žádná persistence; driver je samostatný bod (až pak FS).
+- [ ] **Partition table** — **GPT** (standard), čtení; ext2/ext4 i FAT32 na disku potřebují
+      partition table. Nikdy vlastní formát.
+- [ ] **Perzistence: standardní čtecí formát** — **nikdy vlastní**. Konkrétní výběr
+      (FAT32, ext2/ext4, ...) se rozhodne v M6 podle potřeby; FAT32 je jen příklad,
+      ne cíl.
+- [ ] **Kooperativní čtení:** pomalé FS operace neblokují event loop — kooperativní
+      suspendace (spec `kernel-interface.md` §6.2, `timer.md` §3).
+- [ ] **Auto-reload na uložení:** uložení `theme.lua`/config souboru → automatické
+      překreslení prostředí bez klávesy (spec `runtime.md` §5a spouštěč 2).
+- [ ] (Výhledově: ukládání, editor.)
+
+### M7 — Runtime (Wasm)
+
+**Cíl:** izolované aplikace.
+
+- [ ] wasm3 vendored; `Runtime.spawn(.Wasm, ...)`.
+- [ ] První `.wasm` aplikace (C/Rust → wasm) kreslící do vlastní surface.
+- [ ] Sdílené buffery + present (spec `graphics.md` budoucí cesta).
+- [ ] **Preemptivní RR scheduler** pro více tasků (ADR-017) — kritické sekce se
+      zakázanou preempcí, žádné locky; `sleepMs` přechází na blokující sleep úkolu
+      (`spec/timer.md` §5).
+- [ ] **Per-program `lua_State` / instance** po `spawn` — zamrzlý program (nekonečná
+      smyčka) už nezamrzne prostředí; preempce + error handler úkolu (spec `runtime.md` §5).
+- [ ] **Blokující synchronizační primitiva** (ADR-017): semafor, mutex, event group,
+      message queue; **error handler úkolu** (`anyerror!void`).
+- [ ] Benchmark wasm vs Lua; metriky do tabulky.
+
+### M8 — Stabilizace
+
+**Cíl:** uhlazený základ pro další vývoj.
+
+- [ ] Audit invariantů (spec `invariants.md`) bod po bodu.
+- [ ] Problémové metriky pod cílem; optimalizace podle měření.
+- [ ] Rozhodnutí o dalším směru: (a) více funkcí, (b) začít oddělovat do Ring 3.
+      Pro volbu (b) je **transport KI připravený dopředu** (ADR-018: mailbox IPC,
+      comptime dispatch, IRQ routing) — implementuje se až tady, ne dřív.
+- [ ] Nové features (zvuk, Bluetooth, síť M9+, prohlížeč v Luay) se přidávají podle
+      **ADR-020** — jako nové KI moduly na konec enumu, bez úpravy existujících.
+
+---
+
+## 4. Pravidla práce mezi milníky
+
+1. **Každý commit = bootovatelný systém** (ADR-016). Rozbitý boot se opravuje okamžitě,
+   nikdy "až za pár commitů".
+2. **Metriky se měří a zapisují** na konci každého milníku (`tools/bench.sh`).
+3. **Žádná nová feature bez zelené pipeline** (spec `verification.md`).
+4. **Architektura se dál neoptimalizuje na papíře.** Další zlepšení vycházejí z reálných
+   zkušeností z implementace (boot, text, Lua VM), ne z hypotetických scénářů.
+5. Změny rozhraní (KI) = nový ADR v `spec/adr/`, nikdy tichá úprava.
+6. **Dokumentace se aktualizuje s každou feature.** Feature bez zapsaného metrikového
+   řádku *a* bez aktualizace příslušné specifikace není hotová (viz `spec/verification.md`
+   DoD).
+
+---
+
+## 5. Sekvenční diagram prvního bootu (M0 → M4)
+
+```
+QEMU → BIOS/UEFI → Limine (bootloader)
+   → handoff (long mode, mem map, GOP fb, serial)
+   → kernel.main (M0)
+   → mem.init / pfa (M1)
+   → cpu.init: IDT, timer, PS/2 (M2)
+   → fb.init, renderer, font (M3)
+   → runtime.init: Lua state (M4)
+   → main.lua běží → "Hello from Lua"
+   → event loop: poll() → update() → render()
+```

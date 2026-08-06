@@ -1,0 +1,103 @@
+# Timer — Čas a plánování ticků
+
+**Status:** V1 (draft). **Rozhodnutí:** ADR-008, ADR-017.
+**Rozsah:** časový zdroj (M2), KI modul `timer`, kooperativní sleep a vazba na Lua.
+
+---
+
+## 1. Časový zdroj (M2)
+
+### 1.1 Rozhodnutí: Local APIC timer + legacy PIC
+
+- **Tick zdroj:** **Local APIC timer** — periodické přerušení pro ticky a měření.
+  Local APIC se objeví bez ACPI přes MSR `IA32_APIC_BASE`; nastavení ticku proběhne
+  přes LVT (`APIC_TIMER`).
+- **Vstup (klávesnice):** zůstává **legacy 8259 PIC** — IRQ1 (PS/2). I/O APIC se
+  **neaktivuje**, protože by vyžadoval parsování ACPI MADT, které je non-goal
+  (`spec/non-goals.md`).
+- **Přechod PIC → APIC:** starý PIC se korektně remapuje (nové vektory) a **maskuje**,
+  aby nevznikaly spurious IRQ na špatných vektorech — standardní 8259 remap
+  (`ICW1..ICW4`), ještě před prvním tickem.
+
+> Tím zůstává `non-goals.md` pravdivý: **žádné ACPI parsování není potřeba.**
+> Local APIC timer nevyžaduje MADT; klávesnice zůstává na PIC. Přepnutí I/O APIC
+> by bylo vědomé rozšíření rozsahu (nový ADR), ne plánovaná cesta.
+
+### 1.2 Tick frekvence
+
+- Default: **1000 Hz** (1 ms) — dost na měření frame latency i na plánování M7.
+- Frekvence je konstantní po bootu; žádné dynamické měnění (determinismus).
+
+---
+
+## 2. KI modul `timer`
+
+`timer` je **plnohodnotný KI modul** (viz `spec/kernel-interface.md` §2): Lua na něj
+má přístup přes `api/timer.zig`, nikdy přímo k hardwaru.
+
+### 2.1 Sub-op čísla
+
+| # | Operace | Signatura | Poznámka |
+|---|---|-----------|----------|
+| 0 | `ticks` | `() → u64` | počet ticků od bootu |
+| 1 | `sleepMs` | `(ms: u64) → ()` | kooperativní čekání, viz §3 |
+
+### 2.2 API (Zig)
+
+```zig
+pub const TimerApi = struct {
+    pub fn ticks() u64;           // monotónní, bez přetečení rozlišením u64
+    pub fn sleepMs(ms: u64) void; // kooperativní, viz §3
+};
+```
+
+- `ticks` je **monotónní** (nikdy se nevrací) a sdílí ji kernel, timer a Lua.
+- Žádný real-time / wall clock před M6 (perzistence není; viz `non-goals.md`).
+
+---
+
+## 3. Kooperativní sleep (M0–M6)
+
+V kooperativním modelu (ADR-008) **nesmí `sleepMs` blokovat event loop** — blokující
+wait by zastavil celý systém (klávesnice, rendering). Proto:
+
+- `sleepMs(ms)` nebusy-waituje. Nastaví si **deadline** = `ticks() + ms` a **vrátí se
+  okamžitě**; volající (Lua skript / úkol) pokračuje, až event loop zpracuje ticky za
+  deadline.
+- Implementace: event loop v každém `update()` kontroluje frontu spících úkolů
+  (deadline ≤ `ticks()`); spíchnutý úkol se probudí a dostane `timer_tick`/resume.
+- **IRQ handler nedělá nic jiného** než atomicky inkrementuje tick a plní frontu
+  událostí (invariant Safety, `spec/input.md`).
+
+> Toto je důsledek, který se píše **dnes**, aby se první Lua skript v M4 nechoval
+> jako "UI zamrzlo na sleep".
+
+---
+
+## 4. Event `timer_tick`
+
+- Fronta událostí (`spec/input.md`) nese `timer_tick: u64` — číslo ticku.
+- Lua vidí `time.ticks()` a `time.sleep_ms(ms)` (konvence `spec/runtime.md` §4);
+  sleep se implementuje nad ticks, nikoli přes `timer_tick` eventy (eventy jen pro
+  probuzení, ne pro dotazování).
+
+---
+
+## 5. Timer a M7 preempce
+
+- Od M7 (ADR-017) slouží timer zároveň jako **preempční zdroj** (přerušení pro
+  přepnutí úkolu).
+- Tick handler zůstává **krátký a alokačně čistý**: jen atomická aktualizace + signál
+  scheduleru. Veškerá plánovací logika běží mimo IRQ kontext.
+- Kooperativní `sleepMs` z §3 se v M7 transformuje na blokující sleep **úkolu**
+  (jádro přepne na jiný úkol do deadline) — volající sémantika se nemění
+  (`time.sleep_ms(ms)` z Lua funguje stejně).
+
+---
+
+## 6. Invarianty
+
+- **Timer je jediný časový zdroj**; žádné busy-wait smyčky pro čekání (Performance).
+- **Žádná alokace v tick handleru** (Safety).
+- **`sleepMs` nikdy neblokuje event loop v M0–M6** (Performance, Architecture).
+- **Monotónní čas** — žádné nastavování času (Safety, determinismus).

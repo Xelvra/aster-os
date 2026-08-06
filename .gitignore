@@ -1,0 +1,8 @@
+zig-out/
+.zig-cache/
+.zig-cache-*/
+zig-cache/
+images/*.iso
+images/*.img
+images/*.bin
+
