@@ -1,5 +1,13 @@
 # Aster OS
 
+[![status](https://img.shields.io/badge/status-pre--alpha-red.svg)](spec/roadmap.md)
+[![milestone](https://img.shields.io/badge/milestone-M0%20boot-informational.svg)](spec/roadmap.md)
+[![Zig](https://img.shields.io/badge/Zig-0.16.0-f7a41d.svg)](.zig-version)
+[![architecture](https://img.shields.io/badge/arch-x86__64-blue.svg)](spec/architecture-overview.md)
+[![bootloader](https://img.shields.io/badge/bootloader-Limine-808080.svg)](libs/limine)
+[![Lua](https://img.shields.io/badge/Lua-5.4.8-2C2D72.svg)](libs/lua-5.4)
+[![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 > **Aster is an experimental desktop operating system written in Zig.**
 >
 > The first implementation deliberately favors **simplicity over isolation**: the desktop,
