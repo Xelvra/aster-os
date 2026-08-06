@@ -130,13 +130,15 @@ Lua volá paměť přes `lua_Alloc` (`void* (*)(void* ud, void* ptr, size_t osiz
 ## 6. Framebuffer cache atributy (UC vs WC)
 
 - GOP framebuffer od Limine je zmapovaný **ploše**; cache atribut závisí na tom, jak
-  Limine stránky nasetoval (typicky UC).
-- Zápis do UC paměti je řádově pomalejší než WC — pro cíl "0 kopií, nízká frame
-  latency" (`roadmap.md`, KPI) může být rozhodující.
-- **Rozhodnutí:** v M1 se u Limine ověří aktuální cache atribut framebufferu (kód
-  PAT v PTE). Pokud je UC a měření v M3 ukáže, že to táhne frame latency nad cíl,
-  přepneme se na WC **pouze pro framebuffer region** — minimální zásah do stránkování,
-  ne VMM. Více viz `roadmap.md` M1/M3 a `spec/graphics.md` §4.
+  Limine stránky nasetoval.
+- **Měření z M1:** Limine 12.5.2 v QEMU mapuje framebuffer jako **WC** (Write-Combining)
+  — ověřeno `src/kernel/mem/cache_attr.zig` (page table walk + PAT MSR), výpis na serial
+  `framebuffer cache: wc`.
+- Zápis do UC paměti je řádově pomalejší než WC; protože je framebuffer **již WC**, riziko
+  pro frame latency (`roadmap.md`, KPI) v M3 nehrozí z cache atributu.
+- Pokud by jiná platforma/firmware mapovala framebuffer jako UC a měření v M3 ukáže, že to
+  táhne frame latency nad cíl, přepneme se na WC **pouze pro framebuffer region** — minimální
+  zásah do stránkování, ne VMM.
 
 ---
 

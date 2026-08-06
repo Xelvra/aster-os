@@ -1,0 +1,165 @@
+const std = @import("std");
+const boot_info = @import("../boot/boot_info.zig");
+
+pub const page_size: u64 = 4096;
+const max_pages_per_run: usize = 64;
+
+pub const PfaError = error{
+    OutOfMemory,
+    InvalidAddress,
+    NotAllocated,
+    RunTooLarge,
+};
+
+pub const PageFrameAllocator = struct {
+    bitmap: []u8,
+    total_pages: u64,
+    hhdm_offset: u64,
+    next_free_hint: u64,
+    pages_storage: [max_pages_per_run]u64,
+
+    pub fn init(memory_entries: []const boot_info.MemoryEntry, hhdm_offset: u64, bitmap: []u8, bitmap_phys_page: ?u64) PfaError!PageFrameAllocator {
+        var highest_page: u64 = 0;
+        for (memory_entries) |entry| {
+            if (!isRamEntry(entry.type)) continue;
+            const end = entry.base + entry.length;
+            const page = end / page_size;
+            if (page > highest_page) highest_page = page;
+        }
+
+        const total_pages = highest_page;
+        const bitmap_bytes = (total_pages + 7) / 8;
+        if (bitmap.len < bitmap_bytes) return PfaError.OutOfMemory;
+
+        @memset(bitmap[0..bitmap_bytes], 0xFF);
+
+        var self = PageFrameAllocator{
+            .bitmap = bitmap[0..bitmap_bytes],
+            .total_pages = total_pages,
+            .hhdm_offset = hhdm_offset,
+            .next_free_hint = 0,
+            .pages_storage = undefined,
+        };
+
+        for (memory_entries) |entry| {
+            if (entry.type == .usable) {
+                const first_page = entry.base / page_size;
+                const page_count = entry.length / page_size;
+                for (first_page..first_page + page_count) |i| {
+                    self.clearBit(i);
+                }
+            }
+        }
+
+        if (bitmap_phys_page) |phys_page| {
+            const bitmap_page_count = (bitmap.len + page_size - 1) / page_size;
+            for (phys_page..phys_page + bitmap_page_count) |i| {
+                self.setBit(i);
+            }
+        }
+
+        return self;
+    }
+
+    pub fn allocPage(self: *PageFrameAllocator, zero: bool) PfaError!u64 {
+        const index = self.findFirstFree() orelse return PfaError.OutOfMemory;
+        self.setBit(index);
+        self.next_free_hint = index + 1;
+        const addr = index * page_size;
+        if (zero) self.zeroPage(addr);
+        return addr;
+    }
+
+    pub fn freePage(self: *PageFrameAllocator, addr: u64) PfaError!void {
+        if (addr % page_size != 0) return PfaError.InvalidAddress;
+        const index = addr / page_size;
+        if (index >= self.total_pages) return PfaError.InvalidAddress;
+        if (!self.isSet(index)) return PfaError.NotAllocated;
+        self.clearBit(index);
+        if (index < self.next_free_hint) self.next_free_hint = index;
+    }
+
+    pub fn allocPages(self: *PageFrameAllocator, count: usize, zero: bool) PfaError![]u64 {
+        if (count > max_pages_per_run) return PfaError.RunTooLarge;
+        const start = self.findFirstFreeRun(count) orelse return PfaError.OutOfMemory;
+        for (0..count) |i| {
+            const index = start + i;
+            self.setBit(index);
+            const addr = index * page_size;
+            if (zero) self.zeroPage(addr);
+            self.pages_storage[i] = addr;
+        }
+        self.next_free_hint = start + count;
+        return self.pages_storage[0..count];
+    }
+
+    pub fn freePages(self: *PageFrameAllocator, addrs: []const u64) void {
+        for (addrs) |addr| {
+            self.freePage(addr) catch {};
+        }
+    }
+
+    pub fn totalFreePages(self: *const PageFrameAllocator) u64 {
+        var free_count: u64 = 0;
+        for (0..self.total_pages) |i| {
+            if (!self.isSet(i)) free_count += 1;
+        }
+        return free_count;
+    }
+
+    fn findFirstFree(self: *const PageFrameAllocator) ?u64 {
+        for (0..self.total_pages) |i| {
+            if (!self.isSet(i)) return i;
+        }
+        return null;
+    }
+
+    fn findFirstFreeRun(self: *const PageFrameAllocator, count: usize) ?u64 {
+        var run: usize = 0;
+        for (0..self.total_pages) |i| {
+            if (!self.isSet(i)) {
+                run += 1;
+                if (run == count) return i - (count - 1);
+            } else {
+                run = 0;
+            }
+        }
+        return null;
+    }
+
+    fn zeroPage(self: *PageFrameAllocator, physical: u64) void {
+        const virtual = physical + self.hhdm_offset;
+        const ptr: [*]u8 = @ptrFromInt(virtual);
+        @memset(ptr[0..page_size], 0);
+    }
+
+    fn setBit(self: *PageFrameAllocator, page: u64) void {
+        const byte: usize = @intCast(page / 8);
+        const bit: u3 = @intCast(page % 8);
+        self.bitmap[byte] |= (@as(u8, 1) << bit);
+    }
+
+    fn clearBit(self: *PageFrameAllocator, page: u64) void {
+        const byte: usize = @intCast(page / 8);
+        const bit: u3 = @intCast(page % 8);
+        self.bitmap[byte] &= ~(@as(u8, 1) << bit);
+    }
+
+    fn isSet(self: *const PageFrameAllocator, page: u64) bool {
+        const byte: usize = @intCast(page / 8);
+        const bit: u3 = @intCast(page % 8);
+        return (self.bitmap[byte] & (@as(u8, 1) << bit)) != 0;
+    }
+};
+
+pub fn isRamEntry(entry_type: boot_info.MemoryEntryType) bool {
+    return switch (entry_type) {
+        .usable,
+        .bootloader_reclaimable,
+        .executable_and_modules,
+        .acpi_reclaimable,
+        .acpi_nvs,
+        => true,
+        else => false,
+    };
+}

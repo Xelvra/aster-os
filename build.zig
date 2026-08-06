@@ -95,6 +95,13 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path("tests/root.zig"),
             .target = b.graph.host,
             .optimize = .Debug,
+            .imports = &.{
+                .{ .name = "kernel", .module = b.createModule(.{
+                    .root_source_file = b.path("src/kernel/test_support.zig"),
+                    .target = b.graph.host,
+                    .optimize = .Debug,
+                }) },
+            },
         }),
     });
 

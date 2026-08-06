@@ -44,7 +44,8 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 | **Cíl** | < 256 KB | < 32 MB | < 50 ms | < 16 ms | TBD |
 | **M0 (měřeno)** | **12.0 KB** | — | **≈ 3.3 s wall-clock**¹ | — | TBD |
 | M0 (cíl) | < 64 KB | — | < 10 ms | — | TBD |
-| M1 | < 80 KB | ≤ 4 MB | < 15 ms | — | TBD |
+| **M1 (měřeno)** | **17.4 KB** | — | **≈ 3.4 s wall-clock**¹ | — | TBD |
+| M1 (cíl) | < 80 KB | ≤ 4 MB | < 15 ms | — | TBD |
 | M2 | < 96 KB | ≤ 4 MB | < 20 ms | — | TBD |
 | M3 | < 128 KB | ≤ 6 MB | < 25 ms | < 16 ms | TBD |
 | M4 | < 512 KB (s Lua) | ≤ 12 MB | < 40 ms | < 16 ms | TBD |
@@ -92,16 +93,16 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 
 **Cíl:** fyzický správce paměti.
 
-- [ ] Parsování Limine memory map (hranice RAM, rezervované regiony).
-- [ ] **Bitmapový Page Frame Allocator** (`src/kernel/mem/pfa.zig`).
-- [ ] **Obecný heap alokátor** nad PFA (`src/kernel/mem/heap.zig`, first-fit free list,
+- [x] Parsování Limine memory map (hranice RAM, rezervované regiony).
+- [x] **Bitmapový Page Frame Allocator** (`src/kernel/mem/pfa.zig`).
+- [x] **Obecný heap alokátor** nad PFA (`src/kernel/mem/heap.zig`, first-fit free list,
       slouží i jako `lua_Alloc`) — spec `spec/memory.md`.
-- [ ] Host unit testy PFA i heap alokátoru: alokace/uvolnění, fragmentace,
+- [x] Host unit testy PFA i heap alokátoru: alokace/uvolnění, fragmentace,
       out-of-memory, coalescing.
-- [ ] **Ověření cache atributu framebufferu** (UC vs WC) z Limine mapování — viz
+- [x] **Ověření cache atributu framebufferu** (UC vs WC) z Limine mapování — viz
       `spec/memory.md` §6; pokud je UC, zaznamenat jako riziko pro M3 frame latency.
-- [ ] Zápis RAM layoutu na serial při bootu.
-- [ ] Metriky do tabulky.
+- [x] Zápis RAM layoutu na serial při bootu.
+- [x] Metriky do tabulky.
 
 **DoD:** PFA + heap fungují a jsou pokryté testy; serial vypíše RAM layout; bootovatelný commit.
 

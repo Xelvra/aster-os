@@ -46,3 +46,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `spec/troubleshooting.md`: known pitfalls and lessons (Zig 0.16 API, Limine protocol,
   determinism, tooling); mandatory DoD entry in `spec/verification.md`.
 - `tools/verify-reproducible.sh`: deterministic build check (ADR-014), mandatory in DoD.
+
+### Milestone M1 — Memory
+
+- Limine memory map parsing into `BootInfo` (usable/reserved regions, RAM filter for MMIO).
+- Bitmap Page Frame Allocator (`src/kernel/mem/pfa.zig`): 4 KiB pages, 1 bit per page,
+  deterministic first-free allocation, zeroing on request, OOM as error (never panic).
+- First-fit heap allocator (`src/kernel/mem/heap.zig`): boundary tags, coalescing,
+  dynamic growth from PFA, implements `std.mem.Allocator`.
+- Host unit tests for PFA and heap: alloc/free, reuse, fragmentation, OOM, coalescing,
+  realloc (16 tests).
+- Boot prints RAM layout (usable bytes, free pages) and heap alloc self-test.
+- Framebuffer cache attribute verified from PTE + PAT MSR (`cache_attr.zig`):
+  Limine maps the framebuffer as **WC** (no M3 frame latency risk).
+- Kernel image 17.4 KB (target < 80 KB).
