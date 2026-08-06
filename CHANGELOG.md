@@ -37,3 +37,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `tools/bench.sh` (measurement of boot time and image size).
 - Deterministic build verified: same commit + same Zig = identical kernel hash
   (ADR-014). Kernel image 12.0 KB (target < 64 KB).
+
+### Project setup
+
+- MIT license (LICENSE).
+- English README for public repo (early deviation from the M4+ language plan, documented
+  in `spec/README.md`).
+- `spec/troubleshooting.md`: known pitfalls and lessons (Zig 0.16 API, Limine protocol,
+  determinism, tooling); mandatory DoD entry in `spec/verification.md`.
+- `tools/verify-reproducible.sh`: deterministic build check (ADR-014), mandatory in DoD.

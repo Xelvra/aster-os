@@ -6,3 +6,10 @@ images/*.iso
 images/*.img
 images/*.bin
 
+# Lua build artifacts (M4)
+libs/lua-5.4/src/*.o
+libs/lua-5.4/src/*.a
+libs/lua-5.4/src/lua
+libs/lua-5.4/src/luac
+
+

@@ -45,19 +45,24 @@
   samostatný soubor); přehled se udržuje v `architecture-overview.md`. Rozhodnutí se nemění
   dodatečně — doplňují se nová.
 
-## Jazykové fáze dokumentace (proč je česky)
+## Jazykové fáze dokumentace
 
-Dokumentace se **záměrně** píše česky — je to „druhý mozek" autora, ne marketing.
-Důvody:
+Dokumentace pro **veřejné publikum** (README.md) je **anglicky** — repo je public od M0
+a README je vstupní brána pro návštěvníky. Interní specifikace (`spec/*.md`) zůstává
+**záměrně česky** — je to „druhý mozek" autora, ne marketing. Důvody:
 
 - Před milníkem M0 by anglická dokumentace byla komunitní marketing, který hobby projekty
   nejčastěji zabíjí: zpomalí iteraci, odvede od kódu a soustředí se na publikum, které
   zatím neexistuje.
 - Psát pro sebe = rychlost, konzistence a soustředění na kód; čeština je pro autora
   nejrychlejší médium přesného vyjádření.
-- **Přechod na angličtinu je vědomý, jednorázový krok** — nastane přesně ve chvíli,
-  kdy systém funguje (přibližně M4+) a projekt hledá kontributory. Tehdy se dokumentace
-  přeloží jako jeden ucelený celek, ne postupně za běhu.
+- **Přechod na angličtinu u `spec/*.md` je vědomý, jednorázový krok** — nastane ve chvíli,
+  kdy systém funguje (přibližně M4+) a projekt hledá kontributory. Tehdy se interní
+  dokumentace přeloží jako jeden ucelený celek, ne postupně za běhu.
 
-To se týká **dokumentace** (`README.md`, `spec/*.md`). **Kód, komentáře a commit
-messages zůstávají anglicky vždy** (`spec/coding-style.md` §0).
+> **Odchylka od původního plánu (zapsáno při M0):** původní záměr byl anglické dokumentace
+> od M4+ včetně README. Protože je repo public už od M0, README se přeložilo hned;
+> specifikace zůstává česky dle výše.
+
+To se týká **dokumentace**. **Kód, komentáře a commit messages zůstávají anglicky vždy**
+(`spec/coding-style.md` §0).

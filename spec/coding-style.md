@@ -13,7 +13,8 @@ Zigu, ale doplňují je o projektovou disciplínu.
 
 - **Kód, komentáře, anotace, docstringy, identifikátory a commit messages: v angličtině.**
   Code je veřejně sdílený artefakt a angličtina je jeho výchozí jazyk.
-- **Dokumentace (`README.md`, `spec/*.md`): v češtině** (aktuální stav projektu). Výjimkou
+- **Dokumentace pro veřejnost (`README.md`): v angličtině** (repo je public od M0).
+- **Interní specifikace (`spec/*.md`): v češtině** (druhý mozek autora). Výjimkou
   jsou zavedené konvence — názvy souborů, adresářů, služeb, technické termíny
   (framebuffer, syscall, Renderer, Runtime, ADR statusy apod.).
 - Komentář v kódu, který vysvětluje "proč", je v angličtině. Český text do kódu nepatří.
