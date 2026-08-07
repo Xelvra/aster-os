@@ -8,8 +8,7 @@ const idt = @import("cpu/idt.zig");
 const pic = @import("drivers/pic.zig");
 const apic = @import("cpu/apic.zig");
 const page_map = @import("mem/page_map.zig");
-const ps2_keyboard = @import("drivers/ps2_keyboard.zig");
-const ps2_mouse = @import("drivers/ps2_mouse.zig");
+const ps2 = @import("drivers/ps2.zig");
 const input_queue = @import("input_queue.zig");
 const framebuffer = @import("fb/framebuffer.zig");
 const renderer_mod = @import("render/renderer.zig");
@@ -95,8 +94,7 @@ fn kernelMain() !void {
 
     page_map.init(&memory.pfa, info.hhdm_offset);
     apic.init(info.hhdm_offset);
-    ps2_keyboard.init();
-    ps2_mouse.init();
+    ps2.init();
     serial.writeLine("apic: init ok");
 
     initGraphics(&info);
