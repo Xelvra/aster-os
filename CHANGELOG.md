@@ -166,3 +166,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Runtime tests for Lua bindings in QEMU (state, gfx table, render function, render
   runs without fault).
 - Kernel image 343 KiB (target < 512 KB with Lua).
+
+### Milestone M5 — UI (live transformation, PS/2 mouse)
+
+- **Live transformation**: `gfx.invalidate()` — the Lua shell can request a repaint
+  without a key press (Hyprland-style "config is code"). `main.lua` has a declarative
+  `theme` table; assigning `theme.background = 0x...` from the REPL repaints the shell
+  immediately. `debug.write` binding for serial output from scripts.
+- **PS/2 mouse driver** (IRQ12, second controller port):
+  - 3-byte packet decode into `input.MouseEvent` (dx, dy, buttons), resync on the
+    packet-start bit 3 (0x08), overflow-delta rejection (bits 6/7), dy axis inverted
+    once (PS/2 +dy = up, screen y grows down).
+  - Mouse packets live in their own queue (`input_queue.mouse`), fully independent of
+    the keyboard queue, so a busy mouse cannot starve the keyboard/Lua update.
+  - **Kernel cursor overlay** (`render/mouse_cursor.zig`): the pointer is drawn by the
+    kernel (saves/restores the pixels under it), so a mouse move repaints only the
+    12×19 px cursor instead of the whole screen — smooth, no flicker.
+  - Robust init: port-2 test before touching the device, bounded waits for input-empty
+    and ACK, read-modify-write of the shared config byte.
+- **Merged PS/2 driver** (`drivers/ps2.zig`): keyboard (IRQ1) and mouse (IRQ12) back in
+  one file — they share the i8042 controller, data port and status register. Each IRQ
+  handler consumes only bytes whose status bit 5 marks them as its own device.
+- **PS/2 fixes from hard debugging** (troubleshooting C18–C26): IRQ1 must not read
+  mouse bytes; every controller write waits for input-empty; stale ACK drained before
+  the port test; 0xFA/0xAA are valid mouse data after streaming starts; keyboard init
+  read-modify-writes config instead of hardcoding 0x41.
+- **QEMU window scaling**: `zig build run` uses `-display gtk,zoom-to-fit=on` so the
+  1280×800 window fits the host screen (framebuffer and mouse coords stay native).
+- New host tests: `tests/input/mouse_test.zig` (movement, dy inversion, buttons, sign
+  extension, out-of-sync, overflow rejection). 49 tests total.
+- Render optimization: REPL repaints only the text area when the background is
+  unchanged (was a full `fill_screen` per key).

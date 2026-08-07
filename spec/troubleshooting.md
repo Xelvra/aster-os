@@ -101,8 +101,44 @@ v kontextu zpožděné.
 
 ---
 
-## 6a. Graphics a event loop (M3)
+## 6b. PS/2 myš a sdílený i8042 kontrolér (M5)
 
+Myš a klávesnice sdílí **jeden i8042 kontrolér, jeden data port (0x60) a jeden
+status registr (0x64)**. Všechny níže uvedené bugy mají kořen v tomto sdílení.
+Toto ladění stálo nejvíc času v M5 — čti pečlivě, než se dotkneš `drivers/ps2.zig`.
+
+| Záznam | Symptom | Příčina | Řešení | Ověřit |
+|--------|---------|---------|--------|--------|
+| C18 | myš "vystřelí" kurzor do rohu obrazovky | **Rozsynchronizovaný 3-bajtový paket** — IRQ12 četl bajty na špatných hranicích (po dropu/strženém bajtu), `dx`/`dy` dostaly garbage hodnoty | První bajt paketu má **vždy bit 3 (0x08)**. Když očekáváš začátek paketu (`mouse_byte_idx == 0`) a bit 3 chybí, přeskoč bajt a realignuj na další (`handleIrq12`) | pomalý pohyb myši, kurzor nedělá skoky |
+| C19 | myš se "teleportuje" / obrovské skoky | **8-bit delta přeteklo** — bit 6/7 b0 signalizuje, že `dx`/`dy` je bezvýznamné | `input.decodeMousePacket`: `if (b0 & 0xC0 != 0) return null` (zahoď paket) | rychlý pohyb, žádné teleporty |
+| C20 | myš se pohybuje vertikálně obráceně | PS/2 hlásí **+dy jako pohyb nahoru**, ale obrazovka roste dolů | `decodeMousePacket`: `dy = -dy` (invertovat jednou při dekódování; spotřebitelé jen přičítají) | pohyb nahoru = kurzor nahoru |
+| C21 | kurzor seká, "zamrzá", text se nevykreslí při psaní | **IRQ1 a IRQ12 sdílí data registr** — IRQ1 handler četl i myší byte jako falešný scancode (a naopak), čímž rozhazoval oba streamy | Každý handler čte data jen když status bit 5 odpovídá: IRQ1 `status & 0x20 == 0`, IRQ12 `status & 0x20 != 0` | klávesnice i myš fungují nezávisle |
+| C22 | myš vůbec nedetekována (headless QEMU / HW bez myši) | `initMouse` bezpodmínečně povoloval port 2 a posílal `0xF4` — **bez myši kontrolér podrží příkaz a zablokuje sdílený data registr**, klávesnice zamrzne | Testovat port 2 (`0xA9`) před dotykem; timeout; ACK s bounded waitem — nikdy neviset | headless boot + klávesnice fungují |
+| C23 | port-2 test (`0xA9`) vrací `0xFA` (ACK) místo `0x00` | **Starý ACK z klávesnice zůstal ve frontě** (`0xF4` v `initKeyboard` bez konzumace) → test přečetl špatný byte | `initMouse` nejdřív **vyprázdní output buffer**; `initKeyboard` konzumuje ACK explicitně | `0xA9` vrátí `0x00`, myš se zapne |
+| C24 | myš/klávesnice se chovají eraticky (nepřesně, zasekaně) i po všech opravách | **i8042 je pomalý** — příkazy posílané back-to-back bez čekání na `status_input_full == 0` se ztrácí/korumpují sdílený config byte | **Každý** zápis do kontroléru přes `sendCommand`/`sendData`, které čekají na input-empty (bounded timeout). Read-modify-write config, ne natvrdo konstantu | stabilní pohyb i psaní |
+| C25 | myš neposílá pakety, i když je init OK | Po `0xF4` (streaming) se **nesmí filtrovat bajty 0xFA/0xAA** z datového proudu — to jsou platné hodnoty `dx`/`dy` (250/170). Filtrace rozhazuje paket | ACK se čte jen **synchronně v `mouseCommand()`** při init, nikdy z proudu v `handleIrq12` | plynulý pohyb, žádné zasekávání |
+| C26 | kurzor myši fyzicky nedosáhne viditelných okrajů okna | Framebuffer je **1280×800 nativní**, ale QEMU okno se nevejde na hostitelský monitor (jiné rozlišení, 2 monitory) | `zig build run`: `-display gtk,zoom-to-fit=on` — škáluje okno, framebuffer i myší souřadnice zůstávají nativní | okno se vejde na obrazovku, kurzor dojede ke všem hranám |
+
+**Shrnutí pravidel (nejdůležitější meta-lekce z M5):**
+
+1. **PS/2 klávesnice a myš = jeden sdílený kontrolér.** Data port a status registr
+   jsou společné. Nikdy nečti byte bez kontroly status bit 5 (0x20), který říká,
+   komu patří.
+2. **i8042 je pomalý.** Každý zápis do `0x60`/`0x64` musí počkat na
+   `status_input_full == 0`. Back-to-back zápisy bez čekání = ztracené/korumpované
+   příkazy na sdíleném config byte → eratické chování OBOU zařízení.
+3. **Config byte je sdílený** — vždy read-modify-write, nikdy nepřepisuj natvrdo.
+4. **Myš po `0xF4` streamuje čistá data** — `0xFA`/`0xAA` jsou platné `dx`/`dy`
+   hodnoty, nikdy je nefiltruj z proudu. ACK jen synchronně při init.
+5. **Synchronizace paketu** přes bit 3 (0x08) prvního bajtu; overflow delta
+   (bit 6/7) zahoď; dy invertuj.
+6. **Oddělené fronty** (keyboard vs mouse) — myš nemůže vyhladovět klávesnici.
+7. **Kurzor myši = kernel overlay** (ulož/obnov pixely pod kurzorem), ne plný
+   render per paket — jinak lag.
+
+---
+
+## 6a. Graphics a event loop (M3)
 | Záznam | Symptom | Příčina | Řešení | Ověřit |
 | C14 | #GP (vec 0x0d) v renderu/fillRect jen když event loop běží; s breakpointem OK | `isr_common` **ukládal jen callee-saved registry**, `%rax` (caller-saved) nechal zničit — timer IRQ (1 kHz) přeruší render, handler přes `callq handle_isr` přepíše `%rax`, smyčka pak zapisuje na kontaminovanou adresu | `isr_common` push/pop i `%rax`; `InterruptFrame` dostane pole `rax` (na konci, před `vector`) | render běží stabilně, žádný #GP v event loop |
 | C15 | framebuffer zápis "nefunguje" (screendump ukazuje starý obsah), ale gdb vidí data v paměti | screendump zachycen uprostřed/po rychlém event loop renderu, nebo z VGA bufferu místo GOP; framebuffer `address` z Limine je **už v hhdm prostoru** (`0xffff8000fd000000`) — přičtení hhdm offsetu podruhé přeteče (safety trap) | psát přímo na `info.address` bez hhdm offsetu; renderovat jen když je stav `dirty`; ověřovat screendump po dostatečné prodlevě | `screendump` ukáže text, žádný fault |
