@@ -153,6 +153,10 @@ fn testKiDispatch() void {
 var needs_render = true;
 var first_frame_reported = false;
 
+/// Bounded mouse packet processing per poll() so a busy mouse cannot
+/// starve the keyboard/Lua update.
+const max_mouse_per_poll: usize = 64;
+
 fn eventLoop() noreturn {
     while (true) {
         poll();
@@ -175,8 +179,11 @@ fn eventLoop() noreturn {
 
 fn poll() void {
     // The kernel handles the mouse cursor directly (smooth overlay, no Lua
-    // round-trip). Timer ticks are consumed; keys are left queued for Lua.
-    while (true) {
+    // round-trip). Timer ticks and mouse packets are consumed here; keys
+    // are left queued for Lua. The loop is bounded so a busy mouse cannot
+    // starve the keyboard/Lua update.
+    var mouse_processed: usize = 0;
+    while (mouse_processed < max_mouse_per_poll) {
         const event = input_queue.global.peek() orelse break;
         switch (event) {
             .timer_tick => {
@@ -196,6 +203,7 @@ fn poll() void {
             .mouse => |m| {
                 _ = input_queue.global.pop();
                 mouse_cursor.move(&fb_storage.?, m.dx, m.dy);
+                mouse_processed += 1;
             },
         }
     }
