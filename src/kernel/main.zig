@@ -181,19 +181,19 @@ fn eventLoop() noreturn {
 
 fn poll() void {
     // The kernel handles the mouse cursor directly (smooth overlay, no Lua
-    // round-trip). Timer ticks and mouse packets are consumed here; keys
-    // are left queued for Lua. The loop is bounded so a busy mouse cannot
-    // starve the keyboard/Lua update.
+    // round-trip). Mouse packets live in a separate queue; keys are left
+    // queued for Lua. The loop is bounded so a busy mouse cannot starve the
+    // keyboard/Lua update.
     var mouse_processed: usize = 0;
     while (mouse_processed < max_mouse_per_poll) {
-        const event = input_queue.global.peek() orelse break;
+        const event = input_queue.mouse.peek() orelse break;
         switch (event) {
             .timer_tick => {
-                _ = input_queue.global.pop();
+                _ = input_queue.mouse.pop();
             },
             .key => |key| {
                 if (key.code == .f5 and key.pressed) {
-                    _ = input_queue.global.pop();
+                    _ = input_queue.mouse.pop();
                     serial.writeLine("shell: hot reload (F5)");
                     const runtime = @import("api/runtime.zig");
                     runtime.reload();
@@ -203,7 +203,7 @@ fn poll() void {
                 break;
             },
             .mouse => |m| {
-                _ = input_queue.global.pop();
+                _ = input_queue.mouse.pop();
                 mouse_cursor.move(&fb_storage.?, m.dx, m.dy);
                 mouse_processed += 1;
             },

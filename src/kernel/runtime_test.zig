@@ -34,17 +34,17 @@ fn testTimerTicks() void {
 }
 
 fn testMouseEvent() void {
-    // Drain whatever IRQs already queued (timer ticks, keys).
-    while (input_queue.global.pop()) |_| {}
+    // Mouse packets live in their own queue, separate from keys/timers.
+    while (input_queue.mouse.pop()) |_| {}
 
-    input_queue.global.push(.{ .mouse = .{
+    input_queue.mouse.push(.{ .mouse = .{
         .dx = 3,
         .dy = -2,
         .left = true,
         .right = false,
         .middle = false,
     } });
-    const event = input_queue.global.pop() orelse {
+    const event = input_queue.mouse.pop() orelse {
         expect(false, "mouse event popped from queue");
         return;
     };
@@ -61,29 +61,24 @@ fn testMouseEvent() void {
 fn testMouseFloodDoesNotStarveKeys() void {
     // Drain whatever IRQs already queued.
     while (input_queue.global.pop()) |_| {}
+    while (input_queue.mouse.pop()) |_| {}
 
-    // Fill the queue with mouse packets, then push a key last.
+    // Fill the mouse queue to its capacity, then push a key into the
+    // global queue. A flood of mouse packets must not hide or delay keys.
     var i: usize = 0;
     while (i < 200) : (i += 1) {
-        input_queue.global.push(.{ .mouse = .{ .dx = 1, .dy = 0, .left = false, .right = false, .middle = false } });
+        input_queue.mouse.push(.{ .mouse = .{ .dx = 1, .dy = 0, .left = false, .right = false, .middle = false } });
     }
     input_queue.global.push(.{ .key = .{ .code = .a, .pressed = true } });
 
-    // The event loop must still be able to reach the key after draining
-    // mouse packets (bounded poll + Lua skip).
-    var found_key = false;
-    var pops: usize = 0;
-    while (pops < 300) : (pops += 1) {
-        const ev = input_queue.global.pop() orelse break;
-        switch (ev) {
-            .key => {
-                found_key = true;
-                break;
-            },
-            else => {},
-        }
+    const ev = input_queue.global.pop() orelse {
+        expect(false, "key reachable despite mouse flood");
+        return;
+    };
+    switch (ev) {
+        .key => expect(true, "key survives behind a flood of mouse packets"),
+        else => expect(false, "global queue still holds a key, not a mouse packet"),
     }
-    expect(found_key, "key survives behind a flood of mouse packets");
 }
 
 fn testMouseCursor() void {

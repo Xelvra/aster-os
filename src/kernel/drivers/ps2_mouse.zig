@@ -7,6 +7,7 @@ const ps2_status: u16 = 0x64;
 const ps2_command: u16 = 0x64;
 
 const status_output_full: u8 = 0x01;
+const status_mouse_data: u8 = 0x20; // bit 5: data belongs to port 2 (mouse)
 
 var mouse_packet: [3]u8 = undefined;
 var mouse_byte_idx: u8 = 0;
@@ -26,8 +27,13 @@ pub fn init() void {
 }
 
 pub fn handleIrq12() void {
-    if (in8(ps2_status) & status_output_full != 0) {
+    const status = in8(ps2_status);
+    // Only consume bytes that belong to the mouse port (bit 5). Keyboard
+    // scancodes share the data register; without this check a keyboard byte
+    // would desynchronize the packet stream.
+    if (status & status_output_full != 0 and status & status_mouse_data != 0) {
         const byte = in8(ps2_data);
+        if (byte == 0xFA or byte == 0xAA) return; // ACK / self-test
         mouse_packet[mouse_byte_idx] = byte;
         mouse_byte_idx +%= 1;
         if (mouse_byte_idx >= 3) {
@@ -47,7 +53,7 @@ fn pushMousePacket() void {
     if (b0 & 0x10 != 0) dx -= 256;
     if (b0 & 0x20 != 0) dy -= 256;
 
-    input_queue.global.push(.{ .mouse = .{
+    input_queue.mouse.push(.{ .mouse = .{
         .dx = dx,
         .dy = dy,
         .left = b0 & 0x01 != 0,

@@ -2,6 +2,7 @@ const std = @import("std");
 const input = @import("input.zig");
 
 pub var global: EventQueue = EventQueue.init();
+pub var mouse: EventQueue = EventQueue.init();
 
 const queue_capacity = 256;
 
