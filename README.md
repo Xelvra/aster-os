@@ -69,16 +69,53 @@ zig build test         # host unit tests
 ## Architecture at a glance
 
 ```
-BIOS / UEFI
-     ↓
-Limine (bootloader)
-     ↓
-Zig kernel (Ring 0)                      # M0/M1/M2
-     ↓
-KI (api/*)                               # M2
-     ├──→ Lua userland (shell/UI)        # M4/M5
-     ├──→ Wasm (Aster apps)              # M7
-     └──→ Wasm → WASI (foreign programs) # M9+
+┌──────────────────┐
+│    BIOS / UEFI   │
+│       BOOT       │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│      LIMINE      │
+│    BOOTLOADER    │
+└────────┬─────────┘
+         │
+         ▼
+╔════════════════════════════╗
+║         ZIG KERNEL         ║
+║           RING 0           ║
+║                            ║
+║       # M0/M1/M2/M3        ║
+║                            ║
+║  CPU / MEMORY / IRQ        ║
+║  DRIVERS / SCHEDULER (M7+) ║
+║  / IPC (M8+) / CORE SRVS   ║
+╚═══════════╤════════════════╝
+            │
+            ▼
+┌──────────────────┐
+│    KI (API/*)    │
+│       # M2       │
+└─────────┬────────┘
+          │
+  ┌───────┼───────┐
+  │               │
+  ▼               ▼
+┌──────────────┐  ┌──────────────────────┐
+│ LUA RUNTIME  │  │     WASM RUNTIME     │
+│     # M4     │  │       # M7/M9+       │
+└──────┬───────┘  │                      │
+       │ ▲        │ ┌──────────────────┐ │
+       │ └──────┐ │ │    ASTER APPS    │ │
+       ▼        │ │ │      # M7        │ │
+┌────────────┐  │ │ └──────────────────┘ │
+│  SHELL/UI  │──┘ │                      │
+│    # M5    │    │ ┌──────────────────┐ │
+└────────────┘    │ │       WASI       │ │
+                  │ │   FOREIGN APPS   │ │
+                  │ │      # M9+       │ │
+                  │ └──────────────────┘ │
+                  └──────────────────────┘
 ```
 
 Detailed layers, interfaces, and diagram: [`spec/architecture-overview.md`](spec/architecture-overview.md) §3.
