@@ -201,8 +201,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   workspace capsules, volume/session placeholders), tiling 60/40 or stacked splits,
   focus ring via a 45° gradient border, opacity 0.95/0.85, border 2, radius 10,
   gaps 8/3. The REPL stays as a window inside the shell.
-  - **Shortcuts**: Super+1/2/3 workspace, Super+Q close, Super+arrows cycle focus,
-    Alt+Tab cycle, Super+D launcher, Super+grave toggle REPL, F5 hot reload.
+  - **Shortcuts**: Super+Enter terminal, Super+Q close, Super+Space launcher,
+    Super+1/2/3 workspace, Alt+Tab cycle, F5 hot reload (Hyprland-standard bindings
+    refined in a later commit).
   - **Mouse in Lua**: `input.mouse_x/y/left/right/middle` share the state the kernel
     cursor overlay uses; a click on a window header focuses it, on a workspace capsule
     switches workspace.
@@ -214,9 +215,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed: a window on a non-active workspace had 0×0 size, underflowing u32 arithmetic
   in `fillRect` and faulting the kernel (#UD) — the shell renders only windows of the
   active workspace.
-- **Floating windows**: Super+Space toggles tiled ↔ floating (centered, keeps position
-  until tiled again); dragging a floating window header moves it; Super+Shift+arrows
-  move the focused window to an adjacent workspace and switch to it.
+- **Floating windows**: Super+Alt+Space toggles tiled ↔ floating (centered, keeps
+  position until tiled again); dragging a floating window header moves it;
+  Super+Shift+arrows / +1/2/3 move the focused window to another workspace.
+- **Hyprland-standard keybindings** (port of the reference binds): Super+Enter
+  terminal (focus REPL), Super+Q close, Super+Space launcher, Super+Alt+Space float,
+  Super+F / D fullscreen (hides the bar), Super+J togglesplit, Super+arrows focus,
+  Super+S scratchpad, Alt+Tab cycle. `layout_mode` (splith/splitv) and fullscreen
+  support in the tiling layout.
 - **Error containment** (spec/runtime.md §5): `callUpdate`/`callRender` return a
   `CallResult` and log the Lua error; a script error is caught by `lua_pcall`, the
   event loop hot-reloads the shell so the desktop recovers instead of staying
