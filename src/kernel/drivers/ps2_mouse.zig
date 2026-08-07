@@ -104,21 +104,8 @@ pub fn handleIrq12() void {
 
 /// Decode a standard 3-byte PS/2 mouse packet (relative movement, buttons).
 fn pushMousePacket() void {
-    const b0 = mouse_packet[0];
-    if (b0 & 0x08 == 0) return; // out of sync, skip
-
-    var dx: i16 = @as(i16, mouse_packet[1]);
-    var dy: i16 = @as(i16, mouse_packet[2]);
-    if (b0 & 0x10 != 0) dx -= 256;
-    if (b0 & 0x20 != 0) dy -= 256;
-
-    input_queue.mouse.push(.{ .mouse = .{
-        .dx = dx,
-        .dy = dy,
-        .left = b0 & 0x01 != 0,
-        .right = b0 & 0x02 != 0,
-        .middle = b0 & 0x04 != 0,
-    } });
+    const event = input.decodeMousePacket(&mouse_packet) orelse return;
+    input_queue.mouse.push(.{ .mouse = event });
 }
 
 fn out8(port: u16, value: u8) void {

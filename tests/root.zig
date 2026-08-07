@@ -5,6 +5,7 @@ const framebuffer_test = @import("graphics/framebuffer_test.zig");
 const renderer_test = @import("graphics/renderer_test.zig");
 const font_test = @import("graphics/font_test.zig");
 const layout_test = @import("input/layout_test.zig");
+const mouse_test = @import("input/mouse_test.zig");
 
 test {
     std.testing.refAllDecls(@This());
@@ -14,4 +15,5 @@ test {
     _ = renderer_test;
     _ = font_test;
     _ = layout_test;
+    _ = mouse_test;
 }

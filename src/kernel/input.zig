@@ -123,3 +123,25 @@ pub const MouseEvent = struct {
 pub fn eventName(event: KeyEvent) []const u8 {
     return @tagName(event.code);
 }
+
+/// Decode a standard 3-byte PS/2 mouse packet. Pure, host-testable:
+/// no IRQ, no I/O. Returns null when the packet is not a valid start
+/// (bit 3 of byte 0 is always set) or the delta overflowed (bits 6/7).
+pub fn decodeMousePacket(packet: *const [3]u8) ?MouseEvent {
+    const b0 = packet[0];
+    if (b0 & 0x08 == 0) return null; // out of sync
+    if (b0 & 0xC0 != 0) return null; // delta overflowed, values meaningless
+
+    var dx: i16 = @as(i16, packet[1]);
+    var dy: i16 = @as(i16, packet[2]);
+    if (b0 & 0x10 != 0) dx -= 256;
+    if (b0 & 0x20 != 0) dy -= 256;
+
+    return .{
+        .dx = dx,
+        .dy = -dy, // PS/2 +dy = up, screen y grows downward
+        .left = b0 & 0x01 != 0,
+        .right = b0 & 0x02 != 0,
+        .middle = b0 & 0x04 != 0,
+    };
+}
