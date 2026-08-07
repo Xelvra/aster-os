@@ -295,7 +295,7 @@ local function add_line(s)
     if #lines > 200 then table.remove(lines, 1) end
 end
 
-add_line("shell  M5")
+add_line("shell  F5")
 
 function print(...)
     local parts = {}
