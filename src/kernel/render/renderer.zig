@@ -42,9 +42,15 @@ pub const Renderer = struct {
     }
 
     pub fn drawText(self: *const Renderer, text: []const u8, x: i32, y: i32, color: Color) void {
+        const pixel = self.fb.pixelColor(color);
         var cursor_x = x;
         for (text) |c| {
-            self.drawGlyph(c, cursor_x, y, color);
+            const pixels = font.glyph(c);
+            for (0..font.glyph_height) |row| {
+                const bits = pixels[row];
+                if (bits == 0) continue;
+                self.fb.drawGlyphRow(cursor_x, y + @as(i32, @intCast(row)), bits, pixel);
+            }
             cursor_x += font.glyph_width;
         }
     }

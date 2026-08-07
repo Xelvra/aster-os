@@ -74,6 +74,11 @@ zig build test         # host unit tests
 ./tools/verify-reproducible.sh  # deterministic build check (ADR-014)
 ```
 
+Build modes (default is `ReleaseSafe`, the verified production mode):
+`zig build -Doptimize=ReleaseFast` trades safety checks for ~20 % smaller
+image and faster execution; `-Doptimize=Debug` for debugging. The Lua C
+sources are always compiled with `-Os` regardless of the mode.
+
 ## Architecture at a glance
 
 ```

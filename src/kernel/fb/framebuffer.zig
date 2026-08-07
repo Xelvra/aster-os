@@ -41,6 +41,24 @@ pub const Framebuffer = struct {
         px[0] = color;
     }
 
+    /// Write one 8-bit glyph row into the framebuffer starting at (x, y).
+    /// Pixels where the corresponding glyph bit is 0 are left untouched,
+    /// so callers can draw onto an existing background.
+    pub fn drawGlyphRow(self: *Framebuffer, x: i32, y: i32, bits: u8, color: u32) void {
+        if (y < 0 or y >= self.height) return;
+        const row_offset = @as(i64, y) * self.pitch;
+        var bit: u5 = 0;
+        while (bit < 8) : (bit += 1) {
+            const mask: u8 = @as(u8, 1) << @intCast(7 - bit);
+            if (bits & mask == 0) continue;
+            const dst_x = x + @as(i32, @intCast(bit));
+            if (dst_x < 0 or dst_x >= self.width) continue;
+            const offset = row_offset + @as(i64, @intCast(dst_x)) * self.bytes_per_pixel;
+            const px: [*]volatile u32 = @ptrCast(@alignCast(self.base + @as(usize, @intCast(offset))));
+            px[0] = color;
+        }
+    }
+
     pub fn getPixel(self: *const Framebuffer, x: u32, y: u32) u32 {
         if (x >= self.width or y >= self.height) return 0;
         const offset = y * self.pitch + x * self.bytes_per_pixel;
@@ -50,11 +68,28 @@ pub const Framebuffer = struct {
 
     pub fn fillRect(self: *Framebuffer, x: i32, y: i32, w: u32, h: u32, color: u32) void {
         const clipped = clipRect(x, y, w, h, self.width, self.height) orelse return;
+        const cols = clipped.x1 - clipped.x0;
+        const pair: u64 = (@as(u64, color) << 32) | color;
         for (clipped.y0..clipped.y1) |row| {
             const row_offset = row * self.pitch + clipped.x0 * self.bytes_per_pixel;
-            const line: [*]volatile u32 = @ptrCast(@alignCast(self.base + row_offset));
-            for (0..clipped.x1 - clipped.x0) |col| {
-                line[col] = color;
+            // Write 64-bit pairs where the row start is 8-byte aligned, else
+            // fall back to 32-bit writes. The framebuffer is write-combining,
+            // so wide writes let the WC buffer coalesce.
+            if (row_offset % 8 == 0) {
+                const wide: [*]volatile u64 = @ptrFromInt(@intFromPtr(self.base) + row_offset);
+                var col: usize = 0;
+                while (col + 1 < cols) : (col += 2) {
+                    wide[col / 2] = pair;
+                }
+                if (col < cols) {
+                    const tail: [*]volatile u32 = @ptrFromInt(@intFromPtr(self.base) + row_offset + col * 4);
+                    tail[0] = color;
+                }
+            } else {
+                const line: [*]volatile u32 = @ptrFromInt(@intFromPtr(self.base) + row_offset);
+                for (0..cols) |col| {
+                    line[col] = color;
+                }
             }
         }
     }

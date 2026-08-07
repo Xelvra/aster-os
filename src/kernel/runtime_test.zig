@@ -62,10 +62,30 @@ fn testLuaBindings() void {
     expect(true, "lua render ran without fault");
 }
 
+fn testRenderThroughput() void {
+    const idt = @import("cpu/idt.zig");
+    const lua = @import("lua/lua.zig");
+    // Measure how many full REPL renders Lua can do over a fixed window of
+    // APIC ticks. Higher is better; regressions show up after render changes.
+    const window_ticks: u64 = 10;
+    const start_tick = idt.tick_counter.load(.monotonic);
+    var count: u32 = 0;
+    while (idt.tick_counter.load(.monotonic) < start_tick + window_ticks) {
+        _ = lua.callRender();
+        count +%= 1;
+        if (count > 1000000) break;
+    }
+    var buf: [96]u8 = undefined;
+    const line = std.fmt.bufPrint(&buf, "render throughput: {d} renders/{d} ticks", .{ count, window_ticks }) catch "throughput";
+    serial.writeLine(line);
+    expect(count > 0, "render throughput measured");
+}
+
 const tests = [_]Test{
     .{ .name = "timer tick + event queue", .func = testTimerTicks },
     .{ .name = "framebuffer write + drawText", .func = testFramebufferWrites },
     .{ .name = "lua bindings + render", .func = testLuaBindings },
+    .{ .name = "render throughput", .func = testRenderThroughput },
 };
 
 pub fn runAll() noreturn {

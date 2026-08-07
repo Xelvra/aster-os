@@ -183,7 +183,7 @@ fn poll() void {
                     runtime.reload();
                     needs_render = true;
                 }
-                needs_render = true;
+                if (key.pressed) needs_render = true;
                 break;
             },
         }

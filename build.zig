@@ -69,11 +69,11 @@ pub fn build(b: *std.Build) void {
     kernel.root_module.addIncludePath(b.path("libs/lua-5.4/include"));
     kernel.root_module.addCSourceFiles(.{
         .files = &lua_sources,
-        .flags = &.{ "-std=c99", "-ffreestanding", "-fno-builtin" },
+        .flags = &.{ "-std=c99", "-ffreestanding", "-Os" },
     });
     kernel.root_module.addCSourceFile(.{
         .file = b.path("src/kernel/lua/vsnprintf.c"),
-        .flags = &.{ "-std=c99", "-ffreestanding", "-fno-builtin" },
+        .flags = &.{ "-std=c99", "-ffreestanding", "-Os" },
     });
     b.installArtifact(kernel);
 

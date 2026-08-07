@@ -13,11 +13,13 @@ pub const Layout = struct {
     shift: bool = false,
     ctrl: bool = false,
     alt: bool = false,
+    alt_gr: bool = false,
 
     /// Map a key code to a printable character (US layout), or null when the
     /// key produces no character (Enter, Tab, arrows, modifiers, F-keys, ...).
     pub fn mapChar(self: Layout, code: input.KeyCode) ?u8 {
         if (self.ctrl) return ctrlChar(code);
+        if (self.alt_gr) return altGrChar(code);
         return switch (code) {
             .a => if (self.shift) 'A' else 'a',
             .b => if (self.shift) 'B' else 'b',
@@ -134,5 +136,80 @@ pub const Layout = struct {
     fn ctrlChar(code: input.KeyCode) ?u8 {
         _ = code;
         return null;
+    }
+
+    /// Czech AltGr (right Alt) layer: alternative characters on ASCII keys
+    /// that the bitmap font can render. Keys without an AltGr symbol return
+    /// their plain character.
+    fn altGrChar(code: input.KeyCode) ?u8 {
+        return switch (code) {
+            .q => '\\',
+            .w => '|',
+            .x => '#',
+            .c => '&',
+            .v => '@',
+            .z => '%',
+            .b => '{',
+            .n => '}',
+            .m => '$',
+            .digit_1 => '~',
+            else => mapPlain(code),
+        };
+    }
+
+    /// The plain (unshifted) character for a key, used by the AltGr layer
+    /// when a key has no AltGr symbol of its own.
+    fn mapPlain(code: input.KeyCode) ?u8 {
+        return switch (code) {
+            .a => 'a',
+            .b => 'b',
+            .c => 'c',
+            .d => 'd',
+            .e => 'e',
+            .f => 'f',
+            .g => 'g',
+            .h => 'h',
+            .i => 'i',
+            .j => 'j',
+            .k => 'k',
+            .l => 'l',
+            .m => 'm',
+            .n => 'n',
+            .o => 'o',
+            .p => 'p',
+            .q => 'q',
+            .r => 'r',
+            .s => 's',
+            .t => 't',
+            .u => 'u',
+            .v => 'v',
+            .w => 'w',
+            .x => 'x',
+            .y => 'y',
+            .z => 'z',
+            .digit_0 => '0',
+            .digit_1 => '1',
+            .digit_2 => '2',
+            .digit_3 => '3',
+            .digit_4 => '4',
+            .digit_5 => '5',
+            .digit_6 => '6',
+            .digit_7 => '7',
+            .digit_8 => '8',
+            .digit_9 => '9',
+            .space => ' ',
+            .minus => '-',
+            .equal => '=',
+            .left_bracket => '[',
+            .right_bracket => ']',
+            .backslash => '\\',
+            .semicolon => ';',
+            .apostrophe => '\'',
+            .comma => ',',
+            .dot => '.',
+            .slash => '/',
+            .grave => '`',
+            else => null,
+        };
     }
 };

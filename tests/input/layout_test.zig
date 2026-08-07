@@ -79,3 +79,24 @@ test "layout: alt does not affect printable characters" {
     try std.testing.expectEqual(@as(u8, '1'), l.mapChar(.digit_1).?);
     try std.testing.expectEqual(@as(u8, ' '), l.mapChar(.space).?);
 }
+
+test "layout: altgr produces alternative characters" {
+    const l = layout.Layout{ .alt_gr = true };
+    try std.testing.expectEqual(@as(u8, '@'), l.mapChar(.v).?);
+    try std.testing.expectEqual(@as(u8, '\\'), l.mapChar(.q).?);
+    try std.testing.expectEqual(@as(u8, '|'), l.mapChar(.w).?);
+    try std.testing.expectEqual(@as(u8, '#'), l.mapChar(.x).?);
+    try std.testing.expectEqual(@as(u8, '&'), l.mapChar(.c).?);
+    try std.testing.expectEqual(@as(u8, '%'), l.mapChar(.z).?);
+    try std.testing.expectEqual(@as(u8, '{'), l.mapChar(.b).?);
+    try std.testing.expectEqual(@as(u8, '}'), l.mapChar(.n).?);
+    try std.testing.expectEqual(@as(u8, '$'), l.mapChar(.m).?);
+    try std.testing.expectEqual(@as(u8, '~'), l.mapChar(.digit_1).?);
+}
+
+test "layout: altgr falls back to plain for keys without altgr symbol" {
+    const l = layout.Layout{ .alt_gr = true };
+    try std.testing.expectEqual(@as(u8, 'a'), l.mapChar(.a).?);
+    try std.testing.expectEqual(@as(u8, '2'), l.mapChar(.digit_2).?);
+    try std.testing.expectEqual(@as(u8, ' '), l.mapChar(.space).?);
+}

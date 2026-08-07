@@ -108,8 +108,15 @@ function update()
     end
 end
 
+local text_w = 1280
+local text_area_h = (max_lines + 1) * row_h
+
+local function clear_text_area()
+    gfx.draw_rect(0, 0, text_w, text_area_h, 0x000000)
+end
+
 function render()
-    gfx.fill_screen(0x000000)
+    clear_text_area()
     local ty = 4
     for i = 1, #lines do
         gfx.draw_text(lines[i], col, ty, 0xFFFFFF)

@@ -20,6 +20,7 @@ M0 Boot → M1 Memory → M2 CPU → M3 Graphics → M4 Lua
 ```
 Kernel Entry → First Frame   (primární boot metrika, reprodukovatelná)
 Firmware → First Frame       (sledovaná, závisí na emulaci/firmwaru)
+render throughput            (Lua renderů za tick okno, runtime test — M4)
 frame latency (p99)
 binary size
 RAM usage
@@ -50,7 +51,7 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 | M2 (cíl) | < 96 KB | ≤ 4 MB | < 20 ms | — | TBD |
 | **M3 (měřeno)** | **33.8 KB** | — | **≈ 0.6 s**¹ | — | TBD |
 | M3 (cíl) | < 128 KB | ≤ 6 MB | < 25 ms | < 16 ms | TBD |
-| **M4 (měřeno)** | **362 KiB** | — | **≈ 58 ms**² | TBD | TBD |
+| **M4 (měřeno)** | **336 KiB** (RF 259) | — | **≈ 60 ms**² | TBD | TBD |
 | M4 (cíl) | < 512 KB (s Lua) | ≤ 12 MB | < 40 ms | < 16 ms | TBD |
 | M5 | < 512 KB | ≤ 16 MB | < 40 ms | < 16 ms | TBD |
 | M6 | < 768 KB | ≤ 24 MB | < 50 ms | < 16 ms | TBD |
@@ -74,7 +75,13 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 > ² Od M4 měří `tools/bench.sh` odděleně **Firmware → First Frame** (zahrnuje ~3.3 s
 > BIOS + Limine) a **Kernel Entry → First Frame** (čistý čas našeho kódu, marker
 > `ASTER KERNEL ENTRY` na vstupu po Limine handoff → marker `ASTER FIRST FRAME`).
-> Kernel image je velikost strippnutého ELF (`zig-out/bin/aster`).
+> Kernel image je velikost strippnutého ELF (`zig-out/bin/aster`). **RF** = `ReleaseFast`
+> build (`zig build -Doptimize=ReleaseFast`) — bez safety checks, menší a rychlejší;
+> produkce a verifikace běží na `ReleaseSafe` (safety checky zachytily reálné bugy C2/C17).
+> Lua C kód se kompiluje s `-Os` (úspora ~40 KB oproti defaultu bez `-O`).
+> **Render throughput** (M4): `testRenderThroughput` v runtime testech měří plné Lua
+> REPL rendery za 10 APIC ticků. Baseline po optimalizaci rendereru: **8–9 renders/10 ticks**
+> (před tím 5). Při změně render pipeline se číslo nesmí zhoršit bez zdůvodnění.
 
 ---
 

@@ -138,6 +138,7 @@ fn inputNextEvent(L: ?*lua_c.lua_State) callconv(.c) c_int {
             if (key.code == .caps_lock) setCapsLock(key.pressed);
             setCtrl(key.code, key.pressed);
             setAlt(key.code, key.pressed);
+            setAltGr(key.code, key.pressed);
             _ = lua_c.lua_pushliteral(L, "key");
             lua_c.lua_setfield(L, -2, "type");
             lua_c.lua_pushboolean(L, if (key.pressed) 1 else 0);
@@ -152,8 +153,10 @@ fn inputNextEvent(L: ?*lua_c.lua_State) callconv(.c) c_int {
             lua_c.lua_setfield(L, -2, "ctrl");
             lua_c.lua_pushboolean(L, if (alt_pressed) 1 else 0);
             lua_c.lua_setfield(L, -2, "alt");
+            lua_c.lua_pushboolean(L, if (alt_gr_pressed) 1 else 0);
+            lua_c.lua_setfield(L, -2, "alt_gr");
             const eff_shift = effectiveShift();
-            const l = layout.Layout{ .shift = eff_shift, .ctrl = ctrl_pressed, .alt = alt_pressed };
+            const l = layout.Layout{ .shift = eff_shift, .ctrl = ctrl_pressed, .alt = alt_pressed, .alt_gr = alt_gr_pressed };
             const mapped = l.mapChar(key.code);
             if (mapped) |ch| {
                 var ch_buf: [1]u8 = .{ch};
@@ -173,6 +176,7 @@ var shift_pressed = false;
 var caps_lock_on = false;
 var ctrl_pressed = false;
 var alt_pressed = false;
+var alt_gr_pressed = false;
 
 fn setShift(code: input.KeyCode, pressed: bool) void {
     switch (code) {
@@ -183,7 +187,14 @@ fn setShift(code: input.KeyCode, pressed: bool) void {
 
 fn setAlt(code: input.KeyCode, pressed: bool) void {
     switch (code) {
-        .alt_left, .alt_right => alt_pressed = pressed,
+        .alt_left => alt_pressed = pressed,
+        else => {},
+    }
+}
+
+fn setAltGr(code: input.KeyCode, pressed: bool) void {
+    switch (code) {
+        .alt_right => alt_gr_pressed = pressed,
         else => {},
     }
 }
