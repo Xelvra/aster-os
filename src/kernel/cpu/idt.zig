@@ -66,13 +66,13 @@ fn handleIsrImpl(frame: *InterruptFrame) callconv(.c) void {
         },
         0x21 => {
             const ack = @import("apic.zig");
-            const ps2 = @import("../drivers/ps2.zig");
+            const ps2 = @import("../drivers/ps2_keyboard.zig");
             ps2.handleIrq1();
             ack.sendEoi();
         },
         0x22 => {
             const ack = @import("apic.zig");
-            const ps2 = @import("../drivers/ps2.zig");
+            const ps2 = @import("../drivers/ps2_mouse.zig");
             ps2.handleIrq12();
             ack.sendEoi();
         },

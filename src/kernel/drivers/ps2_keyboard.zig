@@ -3,10 +3,7 @@ const input = @import("../input.zig");
 const input_queue = @import("../input_queue.zig");
 
 const ps2_data: u16 = 0x60;
-const ps2_status: u16 = 0x64;
 const ps2_command: u16 = 0x64;
-
-const status_output_full: u8 = 0x01;
 
 const set1_to_keycode: [0x60]?input.KeyCode = blk: {
     var table: [0x60]?input.KeyCode = [_]?input.KeyCode{null} ** 0x60;
@@ -101,6 +98,7 @@ const set1_to_keycode: [0x60]?input.KeyCode = blk: {
 var extended: bool = false;
 var num_lock_on: bool = false;
 
+/// Initialize the first PS/2 port (keyboard): enable IRQ1 and translation.
 pub fn init() void {
     out8(ps2_command, 0xAD);
     out8(ps2_command, 0x20);
@@ -109,20 +107,6 @@ pub fn init() void {
     out8(ps2_data, 0x41);
     out8(ps2_command, 0xAE);
     out8(ps2_data, 0xF4);
-
-    initMouse();
-}
-
-/// Standard PS/2 mouse init (IRQ12 on the second controller port):
-/// enable port 2, write the enable-data-reporting command to the device.
-fn initMouse() void {
-    out8(ps2_command, 0xA8);
-    out8(ps2_command, 0x20);
-    const cfg = in8(ps2_data);
-    out8(ps2_command, 0x60);
-    out8(ps2_data, cfg | 0x02 | 0x20); // IRQ12 enable + clock enable
-    out8(ps2_command, 0xD4);
-    out8(ps2_data, 0xF4); // enable data reporting
 }
 
 pub fn handleIrq1() void {
@@ -132,40 +116,6 @@ pub fn handleIrq1() void {
         const event = mapScancode(scancode) orelse return;
         input_queue.global.push(.{ .key = event });
     }
-}
-
-var mouse_packet: [3]u8 = undefined;
-var mouse_byte_idx: u8 = 0;
-
-pub fn handleIrq12() void {
-    if (in8(ps2_status) & status_output_full != 0) {
-        const byte = in8(ps2_data);
-        mouse_packet[mouse_byte_idx] = byte;
-        mouse_byte_idx +%= 1;
-        if (mouse_byte_idx >= 3) {
-            mouse_byte_idx = 0;
-            pushMousePacket();
-        }
-    }
-}
-
-/// Decode a standard 3-byte PS/2 mouse packet (relative movement, buttons).
-fn pushMousePacket() void {
-    const b0 = mouse_packet[0];
-    if (b0 & 0x08 == 0) return; // out of sync, skip
-
-    var dx: i16 = @as(i16, mouse_packet[1]);
-    var dy: i16 = @as(i16, mouse_packet[2]);
-    if (b0 & 0x10 != 0) dx -= 256;
-    if (b0 & 0x20 != 0) dy -= 256;
-
-    input_queue.global.push(.{ .mouse = .{
-        .dx = dx,
-        .dy = dy,
-        .left = b0 & 0x01 != 0,
-        .right = b0 & 0x02 != 0,
-        .middle = b0 & 0x04 != 0,
-    } });
 }
 
 /// Maps a set-1 scancode to a key event, handling the extended (0xE0)
@@ -246,6 +196,9 @@ fn keypadOrNav(code: input.KeyCode) ?input.KeyCode {
         else => code,
     };
 }
+
+const ps2_status: u16 = 0x64;
+const status_output_full: u8 = 0x01;
 
 fn out8(port: u16, value: u8) void {
     asm volatile (

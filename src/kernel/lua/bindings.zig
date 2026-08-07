@@ -129,10 +129,24 @@ fn timeTicks(L: ?*lua_c.lua_State) callconv(.c) c_int {
 }
 
 fn inputNextEvent(L: ?*lua_c.lua_State) callconv(.c) c_int {
-    const event = input_queue.global.pop() orelse {
-        lua_c.lua_pushnil(L);
-        return 1;
-    };
+    // Mouse packets are consumed by the kernel cursor overlay in poll(); they
+    // are skipped here so a busy mouse cannot flood the Lua event stream.
+    while (true) {
+        const event = input_queue.global.pop() orelse {
+            lua_c.lua_pushnil(L);
+            return 1;
+        };
+        switch (event) {
+            .mouse => continue,
+            else => {
+                buildEventTable(L, event);
+                return 1;
+            },
+        }
+    }
+}
+
+fn buildEventTable(L: ?*lua_c.lua_State, event: input_queue.Event) void {
     lua_c.lua_createtable(L, 0, 5);
     switch (event) {
         .timer_tick => |t| {
@@ -176,22 +190,8 @@ fn inputNextEvent(L: ?*lua_c.lua_State) callconv(.c) c_int {
                 lua_c.lua_setfield(L, -2, "char");
             }
         },
-        .mouse => |m| {
-            _ = lua_c.lua_pushliteral(L, "mouse");
-            lua_c.lua_setfield(L, -2, "type");
-            lua_c.lua_pushinteger(L, m.dx);
-            lua_c.lua_setfield(L, -2, "dx");
-            lua_c.lua_pushinteger(L, m.dy);
-            lua_c.lua_setfield(L, -2, "dy");
-            lua_c.lua_pushboolean(L, if (m.left) 1 else 0);
-            lua_c.lua_setfield(L, -2, "left");
-            lua_c.lua_pushboolean(L, if (m.right) 1 else 0);
-            lua_c.lua_setfield(L, -2, "right");
-            lua_c.lua_pushboolean(L, if (m.middle) 1 else 0);
-            lua_c.lua_setfield(L, -2, "middle");
-        },
+        .mouse => unreachable,
     }
-    return 1;
 }
 
 var shift_pressed = false;
