@@ -99,14 +99,50 @@ var extended: bool = false;
 var num_lock_on: bool = false;
 
 /// Initialize the first PS/2 port (keyboard): enable IRQ1 and translation.
+///
+/// Every write to the controller waits for the input buffer to be empty
+/// first (status_input_full == 0). The i8042 is slow to consume bytes;
+/// firing commands back-to-back without this can silently drop or corrupt
+/// them, leaving the config byte -- which is shared with the mouse port --
+/// in a broken state that makes both devices behave erratically.
 pub fn init() void {
-    out8(ps2_command, 0xAD);
-    out8(ps2_command, 0x20);
-    _ = in8(ps2_data);
-    out8(ps2_command, 0x60);
-    out8(ps2_data, 0x41);
-    out8(ps2_command, 0xAE);
-    out8(ps2_data, 0xF4);
+    sendCommand(0xAD); // disable port 1 while we reconfigure it
+
+    // Read-modify-write the config byte instead of overwriting it with a
+    // hardcoded constant, so we don't clobber bits the mouse driver (or
+    // firmware) already set, regardless of init order.
+    sendCommand(0x20); // read config
+    const cfg = waitOutput() orelse return;
+    sendCommand(0x60); // write config
+    sendData((cfg | 0x01 | 0x40) & ~@as(u8, 0x10)); // IRQ1 on, translation on, port1 clock on
+
+    sendCommand(0xAE); // enable port 1
+    sendData(0xF4); // enable scanning
+    _ = waitOutput(); // consume its ACK explicitly instead of leaving it to be drained elsewhere
+}
+
+fn sendCommand(cmd: u8) void {
+    var spins: u32 = 0;
+    while (in8(ps2_status) & status_input_full != 0) : (spins += 1) {
+        if (spins > 100000) return;
+    }
+    out8(ps2_command, cmd);
+}
+
+fn sendData(data: u8) void {
+    var spins: u32 = 0;
+    while (in8(ps2_status) & status_input_full != 0) : (spins += 1) {
+        if (spins > 100000) return;
+    }
+    out8(ps2_data, data);
+}
+
+fn waitOutput() ?u8 {
+    var spins: u32 = 0;
+    while (in8(ps2_status) & status_output_full == 0) : (spins += 1) {
+        if (spins > 100000) return null;
+    }
+    return in8(ps2_data);
 }
 
 pub fn handleIrq1() void {
@@ -204,6 +240,7 @@ fn keypadOrNav(code: input.KeyCode) ?input.KeyCode {
 
 const ps2_status: u16 = 0x64;
 const status_output_full: u8 = 0x01;
+const status_input_full: u8 = 0x02;
 const status_mouse_data: u8 = 0x20; // bit 5: data belongs to port 2 (mouse)
 
 fn out8(port: u16, value: u8) void {
