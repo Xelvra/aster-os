@@ -24,7 +24,7 @@ na tento dokument.
 | **ACPI power management** | ❌ Ne | Žádné uspávání/spouštění; tick zdroj je Local APIC timer (MSR, bez MADT). **I/O APIC** je od M2 součást (hardcoded 0xFEC00000 pro QEMU — nutný pro doručení ISA IRQ v APIC režimu). **MADT parsování** (RSDP → RSDT/XSDT → MADT) je dluh do M7 (SMP): skutečné LAPIC ID, ISA IRQ→GSI overrides, NMI detekce. Viz `roadmap.md` M2. |
 | **Perzistence před M6** | ❌ Ne | Žádný FS do M6 (ADR-010); assety embedded. |
 | **Síťové/cloudové služby** | ❌ Ne | Lokální experimentální systém. |
-| **Arm / jiné architektury** | ❌ Ne | x86_64 (QEMU target); port by si vyžádal arch-neutrální KI důsledněji. |
+| **Arm / jiné architektury** | ❌ Ne (teď) | Aktuálně jen x86_64 (QEMU `q35`). Port (např. ARM, RISC-V) není vyloučen, ale vyžádal by si arch-neutrální KI důsledněji a vlastní změnu rozsahu — není cílem dnes. |
 
 ---
 

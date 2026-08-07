@@ -10,7 +10,9 @@
 
 > **Aster is an experimental desktop operating system written in Zig.**
 >
-> Aster targets **x86_64 exclusively** (QEMU `q35`; see [`spec/non-goals.md`](spec/non-goals.md)).
+> Aster currently targets **x86_64** (QEMU `q35`) — the only implemented architecture for
+> now. A future port (e.g. ARM, RISC-V) is not excluded by design, but it is not a goal
+> today and would need its own scope change (see [`spec/non-goals.md`](spec/non-goals.md)).
 > The first implementation deliberately favors **simplicity over isolation**: the desktop,
 > scripting engine, and runtime share a single address space to minimize complexity and
 > maximize iteration speed. The public interfaces are designed as **stable abstractions**,
