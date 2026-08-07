@@ -122,6 +122,24 @@ fn gfxInvalidate(L: ?*lua_c.lua_State) callconv(.c) c_int {
     return 1;
 }
 
+fn gfxWidth(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    const r = graphics.renderer orelse {
+        lua_c.lua_pushinteger(L, 0);
+        return 1;
+    };
+    lua_c.lua_pushinteger(L, @intCast(r.fb.width));
+    return 1;
+}
+
+fn gfxHeight(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    const r = graphics.renderer orelse {
+        lua_c.lua_pushinteger(L, 0);
+        return 1;
+    };
+    lua_c.lua_pushinteger(L, @intCast(r.fb.height));
+    return 1;
+}
+
 fn timeTicks(L: ?*lua_c.lua_State) callconv(.c) c_int {
     const ticks = idt.tick_counter.load(.monotonic);
     lua_c.lua_pushinteger(L, @intCast(ticks));
@@ -244,6 +262,8 @@ const GfxFuncs = [_]lua_c.luaL_Reg{
     .{ .name = "fill_screen", .func = gfxFillScreen },
     .{ .name = "present", .func = gfxPresent },
     .{ .name = "invalidate", .func = gfxInvalidate },
+    .{ .name = "width", .func = gfxWidth },
+    .{ .name = "height", .func = gfxHeight },
     .{ .name = null, .func = null },
 };
 

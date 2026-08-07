@@ -102,7 +102,16 @@ v kontextu zpožděné.
 
 ---
 
-## 6b. PS/2 myš a sdílený i8042 kontrolér (M5)
+## 7. Grafika a event loop (M3)
+| Záznam | Symptom | Příčina | Řešení | Ověřit |
+| C14 | #GP (vec 0x0d) v renderu/fillRect jen když event loop běží; s breakpointem OK | `isr_common` **ukládal jen callee-saved registry**, `%rax` (caller-saved) nechal zničit — timer IRQ (1 kHz) přeruší render, handler přes `callq handle_isr` přepíše `%rax`, smyčka pak zapisuje na kontaminovanou adresu | `isr_common` push/pop i `%rax`; `InterruptFrame` dostane pole `rax` (na konci, před `vector`) | render běží stabilně, žádný #GP v event loop |
+| C15 | framebuffer zápis "nefunguje" (screendump ukazuje starý obsah), ale gdb vidí data v paměti | screendump zachycen uprostřed/po rychlém event loop renderu, nebo z VGA bufferu místo GOP; framebuffer `address` z Limine je **už v hhdm prostoru** (`0xffff8000fd000000`) — přičtení hhdm offsetu podruhé přeteče (safety trap) | psát přímo na `info.address` bez hhdm offsetu; renderovat jen když je stav `dirty`; ověřovat screendump po dostatečné prodlevě | `screendump` ukáže text, žádný fault |
+| C16 | text psaný z klávesnice se neobjeví / obrazovka jen černá | event loop renderuje každou iteraci (`fillScreen` + text) — QEMU screendump zachytí stav uprostřed `fillScreen` (černý); nebo konzole není "dirty" | `Console.dirty` flag: render jen při změně stavu; `fillScreen` + `console.render` až tehdy | screendump po stisku klávesy ukáže text |
+| C17 | pád #6 (invalid opcode) v `HeapAllocator.rawAlloc` po ~150 alokacích Lua, RIP se mění mezi běhy | **Bug v `coalesce`**: (1) adresa `prev` bloku se počítala z `block.size` (velikost aktuálního bloku) místo z boundary-tag footeru předchozího bloku → trefila náhodnou adresu; (2) po backward merge `rawFree` linkoval **původní pohlcený `block`** místo sloučeného → v free listu dva překrývající se bloky → corrupted struktura → nedeterministický RIP | `coalesce` čte footer předchozího bloku (`prev_footer.size`) a **vrací** sloučený blok; `rawFree` linkuje jen vrácený blok. Dále: `remapFn` používal `@memcpy(dst[0..min], src)` — overlap check ReleaseSafe → `ud2`; oprava explicitními slice stejné délky. Instrumentace (dočasná): magic v `BlockHeader` + `validate()` průchod free listu | Lua alokuje stovky bloků bez pádu; host testy heapu zelené |
+
+---
+
+## 8. PS/2 myš a sdílený i8042 kontrolér (M5)
 
 Myš a klávesnice sdílí **jeden i8042 kontrolér, jeden data port (0x60) a jeden
 status registr (0x64)**. Všechny níže uvedené bugy mají kořen v tomto sdílení.
@@ -118,7 +127,7 @@ Toto ladění stálo nejvíc času v M5 — čti pečlivě, než se dotkneš `dr
 | C23 | port-2 test (`0xA9`) vrací `0xFA` (ACK) místo `0x00` | **Starý ACK z klávesnice zůstal ve frontě** (`0xF4` v `initKeyboard` bez konzumace) → test přečetl špatný byte | `initMouse` nejdřív **vyprázdní output buffer**; `initKeyboard` konzumuje ACK explicitně | `0xA9` vrátí `0x00`, myš se zapne |
 | C24 | myš/klávesnice se chovají eraticky (nepřesně, zasekaně) i po všech opravách | **i8042 je pomalý** — příkazy posílané back-to-back bez čekání na `status_input_full == 0` se ztrácí/korumpují sdílený config byte | **Každý** zápis do kontroléru přes `sendCommand`/`sendData`, které čekají na input-empty (bounded timeout). Read-modify-write config, ne natvrdo konstantu | stabilní pohyb i psaní |
 | C25 | myš neposílá pakety, i když je init OK | Po `0xF4` (streaming) se **nesmí filtrovat bajty 0xFA/0xAA** z datového proudu — to jsou platné hodnoty `dx`/`dy` (250/170). Filtrace rozhazuje paket | ACK se čte jen **synchronně v `mouseCommand()`** při init, nikdy z proudu v `handleIrq12` | plynulý pohyb, žádné zasekávání |
-| C26 | kurzor myši fyzicky nedosáhne viditelných okrajů okna | Framebuffer je **1280×800 nativní**, ale QEMU okno se nevejde na hostitelský monitor (jiné rozlišení, 2 monitory) | `zig build run`: `-display gtk,zoom-to-fit=on` — škáluje okno, framebuffer i myší souřadnice zůstávají nativní | okno se vejde na obrazovku, kurzor dojede ke všem hranám |
+| C26 | kurzor myši fyzicky nedosáhne viditelných okrajů okna | Framebuffer **800×600** se škálováním displeje (150 %/125 %) ne vždy sedí na hostitelský monitor — **QEMU-specifické** (ovlivněno i volbou VGA výstupu v QEMU); na reálném HW se chování liší a musí se ověřit až při bootu z USB | `zig build run`: `-display gtk,zoom-to-fit=on` — škáluje okno, framebuffer i myší souřadnice zůstávají nativní; `resolution: 800x600` v `limine.conf` | okno se vejde na obrazovku, kurzor dojede ke všem hranám |
 
 **Shrnutí pravidel (nejdůležitější meta-lekce z M5):**
 
@@ -139,16 +148,7 @@ Toto ladění stálo nejvíc času v M5 — čti pečlivě, než se dotkneš `dr
 
 ---
 
-## 6a. Grafika a event loop (M3)
-| Záznam | Symptom | Příčina | Řešení | Ověřit |
-| C14 | #GP (vec 0x0d) v renderu/fillRect jen když event loop běží; s breakpointem OK | `isr_common` **ukládal jen callee-saved registry**, `%rax` (caller-saved) nechal zničit — timer IRQ (1 kHz) přeruší render, handler přes `callq handle_isr` přepíše `%rax`, smyčka pak zapisuje na kontaminovanou adresu | `isr_common` push/pop i `%rax`; `InterruptFrame` dostane pole `rax` (na konci, před `vector`) | render běží stabilně, žádný #GP v event loop |
-| C15 | framebuffer zápis "nefunguje" (screendump ukazuje starý obsah), ale gdb vidí data v paměti | screendump zachycen uprostřed/po rychlém event loop renderu, nebo z VGA bufferu místo GOP; framebuffer `address` z Limine je **už v hhdm prostoru** (`0xffff8000fd000000`) — přičtení hhdm offsetu podruhé přeteče (safety trap) | psát přímo na `info.address` bez hhdm offsetu; renderovat jen když je stav `dirty`; ověřovat screendump po dostatečné prodlevě | `screendump` ukáže text, žádný fault |
-| C16 | text psaný z klávesnice se neobjeví / obrazovka jen černá | event loop renderuje každou iteraci (`fillScreen` + text) — QEMU screendump zachytí stav uprostřed `fillScreen` (černý); nebo konzole není "dirty" | `Console.dirty` flag: render jen při změně stavu; `fillScreen` + `console.render` až tehdy | screendump po stisku klávesy ukáže text |
-| C17 | pád #6 (invalid opcode) v `HeapAllocator.rawAlloc` po ~150 alokacích Lua, RIP se mění mezi běhy | **Bug v `coalesce`**: (1) adresa `prev` bloku se počítala z `block.size` (velikost aktuálního bloku) místo z boundary-tag footeru předchozího bloku → trefila náhodnou adresu; (2) po backward merge `rawFree` linkoval **původní pohlcený `block`** místo sloučeného → v free listu dva překrývající se bloky → corrupted struktura → nedeterministický RIP | `coalesce` čte footer předchozího bloku (`prev_footer.size`) a **vrací** sloučený blok; `rawFree` linkuje jen vrácený blok. Dále: `remapFn` používal `@memcpy(dst[0..min], src)` — overlap check ReleaseSafe → `ud2`; oprava explicitními slice stejné délky. Instrumentace (dočasná): magic v `BlockHeader` + `validate()` průchod free listu | Lua alokuje stovky bloků bez pádu; host testy heapu zelené |
-
----
-
-## 7. Jak předcházet (meta-lekce)
+## 9. Jak předcházet (meta-lekce)
 
 - **Měň jednu věc a ověřuj** — při M0 se střídaly strip/linker.ld/optimize současně, což
   zamlžilo příčiny. Jeden faktor na krok.
@@ -171,7 +171,7 @@ Toto ladění stálo nejvíc času v M5 — čti pečlivě, než se dotkneš `dr
 
 ---
 
-## 8. Nevyřešené problémy → handoff
+## 10. Nevyřešené problémy → handoff
 
 Problém, který se nepodaří vyřešit v čase (viz `spec/handoff.md` §1), **se nezapisuje do
 této tabulky** (ta je jen pro vyřešené lekce). Použije se šablona v `spec/handoff.md` a

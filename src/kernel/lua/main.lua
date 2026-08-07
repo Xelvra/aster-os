@@ -118,7 +118,7 @@ function update()
     end
 end
 
-local text_w = 1280
+local text_w = gfx.width()
 local text_area_h = (max_lines + 1) * row_h
 local current_bg = -1
 

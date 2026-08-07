@@ -191,8 +191,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mouse bytes; every controller write waits for input-empty; stale ACK drained before
   the port test; 0xFA/0xAA are valid mouse data after streaming starts; keyboard init
   read-modify-writes config instead of hardcoding 0x41.
-- **QEMU window scaling**: `zig build run` uses `-display gtk,zoom-to-fit=on` so the
-  1280×800 window fits the host screen (framebuffer and mouse coords stay native).
+- **QEMU window scaling**: `zig build run` uses `-display gtk,zoom-to-fit=on` and
+  `limine.conf` requests `resolution: 800x600`, so the window fits the host screen
+  (framebuffer and mouse coords stay native). QEMU-specific; real-hardware behaviour
+  must be re-verified once USB boot lands.
 - New host tests: `tests/input/mouse_test.zig` (movement, dy inversion, buttons, sign
   extension, out-of-sync, overflow rejection). 49 tests total.
 - Render optimization: REPL repaints only the text area when the background is
