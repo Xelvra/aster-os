@@ -1,6 +1,15 @@
 -- main.lua - Aster OS interactive Lua REPL (M4)
 -- Type Lua code, Enter runs it. print() writes to the screen.
 -- Character mapping is done by the kernel input layout, not here.
+--
+-- Declarative theme: colors are data, changed live from the REPL.
+-- Assigning a new value repaints the shell without a key press.
+
+theme = {
+    background = 0x000000,
+    text = 0xFFFFFF,
+    accent = 0x82DCCC,
+}
 
 local lines = {}
 local current = ""
@@ -62,6 +71,7 @@ local function run(code)
     local chunk, err = load(code)
     if not chunk then
         add_line("error: " .. tostring(err))
+        gfx.invalidate()
         return
     end
     local ok, res = pcall(chunk)
@@ -70,8 +80,8 @@ local function run(code)
     elseif res ~= nil then
         add_line(tostring(res))
     end
+    gfx.invalidate()
 end
-
 function update()
     local ev = input.next_event()
     if not ev then return end
@@ -116,13 +126,13 @@ local function clear_text_area()
 end
 
 function render()
-    clear_text_area()
+    gfx.fill_screen(theme.background)
     local ty = 4
     for i = 1, #lines do
-        gfx.draw_text(lines[i], col, ty, 0xFFFFFF)
+        gfx.draw_text(lines[i], col, ty, theme.text)
         ty = ty + row_h
     end
-    gfx.draw_text("> " .. current, col, ty, 0xFFFFFF)
+    gfx.draw_text("> " .. current, col, ty, theme.text)
     local cx = col + (2 + cursor) * glyph_w
-    gfx.draw_rect(cx, ty, glyph_w, glyph_h, 0xFFFFFF)
+    gfx.draw_rect(cx, ty, glyph_w, glyph_h, theme.accent)
 end

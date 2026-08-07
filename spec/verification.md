@@ -137,7 +137,7 @@ se přidávají **runtime testy** — hostitelské testy už na ně nestačí:
 1. **Pinning verze:** soubor `.zig-version` v kořeni obsahuje exaktní verzi (nyní `0.16.0`).
    `build.zig` ověří, že běžící Zig odpovídá (případně varuje/ukončí).
 2. **Pinning toolchainu:** doporučuje se oficiální tarball v `/opt/zig`, ne distro balíček
-   (Arch/CachyOS pacman může mít zpoždění a jinou verzi).
+   (pacman může mít zpoždění a jinou verzi).
 3. **Bez timestampů:** build nevkládá aktuální čas do binárky (žádný `__DATE__`/`__TIME__`,
    žádné generované timestampy). Verzování jde přes git hash (pokud je potřeba).
 4. **Žádná generovaná data měnící se napříč běhy:** fonty a assety jsou `@embedFile`

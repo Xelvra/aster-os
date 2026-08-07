@@ -154,6 +154,10 @@ fn eventLoop() noreturn {
     while (true) {
         poll();
         update();
+        if (graphics.invalidate_requested) {
+            needs_render = true;
+            graphics.invalidate_requested = false;
+        }
         if (needs_render) {
             render();
             if (!first_frame_reported) {

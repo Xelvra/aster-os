@@ -114,6 +114,14 @@ fn gfxPresent(L: ?*lua_c.lua_State) callconv(.c) c_int {
     return 1;
 }
 
+fn gfxInvalidate(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    _ = sys.dispatch(.Graphics, .{
+        .a = @intFromEnum(graphics.GraphicsOp.invalidate),
+    });
+    lua_c.lua_pushinteger(L, 0);
+    return 1;
+}
+
 fn timeTicks(L: ?*lua_c.lua_State) callconv(.c) c_int {
     const ticks = idt.tick_counter.load(.monotonic);
     lua_c.lua_pushinteger(L, @intCast(ticks));
@@ -221,6 +229,7 @@ const GfxFuncs = [_]lua_c.luaL_Reg{
     .{ .name = "draw_text", .func = gfxDrawText },
     .{ .name = "fill_screen", .func = gfxFillScreen },
     .{ .name = "present", .func = gfxPresent },
+    .{ .name = "invalidate", .func = gfxInvalidate },
     .{ .name = null, .func = null },
 };
 
@@ -234,6 +243,20 @@ const TimeFuncs = [_]lua_c.luaL_Reg{
     .{ .name = null, .func = null },
 };
 
+const DebugFuncs = [_]lua_c.luaL_Reg{
+    .{ .name = "write", .func = debugWrite },
+    .{ .name = null, .func = null },
+};
+
+fn debugWrite(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    const text = checkString(L, 1, "text") orelse return 2;
+    const serial = @import("../serial.zig");
+    for (text) |c| serial.writeChar(c);
+    serial.writeChar('\n');
+    lua_c.lua_pushinteger(L, 0);
+    return 1;
+}
+
 pub fn register(L: *lua_c.lua_State) void {
     lua_c.lua_createtable(L, 0, 4);
     lua_c.luaL_setfuncs(L, @ptrCast(&GfxFuncs), 0);
@@ -246,4 +269,8 @@ pub fn register(L: *lua_c.lua_State) void {
     lua_c.lua_createtable(L, 0, 1);
     lua_c.luaL_setfuncs(L, @ptrCast(&TimeFuncs), 0);
     lua_c.lua_setglobal(L, "time");
+
+    lua_c.lua_createtable(L, 0, 1);
+    lua_c.luaL_setfuncs(L, @ptrCast(&DebugFuncs), 0);
+    lua_c.lua_setglobal(L, "debug");
 }

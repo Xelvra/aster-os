@@ -11,7 +11,13 @@ pub const GraphicsOp = enum(u64) {
     draw_text = 3,
     fill_screen = 4,
     present = 5,
+    invalidate = 6,
 };
+
+/// Set by a client (Lua) when the shell needs a redraw. The event loop
+/// checks and clears it each iteration; this is how the shell requests a
+/// repaint without a key press ("config is code").
+pub var invalidate_requested = false;
 
 const RectArgs = struct {
     x: i32,
@@ -78,6 +84,9 @@ pub fn dispatch(args: sys.SyscallArgs) u64 {
             r.fillScreen(@intCast(args.b));
         },
         .present => {},
+        .invalidate => {
+            invalidate_requested = true;
+        },
     }
     return @intFromEnum(sys.KiStatus.Success);
 }

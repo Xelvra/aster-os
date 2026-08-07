@@ -33,6 +33,7 @@ Veřejná operace (čísla sub-op jsou rozšiřitelná, zmrazená):
 | 3 | `drawText` | `(str, x, y, color)` | n-tice glyphů |
 | 4 | `fillScreen` | `(color)` | |
 | 5 | `present` | `()` | výhledově: commit bufferu; dnes no-op/okamžitý |
+| 6 | `invalidate` | `()` | shell žádá re-render bez klávesy (živá transformace, M5) |
 
 **Typ barvy (rozhodnuto, V1):** `Color = u32`, reprezentace **`0xRRGGBB`** (horní byte 0).
 Stejná reprezentace ve všech vrstvách (Lua → KI → Graphics API → Renderer → Framebuffer)

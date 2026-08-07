@@ -201,6 +201,8 @@ binding marshallingu zelené.
 
 **Cíl:** použitelný desktop v Luay.
 
+- [x] **Živá transformace — základ:** `gfx.invalidate()` — shell (Lua) si vyžádá re-render
+      bez klávesy; `main.lua` deklarativní theme (barvy jako data) se mění živě z REPL.
 - [ ] Okna: seznam oken, focus, z-order, drag.
 - [ ] Taskbar, launcher, menu — vše jako Lua klienti Graphics API.
 - [ ] REPL konzole (`~`) — psaní Lua kódu do běžícího systému.
