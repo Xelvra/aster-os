@@ -1,7 +1,7 @@
 # Aster OS
 
 [![status](https://img.shields.io/badge/status-pre--alpha-red.svg)](spec/roadmap.md)
-[![milestone](https://img.shields.io/badge/milestone-M1%20memory-informational.svg)](spec/roadmap.md)
+[![milestone](https://img.shields.io/badge/milestone-M2%20CPU-informational.svg)](spec/roadmap.md)
 [![Zig](https://img.shields.io/badge/Zig-0.16.0-f7a41d.svg)](.zig-version)
 [![architecture](https://img.shields.io/badge/arch-x86__64-blue.svg)](spec/architecture-overview.md)
 [![bootloader](https://img.shields.io/badge/bootloader-Limine-808080.svg)](libs/limine)
@@ -10,6 +10,7 @@
 
 > **Aster is an experimental desktop operating system written in Zig.**
 >
+> Aster targets **x86_64 exclusively** (QEMU `q35`; see [`spec/non-goals.md`](spec/non-goals.md)).
 > The first implementation deliberately favors **simplicity over isolation**: the desktop,
 > scripting engine, and runtime share a single address space to minimize complexity and
 > maximize iteration speed. The public interfaces are designed as **stable abstractions**,
@@ -23,6 +24,10 @@ This project requires the Zig version listed in [`.zig-version`](.zig-version).
 
 ## Status
 
+- **Milestone M2 (CPU) complete:** GDT/IDT (256 ISR stubs), fault policy with
+  freestanding backtrace; Local APIC timer (1 kHz) + IOAPIC routing for IRQ1; PS/2
+  keyboard with hardware-neutral `KeyCode`/`KeyEvent` input subsystem; KI dispatch
+  layer (`api/sys.zig`); in-QEMU runtime tests via `isa-debug-exit`.
 - **Milestone M1 (Memory) complete:** Limine memory map parsed into `BootInfo`;
   bitmap Page Frame Allocator; first-fit heap allocator implementing `std.mem.Allocator`;
   host unit tests (16); boot prints RAM layout; framebuffer verified as **WC** cache.
@@ -50,13 +55,22 @@ Full tool table and dependency status: [`spec/verification.md`](spec/verificatio
 zig build run          # boot in QEMU
 zig build test         # host unit tests
 ./tools/qemu-smoke.sh  # automated boot test (serial marker + timeout)
+./tools/qemu-test.sh   # in-QEMU runtime tests (isa-debug-exit)
 ./tools/verify-reproducible.sh  # deterministic build check (ADR-014)
 ```
 
 ## Architecture at a glance
 
 ```
-Limine (bootloader) → Zig kernel (Ring 0) → KI (api/*) → Lua userland (shell/UI)
+BIOS / UEFI
+     ↓
+Limine (bootloader)
+     ↓
+Zig kernel (Ring 0)
+     ↓
+KI (api/*)
+     ├──→ Lua userland (shell/UI)
+     └──→ WASI → WASM (standalone processes)
 ```
 
 Detailed layers, interfaces, and diagram: [`spec/architecture-overview.md`](spec/architecture-overview.md) §3.
@@ -80,7 +94,7 @@ If the system crashes or hangs: [`spec/debugging.md`](spec/debugging.md)
 |-----------|------|
 | M0 ✅ | Boot: deterministic build, boots in QEMU, serial marker |
 | M1 ✅ | Memory: PFA + heap allocator |
-| M2 | CPU: IDT, APIC timer, PS/2 keyboard |
+| M2 ✅ | CPU: IDT, APIC timer, IOAPIC, PS/2 keyboard |
 | M3 | Graphics: framebuffer, renderer, text on screen |
 | M4 | Lua: "Hello from Lua" on screen, hot reload |
 | M5–M8 | UI (shell in Lua), storage, runtime (wasm), stabilization |

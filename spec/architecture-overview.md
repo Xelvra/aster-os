@@ -24,6 +24,9 @@ subsystémy bude možné později přestěhovat do izolovaných procesů **bez z
 Architektura je **evoluční SASOS** (Single Address Space, Ring 0): vše běží v jednom
 adresním prostoru, ale přes stabilní rozhraní, která umožní pozdější oddělení do Ring 3.
 
+**Cílová platforma:** **x86_64 výhradně** (QEMU `q35`; jiné architektury jsou non-goal,
+`spec/non-goals.md`).
+
 **Hlavní cíle (KPI):**
 
 | Metrika | Cíl |
