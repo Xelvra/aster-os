@@ -122,7 +122,7 @@ Co přesně považujeme za vyřešení (definice „hotovo" pro tento problém).
 
 | ID | Název | Datum | Status |
 |----|-------|-------|--------|
-| H1 | `zig build` hlásí falešné `failed command: xorriso` při prvním buildu | 2026-08-07 | open |
+| H1 | `zig build` hlásí falešné `failed command: xorriso` při prvním buildu | 2026-08-07 | closed |
 
 ---
 

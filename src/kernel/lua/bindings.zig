@@ -6,6 +6,7 @@ const input = @import("../input.zig");
 const layout = @import("../input/layout.zig");
 const input_queue = @import("../input_queue.zig");
 const idt = @import("../cpu/idt.zig");
+const sysmon = @import("../api/sysmon.zig");
 
 fn pushError(L: ?*lua_c.lua_State, comptime format: []const u8, args: anytype) void {
     lua_c.lua_pushnil(L);
@@ -425,6 +426,24 @@ const DebugFuncs = [_]lua_c.luaL_Reg{
     .{ .name = null, .func = null },
 };
 
+const SysmonFuncs = [_]lua_c.luaL_Reg{
+    .{ .name = "ram_total_mb", .func = sysmonRamTotalMb },
+    .{ .name = "ram_free_mb", .func = sysmonRamFreeMb },
+    .{ .name = null, .func = null },
+};
+
+fn sysmonRamTotalMb(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    const value = sys.dispatch(.Sysmon, .{ .a = @intFromEnum(sysmon.SysmonOp.ram_total_mb) });
+    lua_c.lua_pushinteger(L, @intCast(value));
+    return 1;
+}
+
+fn sysmonRamFreeMb(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    const value = sys.dispatch(.Sysmon, .{ .a = @intFromEnum(sysmon.SysmonOp.ram_free_mb) });
+    lua_c.lua_pushinteger(L, @intCast(value));
+    return 1;
+}
+
 fn debugWrite(L: ?*lua_c.lua_State) callconv(.c) c_int {
     const text = checkString(L, 1, "text") orelse return 2;
     const serial = @import("../serial.zig");
@@ -450,4 +469,8 @@ pub fn register(L: *lua_c.lua_State) void {
     lua_c.lua_createtable(L, 0, 1);
     lua_c.luaL_setfuncs(L, @ptrCast(&DebugFuncs), 0);
     lua_c.lua_setglobal(L, "debug");
+
+    lua_c.lua_createtable(L, 0, 2);
+    lua_c.luaL_setfuncs(L, @ptrCast(&SysmonFuncs), 0);
+    lua_c.lua_setglobal(L, "sysmon");
 }

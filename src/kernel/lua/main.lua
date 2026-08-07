@@ -276,9 +276,13 @@ local function sysmon_render()
     if not w or w.ws ~= current_ws then return end
     local tx = w.x + theme.wm.border + 6
     local ty = w.y + theme.wm.border + theme.wm.title_h + 6
-    gfx.draw_text("cpu  ...", tx, ty, theme.text)
+    local total = sysmon.ram_total_mb()
+    local free = sysmon.ram_free_mb()
+    local used = math.max(total - free, 0)
+    gfx.draw_text("ram " .. tostring(used) .. "M / " .. tostring(total) .. "M", tx, ty, theme.text)
     ty = ty + 18
-    gfx.draw_text("ram  ...", tx, ty, theme.text)
+    local pct = (total > 0) and math.floor(used * 100 / total) or 0
+    gfx.draw_text("ram " .. tostring(pct) .. "%", tx, ty, theme.text_dim)
     ty = ty + 18
     gfx.draw_text("ticks " .. tostring(time.ticks()), tx, ty, theme.text_dim)
 end

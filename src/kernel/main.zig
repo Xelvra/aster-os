@@ -82,6 +82,8 @@ fn kernelMain() !void {
 
     var memory = try mem.Memory.init(&info);
     printMemoryInfo(&memory, &info);
+    const sysmon = @import("api/sysmon.zig");
+    sysmon.init(&memory);
 
     const alloc = memory.allocator();
     const test_buf = try alloc.alloc(u8, 64);

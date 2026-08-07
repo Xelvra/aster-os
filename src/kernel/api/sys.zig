@@ -3,6 +3,7 @@ const serial = @import("../serial.zig");
 const input_queue = @import("../input_queue.zig");
 const graphics = @import("graphics.zig");
 const runtime = @import("runtime.zig");
+const sysmon = @import("sysmon.zig");
 
 pub const Syscall = enum(u64) {
     Debug = 0,
@@ -11,6 +12,7 @@ pub const Syscall = enum(u64) {
     Timer = 3,
     Runtime = 4,
     Yield = 5,
+    Sysmon = 6,
 };
 
 pub const KiStatus = enum(u16) {
@@ -48,6 +50,7 @@ pub fn dispatch(num: Syscall, args: SyscallArgs) u64 {
         .Timer => @intFromEnum(KiStatus.NotSupported),
         .Runtime => runtime.dispatch(args),
         .Yield => @intFromEnum(KiStatus.NotSupported),
+        .Sysmon => sysmon.dispatch(args),
     };
 }
 
