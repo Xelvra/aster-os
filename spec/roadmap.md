@@ -42,15 +42,15 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 | Milník | Kernel image | RAM (idle) | Kernel Entry → First Frame | Frame latency (p99) | Compile time |
 |--------|-------------:|-----------:|---------------------------:|--------------------:|-------------:|
 | **Cíl** | < 256 KB | < 32 MB | < 50 ms | < 16 ms | TBD |
-| **M0 (měřeno)** | **12.0 KB** | — | **≈ 3.3 s wall-clock**¹ | — | TBD |
+| **M0 (měřeno)** | **12.0 KB** | — | **≈ 0.3 s**¹ | — | TBD |
 | M0 (cíl) | < 64 KB | — | < 10 ms | — | TBD |
-| **M1 (měřeno)** | **17.4 KB** | — | **≈ 3.4 s wall-clock**¹ | — | TBD |
+| **M1 (měřeno)** | **17.4 KB** | — | **≈ 0.4 s**¹ | — | TBD |
 | M1 (cíl) | < 80 KB | ≤ 4 MB | < 15 ms | — | TBD |
-| **M2 (měřeno)** | **28.8 KB** | — | **≈ 3.5 s wall-clock**¹ | — | TBD |
+| **M2 (měřeno)** | **28.8 KB** | — | **≈ 0.5 s**¹ | — | TBD |
 | M2 (cíl) | < 96 KB | ≤ 4 MB | < 20 ms | — | TBD |
-| **M3 (měřeno)** | **33.8 KB** | — | **≈ 3.6 s wall-clock**¹ | — | TBD |
+| **M3 (měřeno)** | **33.8 KB** | — | **≈ 0.6 s**¹ | — | TBD |
 | M3 (cíl) | < 128 KB | ≤ 6 MB | < 25 ms | < 16 ms | TBD |
-| **M4 (měřeno)** | **343 KiB** | — | **≈ 3.3 s wall-clock**¹ | TBD | TBD |
+| **M4 (měřeno)** | **362 KiB** | — | **≈ 58 ms**² | TBD | TBD |
 | M4 (cíl) | < 512 KB (s Lua) | ≤ 12 MB | < 40 ms | < 16 ms | TBD |
 | M5 | < 512 KB | ≤ 16 MB | < 40 ms | < 16 ms | TBD |
 | M6 | < 768 KB | ≤ 24 MB | < 50 ms | < 16 ms | TBD |
@@ -67,9 +67,13 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
   Latence je důležitější než FPS.
 - **RAM (idle):** rezidentní paměť systému bez spuštěných aplikací.
 
-> ¹ M0 měří `tools/bench.sh` **wall-clock** od spuštění QEMU po serial marker — zahrnuje
-> firmware/BIOS init, který je mimo kontrolu kernelu. Čistý čas **od Limine handoff po marker**
-> se změří uvnitř kernelu v M2 (tick zdroj); do té doby je hodnota jen horní hranice.
+> ¹ M0–M3 měřily `tools/bench.sh` **wall-clock** od spuštění QEMU po serial marker — zahrnují
+> firmware/BIOS/Limine init, který je mimo kontrolu kernelu (≈ 3 s prodleva bootloaderu).
+> Hodnoty jsou **odhad po odečtení ≈ 3 s** — původní měření byla 3.3 / 3.4 / 3.5 / 3.6 s
+> wall-clock; fáze jsou hotové, nelze je změřit znovu čistě, takže jde o aproximaci.
+> ² Od M4 měří `tools/bench.sh` odděleně **Firmware → First Frame** (zahrnuje ~3.3 s
+> BIOS + Limine) a **Kernel Entry → First Frame** (čistý čas našeho kódu, marker
+> `ASTER KERNEL ENTRY` na vstupu po Limine handoff → marker `ASTER FIRST FRAME`).
 > Kernel image je velikost strippnutého ELF (`zig-out/bin/aster`).
 
 ---

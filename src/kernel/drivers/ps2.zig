@@ -108,7 +108,7 @@ pub fn init() void {
 pub fn handleIrq1() void {
     if (in8(ps2_status) & status_output_full != 0) {
         const scancode = in8(ps2_data);
-        if (scancode == 0x00 or scancode == 0xFF or scancode == 0xFA or scancode == 0xAA) return;
+        if (scancode == 0x00 or scancode == 0xFF or scancode == 0xFA) return;
         const code = mapScancode(scancode) orelse return;
         input_queue.global.push(.{
             .key = .{

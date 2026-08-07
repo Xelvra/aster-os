@@ -67,6 +67,7 @@ fn write_mxcsr(value: u32) void {
 }
 
 fn kernelMain() !void {
+    serial.writeLine("ASTER KERNEL ENTRY");
     serial.writeLine("ASTER BOOT OK");
 
     const info = try boot.collect();
@@ -147,6 +148,7 @@ fn testKiDispatch() void {
 }
 
 var needs_render = true;
+var first_frame_reported = false;
 
 fn eventLoop() noreturn {
     while (true) {
@@ -154,6 +156,10 @@ fn eventLoop() noreturn {
         update();
         if (needs_render) {
             render();
+            if (!first_frame_reported) {
+                first_frame_reported = true;
+                serial.writeLine("ASTER FIRST FRAME");
+            }
             needs_render = false;
         }
         asm volatile ("hlt" ::: .{ .memory = true });

@@ -10,11 +10,12 @@ if [[ -z "$ISO" ]]; then
     ISO="$(find .zig-cache -name aster.iso -printf '%T@ %p\n' | sort -rn | head -1 | cut -d' ' -f2-)"
 fi
 
-MARKER="ASTER BOOT OK"
+BOOT_MARKER="ASTER KERNEL ENTRY"
+ENTRY_MARKER="ASTER FIRST FRAME"
 TIMEOUT="${BENCH_TIMEOUT:-30}"
 
 echo "bench: booting $ISO"
-echo "bench: waiting for marker '$MARKER' (timeout ${TIMEOUT}s)"
+echo "bench: waiting for '$BOOT_MARKER' then '$ENTRY_MARKER' (timeout ${TIMEOUT}s)"
 
 tmpdir="$(mktemp -d)"
 mkfifo "$tmpdir/serial.in" "$tmpdir/serial.out"
@@ -34,28 +35,34 @@ timeout "$TIMEOUT" qemu-system-x86_64 \
 
 qemu_pid=$!
 
-found=""
+boot_ns=""
+entry_ns=""
 while IFS= read -r line; do
-    if grep -q "$MARKER" <<<"$line"; then
-        found="$line"
+    if [[ -z "$boot_ns" ]] && grep -q "$BOOT_MARKER" <<<"$line"; then
+        boot_ns="$(date +%s%N)"
+    fi
+    if grep -q "$ENTRY_MARKER" <<<"$line"; then
+        entry_ns="$(date +%s%N)"
         break
     fi
 done <"$tmpdir/serial.out"
-
-end_ns="$(date +%s%N)"
 
 kill "$qemu_pid" 2>/dev/null || true
 wait "$qemu_pid" 2>/dev/null || true
 rm -rf "$tmpdir"
 
-if [[ -z "$found" ]]; then
-    echo "bench: FAIL (marker '$MARKER' not found)"
+if [[ -z "$entry_ns" ]]; then
+    echo "bench: FAIL (markers '$BOOT_MARKER'/'$ENTRY_MARKER' not found)"
     exit 1
 fi
 
-elapsed_ns="$((end_ns - start_ns))"
+elapsed_ns="$((entry_ns - start_ns))"
+kernel_ns="$((entry_ns - boot_ns))"
 elapsed_ms="$(awk "BEGIN { printf \"%.1f\", $elapsed_ns / 1000000 }")"
-echo "bench: Kernel Entry -> First Frame (wall clock): ${elapsed_ms} ms"
+kernel_ms="$(awk "BEGIN { printf \"%.1f\", $kernel_ns / 1000000 }")"
+
+echo "bench: Firmware -> First Frame (wall clock, incl. BIOS+Limine): ${elapsed_ms} ms"
+echo "bench: Kernel Entry -> First Frame (kernel only): ${kernel_ms} ms"
 
 BIN="${BIN:-zig-out/bin/aster}"
 if [[ -f "$BIN" ]]; then

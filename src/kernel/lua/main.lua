@@ -7,6 +7,8 @@ local current = ""
 local col = 8
 local row_h = 18
 local max_lines = 24
+local glyph_w = 8
+local glyph_h = 16
 
 local function add_line(s)
     table.insert(lines, s)
@@ -63,4 +65,6 @@ function render()
         ty = ty + row_h
     end
     gfx.draw_text("> " .. current, col, ty, 0xFFFFFF)
+    local cx = col + (2 + #current) * glyph_w
+    gfx.draw_rect(cx, ty, glyph_w, glyph_h, 0xFFFFFF)
 end
