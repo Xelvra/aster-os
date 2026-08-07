@@ -22,6 +22,13 @@ var mouse_byte_idx: u8 = 0;
 /// its ACK with a bounded timeout, so init can never stall the controller
 /// (which would freeze the keyboard that shares the same data register).
 pub fn init() void {
+    // Drain any stale bytes left in the output buffer (e.g. the keyboard's
+    // ACK to 0xF4 from ps2_keyboard.init) so the port-2 test result below
+    // is not confused with leftover data.
+    while (in8(ps2_status) & status_output_full != 0) {
+        _ = in8(ps2_data);
+    }
+
     // Test whether a device is present on port 2 before touching it.
     out8(ps2_command, 0xA9); // test port 2
     var spins: u32 = 0;
