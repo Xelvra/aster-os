@@ -10,6 +10,39 @@ local max_lines = 24
 local glyph_w = 8
 local glyph_h = 16
 
+local history = {}
+local hist_idx = 0
+local cursor = 0
+
+local function insert_char(ch)
+    current = string.sub(current, 1, cursor) .. ch .. string.sub(current, cursor + 1)
+    cursor = cursor + 1
+end
+
+local function delete_char()
+    if cursor > 0 then
+        current = string.sub(current, 1, cursor - 1) .. string.sub(current, cursor + 1)
+        cursor = cursor - 1
+    end
+end
+
+local function history_up()
+    if #history == 0 then return end
+    if hist_idx == 0 then hist_idx = #history end
+    hist_idx = hist_idx - 1
+    if hist_idx == 0 then hist_idx = #history end
+    current = history[hist_idx]
+    cursor = #current
+end
+
+local function history_down()
+    if #history == 0 then return end
+    hist_idx = hist_idx + 1
+    if hist_idx > #history then hist_idx = 1 end
+    current = history[hist_idx]
+    cursor = #current
+end
+
 local function add_line(s)
     table.insert(lines, s)
     if #lines > max_lines then table.remove(lines, 1) end
@@ -44,16 +77,34 @@ function update()
     if not ev then return end
     if ev.type ~= "key" or not ev.pressed then return end
     local code = ev.code
-    if code == "enter" then
+    if code == "enter" or code == "numpad_enter" then
         add_line("> " .. current)
+        if current ~= "" then
+            table.insert(history, current)
+        end
         run(current)
         current = ""
+        cursor = 0
     elseif code == "backspace" then
-        if #current > 0 then
-            current = string.sub(current, 1, #current - 1)
+        delete_char()
+    elseif code == "left" then
+        if cursor > 0 then cursor = cursor - 1 end
+    elseif code == "right" then
+        if cursor < #current then cursor = cursor + 1 end
+    elseif code == "up" then
+        history_up()
+    elseif code == "down" then
+        history_down()
+    elseif code == "home" then
+        cursor = 0
+    elseif code == "end" then
+        cursor = #current
+    elseif code == "delete" then
+        if cursor < #current then
+            current = string.sub(current, 1, cursor) .. string.sub(current, cursor + 2)
         end
     elseif ev.char then
-        current = current .. ev.char
+        insert_char(ev.char)
     end
 end
 
@@ -65,6 +116,6 @@ function render()
         ty = ty + row_h
     end
     gfx.draw_text("> " .. current, col, ty, 0xFFFFFF)
-    local cx = col + (2 + #current) * glyph_w
+    local cx = col + (2 + cursor) * glyph_w
     gfx.draw_rect(cx, ty, glyph_w, glyph_h, 0xFFFFFF)
 end

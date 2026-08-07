@@ -46,3 +46,36 @@ test "layout: caps lock XOR shift for letters" {
     const caps = layout.Layout{ .shift = true }; // effective shift = caps XOR shift
     try std.testing.expectEqual(@as(u8, 'A'), caps.mapChar(.a).?);
 }
+
+test "layout: numpad digits" {
+    const l = layout.Layout{};
+    try std.testing.expectEqual(@as(u8, '7'), l.mapChar(.numpad_7).?);
+    try std.testing.expectEqual(@as(u8, '0'), l.mapChar(.numpad_0).?);
+    try std.testing.expectEqual(@as(u8, '+'), l.mapChar(.numpad_add).?);
+    try std.testing.expectEqual(@as(u8, '-'), l.mapChar(.numpad_subtract).?);
+    try std.testing.expectEqual(@as(u8, '*'), l.mapChar(.numpad_multiply).?);
+    try std.testing.expectEqual(@as(u8, '/'), l.mapChar(.numpad_divide).?);
+    try std.testing.expectEqual(@as(u8, '.'), l.mapChar(.numpad_decimal).?);
+    try std.testing.expectEqual(@as(u8, '\n'), l.mapChar(.numpad_enter).?);
+}
+
+test "layout: navigation and control keys return null" {
+    const l = layout.Layout{};
+    try std.testing.expect(l.mapChar(.up) == null);
+    try std.testing.expect(l.mapChar(.down) == null);
+    try std.testing.expect(l.mapChar(.left) == null);
+    try std.testing.expect(l.mapChar(.right) == null);
+    try std.testing.expect(l.mapChar(.home) == null);
+    try std.testing.expect(l.mapChar(.end) == null);
+    try std.testing.expect(l.mapChar(.page_up) == null);
+    try std.testing.expect(l.mapChar(.page_down) == null);
+    try std.testing.expect(l.mapChar(.insert) == null);
+    try std.testing.expect(l.mapChar(.delete) == null);
+}
+
+test "layout: alt does not affect printable characters" {
+    const l = layout.Layout{ .alt = true };
+    try std.testing.expectEqual(@as(u8, 'a'), l.mapChar(.a).?);
+    try std.testing.expectEqual(@as(u8, '1'), l.mapChar(.digit_1).?);
+    try std.testing.expectEqual(@as(u8, ' '), l.mapChar(.space).?);
+}

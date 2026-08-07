@@ -87,6 +87,22 @@ pub const KeyCode = enum(u8) {
     print_screen,
     pause,
     menu,
+    numpad_0,
+    numpad_1,
+    numpad_2,
+    numpad_3,
+    numpad_4,
+    numpad_5,
+    numpad_6,
+    numpad_7,
+    numpad_8,
+    numpad_9,
+    numpad_add,
+    numpad_subtract,
+    numpad_multiply,
+    numpad_divide,
+    numpad_decimal,
+    numpad_enter,
 };
 
 pub const KeyEvent = struct {

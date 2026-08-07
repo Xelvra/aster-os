@@ -12,6 +12,7 @@ const input = @import("../input.zig");
 pub const Layout = struct {
     shift: bool = false,
     ctrl: bool = false,
+    alt: bool = false,
 
     /// Map a key code to a printable character (US layout), or null when the
     /// key produces no character (Enter, Tab, arrows, modifiers, F-keys, ...).
@@ -68,6 +69,23 @@ pub const Layout = struct {
             .comma => if (self.shift) '<' else ',',
             .dot => if (self.shift) '>' else '.',
             .slash => if (self.shift) '?' else '/',
+
+            .numpad_0 => '0',
+            .numpad_1 => '1',
+            .numpad_2 => '2',
+            .numpad_3 => '3',
+            .numpad_4 => '4',
+            .numpad_5 => '5',
+            .numpad_6 => '6',
+            .numpad_7 => '7',
+            .numpad_8 => '8',
+            .numpad_9 => '9',
+            .numpad_add => '+',
+            .numpad_subtract => '-',
+            .numpad_multiply => '*',
+            .numpad_divide => '/',
+            .numpad_decimal => '.',
+            .numpad_enter => '\n',
 
             .enter,
             .escape,
