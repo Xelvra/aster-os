@@ -1,7 +1,7 @@
 # Handoff H1: falešné `failed command: xorriso` + cache neinvaliduje výstup
 
 **Datum:** 2026-08-07
-**Status:** open
+**Status:** closed (S1 vysvětleno a vyřešeno; S2 = objektivní chování Zig, viz §4)
 
 ---
 
@@ -48,19 +48,30 @@ directory`.
 
 ## 4. Hypotézy
 
-1. **Hypotéza A (potvrzeno pro S2): Zig 0.16 cache hashuje jen vstupy, ne výstupy.**
-   Step s `addOutputFileArg` se znovu nespustí, když jeho výstup zmizí nebo se
-   modifikuje. Doklad: minimální reprodukce (§3/7, §3/8).
-   - Potvrzení: minimální reprodukce bez xorriso/Limine/ISO/QEMU.
-   - Vyvrácení: nebylo vyvráceno; chování je konzistentní.
-   - Dopad na Aster: `limine bios-install` modifikuje ISO in-place → XORRISO output se
-     mění → konflikt se Zig cache.
-2. **Hypotéza B (nevysvětleno): S1 — proč Zig vytiskne `failed command` pro příkaz
-   s exit status 0.**
-   - Pozorování: S1 se objeví jen když xorriso reálně běží (poprvé po čisté cache), nikdy
-     při cached re-runu.
-   - Zatím nevysvětleno; minimální reprodukce S1 se nepodařila (§3/8 ukazuje, že in-place
-     modifikace sama o sobě to nezpůsobuje).
+1. **Hypotéza A (potvrzené chování): Zig 0.16.0 nepovažuje absenci výstupního souboru
+   `addOutputFileArg` za důvod k opětovnému spuštění stepu.**
+   Doklad: minimální reprodukce (§3/7, §3/8) — smazání i modifikace outputu nezpůsobí
+   rerun. **Není to nutně bug** — cache může být navržená jako content-addressed podle
+   deklarovaných vstupů a absence artefaktu je omezení implementace. Mechanismus (jak Zig
+   identifikuje cached step) nebyl zkoumán; z experimentu plyne jen chování.
+   → VYŘEŠENO §9: správný build graph = každý step vlastní svůj output, žádná in-place
+   mutace cizího artefaktu.
+2. **Hypotéza B — S1 VYŘEŠENA (příčina nalezena ve zdrojovém kódu Zig):**
+   „failed command" je **design Zig**, ne bug. Mechanismu:
+   - `std/Build/Step/Run.zig:2723-2730` (`evalGeneric`): stderr z `addSystemCommand`
+     stepu se vždy považuje za **diagnostický výstup** (`result_stderr`), i když exit
+     status je 0.
+   - `spawnChildAndCollect` (`Run.zig:1539-1541`) nastavuje `result_failed_command`
+     **vždy**, nezávisle na výsledku.
+   - `compiler/build_runner.zig:1382-1391`: chybové/zprávové výpisy se tisknou
+     **"No matter the result"** — tedy i pro úspěšné stepy; `printErrorMessages` vytiskne
+     `failed command:` když je `error_style.verboseContext()`.
+   - **xorriso píše na stderr** (banner, UPDATE zprávy) → step má `result_stderr` → Zig
+     vytiskne "failed command: xorriso" při každém skutečném běhu, exit 0 a build pokračuje.
+   - Potvrzeno minimální reprodukcí: `sh -c "echo X >&2; echo d > \"$1\""` +
+     `addOutputFileArg` → "failed command", exit 0. Bez stderr zápisu → žádná hláška.
+   - **Řešení pro Aster:** potlačit stderr xorriso (přesměrovat do /dev/null, nebo `-quiet`
+     nestačí — banner jde na stderr i s `-quiet`). Viz §9.
 
 ## 5. Reprodukce
 
@@ -85,11 +96,11 @@ directory`.
 ## 7. Omezení a podezřelé okolnosti
 
 - S1 se objeví jen když xorriso **reálně běží** (poprvé po čisté cache), nikdy při cached
-  re-runu.
+  re-runu — to je konzistentní s vysvětlením (stderr se zpracuje jen při běhu stepu).
 - `bios-install success 1ms` je podezřele rychlé — možná bios_install nedělá práci, jen
-  čte hotový ISO.
-- Build je funkční (exit 0, boot), problém S1 je primárně kosmetický — ale matoucí a může
-  maskovat budoucí skutečné selhání. S2 je objektivní chyba cache invalidace.
+  čte hotový ISO. (Nezkoumáno dál; viz §9 build graph.)
+- Build je funkční (exit 0, boot); S1 je matoucí, ale neškodný výpis. S2 je objektivní
+  chování Zig cache.
 - **Formulace S1:** Zig tiskne `failed command` pro příkaz, jehož pozorovaný exit status
   procesu je 0, přičemž příslušný build step je nakonec považován za úspěšný.
 
@@ -97,5 +108,23 @@ directory`.
 
 - S2: zmizelý/modifikovaný výstup `addOutputFileArg` stepu → step se znovu spustí
   (nebo je zdokumentováno, že Zig výstupy nesleduje a je potřeba jiný pattern).
-- S1: první build po čisté cache bez `failed command: xorriso` na stderr, nebo je
-  identifikováno a zdokumentováno, že jde o známý neškodný bug Zig 0.16 s workaroundem.
+- S1: první build po čisté cache bez `failed command: xorriso` na stderr.
+
+## 9. Řešení (k 2026-08-07)
+
+**S1 (vyřešeno):** xorriso banner jde na stderr i s `-quiet`; Zig 0.16 tiskne
+"failed command" pro každý `addSystemCommand` step s diagnostickým stderr, i při exit 0.
+Řešení v `build.zig`: xorriso step běží přes `sh -c` wrapper, který **zachytává stderr do
+dočasného souboru a přehraje ho jen při nenulovém exit code**. Tak se banner (úspěch)
+potlačí, ale skutečná chyba (exit 5, např. chybějící zdroj) se stále vypíše. Ověřeno:
+`rm -rf .zig-cache && zig build run` — žádná hláška, boot OK; umělá chyba xorriso → exit 5
++ chybová zpráva zachována.
+
+**S2 (workaround):** správný build graph pro `bios-install`, který modifikuje ISO in-place:
+```
+xorriso ──► aster.iso (xorriso output)
+  cp   ──► aster-copy.iso
+bios-install ──► aster-copy.iso (modifikuje kopii, ne xorriso output)
+```
+Tak xorriso output zůstává nedotčený a každý step vlastní svůj output. (Vyzkoušeno — to
+samotné S1 nezpůsobuje, ale je to správný pattern pro konzistentní cache.)

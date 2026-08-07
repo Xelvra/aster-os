@@ -88,7 +88,17 @@ pub fn build(b: *std.Build) void {
 
     const iso_dir = iso_root.getDirectory();
 
-    const xorriso = b.addSystemCommand(&.{ "xorriso", "-as", "mkisofs" });
+    // xorriso writes its version banner to stderr on every run; Zig 0.16
+    // treats any stderr as a diagnostic and prints a misleading "failed
+    // command:" line even on exit 0. Silence it, but keep real errors: stderr
+    // is captured to a temp file and replayed only if xorriso fails.
+    const xorriso = b.addSystemCommand(&.{
+        "sh",  "-c",
+        \\tmp=$(mktemp); "$@" 2>"$tmp"; rc=$?; if [ "$rc" -ne 0 ]; then cat "$tmp" >&2; fi; rm -f "$tmp"; exit "$rc"
+        ,
+        "sh",  "xorriso",
+        "-as", "mkisofs",
+    });
     xorriso.addArg("-b");
     xorriso.addArg("boot/limine-bios-cd.bin");
     xorriso.addArg("-no-emul-boot");
