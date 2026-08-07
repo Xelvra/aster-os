@@ -111,12 +111,9 @@ fn eventLoop() noreturn {
                 .timer_tick => |t| {
                     _ = t;
                 },
-                .key_down => |sc| {
-                    const line = std.fmt.bufPrint(&buf, "key: 0x{x}", .{sc}) catch "key: err";
-                    serial.writeLine(line);
-                },
-                .key_up => |sc| {
-                    const line = std.fmt.bufPrint(&buf, "key up: 0x{x}", .{sc}) catch "key up: err";
+                .key => |key| {
+                    const state = if (key.pressed) "down" else "up";
+                    const line = std.fmt.bufPrint(&buf, "key {s} {s}", .{ @tagName(key.code), state }) catch "key err";
                     serial.writeLine(line);
                 },
             }

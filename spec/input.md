@@ -11,7 +11,7 @@ událostní smyčka (event loop). Není povoleno volat Lua přímo z IRQ kontext
 jen atomicky vloží událost do fronty.
 
 ```
-PS/2 IRQ → irq handler → atomický push → [fronta událostí] → event loop → dispatch → Lua
+PS/2 IRQ → driver (scancode → KeyCode) → subsystem (KeyEvent) → fronta → event loop → dispatch → Lua
 ```
 
 **Proč:** determinismus, žádná alokace v IRQ (invariant Safety), oddělení kontextu přerušení
@@ -19,35 +19,54 @@ od kontextu běžícího kódu.
 
 ---
 
-## 2. Události (Event)
+## 2. Architektura: driver / subsystem / KI
+
+Tři oddělené vrstvy (viz také `spec/adr/020-future-extensibility.md`):
+
+| Vrstva | Odpovědnost | Příklad |
+|---|---|---|
+| **Driver** | "Jak mluvím s hardwarem" | `drivers/ps2.zig` — IRQ1, i8042, scancode set-1 → `KeyCode` |
+| **Subsystem** | "Jak z různých hardware udělám jednotné zařízení" | `input.zig` — `KeyCode`/`KeyEvent`, fronta `input_queue.zig` |
+| **KI** | "Jak to zařízení zpřístupním zbytku systému" | `api/input.zig` (dispatch vrstva, M2+) |
+
+**Hraniční invariant:** za hranicí driveru nikdo nevidí konkrétní hardware. PS/2 i budoucí
+USB HID produkují **stejný** `KeyEvent` — aplikace nikdy nezjistí, jaké zařízení je dole.
+
+```
+PS/2  ── scancode set-1 ──┐
+                         ├─→ input.zig (KeyEvent) → fronta → KI
+USB HID ── HID usage ────┘
+```
+
+---
+
+## 2.1 Události (Event)
 
 ```zig
-pub const Event = union(enum) {
-    key_down: KeyEvent,
-    key_up: KeyEvent,
-    timer_tick: u64,     // číslo ticku (M2+)
+// subsystem, ne KI — driver produkuje, KI konzumuje
+pub const KeyCode = enum(u8) {
+    a, b, c, enter, escape, space,
+    left, right, up, down, shift_left, shift_right, ctrl_left, alt_left,
+    // ... viz src/kernel/input.zig
 };
 
 pub const KeyEvent = struct {
-    scancode: u8,
-    codepoint: ?u21,     // vyplněno po dekódování (layout ASCII; layouty později)
-    modifiers: Modifiers,
+    code: KeyCode,
+    pressed: bool,   // true = key_down, false = key_up
 };
 ```
 
-> **Typ `?u21` je záměrně širší než dnešní runtime:** je to Unicode scalar, stabilní
-> wire formát KI (zmrazuje se dnes, `spec/kernel-interface.md` §4). Font je bitmapový
-> 8×16 s pokrytím ASCII/Latin-1 — codepointy mimo rozsah fontu mapuje renderer na
-> replacement znak (`spec/graphics.md` §5). Typ slibuje Unicode i pro budoucí layouty;
-> runtime v M3 pokrývá podmnožinu.
-
-pub const Modifiers = packed struct(u8) {
-    shift: bool,
-    ctrl: bool,
-    alt: bool,
-    // rezervováno
+```zig
+pub const Event = union(enum) {
+    timer_tick: u64,     // číslo ticku (M2+)
+    key: KeyEvent,
 };
 ```
+
+> **KeyCode je wire formát KI** (zmrazuje se dnes, `spec/kernel-interface.md` §4): je
+> stabilní a hardware-neutrální. Scancode (set-1) je jen detaily driveru PS/2; USB HID
+> mapuje usage → stejný `KeyCode`. Modifikátory jsou samostatné `KeyCode` (shift/ctrl/alt
+> left+right), ne flagy — odpovídá M3 cíli (modifikátory → codepoint).
 
 Sub-op čísla pro `Input` v KI: `0=nextEvent`, `1=peekEvent`, `2=flush`.
 
@@ -79,10 +98,13 @@ while (true) {
 
 ## 5. Klávesnice (PS/2)
 
-- **Driver:** `src/kernel/drivers/ps2.zig` — obsluha IRQ1, scancode → dekódování.
-- **M2 cíl:** scancody na serial pro ladění.
-- **M3 cíl:** scancode → codepoint (ASCII sady), modifikátory (Shift/Ctrl/Alt).
-- **Odloženo:** USB HID, klávesnice layouty, myš (myš je samostatná událost — viz §7).
+- **Driver:** `src/kernel/drivers/ps2.zig` — obsluha IRQ1, i8042 init, scancode set-1
+  → `KeyCode` (mapovací tabulka), push `KeyEvent` do fronty.
+- **M2 stav:** `KeyEvent` (code + pressed) na serial pro ladění — ověřeno v QEMU
+  (`key a down`, `key enter up`, ...).
+- **M3 cíl:** `KeyCode` → codepoint (ASCII sady), modifikátory jako vstup do layoutu.
+- **Odloženo:** USB HID (mapuje usage → stejný `KeyCode`), klávesnice layouty, myš
+  (myš je samostatná událost — viz §7).
 
 ---
 
@@ -93,7 +115,7 @@ Lua vidí frontu přes `api/input.zig` jako funkce:
 - `input.nextEvent()` → `Event | nil`
 - `input.flush()`
 
-Události se do Lua předávají jako tabulky (`{ type = "key_down", scancode = ..., char = ... }`).
+Události se do Lua předávají jako tabulky (`{ type = "key", code = "enter", pressed = true }`).
 Detailní marshalování je definováno v `spec/runtime.md` §4 (Lua bindings konvence).
 
 ---

@@ -78,8 +78,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   vector 0xFF); spurious interrupt handled as silent no-op without EOI (IDT vector 0xFF).
 - IOAPIC: maps 0xFEC00000 and programs redirection entry for IRQ1 (keyboard) to vector
   0x21 — required for ISA IRQ delivery while the APIC is enabled.
+- **Input subsystem** (`src/kernel/input.zig`): hardware-neutral `KeyCode` enum +
+  `KeyEvent` (code + pressed). Driver/PS/2 is only a producer; KI and applications never
+  see scancodes. USB HID can later map usage → same `KeyCode` without touching KI.
 - PS/2 keyboard (`src/kernel/drivers/ps2.zig`): i8042 config (IRQ1 enable + translation),
-  enable scanning, scancode → input event queue (`input_queue.zig`).
-- Event loop prints tick counter and key scancodes; verified in QEMU via `sendkey`
-  (`key: 0x1e`, `key: 0x30`, `key: 0x2e` for a/b/c).
-- `spec/troubleshooting.md`: new section 6 with IDT/APIC/IOAPIC/PS/2 lessons (C1–C10).
+  enable scanning, scancode set-1 → `KeyCode` map, push `KeyEvent` into `input_queue`.
+- Event loop prints tick counter and key events; verified in QEMU via `sendkey`
+  (`key a down/up`, `key enter down/up`).
+- `spec/troubleshooting.md`: new section 6 with IDT/APIC/IOAPIC/PS/2 lessons (C1–C11);
+  `spec/input.md` updated with driver/subsystem/KI layering.

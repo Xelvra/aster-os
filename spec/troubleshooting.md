@@ -93,8 +93,9 @@ v kontextu zpožděné.
 | C6 | ISR stubs chybí v binárce (fault "no handler") | assembly `.s` soubor se k exe nepřidá, nebo linker DCE-odstraní stubs (nepoužité symboly) | `exe.addAssemblyFile("src/kernel/cpu/isr.s")` + `link_gc_sections = false` | smoke: faults jdou do handlerů, ne GP |
 | C7 | IRQ1 (klávesnice) nikdy nedojde; PIC unmask nepomáhá; poll funguje | v APIC režimu jdou ISA IRQ přes **IOAPIC redirection table**, ne přes PIC; bez zapsaného entry je IRQ1 maskovaný | v `apic.init` mapovat IOAPIC a `enableIsaIrq(1, 0x21)` (GSI = IRQ, entry: vektor, dest=0, unmasked, edge) | QEMU `-d int` ukáže `INT=0x21`; `key: 0x1e` po sendkey |
 | C8 | po IRQ1 kernel zacyklí/hang, ticker i klávesnice zmrznou | IRQ šel přes IOAPIC→LAPIC, ale handler posílal **PIC EOI**; LAPIC ISR bit zůstává nastavený → po IRET se IRQ okamžitě znovu vyvolá | EOI do **LAPIC** (`writeReg(0xB0, 0)`), ne do PIC | klávesnice funguje, ticker běží dál |
-| C9 | klávesnice odpovídá (poll vidí scancode), ale IRQ nedorazí | i8042 config nemá povolený IRQ1 enable (bit 0) + klávesnice není v scan módu | `ps2.init`: config `0x41` (IRQ1 enable + translation) + `0xF4` (enable scanning); handler filtruje ACK `0xFA`/`0xAA`/`0xFF`/`0x00` | `sendkey` → `key: 0x1e`, `key: 0x30` |
-| C10 | debug scancode se píše do serialu, ale event loop nic | scancode v ISR handleru se čte jen když `status & 0x01` (output buffer full) | handler i poll čtou jen přes `ps2_status`; EOI vždy po IRQ | konzistentní `key:` zprávy |
+| C9 | klávesnice odpovídá (poll vidí scancode), ale IRQ nedorazí | i8042 config nemá povolený IRQ1 enable (bit 0) + klávesnice není v scan módu | `ps2.init`: config `0x41` (IRQ1 enable + translation) + `0xF4` (enable scanning); handler filtruje ACK `0xFA`/`0xAA`/`0xFF`/`0x00` | `sendkey` → `key a down/up` |
+| C10 | debug scancode se píše do serialu, ale event loop nic | scancode v ISR handleru se čte jen když `status & 0x01` (output buffer full) | handler i poll čtou jen přes `ps2_status`; EOI vždy po IRQ | konzistentní `key` zprávy |
+| C11 | driver tlačí scancode (0x1E) přímo do fronty/KI | chybějící normalizační vrstva — scancode set-1 ≠ USB HID usage; aplikace by poznala konkrétní HW za hranicí driveru | subsystem `input.zig` (`KeyCode`/`KeyEvent`), driver mapuje scancode → `KeyCode`, fronta nese `KeyEvent` | USB HID by produkoval stejné události bez změny KI |
 
 ---
 

@@ -1,4 +1,5 @@
 const std = @import("std");
+const input = @import("input.zig");
 
 pub var global: EventQueue = EventQueue.init();
 
@@ -6,8 +7,7 @@ const queue_capacity = 256;
 
 pub const Event = union(enum) {
     timer_tick: u64,
-    key_down: u8,
-    key_up: u8,
+    key: input.KeyEvent,
 };
 
 pub const EventQueue = struct {
