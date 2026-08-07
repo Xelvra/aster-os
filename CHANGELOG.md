@@ -214,6 +214,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed: a window on a non-active workspace had 0×0 size, underflowing u32 arithmetic
   in `fillRect` and faulting the kernel (#UD) — the shell renders only windows of the
   active workspace.
+- **Floating windows**: Super+Space toggles tiled ↔ floating (centered, keeps position
+  until tiled again); dragging a floating window header moves it; Super+Shift+arrows
+  move the focused window to an adjacent workspace and switch to it.
+- **Error containment** (spec/runtime.md §5): `callUpdate`/`callRender` return a
+  `CallResult` and log the Lua error; a script error is caught by `lua_pcall`, the
+  event loop hot-reloads the shell so the desktop recovers instead of staying
+  half-drawn. New in-QEMU runtime test injects a failing `render()` and verifies the
+  kernel survives and the shell reloads.
 - New host tests: `tests/input/mouse_test.zig` (movement, dy inversion, buttons, sign
   extension, out-of-sync, overflow rejection). 53 tests total.
 - Render optimization: REPL repaints only the text area when the background is
