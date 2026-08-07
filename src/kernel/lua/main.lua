@@ -48,8 +48,9 @@ local SW = gfx.width()
 local SH = gfx.height()
 
 -- ---------------------------------------------------------------------------
--- Window list. Each entry: { title, ws, x, y, w, h }.
--- x/y/w/h are recomputed on every layout pass (tiling).
+-- Window list. Each entry: { title, ws, x, y, w, h, floating }.
+-- x/y/w/h are recomputed on every layout pass (tiling); floating windows
+-- keep their position until tiled again (Super+Space toggles).
 -- ---------------------------------------------------------------------------
 local windows = {}
 local focused = nil -- title of the focused window
@@ -57,7 +58,7 @@ local current_ws = 1
 local drag = nil     -- { title, dx, dy } while dragging a window header
 
 local function window(title, ws)
-    return { title = title, ws = ws, x = 0, y = 0, w = 0, h = 0 }
+    return { title = title, ws = ws, x = 0, y = 0, w = 0, h = 0, floating = false }
 end
 
 -- The REPL console lives as a window so it survives focus switches.
@@ -104,7 +105,7 @@ local function layout_pass()
     local area_h = SH - bar_h - 2 * out
     local ws_wins = {}
     for _, w in ipairs(windows) do
-        if w.ws == current_ws then ws_wins[#ws_wins + 1] = w end
+        if w.ws == current_ws and not w.floating then ws_wins[#ws_wins + 1] = w end
     end
     local n = #ws_wins
     for i, w in ipairs(ws_wins) do
@@ -399,9 +400,14 @@ local function handle_mouse()
         end
         if drag then
             local w = find_win(drag.title)
-            -- Dragging a tiled window is intentionally a no-op in Hyprland
-            -- style tiling; the header click just focuses. Floating windows
-            -- would move here.
+            if w and w.floating then
+                w.x = mx - drag.dx
+                w.y = my - drag.dy
+                -- Keep the window on screen.
+                w.x = math.max(0, math.min(w.x, SW - w.w))
+                w.y = math.max(theme.bar.height, math.min(w.y, SH - w.h))
+                gfx.invalidate()
+            end
         end
     else
         drag = nil
@@ -441,6 +447,33 @@ local function handle_key(ev)
             launcher_open = not launcher_open
         elseif code == "grave" then
             repl_visible = not repl_visible
+        elseif code == "space" then
+            local w = find_win(focused)
+            if w and w.ws == current_ws then
+                w.floating = not w.floating
+                if not w.floating then
+                    w.x, w.y, w.w, w.h = 0, 0, 0, 0
+                else
+                    -- Float at the center of the current split.
+                    w.w = math.floor(SW * 0.5)
+                    w.h = math.floor((SH - theme.bar.height) * 0.6)
+                    w.x = math.floor((SW - w.w) / 2)
+                    w.y = theme.bar.height + math.floor(((SH - theme.bar.height) - w.h) / 2)
+                end
+            end
+        elseif ev.shift then
+            -- Super+Shift+arrows: move the focused window to another workspace.
+            local w = find_win(focused)
+            if w then
+                if code == "right" then
+                    w.ws = math.min(w.ws + 1, #theme.ws)
+                elseif code == "left" then
+                    w.ws = math.max(w.ws - 1, 1)
+                end
+                w.floating = false
+                w.x, w.y, w.w, w.h = 0, 0, 0, 0
+                current_ws = w.ws
+            end
         elseif code == "left" or code == "right" then
             -- Cycle focus among windows on this workspace.
             local ws_wins = {}
@@ -538,8 +571,14 @@ function render()
     gfx.fill_screen(theme.background)
     layout_pass()
     bar_render()
+    -- Tiled windows first, then floating windows on top.
     for _, w in ipairs(windows) do
-        if w.ws == current_ws then
+        if w.ws == current_ws and not w.floating then
+            win_render(w)
+        end
+    end
+    for _, w in ipairs(windows) do
+        if w.ws == current_ws and w.floating then
             win_render(w)
         end
     end

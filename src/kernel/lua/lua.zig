@@ -101,30 +101,46 @@ pub fn runMain(entry: []const u8) !void {
     }
 }
 
-/// Call a named Lua function (global) if it is defined. Returns true
-/// when the function exists and ran without error.
-fn callGlobalFunction(name: [*:0]const u8) bool {
-    const L = lua_state orelse return false;
+/// Result of calling a Lua global function.
+pub const CallResult = enum {
+    ok,
+    no_function,
+    err,
+};
+
+/// Call a named Lua function (global) if it is defined. Every entry from the
+/// kernel into Lua goes through lua_pcall so a script error cannot unwind
+/// into the Zig stack (spec/runtime.md §5).
+fn callGlobalFunction(name: [*:0]const u8) CallResult {
+    const L = lua_state orelse return .no_function;
     _ = lua_c.lua_getglobal(L, name);
     if (!lua_c.lua_isfunction(L, -1)) {
         _ = lua_c.lua_pop(L, 1);
-        return false;
+        return .no_function;
     }
     const status = lua_c.lua_pcallk(L, 0, 0, 0, 0, null);
     if (status != lua_c.LUA_OK) {
+        if (lua_c.lua_isstring(L, -1) != 0) {
+            var len: usize = 0;
+            const ptr = lua_c.lua_tolstring(L, -1, &len);
+            serial.write("shell: {s} failed: ");
+            serial.write(std.mem.span(name));
+            serial.writeLine("");
+            serial.writeLine(ptr[0..len]);
+        }
         _ = lua_c.lua_pop(L, 1);
-        return false;
+        return .err;
     }
-    return true;
+    return .ok;
 }
 
 /// Call the Lua `render()` function if it is defined.
-pub fn callRender() bool {
+pub fn callRender() CallResult {
     return callGlobalFunction("render");
 }
 
 /// Call the Lua `update()` function if it is defined.
-pub fn callUpdate() bool {
+pub fn callUpdate() CallResult {
     return callGlobalFunction("update");
 }
 

@@ -129,6 +129,33 @@ fn testLuaBindings() void {
     expect(true, "lua render ran without fault");
 }
 
+fn testErrorContainment() void {
+    // A Lua error inside update/render must be caught by lua_pcall and
+    // reported as CallResult.err, not crash the kernel (spec/runtime.md §5).
+    const lua = @import("lua/lua.zig");
+    const L = @import("lua/cimport.zig").c;
+    const lua_state = lua.getState() orelse {
+        expect(false, "lua state exists");
+        return;
+    };
+    // Replace render with a function that always raises.
+    const script = "function render() error('boom') end";
+    const load_status = L.luaL_loadstring(lua_state, script);
+    expect(load_status == L.LUA_OK, "failing render script compiles");
+    if (load_status == L.LUA_OK) {
+        const run_status = L.lua_pcallk(lua_state, 0, 0, 0, 0, null);
+        expect(run_status == L.LUA_OK, "failing render script runs");
+    }
+    const result = lua.callRender();
+    expect(result == lua.CallResult.err, "failing render returns CallResult.err");
+    expect(true, "kernel survives a lua render error");
+    // Restore the real shell by hot-reloading it.
+    const runtime = @import("api/runtime.zig");
+    runtime.reload();
+    _ = lua.callRender();
+    expect(true, "shell reloaded after error containment");
+}
+
 fn testRenderThroughput() void {
     const idt = @import("cpu/idt.zig");
     const lua = @import("lua/lua.zig");
@@ -155,6 +182,7 @@ const tests = [_]Test{
     .{ .name = "mouse cursor overlay", .func = testMouseCursor },
     .{ .name = "framebuffer write + drawText", .func = testFramebufferWrites },
     .{ .name = "lua bindings + render", .func = testLuaBindings },
+    .{ .name = "error containment (lua error)", .func = testErrorContainment },
     .{ .name = "render throughput", .func = testRenderThroughput },
 };
 

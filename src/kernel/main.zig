@@ -163,7 +163,14 @@ const max_mouse_per_poll: usize = 64;
 fn eventLoop() noreturn {
     while (true) {
         poll();
-        update();
+        if (update()) {
+            // The shell errored; reload it so the desktop recovers instead
+            // of staying half-drawn (spec/runtime.md §5 error containment).
+            serial.writeLine("shell: error, hot reload");
+            const runtime = @import("api/runtime.zig");
+            runtime.reload();
+            needs_render = true;
+        }
         if (graphics.invalidate_requested) {
             needs_render = true;
             graphics.invalidate_requested = false;
@@ -226,14 +233,20 @@ fn poll() void {
     }
 }
 
-fn update() void {
-    _ = lua.callUpdate();
+fn update() bool {
+    const result = lua.callUpdate();
     lua.gcStep(1024);
+    return result == lua.CallResult.err;
 }
 
 fn render() void {
     if (graphics.renderer == null) return;
-    _ = lua.callRender();
+    if (lua.callRender() == .err) {
+        // The shell draw loop failed; reload so the next frame is clean.
+        serial.writeLine("shell: render error, hot reload");
+        const runtime = @import("api/runtime.zig");
+        runtime.reload();
+    }
     if (fb_storage) |*fb| mouse_cursor.redraw(fb);
 }
 
