@@ -44,9 +44,28 @@ fn testFramebufferWrites() void {
     expect(true, "drawText draws without fault");
 }
 
+fn testLuaBindings() void {
+    const lua = @import("lua/lua.zig");
+    expect(true, "lua state initialized and main.lua loaded without fault");
+    const L = @import("lua/cimport.zig").c;
+    const lua_state = lua.getState() orelse {
+        expect(false, "lua state exists");
+        return;
+    };
+    _ = L.lua_getglobal(lua_state, "gfx");
+    expect(L.lua_istable(lua_state, -1), "gfx binding table is registered");
+    _ = L.lua_pop(lua_state, 1);
+    _ = L.lua_getglobal(lua_state, "render");
+    expect(L.lua_isfunction(lua_state, -1), "render function is defined by main.lua");
+    _ = L.lua_pop(lua_state, 1);
+    _ = lua.callRender();
+    expect(true, "lua render ran without fault");
+}
+
 const tests = [_]Test{
     .{ .name = "timer tick + event queue", .func = testTimerTicks },
     .{ .name = "framebuffer write + drawText", .func = testFramebufferWrites },
+    .{ .name = "lua bindings + render", .func = testLuaBindings },
 };
 
 pub fn runAll() noreturn {

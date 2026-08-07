@@ -6,5 +6,5 @@ pub const idt = @import("cpu/idt.zig");
 pub const framebuffer = @import("fb/framebuffer.zig");
 pub const renderer = @import("render/renderer.zig");
 pub const font = @import("render/font.zig");
-pub const console = @import("ui/console.zig");
 pub const input = @import("input.zig");
+pub const layout = @import("input/layout.zig");

@@ -44,6 +44,12 @@ pub const EventQueue = struct {
         return event;
     }
 
+    pub fn peek(self: *EventQueue) ?Event {
+        const read = self.read_index.load(.monotonic);
+        if (read == self.write_index.load(.monotonic)) return null;
+        return self.buffer[read];
+    }
+
     pub fn isEmpty(self: *EventQueue) bool {
         return self.read_index.load(.monotonic) == self.write_index.load(.monotonic);
     }

@@ -1,6 +1,11 @@
 const std = @import("std");
 const pfa = @import("pfa.zig");
 
+/// Heap grows in multi-page chunks. Lua's loadbuffer needs allocations
+/// larger than a single 4 KiB page, so growing one page at a time would
+/// never satisfy them.
+const grow_pages: usize = 4;
+
 const min_block_size: usize = @sizeOf(BlockHeader) * 2 + @sizeOf(BlockFooter);
 
 const BlockHeader = struct {
@@ -56,7 +61,8 @@ pub const HeapAllocator = struct {
         _ = ret_addr;
         const self: *HeapAllocator = @ptrCast(@alignCast(ctx));
         const new_mem = self.rawAlloc(new_len, alignment) catch return null;
-        @memcpy(new_mem[0..@min(memory.len, new_len)], memory);
+        const copy_len = @min(memory.len, new_len);
+        @memcpy(new_mem[0..copy_len], memory[0..copy_len]);
         self.rawFree(memory.ptr, memory.len);
         return new_mem;
     }
@@ -96,16 +102,16 @@ pub const HeapAllocator = struct {
         block.free = true;
         block.prev_free = null;
         block.next_free = null;
-        self.coalesce(block);
-        self.link(block);
+        const merged = self.coalesce(block);
+        self.link(merged);
     }
 
     fn grow(self: *HeapAllocator) !void {
-        const page = try self.pfa.allocPage(true);
-        const virtual = page + self.pfa.hhdm_offset;
+        const pages = try self.pfa.allocPages(grow_pages, true);
+        const virtual = pages[0] + self.pfa.hhdm_offset;
         const block: *BlockHeader = @ptrFromInt(virtual);
         block.* = .{
-            .size = pfa.page_size,
+            .size = grow_pages * pfa.page_size,
             .free = true,
             .prev_free = null,
             .next_free = null,
@@ -140,21 +146,25 @@ pub const HeapAllocator = struct {
         self.link(remainder);
     }
 
-    fn coalesce(self: *HeapAllocator, block: *BlockHeader) void {
+    fn coalesce(self: *HeapAllocator, block_in: *BlockHeader) *BlockHeader {
+        var block = block_in;
         const page_start = @intFromPtr(block) & ~(pfa.page_size - 1);
-        const page_end = page_start + pfa.page_size;
+        const page_end = page_start + grow_pages * pfa.page_size;
 
-        if (@intFromPtr(block) > page_start + @sizeOf(BlockHeader)) {
-            const prev: *BlockHeader = @ptrFromInt(@intFromPtr(block) - @sizeOf(BlockHeader) * 2 - @as(usize, block.size));
+        // backward merge — read the footer of the PREVIOUS block, not the
+        // size of the current one (a boundary tag gives the true previous size)
+        if (@intFromPtr(block) >= page_start + @sizeOf(BlockFooter)) {
+            const prev_footer: *BlockFooter = @ptrFromInt(@intFromPtr(block) - @sizeOf(BlockFooter));
+            const prev: *BlockHeader = @ptrFromInt(@intFromPtr(block) - prev_footer.size);
             if (@intFromPtr(prev) >= page_start and prev.free) {
                 self.unlink(prev);
                 prev.size += block.size;
                 self.writeFooter(prev);
-                self.coalesce(prev);
-                return;
+                block = prev; // continue with the merged block, no recursion
             }
         }
 
+        // forward merge
         const next_addr = @intFromPtr(block) + block.size;
         if (next_addr < page_end) {
             const next: *BlockHeader = @ptrFromInt(next_addr);
@@ -164,6 +174,8 @@ pub const HeapAllocator = struct {
                 self.writeFooter(block);
             }
         }
+
+        return block;
     }
 
     fn link(self: *HeapAllocator, block: *BlockHeader) void {

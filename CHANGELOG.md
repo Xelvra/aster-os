@@ -125,3 +125,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Host tests for framebuffer (fill/clip/blit), renderer (drawGlyph/drawText), font,
   console, and input mapping; runtime test for framebuffer writes in QEMU.
 - Kernel image 33.8 KB (target < 128 KB).
+
+### Milestone M4 — Lua
+
+- **Lua 5.4.8 runtime** embedded in the kernel: 27 core `.c` files compiled into the
+  kernel module (`build.zig`), no system libc dependency for the target.
+- **Freestanding libc shim** for Lua (`libs/lua-5.4/include/` headers +
+  `src/kernel/lua/libc.zig`): string/ctype/`snprintf`/`strtod`/`pow`/`frexp`/`ldexp`/
+  `acos`/`asin`/`atan2`, `setjmp`/`longjmp` in assembler (`setjmp.s`), deterministic
+  `time`/`clock`, and file I/O stubs (for the never-used `luaL_loadfilex`).
+- **Runtime module** (`src/kernel/api/runtime.zig`): `RuntimeKind` enum, `spawn`,
+  `reload` (hot reload), wired into `sys.dispatch` as the `Runtime` syscall.
+- **Lua wrapper** (`src/kernel/lua/lua.zig`): `lua_State` on the kernel heap via a
+  `lua_Alloc` callback, custom `openLibraries` (base/coroutine/table/string/utf8/math —
+  io/os/package/debug excluded, no FS/dynamic loading), GC step budget,
+  `render`/`update` hooks.
+- **Lua bindings** (`src/kernel/lua/bindings.zig`): `gfx.*` (`draw_rect`, `draw_text`,
+  `fill_screen`, `present`), `input.next_event`, `time.ticks`; strict type validation —
+  floats are rejected (`nil, err`), never a kernel panic (runtime.md §4/§5).
+- **Keyboard layout** (`src/kernel/input/layout.zig`): the single place that maps a
+  `KeyCode` + shift/ctrl to a character (US 105+). `input.next_event` sends the shell a
+  ready `char`; Lua does no mapping. Host tests in `tests/input/layout_test.zig`.
+- **main.lua** embedded via `@embedFile`, runs at boot; starts an interactive Lua REPL
+  (banner + `> ` prompt, Enter runs a line via `load`/`pcall`, `print()` writes to the
+  screen, characters come from the kernel layout).
+- **Event loop**: `update()` calls Lua `update` + GC step; `render()` calls Lua
+  `render`. Key events stay queued for `input.next_event`; F5 triggers hot reload
+  (re-initializes `lua_State`, spec/runtime.md §5).
+- **Console removed** (`ui/console.zig` + host tests): replaced by the Lua shell in M4;
+  the M3 console no longer draws its `>` prompt on first frame.
+- **HeapAllocator fixes** (troubleshooting C17):
+  - `coalesce` computed the previous block address from the current block size instead
+    of the boundary-tag footer, and after a backward merge `rawFree` linked the
+    already-absorbed block — two overlapping free blocks corrupted the heap after
+    ~150 Lua allocations (#6 invalid opcode).
+  - `remapFn` copied with `@memcpy(dst[0..@min(...)], src)` — Zig's ReleaseSafe overlap
+    check emitted `ud2`; fixed with explicit equal-length slices.
+  - `grow()` now allocates 4 pages (16 KiB) at once — Lua's loadbuffer needs
+    allocations larger than a single 4 KiB page.
+- Runtime tests for Lua bindings in QEMU (state, gfx table, render function, render
+  runs without fault).
+- Kernel image 343 KiB (target < 512 KB with Lua).

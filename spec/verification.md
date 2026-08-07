@@ -58,7 +58,9 @@ kterou jde spustit mimo cílový hardware:
 zahrnují **negativní/adversarial vstupy** — špatné typy, záporné souřadnice,
 přeplněné buffer délky, codepointy mimo font — ne jen příkladové happy path.
 Od M4 se uvažuje fuzz harness na vstupy z Lua strany (jádro běží v Ring 0,
-špatná konverze je stejně nebezpečná jako bug v jádře).
+špatná konverze je stejně nebezpečná jako bug v jádře). Lua binding marshalling se
+od M4 testuje v QEMU runtime testech (reálný `lua_State` + volání bindingů), protože
+hostitelský build Lua by duplikoval kernel konfiguraci.
 
 ### Krok 4 — QEMU smoke test
 

@@ -10,12 +10,11 @@ const apic = @import("cpu/apic.zig");
 const page_map = @import("mem/page_map.zig");
 const ps2 = @import("drivers/ps2.zig");
 const input_queue = @import("input_queue.zig");
-const input = @import("input.zig");
 const framebuffer = @import("fb/framebuffer.zig");
 const renderer_mod = @import("render/renderer.zig");
-const console_mod = @import("ui/console.zig");
 const graphics = @import("api/graphics.zig");
 const runtime_test = @import("runtime_test.zig");
+const lua = @import("lua/lua.zig");
 
 export fn _start() callconv(.c) noreturn {
     enable_sse();
@@ -34,7 +33,6 @@ fn enable_sse() void {
     write_cr4(read_cr4() | (3 << 9));
     write_mxcsr(0x1F80);
 }
-
 fn read_cr0() u64 {
     return asm volatile ("mov %%cr0, %[v]"
         : [v] "=r" (-> u64),
@@ -99,6 +97,15 @@ fn kernelMain() !void {
 
     initGraphics(&info);
 
+    const runtime = @import("api/runtime.zig");
+    runtime.init(alloc);
+    const program = runtime.spawn(.{ .kind = .Lua, .entry = "main.lua" }) catch |err| {
+        serial.writeLine("runtime: lua spawn failed");
+        return err;
+    };
+    _ = program;
+    serial.writeLine("runtime: lua spawn ok");
+
     testKiDispatch();
 
     asm volatile ("sti" ::: .{ .memory = true });
@@ -109,13 +116,8 @@ fn kernelMain() !void {
     eventLoop();
 }
 
-const console_cols = 80;
-const console_rows = 24;
-var shift_pressed = false;
 var fb_storage: ?framebuffer.Framebuffer = null;
 var renderer: renderer_mod.Renderer = undefined;
-var console = console_mod.Console.init();
-var console_cells_storage: [console_rows * console_cols]u8 = undefined;
 
 fn initGraphics(info: *const boot_info.BootInfo) void {
     const fb_info = info.framebuffer orelse {
@@ -125,10 +127,7 @@ fn initGraphics(info: *const boot_info.BootInfo) void {
     fb_storage = framebuffer.Framebuffer.init(fb_info);
     renderer = renderer_mod.Renderer.init(&fb_storage.?);
     graphics.init(renderer);
-    console.reset(console_cols, console_rows, &console_cells_storage);
-    console.typeChar('>');
     renderer.fillScreen(0x000000);
-    console.render(&renderer, 8, 8, 0xFFFFFF);
     serial.writeLine("graphics: framebuffer ok");
 }
 
@@ -147,61 +146,52 @@ fn testKiDispatch() void {
     }
 }
 
+var needs_render = true;
+
 fn eventLoop() noreturn {
     while (true) {
         poll();
         update();
-        render();
+        if (needs_render) {
+            render();
+            needs_render = false;
+        }
         asm volatile ("hlt" ::: .{ .memory = true });
     }
 }
 
 fn poll() void {
-    while (input_queue.global.pop()) |event| {
+    // In M4 the Lua shell reads key events through input.next_event().
+    // Consume timer ticks here; stop at the first key so it stays queued.
+    while (true) {
+        const event = input_queue.global.peek() orelse break;
         switch (event) {
-            .timer_tick => |t| {
-                _ = t;
+            .timer_tick => {
+                _ = input_queue.global.pop();
             },
             .key => |key| {
-                if (key.pressed) {
-                    updateKey(key.code);
-                } else {
-                    releaseKey(key.code);
+                if (key.code == .f5 and key.pressed) {
+                    _ = input_queue.global.pop();
+                    serial.writeLine("shell: hot reload (F5)");
+                    const runtime = @import("api/runtime.zig");
+                    runtime.reload();
+                    needs_render = true;
                 }
+                needs_render = true;
+                break;
             },
         }
     }
 }
 
-fn releaseKey(code: input.KeyCode) void {
-    switch (code) {
-        .shift_left, .shift_right => shift_pressed = false,
-        else => {},
-    }
+fn update() void {
+    _ = lua.callUpdate();
+    lua.gcStep(1024);
 }
-
-fn updateKey(code: input.KeyCode) void {
-    switch (code) {
-        .shift_left, .shift_right => shift_pressed = true,
-        .enter => console.newline(),
-        .backspace => console.backspace(),
-        else => {
-            if (input.keyToCodepoint(code, shift_pressed)) |c| {
-                console.typeChar(c);
-            }
-        },
-    }
-}
-
-fn update() void {}
 
 fn render() void {
     if (graphics.renderer == null) return;
-    if (!console.dirty) return;
-    console.dirty = false;
-    const r = graphics.renderer.?;
-    r.fillScreen(0x000000);
-    console.render(&r, 8, 8, 0xFFFFFF);
+    _ = lua.callRender();
 }
 
 fn printMemoryInfo(memory: *mem.Memory, info: *const boot_info.BootInfo) void {

@@ -50,7 +50,8 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 | M2 (cíl) | < 96 KB | ≤ 4 MB | < 20 ms | — | TBD |
 | **M3 (měřeno)** | **33.8 KB** | — | **≈ 3.6 s wall-clock**¹ | — | TBD |
 | M3 (cíl) | < 128 KB | ≤ 6 MB | < 25 ms | < 16 ms | TBD |
-| M4 | < 512 KB (s Lua) | ≤ 12 MB | < 40 ms | < 16 ms | TBD |
+| **M4 (měřeno)** | **343 KiB** | — | **≈ 3.3 s wall-clock**¹ | TBD | TBD |
+| M4 (cíl) | < 512 KB (s Lua) | ≤ 12 MB | < 40 ms | < 16 ms | TBD |
 | M5 | < 512 KB | ≤ 16 MB | < 40 ms | < 16 ms | TBD |
 | M6 | < 768 KB | ≤ 24 MB | < 50 ms | < 16 ms | TBD |
 | M7 | < 1 MB | ≤ 32 MB | < 50 ms | < 16 ms | TBD |
@@ -154,24 +155,36 @@ první runtime testy v QEMU zelené (exit kód 0).
 
 ### M4 — Lua
 
-**Cíl:** "Hello from Lua" na obrazovce + hot reload.
+**Cíl:** interaktivní Lua REPL v kernelu + hot reload.
 
-- [ ] Lua 5.4.8 kompilace jako C statická knihovna v `build.zig` (žádný system libc
+- [x] Lua 5.4.8 kompilace jako C statická knihovna v `build.zig` (žádný system libc
       dependency pro target).
-- [ ] `@cImport` Lua hlaviček; `api/runtime.zig` s `RuntimeKind.Lua`.
-- [ ] Bindings: `gfx.*`, `input.*`, `time.*` (konvence spec `runtime.md` §4).
-- [ ] `main.lua` **embedded** v binárce, spouštěný při bootu.
-- [ ] Lua kreslí první snímek ("Hello from Lua"), reaguje na klávesnici.
-- [ ] **GC tempo:** rozpočet `collectgarbage("step", N)` v každém `update()`, měření
+- [x] `@cImport` Lua hlaviček; `api/runtime.zig` s `RuntimeKind.Lua`.
+- [x] Bindings: `gfx.*`, `input.*`, `time.*` (konvence spec `runtime.md` §4).
+- [x] `main.lua` **embedded** v binárce, spouštěný při bootu.
+- [x] Lua kreslí první snímek ("Hello from Lua"), reaguje na klávesnici.
+- [x] **GC tempo:** rozpočet `collectgarbage("step", N)` v každém `update()`, měření
       frame latency p99; případně generační režim (spec `runtime.md` §6).
-- [ ] **Hot reload:** re-inicializace Lua státu bez restartu (klávesová zkratka);
+- [x] **Hot reload:** re-inicializace Lua státu bez restartu (klávesová zkratka F5);
       teardown userdata/callbacků starého státu (spec `runtime.md` §5).
-- [ ] **Runtime testy Lua bindings** v QEMU (`verification.md` Krok 4b) — reálné
+- [x] **Runtime testy Lua bindings** v QEMU (`verification.md` Krok 4b) — reálné
       volání bindingů v kernel kontextu, ne jen host mocky.
-- [ ] Metriky do tabulky (velikost skočí o Lua, zdokumentovat).
+- [x] Metriky do tabulky (velikost skočí o Lua, zdokumentovat).
 
 **DoD:** "Hello from Lua" v QEMU, klávesnice funguje z Lua, hot reload funguje, testy
 binding marshallingu zelené.
+
+> **Stav:** Lua 5.4.8 běží v kernelu. Otevřeny liby `base`, `coroutine`, `table`,
+> `string`, `utf8`, `math` (io/os/package/debug vyřazeny — bez FS, bez dynamic loading,
+> integer-only KI). Freestanding libc shim (`libs/lua-5.4/include/` +
+> `src/kernel/lua/libc.zig`): string/ctype/snprintf/strtod/pow/acos/asin/atan2 +
+> `setjmp`/`longjmp` (asm), deterministické `time`/`clock`, file stubs pro
+> `luaL_loadfilex`. Hot reload přes F5. Po startu běží **interaktivní Lua REPL** (banner
+> + `> ` prompt, `load`/`pcall`, `print` na obrazovku). **Layout klávesnice** je
+> infrastruktura (`input/layout.zig`, US 105+) — binding posílá `char`, Lua nemapuje.
+> Koalesce bug v `HeapAllocator` opraven (špatný výpočet `prev` + linkování pohlceného
+> bloku) — viz `spec/troubleshooting.md` C17. `grow()` alokuje 4 stránky (16 KB)
+> najednou — Lua loadbuffer potřebuje alokace > 4 KB.
 
 ### M5 — UI (Shell v Luay)
 

@@ -34,6 +34,47 @@ pub fn build(b: *std.Build) void {
     kernel.pie = true;
     kernel.link_z_max_page_size = 0x1000;
     kernel.root_module.addAssemblyFile(b.path("src/kernel/cpu/isr.s"));
+    kernel.root_module.addAssemblyFile(b.path("src/kernel/lua/setjmp.s"));
+
+    const lua_sources = [_][]const u8{
+        "libs/lua-5.4/src/lapi.c",
+        "libs/lua-5.4/src/lauxlib.c",
+        "libs/lua-5.4/src/lbaselib.c",
+        "libs/lua-5.4/src/lcode.c",
+        "libs/lua-5.4/src/lcorolib.c",
+        "libs/lua-5.4/src/lctype.c",
+        "libs/lua-5.4/src/ldebug.c",
+        "libs/lua-5.4/src/ldo.c",
+        "libs/lua-5.4/src/ldump.c",
+        "libs/lua-5.4/src/lfunc.c",
+        "libs/lua-5.4/src/lgc.c",
+        "libs/lua-5.4/src/llex.c",
+        "libs/lua-5.4/src/lmathlib.c",
+        "libs/lua-5.4/src/lmem.c",
+        "libs/lua-5.4/src/lobject.c",
+        "libs/lua-5.4/src/lopcodes.c",
+        "libs/lua-5.4/src/lparser.c",
+        "libs/lua-5.4/src/lstate.c",
+        "libs/lua-5.4/src/lstring.c",
+        "libs/lua-5.4/src/lstrlib.c",
+        "libs/lua-5.4/src/ltable.c",
+        "libs/lua-5.4/src/ltablib.c",
+        "libs/lua-5.4/src/ltm.c",
+        "libs/lua-5.4/src/lundump.c",
+        "libs/lua-5.4/src/lutf8lib.c",
+        "libs/lua-5.4/src/lvm.c",
+        "libs/lua-5.4/src/lzio.c",
+    };
+    kernel.root_module.addIncludePath(b.path("libs/lua-5.4/src"));
+    kernel.root_module.addIncludePath(b.path("libs/lua-5.4/include"));
+    kernel.root_module.addCSourceFiles(.{
+        .files = &lua_sources,
+        .flags = &.{ "-std=c99", "-ffreestanding", "-fno-builtin" },
+    });
+    kernel.root_module.addCSourceFile(.{
+        .file = b.path("src/kernel/lua/vsnprintf.c"),
+        .flags = &.{ "-std=c99", "-ffreestanding", "-fno-builtin" },
+    });
     b.installArtifact(kernel);
 
     const iso_root = b.addWriteFiles();

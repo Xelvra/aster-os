@@ -104,8 +104,15 @@ while (true) {
   (`key a down`, `key enter up`, ...).
 - **M3 stav:** `KeyCode` → ASCII codepoint s modifikátorem shift (`keyToCodepoint`),
   konzole vypisuje znaky na obrazovku (psaní viditelné v QEMU).
-- **Odloženo:** USB HID (mapuje usage → stejný `KeyCode`), klávesnice layouty, myš
-  (myš je samostatná událost — viz §7).
+- **M4 stav:** klávesy jdou do Lua shellu přes `input.next_event()`; kernel v `poll()`
+  zpracovává jen timer ticky a klávesy nechává ve frontě (F5 vyhraděno pro hot reload).
+- **Layout infrastruktura:** `src/kernel/input/layout.zig` je jediné místo, které zná
+  rozložení klávesnice (`KeyCode × shift/ctrl → char`, US 105+). KI binding
+  `input.next_event()` posílá Lua **připravený `char`** — Lua nic nemapuje. Přidání
+  jiného layoutu (národní znaková sada) = nová datová tabulka v `layout.zig`, bez
+  změny logiky. Host testy: `tests/input/layout_test.zig`.
+- **Odloženo:** USB HID (mapuje usage → stejný `KeyCode`), myš (myš je samostatná
+  událost — viz §7).
 
 ---
 

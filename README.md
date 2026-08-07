@@ -1,7 +1,7 @@
 # Aster OS
 
 [![status](https://img.shields.io/badge/status-pre--alpha-red.svg)](spec/roadmap.md)
-[![milestone](https://img.shields.io/badge/milestone-M2%20CPU-informational.svg)](spec/roadmap.md)
+[![milestone](https://img.shields.io/badge/milestone-M4%20Lua-informational.svg)](spec/roadmap.md)
 [![Zig](https://img.shields.io/badge/Zig-0.16.0-f7a41d.svg)](.zig-version)
 [![architecture](https://img.shields.io/badge/arch-x86__64-blue.svg)](spec/architecture-overview.md)
 [![bootloader](https://img.shields.io/badge/bootloader-Limine-808080.svg)](libs/limine)
@@ -26,6 +26,14 @@ This project requires the Zig version listed in [`.zig-version`](.zig-version).
 
 ## Status
 
+- **Milestone M4 (Lua) complete:** Lua 5.4.8 runtime embedded in the kernel (freestanding
+  libc shim + custom openlibs: base/coroutine/table/string/utf8/math); `api/runtime.zig`
+  with `RuntimeKind.Lua` and hot reload (F5); Lua bindings `gfx.*`, `input.next_event`,
+  `time.ticks` with strict type validation (floats rejected); keyboard layout is
+  infrastructure (`input/layout.zig`, US 105+) — bindings send a ready `char`; after boot
+  an interactive **Lua REPL** starts (banner + `> ` prompt, type code, Enter runs it,
+  `print()` writes to the screen); GC step budget per frame; runtime tests for Lua
+  bindings in QEMU. Kernel image 343 KiB (< 512 KB target).
 - **Milestone M3 (Graphics) complete:** Limine GOP framebuffer wrapped in `Framebuffer`;
   renderer (`drawRect`, `blit`, `fillScreen`, `drawGlyph`, `drawText`) with clipping;
   embedded VGA 8×16 bitmap font; Graphics API module (`api/graphics.zig`) in KI dispatch;
@@ -85,7 +93,7 @@ zig build test         # host unit tests
 ║         ZIG KERNEL         ║
 ║           RING 0           ║
 ║                            ║
-║       # M0/M1/M2/M3        ║
+║       # M0/M1/M2/M3/M4     ║
 ║                            ║
 ║  CPU / MEMORY / IRQ        ║
 ║  DRIVERS / SCHEDULER (M7+) ║
@@ -141,7 +149,7 @@ If the system crashes or hangs: [`spec/debugging.md`](spec/debugging.md)
 | M1 ✅ | Memory: PFA + heap allocator |
 | M2 ✅ | CPU: IDT, APIC timer, IOAPIC, PS/2 keyboard |
 | M3 ✅ | Graphics: framebuffer, renderer, text on screen |
-| M4 | Lua: "Hello from Lua" on screen, hot reload |
+| M4 ✅ | Lua: interactive REPL in kernel, hot reload |
 | M5–M8 | UI (shell in Lua), storage, runtime (wasm), stabilization |
 
 Details in [`spec/roadmap.md`](spec/roadmap.md).
