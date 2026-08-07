@@ -21,6 +21,13 @@ var mouse_byte_idx: u8 = 0;
 /// missing device: the port is tested first and every command waits for
 /// its ACK with a bounded timeout, so init can never stall the controller
 /// (which would freeze the keyboard that shares the same data register).
+///
+/// Every write to the controller waits for the input buffer to be empty
+/// first (status_input_full == 0), same as ps2_keyboard.zig. The i8042 is
+/// slow to consume bytes; firing commands back-to-back without this can
+/// silently drop or corrupt them, leaving the config byte -- shared with
+/// the keyboard port -- in a broken state that makes both devices behave
+/// erratically.
 pub fn init() void {
     // Drain any stale bytes left in the output buffer (e.g. the keyboard's
     // ACK to 0xF4 from ps2_keyboard.init) so the port-2 test result below
@@ -30,7 +37,7 @@ pub fn init() void {
     }
 
     // Test whether a device is present on port 2 before touching it.
-    out8(ps2_command, 0xA9); // test port 2
+    sendCommand(0xA9); // test port 2
     var spins: u32 = 0;
     while (in8(ps2_status) & status_output_full == 0) : (spins += 1) {
         if (spins > 100000) return; // no response -> no mouse
@@ -40,14 +47,30 @@ pub fn init() void {
 
     // Enable port 2 and set its IRQ bit in the config byte. Keep the
     // keyboard (port 1) enabled and translation on.
-    out8(ps2_command, 0xA8); // enable port 2 (no response byte)
-    out8(ps2_command, 0x20); // read config
+    sendCommand(0xA8); // enable port 2 (no response byte)
+    sendCommand(0x20); // read config
     const cfg = waitOutput() orelse return;
-    out8(ps2_command, 0x60); // write config (no response byte)
-    out8(ps2_data, (cfg | 0x02) & ~@as(u8, 0x20)); // IRQ12 on, port2 clock on
+    sendCommand(0x60); // write config (no response byte)
+    sendData((cfg | 0x02) & ~@as(u8, 0x20)); // IRQ12 on, port2 clock on
 
     // Tell the mouse to start reporting; wait for its ACK.
     _ = mouseCommand(0xF4);
+}
+
+fn sendCommand(cmd: u8) void {
+    var spins: u32 = 0;
+    while (in8(ps2_status) & status_input_full != 0) : (spins += 1) {
+        if (spins > 100000) return;
+    }
+    out8(ps2_command, cmd);
+}
+
+fn sendData(data: u8) void {
+    var spins: u32 = 0;
+    while (in8(ps2_status) & status_input_full != 0) : (spins += 1) {
+        if (spins > 100000) return;
+    }
+    out8(ps2_data, data);
 }
 
 fn waitOutput() ?u8 {
@@ -60,14 +83,10 @@ fn waitOutput() ?u8 {
 
 fn mouseCommand(cmd: u8) ?u8 {
     // Write a command to the mouse: prefix with 0xD4 (write to port 2).
-    out8(ps2_command, 0xD4);
-    var spins: u32 = 0;
-    while (in8(ps2_status) & status_input_full != 0) : (spins += 1) {
-        if (spins > 100000) return null;
-    }
-    out8(ps2_data, cmd);
+    sendCommand(0xD4);
+    sendData(cmd);
     // Wait for the ACK byte.
-    spins = 0;
+    var spins: u32 = 0;
     while (spins < 100000) : (spins += 1) {
         if (in8(ps2_status) & status_output_full != 0) {
             const b = in8(ps2_data);
