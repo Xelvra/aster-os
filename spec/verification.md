@@ -114,6 +114,9 @@ se přidávají **runtime testy** — hostitelské testy už na ně nestačí:
 - [ ] Ke každé nové logice existuje test (host unit test) nebo zdůvodnění, proč ne.
 - [ ] Invarianty (`spec/invariants.md`) zkontrolovány bod po bodu.
 - [ ] Kvalitní metrika zapsaná do `spec/roadmap.md`, pokud milník ovlivňuje boot/RAM/velikost.
+- [ ] Na konci každého milníku proběhl optimalizační průchod (roadmapa §4, pravidlo 5):
+      metriky proti cílům, benchmark před/po (`tools/bench.sh`, render throughput),
+      výsledky zapsané do tabulky v `spec/roadmap.md`.
 - [ ] **Dokumentace aktualizovaná** — změněné specifikace, ADR nebo roadmapa jsou součástí
       stejné změny; žádná feature bez zapsané dokumentace není hotová.
 - [ ] V kódu není `TODO`, `FIXME` ani zakomentovaný blok.

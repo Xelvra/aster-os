@@ -250,7 +250,8 @@ binding marshallingu zelené.
 **Cíl:** uhlazený základ pro další vývoj.
 
 - [ ] Audit invariantů (spec `invariants.md`) bod po bodu.
-- [ ] Problémové metriky pod cílem; optimalizace podle měření.
+- [ ] Problémové metriky pod cílem; optimalizace podle měření (pravidlo č. 5 v §4 —
+      poslední optimalizační průchod před stabilizací).
 - [ ] Rozhodnutí o dalším směru: (a) více funkcí, (b) začít oddělovat do Ring 3.
       Pro volbu (b) je **transport KI připravený dopředu** (ADR-018: mailbox IPC,
       comptime dispatch, IRQ routing) — implementuje se až tady, ne dřív.
@@ -267,8 +268,15 @@ binding marshallingu zelené.
 3. **Žádná nová feature bez zelené pipeline** (spec `verification.md`).
 4. **Architektura se dál neoptimalizuje na papíře.** Další zlepšení vycházejí z reálných
    zkušeností z implementace (boot, text, Lua VM), ne z hypotetických scénářů.
-5. Změny rozhraní (KI) = nový ADR v `spec/adr/`, nikdy tichá úprava.
-6. **Dokumentace se aktualizuje s každou feature.** Feature bez zapsaného metrikového
+5. **Po každém milníku (M-cast) proběhne optimalizační průchod.** Před zahájením dalšího
+   milníku se zkontrolují metriky proti cílům a provedou se cílené optimalizace:
+   - velikost binárky (sekce `.text`/`.rodata`, mrtvý kód, kompilační flagy C zdrojů),
+   - hot spoty (render pipeline, heap allocator, event loop) — měřit, ne odhadovat,
+   - benchmark **před a po** (`tools/bench.sh`, runtime test `render throughput`),
+   - žádná optimalizace bez zapsané hodnoty do tabulky v §2.
+   Výsledky se zapíší do tabulky metrik a případně do `spec/troubleshooting.md`.
+6. Změny rozhraní (KI) = nový ADR v `spec/adr/`, nikdy tichá úprava.
+7. **Dokumentace se aktualizuje s každou feature.** Feature bez zapsaného metrikového
    řádku *a* bez aktualizace příslušné specifikace není hotová (viz `spec/verification.md`
    DoD).
 
