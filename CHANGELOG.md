@@ -195,7 +195,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `limine.conf` requests `resolution: 800x600`, so the window fits the host screen
   (framebuffer and mouse coords stay native). QEMU-specific; real-hardware behaviour
   must be re-verified once USB boot lands.
+- **Desktop shell — window manager** (`main.lua`): the REPL-only screen becomes a small
+  tiling WM driven by a declarative `theme` table (colors + geometry are data, hot
+  reload via F5). Cachy-style dark palette, Noctalia-style 35px bar (launcher, clock,
+  workspace capsules, volume/session placeholders), tiling 60/40 or stacked splits,
+  focus ring via a 45° gradient border, opacity 0.95/0.85, border 2, radius 10,
+  gaps 8/3. The REPL stays as a window inside the shell.
+  - **Shortcuts**: Super+1/2/3 workspace, Super+Q close, Super+arrows cycle focus,
+    Alt+Tab cycle, Super+D launcher, Super+grave toggle REPL, F5 hot reload.
+  - **Mouse in Lua**: `input.mouse_x/y/left/right/middle` share the state the kernel
+    cursor overlay uses; a click on a window header focuses it, on a workspace capsule
+    switches workspace.
+  - **Super key**: `KeyCode.super_left/right` from PS/2 ext codes 0x5B/0x5C, `ev.super`
+    in Lua.
+- **New graphics primitives** (frozen KI ops 7–9): `round_rect`, `rect_border` and
+  `gradient_border` (linear interpolation for the active window border), implemented
+  in framebuffer/renderer with bounds clipping.
+- Fixed: a window on a non-active workspace had 0×0 size, underflowing u32 arithmetic
+  in `fillRect` and faulting the kernel (#UD) — the shell renders only windows of the
+  active workspace.
 - New host tests: `tests/input/mouse_test.zig` (movement, dy inversion, buttons, sign
-  extension, out-of-sync, overflow rejection). 49 tests total.
+  extension, out-of-sync, overflow rejection). 53 tests total.
 - Render optimization: REPL repaints only the text area when the background is
   unchanged (was a full `fill_screen` per key).
