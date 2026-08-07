@@ -117,8 +117,11 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 
 - [ ] GDT (dle potřeby), **IDT** se všemi entry, správné nastavení segmentů.
 - [ ] **Local APIC timer** jako tick zdroj (MSR `IA32_APIC_BASE`, LVT) + korektní
-      **remap a maska legacy 8259 PIC** pro PS/2 IRQ1. **Žádný I/O APIC, žádné ACPI
-      MADT parsování** — viz `spec/timer.md` §1 a `spec/non-goals.md`.
+      remap legacy 8259 PIC. **I/O APIC**: pro doručení ISA IRQ v APIC režimu je nutné
+      programovat redirection table (IRQ1 → vektor 0x21, BSP); **žádné ACPI MADT
+      parsování** — IOAPIC adresa (0xFEC00000) je hardcoded pro QEMU. Dluh do M7
+      (SMP): MADT (RSDP → RSDT/XSDT → MADT) pro skutečné LAPIC ID, ISA IRQ→GSI
+      overrides a detekci NMI. Viz `spec/non-goals.md`.
 - [ ] **Fault policy:** defaultní IDT handlers pro double fault / GPF / page fault —
       výpis stavu na serial a halt (ne reset, ne tiché pokračování). Detail
       `spec/invariants.md` §1 (Safety).
@@ -225,7 +228,7 @@ binding marshallingu zelené.
 - [ ] Rozhodnutí o dalším směru: (a) více funkcí, (b) začít oddělovat do Ring 3.
       Pro volbu (b) je **transport KI připravený dopředu** (ADR-018: mailbox IPC,
       comptime dispatch, IRQ routing) — implementuje se až tady, ne dřív.
-- [ ] Nové features (zvuk, Bluetooth, síť M9+, prohlížeč v Luay) se přidávají podle
+- [ ] Nové features (zvuk/audio, síť M9+, prohlížeč v Luay) se přidávají podle
       **ADR-020** — jako nové KI moduly na konec enumu, bez úpravy existujících.
 
 ---

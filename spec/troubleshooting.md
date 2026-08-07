@@ -82,7 +82,23 @@ v kontextu zpožděné.
 
 ---
 
-## 6. Jak předcházet (meta-lekce)
+## 6. IDT, APIC, IOAPIC, PS/2 (M2)
+
+| Záznam | Symptom | Příčina | Řešení | Ověřit |
+| C1 | lidt způsobí GP/triple fault, kernel ani nezačne | `IdtRegister = extern struct { limit: u16, base: u64 }` má v ABI velikost **16 B** (padding za `u16`), ale `lidt` čte **10 B** — načte base z offsetu 2, kde je padding, ne z offsetu 8 | descriptor držet jako `[10]u8` buffer a vstřelit base na offset 2; nebo `@alignCast` + vědomý layout | boot, IDT load bez GP |
+| C2 | `lidt` v ReleaseSafe čte špatný pointer; v Debug OK | operandy `"m"(reg)` nechá kompilátor udělat pointer indirection přes registr, který v ReleaseSafe nemusí být ten, co čekáš; `lidt (%reg)` sám dereferencuje | constrain na `"r"(reg)` a v asm použít `lidt (%[reg])` — předá se *hodnota* adresy | boot, `lidt` OK v ReleaseSafe |
+| C3 | APIC timer nestartuje / čte garbage | registry se píší na offsetech 0x320/0x3E0/0x380 (MB), ne 0x32/0x3E/0x38 | konstanty `0x320`, `0x3E0`, `0x380`, `0xB0` | boot, "ticks: 1000/2000..." |
+| C4 | #PF při prvním přístupu na APIC/IOAPIC | Limine HHDM **nemapuje MMIO** (APIC 0xFEE00000, IOAPIC 0xFEC00000); kernel adresy jsou na `0xffffffff80000000+`, HHDM na `0xffff800000000000+` — nelze odečítat `hhdm_offset` od adresy kernelu | `page_map.mapPage(phys + hhdm_offset, phys, 0x1A)` s RW+PWT/PCD bity | boot, apic/ioapic bez #PF |
+| C5 | ISR stubs: vektor 0x80+ generuje 5B instrukci, rozbije uniformní layout | `pushq $imm8` pro vektor ≥ 0x80 sign-extenduje a assembler vybere 5B `68 imm32` místo 2B `6A imm8` | stubs generovat přes `.byte 0x6a` (vynucený 2B push) + `.byte vector` | `objdump` ISR stubs všech 256 × 9 B |
+| C6 | ISR stubs chybí v binárce (fault "no handler") | assembly `.s` soubor se k exe nepřidá, nebo linker DCE-odstraní stubs (nepoužité symboly) | `exe.addAssemblyFile("src/kernel/cpu/isr.s")` + `link_gc_sections = false` | smoke: faults jdou do handlerů, ne GP |
+| C7 | IRQ1 (klávesnice) nikdy nedojde; PIC unmask nepomáhá; poll funguje | v APIC režimu jdou ISA IRQ přes **IOAPIC redirection table**, ne přes PIC; bez zapsaného entry je IRQ1 maskovaný | v `apic.init` mapovat IOAPIC a `enableIsaIrq(1, 0x21)` (GSI = IRQ, entry: vektor, dest=0, unmasked, edge) | QEMU `-d int` ukáže `INT=0x21`; `key: 0x1e` po sendkey |
+| C8 | po IRQ1 kernel zacyklí/hang, ticker i klávesnice zmrznou | IRQ šel přes IOAPIC→LAPIC, ale handler posílal **PIC EOI**; LAPIC ISR bit zůstává nastavený → po IRET se IRQ okamžitě znovu vyvolá | EOI do **LAPIC** (`writeReg(0xB0, 0)`), ne do PIC | klávesnice funguje, ticker běží dál |
+| C9 | klávesnice odpovídá (poll vidí scancode), ale IRQ nedorazí | i8042 config nemá povolený IRQ1 enable (bit 0) + klávesnice není v scan módu | `ps2.init`: config `0x41` (IRQ1 enable + translation) + `0xF4` (enable scanning); handler filtruje ACK `0xFA`/`0xAA`/`0xFF`/`0x00` | `sendkey` → `key: 0x1e`, `key: 0x30` |
+| C10 | debug scancode se píše do serialu, ale event loop nic | scancode v ISR handleru se čte jen když `status & 0x01` (output buffer full) | handler i poll čtou jen přes `ps2_status`; EOI vždy po IRQ | konzistentní `key:` zprávy |
+
+---
+
+## 7. Jak předcházet (meta-lekce)
 
 - **Měň jednu věc a ověřuj** — při M0 se střídaly strip/linker.ld/optimize současně, což
   zamlžilo příčiny. Jeden faktor na krok.
@@ -96,3 +112,9 @@ v kontextu zpožděné.
   inicializuje na místě.
 - **Limine memory map obsahuje obří MMIO regiony** (řádově TB), které nejsou RAM.
   Bitmapa PFA a smyčky přes stránky musí filtrovat typy (H4).
+- **APIC režim mění cestu ISA IRQ** — s lokálním APIC jdou legacy přerušení (klávesnice IRQ1,
+  timer, atd.) přes **IOAPIC redirection table**, ne přes PIC. PIC remap + unmask nestačí;
+  EOI se posílá do LAPIC, ne do PIC (C7, C8).
+- **MMIO periferie (APIC/IOAPIC) vyžadují explicitní mapování** — HHDM je mapuje jen když
+  bootloader řekne; bez `mapPage` je přístup #PF. Adresy kernelu (`0xffffffff8...`) a HHDM
+  (`0xffff8000...`) jsou různé rozsahy, hhdm_offset platí jen pro fyzické mapování (C4).

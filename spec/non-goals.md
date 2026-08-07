@@ -20,8 +20,8 @@ na tento dokument.
 | **GPU akcelerace** | ❌ Ne | Framebuffer přes GOP (Limine); renderer je softwarový. |
 | **Bezpečnostní certifikace** | ❌ Ne | Neformální systém; izolace je managed runtime úroveň (ADR-002). |
 | **Multi-user prostředí** | ❌ Ne | Jeden uživatel, žádné účty. |
-| **Zvuk / Bluetooth** | ❌ Ne (teď) | Rozšiřitelné přes KI: nová feature = nový KI modul přidaný na konec enumu (pravidlo §4.2 v `kernel-interface.md`), nikdy úprava existujících. Do té doby mimo roadmapu. |
-| **ACPI power management** | ❌ Ne | Žádné uspávání/spouštění; ACPI parsování se **není potřeba** — tick zdroj je Local APIC timer (MSR, bez MADT), vstup zůstává na legacy PIC (spec `timer.md` §1). I/O APIC (a tedy MADT) je vědomě mimo rozsah. |
+| **Zvuk / audio** | ❌ Ne (teď) | Rozšiřitelné přes KI: nová feature = nový KI modul přidaný na konec enumu (pravidlo §4.2 v `kernel-interface.md`), nikdy úprava existujících. Do té doby mimo roadmapu. |
+| **ACPI power management** | ❌ Ne | Žádné uspávání/spouštění; tick zdroj je Local APIC timer (MSR, bez MADT). **I/O APIC** je od M2 součást (hardcoded 0xFEC00000 pro QEMU — nutný pro doručení ISA IRQ v APIC režimu). **MADT parsování** (RSDP → RSDT/XSDT → MADT) je dluh do M7 (SMP): skutečné LAPIC ID, ISA IRQ→GSI overrides, NMI detekce. Viz `roadmap.md` M2. |
 | **Perzistence před M6** | ❌ Ne | Žádný FS do M6 (ADR-010); assety embedded. |
 | **Síťové/cloudové služby** | ❌ Ne | Lokální experimentální systém. |
 | **Arm / jiné architektury** | ❌ Ne | x86_64 (QEMU target); port by si vyžádal arch-neutrální KI důsledněji. |

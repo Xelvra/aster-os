@@ -67,3 +67,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (M9+) for third-party Wasm applications. WASI lives in the runtime (over wasm3), not
   the kernel — it maps WASI syscalls to KI calls, keeping the "no POSIX in kernel"
   non-goal intact (`runtime.md` §7.1, `non-goals.md`, ADR-020).
+
+### Milestone M2 — CPU (WIP, not committed)
+
+- GDT/IDT setup (`src/kernel/cpu/idt.zig`, `isr.s`): 256 uniform ISR stubs (9 B each via
+  `.byte 0x6a`), exception/fault policy, `lidt` via `[10]u8` descriptor buffer.
+- PIC 8259 remap to vectors 0x20–0x2F (legacy fallback; active ISA IRQs run over IOAPIC).
+- Local APIC timer (`src/kernel/cpu/apic.zig`): 1 kHz periodic tick, LAPIC EOI, MMIO
+  mapping via PFA-backed `page_map`. SVR initialized explicitly (APIC enable + spurious
+  vector 0xFF); spurious interrupt handled as silent no-op without EOI (IDT vector 0xFF).
+- IOAPIC: maps 0xFEC00000 and programs redirection entry for IRQ1 (keyboard) to vector
+  0x21 — required for ISA IRQ delivery while the APIC is enabled.
+- PS/2 keyboard (`src/kernel/drivers/ps2.zig`): i8042 config (IRQ1 enable + translation),
+  enable scanning, scancode → input event queue (`input_queue.zig`).
+- Event loop prints tick counter and key scancodes; verified in QEMU via `sendkey`
+  (`key: 0x1e`, `key: 0x30`, `key: 0x2e` for a/b/c).
+- `spec/troubleshooting.md`: new section 6 with IDT/APIC/IOAPIC/PS/2 lessons (C1–C10).

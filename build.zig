@@ -27,6 +27,8 @@ pub fn build(b: *std.Build) void {
     });
     kernel.pie = true;
     kernel.link_z_max_page_size = 0x1000;
+    kernel.link_gc_sections = false;
+    kernel.root_module.addAssemblyFile(b.path("src/kernel/cpu/isr.s"));
     b.installArtifact(kernel);
 
     const iso_root = b.addWriteFiles();

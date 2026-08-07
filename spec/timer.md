@@ -7,21 +7,23 @@
 
 ## 1. Časový zdroj (M2)
 
-### 1.1 Rozhodnutí: Local APIC timer + legacy PIC
+### 1.1 Rozhodnutí: Local APIC timer + I/O APIC pro ISA IRQ
 
 - **Tick zdroj:** **Local APIC timer** — periodické přerušení pro ticky a měření.
   Local APIC se objeví bez ACPI přes MSR `IA32_APIC_BASE`; nastavení ticku proběhne
-  přes LVT (`APIC_TIMER`).
-- **Vstup (klávesnice):** zůstává **legacy 8259 PIC** — IRQ1 (PS/2). I/O APIC se
-  **neaktivuje**, protože by vyžadoval parsování ACPI MADT, které je non-goal
-  (`spec/non-goals.md`).
-- **Přechod PIC → APIC:** starý PIC se korektně remapuje (nové vektory) a **maskuje**,
+  přes LVT (`APIC_TIMER`). SVR se inicializuje explicitně (APIC enable + spurious
+  vektor 0xFF); spurious se ignoruje bez EOI (`src/kernel/cpu/idt.zig`).
+- **Vstup (klávesnice):** IRQ1 (PS/2). V APIC režimu jdou ISA IRQ přes **I/O APIC
+  redirection table**, ne přes PIC — `apic.init` programuje entry IRQ1 → vektor 0x21
+  (BSP, edge, unmasked). I/O APIC adresa (0xFEC00000) je hardcoded pro QEMU.
+- **Legacy PIC:** remapuje se (nové vektory 0x20–0x2F) a plně maskuje jako fallback,
   aby nevznikaly spurious IRQ na špatných vektorech — standardní 8259 remap
   (`ICW1..ICW4`), ještě před prvním tickem.
+- **EOI:** jde do **LAPIC** (offset 0xB0), ne do PIC — IRQ se doručuje přes IOAPIC→LAPIC.
 
-> Tím zůstává `non-goals.md` pravdivý: **žádné ACPI parsování není potřeba.**
-> Local APIC timer nevyžaduje MADT; klávesnice zůstává na PIC. Přepnutí I/O APIC
-> by bylo vědomé rozšíření rozsahu (nový ADR), ne plánovaná cesta.
+> **Dluh do M7 (SMP):** MADT parsování (RSDP → RSDT/XSDT → MADT) — pro skutečné
+> LAPIC ID, ISA IRQ→GSI overrides a detekci NMI. Pro M2/M3 (QEMU) je hardcode
+> adresy dostatečný. Viz `roadmap.md` M2 a `non-goals.md`.
 
 ### 1.2 Tick frekvence
 

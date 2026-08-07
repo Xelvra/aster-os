@@ -4,6 +4,12 @@ const boot = @import("boot/boot.zig");
 const boot_info = @import("boot/boot_info.zig");
 const mem = @import("mem/mem.zig");
 const cache_attr = @import("mem/cache_attr.zig");
+const idt = @import("cpu/idt.zig");
+const pic = @import("drivers/pic.zig");
+const apic = @import("cpu/apic.zig");
+const page_map = @import("mem/page_map.zig");
+const ps2 = @import("drivers/ps2.zig");
+const input_queue = @import("input_queue.zig");
 
 export fn _start() callconv(.c) noreturn {
     enable_sse();
@@ -62,6 +68,11 @@ fn kernelMain() !void {
     const info = try boot.collect();
     printBootInfo(&info);
 
+    idt.init();
+    serial.writeLine("idt: init ok");
+    pic.remap();
+    serial.writeLine("pic: remap ok");
+
     var memory = try mem.Memory.init(&info);
     printMemoryInfo(&memory, &info);
 
@@ -75,7 +86,43 @@ fn kernelMain() !void {
         serial.writeLine("heap alloc test: failed");
     }
 
-    halt();
+    page_map.init(&memory.pfa, info.hhdm_offset);
+    apic.init(info.hhdm_offset);
+    ps2.init();
+    serial.writeLine("apic: init ok");
+
+    asm volatile ("sti" ::: .{ .memory = true });
+    serial.writeLine("timer test: waiting for ticks");
+    eventLoop();
+}
+
+fn eventLoop() noreturn {
+    var last_tick: u64 = 0;
+    var buf: [64]u8 = undefined;
+    while (true) {
+        const ticks = idt.tick_counter.load(.monotonic);
+        if (ticks >= last_tick + 1000) {
+            last_tick = ticks;
+            const line = std.fmt.bufPrint(&buf, "ticks: {}", .{ticks}) catch "ticks: err";
+            serial.writeLine(line);
+        }
+        while (input_queue.global.pop()) |event| {
+            switch (event) {
+                .timer_tick => |t| {
+                    _ = t;
+                },
+                .key_down => |sc| {
+                    const line = std.fmt.bufPrint(&buf, "key: 0x{x}", .{sc}) catch "key: err";
+                    serial.writeLine(line);
+                },
+                .key_up => |sc| {
+                    const line = std.fmt.bufPrint(&buf, "key up: 0x{x}", .{sc}) catch "key up: err";
+                    serial.writeLine(line);
+                },
+            }
+        }
+        asm volatile ("hlt" ::: .{ .memory = true });
+    }
 }
 
 fn printMemoryInfo(memory: *mem.Memory, info: *const boot_info.BootInfo) void {
@@ -84,6 +131,10 @@ fn printMemoryInfo(memory: *mem.Memory, info: *const boot_info.BootInfo) void {
     var usable_total: u64 = 0;
     for (info.memory_entries) |entry| {
         if (entry.type == .usable) usable_total += entry.length;
+        if (entry.base >= 0xfe000000 and entry.base < 0xff000000) {
+            const mm = std.fmt.bufPrint(&buf, "mm: base=0x{x} len=0x{x} type={}", .{ entry.base, entry.length, @intFromEnum(entry.type) }) catch return;
+            serial.writeLine(mm);
+        }
     }
     const ram = std.fmt.bufPrint(&buf, "usable ram: {} bytes ({} MiB)", .{ usable_total, usable_total / (1024 * 1024) }) catch return;
     serial.writeLine(ram);

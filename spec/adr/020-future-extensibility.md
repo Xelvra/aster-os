@@ -4,7 +4,7 @@
 **Datum:** 2026-08-06
 
 ## Rozhodnutí
-Budoucí features — zvuk, Bluetooth, síť, prohlížeč v Luay apod. — se přidávají **jako
+Budoucí features — zvuk (audio), síť, prohlížeč v Luay apod. — se přidávají **jako
 nové KI moduly přidané na konec enumu**, nikdy úpravou existujících. Kernel nepředpokládá
 žádnou z nich dopředu; vše, co dnes navrhujeme, musí zůstat rozšiřitelné bez bourání.
 
@@ -16,7 +16,7 @@ na konec**. Žádná dnešní struktura se nesmí navrhovat tak, aby budoucí fe
 její přepis („lepení nebo bourání").
 
 ## Důsledky
-- **Nová feature = nový KI modul** (`sound.zig`, `net.zig`, `bt.zig`, ...) s vlastními
+- **Nová feature = nový KI modul** (`sound.zig`, `net.zig`, ...) s vlastními
   sub-op čísly od 0; `Syscall` enum dostane nové položky na konec. Existující moduly
   a čísla se nemění.
 - **Prohlížeč v Luay** je jen další Lua klient Graphics/Input/Net API — nevyžaduje žádný
