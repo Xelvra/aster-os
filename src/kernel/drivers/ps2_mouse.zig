@@ -40,13 +40,10 @@ pub fn init() void {
 
     // Enable port 2 and set its IRQ bit in the config byte. Keep the
     // keyboard (port 1) enabled and translation on.
-    out8(ps2_command, 0xA8); // enable port 2
-    _ = waitOutput();
+    out8(ps2_command, 0xA8); // enable port 2 (no response byte)
     out8(ps2_command, 0x20); // read config
-    _ = waitOutput();
-    const cfg = in8(ps2_data);
-    out8(ps2_command, 0x60);
-    _ = waitOutput();
+    const cfg = waitOutput() orelse return;
+    out8(ps2_command, 0x60); // write config (no response byte)
     out8(ps2_data, (cfg | 0x02) & ~@as(u8, 0x20)); // IRQ12 on, port2 clock on
 
     // Tell the mouse to start reporting; wait for its ACK.
@@ -90,7 +87,9 @@ pub fn handleIrq12() void {
     // would desynchronize the packet stream.
     if (status & status_output_full != 0 and status & status_mouse_data != 0) {
         const byte = in8(ps2_data);
-        if (byte == ps2_ack or byte == 0xAA) return; // ACK / self-test
+        // No ACK filtering here: after 0xF4 the device streams pure packet
+        // data, and 0xFA/0xAA are valid dx/dy byte values. ACKs are only
+        // consumed synchronously inside mouseCommand() during init.
         mouse_packet[mouse_byte_idx] = byte;
         mouse_byte_idx +%= 1;
         if (mouse_byte_idx >= 3) {
