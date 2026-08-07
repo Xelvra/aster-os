@@ -56,6 +56,8 @@ local windows = {}
 local focused = nil -- title of the focused window
 local current_ws = 1
 local drag = nil     -- { title, dx, dy } while dragging a window header
+local layout_mode = "splith" -- "splith" (side by side) or "splitv" (stacked)
+local fullscreen_win = nil    -- title of a fullscreen window, if any
 
 local function window(title, ws)
     return { title = title, ws = ws, x = 0, y = 0, w = 0, h = 0, floating = false }
@@ -103,6 +105,18 @@ local function layout_pass()
     local area_y = bar_h + out
     local area_w = SW - 2 * out
     local area_h = SH - bar_h - 2 * out
+
+    -- Fullscreen: the window covers everything (no bar, no gaps).
+    if fullscreen_win then
+        local w = find_win(fullscreen_win)
+        if w and w.ws == current_ws then
+            w.x, w.y, w.w, w.h = 0, 0, SW, SH
+            return
+        else
+            fullscreen_win = nil
+        end
+    end
+
     local ws_wins = {}
     for _, w in ipairs(windows) do
         if w.ws == current_ws and not w.floating then ws_wins[#ws_wins + 1] = w end
@@ -111,7 +125,7 @@ local function layout_pass()
     for i, w in ipairs(ws_wins) do
         if n == 1 then
             w.x, w.y, w.w, w.h = area_x, area_y, area_w, area_h
-        elseif n == 2 then
+        elseif layout_mode == "splith" then
             -- Side by side; focused window gets the wider split (60/40).
             local f = (focused == w.title)
             local left = (i == 1)
@@ -129,7 +143,7 @@ local function layout_pass()
                 w.h = area_h
             end
         else
-            -- Stack vertically.
+            -- splitv: stack vertically.
             local gap = inner + border
             local row_h = math.floor((area_h - (n - 1) * gap) / n)
             w.x = area_x
@@ -147,6 +161,7 @@ end
 local clock_cache = nil
 
 local function bar_render()
+    if fullscreen_win then return end
     local bar_h = theme.bar.height
     gfx.draw_rect(0, 0, SW, bar_h, theme.surface)
 
@@ -432,10 +447,29 @@ local function handle_key(ev)
         return
     end
 
+    -- SUPER = mainMod (Hyprland convention). Window management:
+    --   Super+Enter     terminal (REPL dropdown)
+    --   Super+Q         close focused window
+    --   Super+Space     launcher
+    --   Super+Alt+Space float toggle
+    --   Super+F / D     fullscreen
+    --   Super+J         togglesplit
+    --   Super+arrows    focus direction
+    --   Super+Shift+arrows  move window (swap position)
+    --   Super+1/2/3     workspace
+    --   Super+Shift+1/2/3   move window to workspace
+    --   Super+S         toggle special (scratchpad)
     if ev.super and ev.pressed then
-        if code == "digit_1" then current_ws = 1
-        elseif code == "digit_2" then current_ws = 2
-        elseif code == "digit_3" then current_ws = 3
+        if code == "digit_1" then
+            current_ws = 1
+        elseif code == "digit_2" then
+            current_ws = 2
+        elseif code == "digit_3" then
+            current_ws = 3
+        elseif code == "enter" then
+            -- Terminal: show the REPL and focus it.
+            repl_visible = true
+            set_focus("repl")
         elseif code == "q" then
             if find_win(focused) then
                 for i, w in ipairs(windows) do
@@ -443,39 +477,75 @@ local function handle_key(ev)
                 end
                 if #windows > 0 then set_focus(windows[#windows].title) end
             end
-        elseif code == "d" then
-            launcher_open = not launcher_open
-        elseif code == "grave" then
-            repl_visible = not repl_visible
         elseif code == "space" then
+            if ev.alt then
+                -- Super+Alt+Space: float toggle.
+                local w = find_win(focused)
+                if w and w.ws == current_ws then
+                    w.floating = not w.floating
+                    if not w.floating then
+                        w.x, w.y, w.w, w.h = 0, 0, 0, 0
+                    else
+                        w.w = math.floor(SW * 0.5)
+                        w.h = math.floor((SH - theme.bar.height) * 0.6)
+                        w.x = math.floor((SW - w.w) / 2)
+                        w.y = theme.bar.height + math.floor(((SH - theme.bar.height) - w.h) / 2)
+                    end
+                end
+            else
+                launcher_open = not launcher_open
+            end
+        elseif code == "f" or code == "d" then
+            -- Fullscreen toggle.
+            if fullscreen_win == focused then
+                fullscreen_win = nil
+            elseif find_win(focused) then
+                fullscreen_win = focused
+            end
+        elseif code == "j" then
+            -- Toggle between side-by-side and stacked layout.
+            layout_mode = (layout_mode == "splith") and "splitv" or "splith"
+        elseif code == "s" then
+            -- Scratchpad: float the focused window (special workspace).
             local w = find_win(focused)
-            if w and w.ws == current_ws then
-                w.floating = not w.floating
-                if not w.floating then
+            if w then
+                if w.floating then
+                    w.floating = false
                     w.x, w.y, w.w, w.h = 0, 0, 0, 0
                 else
-                    -- Float at the center of the current split.
+                    w.floating = true
                     w.w = math.floor(SW * 0.5)
-                    w.h = math.floor((SH - theme.bar.height) * 0.6)
+                    w.h = math.floor((SH - theme.bar.height) * 0.5)
                     w.x = math.floor((SW - w.w) / 2)
-                    w.y = theme.bar.height + math.floor(((SH - theme.bar.height) - w.h) / 2)
+                    w.y = theme.bar.height + 8
                 end
             end
         elseif ev.shift then
-            -- Super+Shift+arrows: move the focused window to another workspace.
+            -- Super+Shift+arrows: move the focused window in the layout or to
+            -- another workspace. Super+Shift+1/2/3 moves it to that workspace.
             local w = find_win(focused)
             if w then
-                if code == "right" then
+                if code == "digit_1" then
+                    w.ws = 1
+                elseif code == "digit_2" then
+                    w.ws = 2
+                elseif code == "digit_3" then
+                    w.ws = 3
+                elseif code == "right" then
                     w.ws = math.min(w.ws + 1, #theme.ws)
                 elseif code == "left" then
+                    w.ws = math.max(w.ws - 1, 1)
+                elseif code == "down" then
+                    w.ws = math.min(w.ws + 1, #theme.ws)
+                elseif code == "up" then
                     w.ws = math.max(w.ws - 1, 1)
                 end
                 w.floating = false
                 w.x, w.y, w.w, w.h = 0, 0, 0, 0
                 current_ws = w.ws
             end
-        elseif code == "left" or code == "right" then
-            -- Cycle focus among windows on this workspace.
+        elseif code == "left" or code == "right" or code == "up" or code == "down" then
+            -- Focus in a direction among windows on this workspace.
             local ws_wins = {}
             for _, w in ipairs(windows) do
                 if w.ws == current_ws then ws_wins[#ws_wins + 1] = w end
@@ -483,7 +553,7 @@ local function handle_key(ev)
             if #ws_wins > 0 then
                 local idx = 1
                 for i, w in ipairs(ws_wins) do if w.title == focused then idx = i break end end
-                local dir = (code == "right") and 1 or -1
+                local dir = (code == "right" or code == "down") and 1 or -1
                 local nxt = ws_wins[((idx - 1 + dir) % #ws_wins) + 1]
                 if nxt then set_focus(nxt.title) end
             end
