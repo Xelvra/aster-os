@@ -11,6 +11,11 @@ pub fn build(b: *std.Build) void {
     else
         .ReleaseSafe;
 
+    const runtime_tests = b.option(bool, "runtime-tests", "Build kernel with in-QEMU runtime tests") orelse false;
+
+    const kernel_options = b.addOptions();
+    kernel_options.addOption(bool, "runtime_tests", runtime_tests);
+
     const kernel = b.addExecutable(.{
         .name = "aster",
         .root_module = b.createModule(.{
@@ -25,9 +30,9 @@ pub fn build(b: *std.Build) void {
             .strip = optimize != .Debug,
         }),
     });
+    kernel.root_module.addOptions("build_options", kernel_options);
     kernel.pie = true;
     kernel.link_z_max_page_size = 0x1000;
-    kernel.link_gc_sections = false;
     kernel.root_module.addAssemblyFile(b.path("src/kernel/cpu/isr.s"));
     b.installArtifact(kernel);
 
@@ -91,6 +96,28 @@ pub fn build(b: *std.Build) void {
 
     const run_step = b.step("run", "Boot Aster in QEMU");
     run_step.dependOn(&run_cmd.step);
+
+    const rt_run_cmd = b.addSystemCommand(&.{"qemu-system-x86_64"});
+    rt_run_cmd.addArg("-M");
+    rt_run_cmd.addArg("q35");
+    rt_run_cmd.addArg("-m");
+    rt_run_cmd.addArg("512M");
+    rt_run_cmd.addArg("-cdrom");
+    rt_run_cmd.addFileArg(iso_path);
+    rt_run_cmd.addArg("-device");
+    rt_run_cmd.addArg("isa-debug-exit");
+    rt_run_cmd.addArg("-serial");
+    rt_run_cmd.addArg("stdio");
+    rt_run_cmd.addArg("-no-reboot");
+    rt_run_cmd.expectExitCode(99);
+    rt_run_cmd.step.dependOn(&bios_install.step);
+
+    const rt_step = b.step("runtime-test", "Run in-QEMU runtime tests via isa-debug-exit");
+    if (runtime_tests) {
+        rt_step.dependOn(&rt_run_cmd.step);
+    } else {
+        rt_step.dependOn(&b.addFail("runtime tests need '-Druntime-tests=true'").step);
+    }
 
     const tests = b.addTest(.{
         .root_module = b.createModule(.{

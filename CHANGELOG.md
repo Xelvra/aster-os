@@ -85,5 +85,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   enable scanning, scancode set-1 → `KeyCode` map, push `KeyEvent` into `input_queue`.
 - Event loop prints tick counter and key events; verified in QEMU via `sendkey`
   (`key a down/up`, `key enter down/up`).
-- `spec/troubleshooting.md`: new section 6 with IDT/APIC/IOAPIC/PS/2 lessons (C1–C11);
+- **Fault policy + freestanding backtrace** (`src/kernel/cpu/idt.zig`): `ASTER FAULT`
+  dump (vec, err, rip, cr2, rbp) + frame-pointer backtrace; no `std.fmt` in fault
+  context (recursive fault, see troubleshooting C12).
+- **Dispatch layer** (`src/kernel/api/sys.zig`): KI enumeration (`Syscall`), `KiStatus`,
+  `Debug.write` via pointer args; self-test at boot.
+- **Runtime tests in QEMU** (`src/kernel/runtime_test.zig`, `tools/qemu-test.sh`,
+  `zig build runtime-test -Druntime-tests=true`): in-kernel tests exit QEMU via
+  `isa-debug-exit` (pass = write 0x31 → exit 99, fail = 0x30 → exit 97); first test:
+  APIC timer ticks through the event queue.
+- Removed `link_gc_sections = false`: it bloated the kernel ~7× (196 KB → 28.8 KB) by
+  disabling DCE over `std`; ISR stubs survive because `idt.zig` references them via
+  `@extern` (troubleshooting C6).
+- `spec/troubleshooting.md`: new section 6 with IDT/APIC/IOAPIC/PS/2 lessons (C1–C13);
   `spec/input.md` updated with driver/subsystem/KI layering.
+- Kernel image 28.8 KB (target < 96 KB).

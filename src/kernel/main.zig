@@ -10,6 +10,8 @@ const apic = @import("cpu/apic.zig");
 const page_map = @import("mem/page_map.zig");
 const ps2 = @import("drivers/ps2.zig");
 const input_queue = @import("input_queue.zig");
+const runtime_test = @import("runtime_test.zig");
+const build_options = @import("build_options");
 
 export fn _start() callconv(.c) noreturn {
     enable_sse();
@@ -91,9 +93,29 @@ fn kernelMain() !void {
     ps2.init();
     serial.writeLine("apic: init ok");
 
+    testKiDispatch();
+
     asm volatile ("sti" ::: .{ .memory = true });
+    if (comptime runtime_test.enabled) {
+        runtime_test.runAll();
+    }
     serial.writeLine("timer test: waiting for ticks");
     eventLoop();
+}
+
+fn testKiDispatch() void {
+    const sys = @import("api/sys.zig");
+    const msg = "ki dispatch test";
+    const status = sys.dispatch(.Debug, .{
+        .a = @intFromEnum(sys.DebugOp.write),
+        .b = @intFromPtr(msg),
+        .c = msg.len,
+    });
+    if (status == 0) {
+        serial.writeLine("ki dispatch: ok");
+    } else {
+        serial.writeLine("ki dispatch: failed");
+    }
 }
 
 fn eventLoop() noreturn {

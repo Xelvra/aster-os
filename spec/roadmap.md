@@ -46,7 +46,8 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 | M0 (cíl) | < 64 KB | — | < 10 ms | — | TBD |
 | **M1 (měřeno)** | **17.4 KB** | — | **≈ 3.4 s wall-clock**¹ | — | TBD |
 | M1 (cíl) | < 80 KB | ≤ 4 MB | < 15 ms | — | TBD |
-| M2 | < 96 KB | ≤ 4 MB | < 20 ms | — | TBD |
+| **M2 (měřeno)** | **28.8 KB** | — | **≈ 3.5 s wall-clock**¹ | — | TBD |
+| M2 (cíl) | < 96 KB | ≤ 4 MB | < 20 ms | — | TBD |
 | M3 | < 128 KB | ≤ 6 MB | < 25 ms | < 16 ms | TBD |
 | M4 | < 512 KB (s Lua) | ≤ 12 MB | < 40 ms | < 16 ms | TBD |
 | M5 | < 512 KB | ≤ 16 MB | < 40 ms | < 16 ms | TBD |
@@ -115,22 +116,22 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 
 **Cíl:** přerušení, časovač, vstup.
 
-- [ ] GDT (dle potřeby), **IDT** se všemi entry, správné nastavení segmentů.
-- [ ] **Local APIC timer** jako tick zdroj (MSR `IA32_APIC_BASE`, LVT) + korektní
+- [x] GDT (dle potřeby), **IDT** se všemi entry, správné nastavení segmentů.
+- [x] **Local APIC timer** jako tick zdroj (MSR `IA32_APIC_BASE`, LVT) + korektní
       remap legacy 8259 PIC. **I/O APIC**: pro doručení ISA IRQ v APIC režimu je nutné
       programovat redirection table (IRQ1 → vektor 0x21, BSP); **žádné ACPI MADT
       parsování** — IOAPIC adresa (0xFEC00000) je hardcoded pro QEMU. Dluh do M7
       (SMP): MADT (RSDP → RSDT/XSDT → MADT) pro skutečné LAPIC ID, ISA IRQ→GSI
       overrides a detekci NMI. Viz `spec/non-goals.md`.
-- [ ] **Fault policy:** defaultní IDT handlers pro double fault / GPF / page fault —
+- [x] **Fault policy:** defaultní IDT handlers pro double fault / GPF / page fault —
       výpis stavu na serial a halt (ne reset, ne tiché pokračování). Detail
       `spec/invariants.md` §1 (Safety).
-- [ ] **PS/2 klávesnice** — IRQ1, scancode na serial.
-- [ ] Začátek **dispatch vrstvy** (`api/sys.zig`), KI enumerace.
-- [ ] Atomická fronta událostí (spec `input.md`), `dropped` čítač.
-- [ ] **Runtime testy v QEMU** (`isa-debug-exit`, exit kód) — první běžící runtime
+- [x] **PS/2 klávesnice** — IRQ1, scancode → KeyEvent (subsystem `input.zig`).
+- [x] Začátek **dispatch vrstvy** (`api/sys.zig`), KI enumerace.
+- [x] Atomická fronta událostí (spec `input.md`), `dropped` čítač.
+- [x] **Runtime testy v QEMU** (`isa-debug-exit`, exit kód) — první běžící runtime
       testy (tick, IDT, fronta událostí); mechanismus spec `verification.md` Krok 4b.
-- [ ] **Freestanding backtrace** v panic/fault handleru (spec `invariants.md` §1).
+- [x] **Freestanding backtrace** v panic/fault handleru (spec `invariants.md` §1).
 - [ ] Metriky do tabulky.
 
 **DoD:** scancody a tickery na serial; dispatch vrstva kompiluje; host testy zelené;

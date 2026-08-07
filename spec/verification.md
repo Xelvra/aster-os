@@ -74,15 +74,18 @@ Smoke test dokazuje jen "bootuje". Od M2 (IRQ/timer/PS2, kde logika závisí na 
 se přidávají **runtime testy** — hostitelské testy už na ně nestačí:
 
 - Kernel se bootne v QEMU s **`isa-debug-exit`** zařízením; testy běží **uvnitř kernelu**
-  a při úspěchu/neúspěchu **ukončí QEMU definovaným exit kódem** (0 = pass, nenulový = fail).
-- Framework: minimalistický runtime test modul s `expect`/`expectEqual` — bez závislosti
-  na hostitelském test runneru. Chyba → výpis na serial + ukončení s nenulovým kódem.
-- Testy se registrují za normální kód (comptime/`@branchHint(.cold)`), v produkčním
-  buildu se stripují (compile-time flag).
+  a při úspěchu/neúspěchu **ukončí QEMU definovaným exit kódem**.
+  QEMU `debugexit` vrací `(val << 1) | 1` — konvence: **pass = 99** (kernel zapíše `0x31`),
+  **fail = 97** (kernel zapíše `0x30`). Build step `expectExitCode(99)`; skript
+  `tools/qemu-test.sh` kontroluje 99.
+- Spouští se přes `zig build runtime-test -Druntime-tests=true` nebo `tools/qemu-test.sh`.
+- Framework: minimalistický runtime test modul s `expect` — bez závislosti
+  na hostitelském test runneru. Chyba → výpis na serial + ukončení s fail kódem (97).
+- Testy se registrují za normální kód; v produkčním buildu se stripují
+  (compile-time flag `-Druntime-tests`, `comptime runtime_test.enabled`).
 - **Idle watchdog:** pokud se test zacyklí (nekonečná smyčka, deadlock), QEMU by jinak
-  běžel věčně a skončil jen timeoutem. Watchdog sleduje dobu běhu idle vlákna — když
-  systém „nedělá nic" příliš dlouho, ukončí běh s fail kódem. Oddělí „test selhal"
-  od „test se zasekl".
+  běžel věčně a skončil jen timeoutem skriptu (`QEMU_TEST_TIMEOUT`, default 30s).
+  Oddělí „test selhal" (97) od „test se zasekl" (timeout).
 - **Rozsah:** věci nehostovatelné host unit testy — PFA na reálné paměti, IDT/fault
   policy, tick/časovač, vstupní fronta, později Lua bindings a renderer (M4+).
 - DoD milníku zahrnuje zelený runtime test kromě host testů a smoke testu.

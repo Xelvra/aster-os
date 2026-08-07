@@ -82,11 +82,45 @@ comptime {
 }
 
 fn handleFault(vector: usize, frame: *InterruptFrame) void {
-    _ = frame;
-    var buf: [96]u8 = undefined;
-    const m = std.fmt.bufPrint(&buf, "FAULT vec=0x{x} cr2=0x{x:0>16}", .{ vector, read_cr2() }) catch "FAULT";
-    serial.writeLine(m);
+    serial.writeLine("ASTER FAULT");
+    writeHexNibble("vec", @as(u64, @intCast(vector)));
+    writeHexNibble("err", frame.error_code);
+    writeHexNibble("rip", frame.rip);
+    writeHexNibble("cr2", read_cr2());
+    writeHexNibble("rbp", frame.rbp);
+    printBacktrace(frame.rbp);
     halt();
+}
+
+const max_backtrace_depth = 8;
+
+fn printBacktrace(frame_pointer: u64) void {
+    var fp: u64 = frame_pointer;
+    var depth: usize = 0;
+    while (fp != 0 and depth < max_backtrace_depth) : (depth += 1) {
+        const return_addr: u64 = @as(*const u64, @ptrFromInt(fp + 8)).*;
+        if (return_addr == 0) break;
+        writeHexNibble("bt", return_addr);
+        fp = @as(*const u64, @ptrFromInt(fp)).*;
+    }
+}
+
+const hex_digits = "0123456789abcdef";
+
+fn writeHexNibble(label: []const u8, value: u64) void {
+    serial.writeChar(' ');
+    for (label) |c| serial.writeChar(c);
+    serial.writeChar('=');
+    serial.writeChar('0');
+    serial.writeChar('x');
+    var shift: u6 = 60;
+    while (true) {
+        const digit: u8 = @intCast((value >> shift) & 0xF);
+        serial.writeChar(hex_digits[digit]);
+        if (shift == 0) break;
+        shift -= 4;
+    }
+    serial.writeLine("");
 }
 
 pub const InterruptFrame = struct {
