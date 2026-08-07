@@ -41,6 +41,7 @@ pub fn init(hhdm_offset: u64) void {
     writeReg(apic_timer_initial, 0x200000);
 
     enableIsaIrq(1, 0x21);
+    enableIsaIrq(12, 0x22);
 }
 
 pub fn enableIsaIrq(isa_irq: u8, vector: u8) void {

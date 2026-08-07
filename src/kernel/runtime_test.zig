@@ -25,11 +25,37 @@ fn testTimerTicks() void {
             switch (event) {
                 .timer_tick => ticks_seen += 1,
                 .key => {},
+                .mouse => {},
             }
         }
         asm volatile ("hlt" ::: .{ .memory = true });
     }
     expect(ticks_seen >= 5, "APIC timer produces tick events through the queue");
+}
+
+fn testMouseEvent() void {
+    // Drain whatever IRQs already queued (timer ticks, keys).
+    while (input_queue.global.pop()) |_| {}
+
+    input_queue.global.push(.{ .mouse = .{
+        .dx = 3,
+        .dy = -2,
+        .left = true,
+        .right = false,
+        .middle = false,
+    } });
+    const event = input_queue.global.pop() orelse {
+        expect(false, "mouse event popped from queue");
+        return;
+    };
+    switch (event) {
+        .mouse => |m| {
+            expect(m.dx == 3, "mouse dx preserved");
+            expect(m.dy == -2, "mouse dy preserved");
+            expect(m.left, "mouse left button preserved");
+        },
+        else => expect(false, "event is a mouse event"),
+    }
 }
 
 fn testFramebufferWrites() void {
@@ -83,6 +109,7 @@ fn testRenderThroughput() void {
 
 const tests = [_]Test{
     .{ .name = "timer tick + event queue", .func = testTimerTicks },
+    .{ .name = "mouse event queue", .func = testMouseEvent },
     .{ .name = "framebuffer write + drawText", .func = testFramebufferWrites },
     .{ .name = "lua bindings + render", .func = testLuaBindings },
     .{ .name = "render throughput", .func = testRenderThroughput },

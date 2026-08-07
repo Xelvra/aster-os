@@ -8,6 +8,7 @@ const queue_capacity = 256;
 pub const Event = union(enum) {
     timer_tick: u64,
     key: input.KeyEvent,
+    mouse: input.MouseEvent,
 };
 
 pub const EventQueue = struct {

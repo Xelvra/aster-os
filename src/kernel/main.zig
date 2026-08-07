@@ -190,6 +190,10 @@ fn poll() void {
                 if (key.pressed) needs_render = true;
                 break;
             },
+            .mouse => {
+                needs_render = true;
+                break;
+            },
         }
     }
 }

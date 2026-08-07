@@ -176,6 +176,20 @@ fn inputNextEvent(L: ?*lua_c.lua_State) callconv(.c) c_int {
                 lua_c.lua_setfield(L, -2, "char");
             }
         },
+        .mouse => |m| {
+            _ = lua_c.lua_pushliteral(L, "mouse");
+            lua_c.lua_setfield(L, -2, "type");
+            lua_c.lua_pushinteger(L, m.dx);
+            lua_c.lua_setfield(L, -2, "dx");
+            lua_c.lua_pushinteger(L, m.dy);
+            lua_c.lua_setfield(L, -2, "dy");
+            lua_c.lua_pushboolean(L, if (m.left) 1 else 0);
+            lua_c.lua_setfield(L, -2, "left");
+            lua_c.lua_pushboolean(L, if (m.right) 1 else 0);
+            lua_c.lua_setfield(L, -2, "right");
+            lua_c.lua_pushboolean(L, if (m.middle) 1 else 0);
+            lua_c.lua_setfield(L, -2, "middle");
+        },
     }
     return 1;
 }

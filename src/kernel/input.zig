@@ -110,6 +110,16 @@ pub const KeyEvent = struct {
     pressed: bool,
 };
 
+/// PS/2 mouse event: relative movement since the last packet plus the
+/// current button state.
+pub const MouseEvent = struct {
+    dx: i16,
+    dy: i16,
+    left: bool,
+    right: bool,
+    middle: bool,
+};
+
 pub fn eventName(event: KeyEvent) []const u8 {
     return @tagName(event.code);
 }

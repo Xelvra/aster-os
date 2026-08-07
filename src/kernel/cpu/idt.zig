@@ -70,6 +70,12 @@ fn handleIsrImpl(frame: *InterruptFrame) callconv(.c) void {
             ps2.handleIrq1();
             ack.sendEoi();
         },
+        0x22 => {
+            const ack = @import("apic.zig");
+            const ps2 = @import("../drivers/ps2.zig");
+            ps2.handleIrq12();
+            ack.sendEoi();
+        },
         0xFF => {},
         else => handleFault(vector, frame),
     }
