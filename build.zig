@@ -140,6 +140,11 @@ pub fn build(b: *std.Build) void {
     run_cmd.addArg("-cdrom");
     run_cmd.addFileArg(iso_path);
     run_cmd.step.dependOn(&bios_install.step);
+    run_cmd.addArg("-display");
+    // Scale the 1280x800 window to fit the host screen (the kernel draws at
+    // its native framebuffer resolution; zoom-to-fit only affects the QEMU
+    // window, not the framebuffer or the mouse coordinate space).
+    run_cmd.addArg("gtk,zoom-to-fit=on");
     run_cmd.addArg("-serial");
     run_cmd.addArg("stdio");
     run_cmd.addArg("-no-reboot");
