@@ -100,6 +100,7 @@ pub fn build(b: *std.Build) void {
     xorriso.addArg("-efi-boot-part");
     xorriso.addArg("--efi-boot-image");
     xorriso.addArg("--protective-msdos-label");
+    xorriso.addArg("-quiet");
     xorriso.addArg("-o");
     const iso_path = xorriso.addOutputFileArg("aster.iso");
     xorriso.addDirectoryArg(iso_dir);
@@ -117,7 +118,6 @@ pub fn build(b: *std.Build) void {
     bios_install.addFileArg(limine_path);
     bios_install.addArg("bios-install");
     bios_install.addFileArg(iso_path);
-    bios_install.step.dependOn(&xorriso.step);
     bios_install.step.dependOn(&limine_tool.step);
     const iso_step = b.step("iso", "Build bootable ISO image");
     iso_step.dependOn(&bios_install.step);
@@ -129,11 +129,11 @@ pub fn build(b: *std.Build) void {
     run_cmd.addArg("512M");
     run_cmd.addArg("-cdrom");
     run_cmd.addFileArg(iso_path);
+    run_cmd.step.dependOn(&bios_install.step);
     run_cmd.addArg("-serial");
     run_cmd.addArg("stdio");
     run_cmd.addArg("-no-reboot");
     run_cmd.addArg("-no-shutdown");
-    run_cmd.step.dependOn(&bios_install.step);
 
     const run_step = b.step("run", "Boot Aster in QEMU");
     run_step.dependOn(&run_cmd.step);
@@ -145,13 +145,13 @@ pub fn build(b: *std.Build) void {
     rt_run_cmd.addArg("512M");
     rt_run_cmd.addArg("-cdrom");
     rt_run_cmd.addFileArg(iso_path);
+    rt_run_cmd.step.dependOn(&bios_install.step);
     rt_run_cmd.addArg("-device");
     rt_run_cmd.addArg("isa-debug-exit");
     rt_run_cmd.addArg("-serial");
     rt_run_cmd.addArg("stdio");
     rt_run_cmd.addArg("-no-reboot");
     rt_run_cmd.expectExitCode(99);
-    rt_run_cmd.step.dependOn(&bios_install.step);
 
     const rt_step = b.step("runtime-test", "Run in-QEMU runtime tests via isa-debug-exit");
     if (runtime_tests) {

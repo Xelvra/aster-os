@@ -131,3 +131,12 @@ v kontextu zpožděné.
 - **MMIO periferie (APIC/IOAPIC) vyžadují explicitní mapování** — HHDM je mapuje jen když
   bootloader řekne; bez `mapPage` je přístup #PF. Adresy kernelu (`0xffffffff8...`) a HHDM
   (`0xffff8000...`) jsou různé rozsahy, hhdm_offset platí jen pro fyzické mapování (C4).
+
+---
+
+## 8. Nevyřešené problémy → handoff
+
+Problém, který se nepodaří vyřešit v čase (viz `spec/handoff.md` §1), **se nezapisuje do
+této tabulky** (ta je jen pro vyřešené lekce). Použije se šablona v `spec/handoff.md` a
+záznam jde do `spec/handoffs/`. Když se handoff vyřeší, příčina + řešení se doplní sem
+jako běžný záznam a handoff se označí `closed`.

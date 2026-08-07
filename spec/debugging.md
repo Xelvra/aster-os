@@ -112,3 +112,6 @@ Při podezření na pád v IRQ:
 > Tento dokument řeší **runtime** ladění (pád, zamrzlý systém, IRQ). Build-time pasti —
 > Zig 0.16 API, Limine protokol, determinismus — jsou v
 > [`troubleshooting.md`](troubleshooting.md).
+>
+> Problém, který se nedaří vyřešit v rozumném čase, se předává přes formální postup
+> [`handoff.md`](handoff.md) — šablona a seznam otevřených handoffů, ne improvizace.
