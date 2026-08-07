@@ -12,6 +12,7 @@ const ps2 = @import("drivers/ps2.zig");
 const input_queue = @import("input_queue.zig");
 const framebuffer = @import("fb/framebuffer.zig");
 const renderer_mod = @import("render/renderer.zig");
+const mouse_cursor_mod = @import("render/mouse_cursor.zig");
 const graphics = @import("api/graphics.zig");
 const runtime_test = @import("runtime_test.zig");
 const lua = @import("lua/lua.zig");
@@ -119,6 +120,7 @@ fn kernelMain() !void {
 
 var fb_storage: ?framebuffer.Framebuffer = null;
 var renderer: renderer_mod.Renderer = undefined;
+var mouse_cursor: mouse_cursor_mod.MouseCursor = .{};
 
 fn initGraphics(info: *const boot_info.BootInfo) void {
     const fb_info = info.framebuffer orelse {
@@ -129,6 +131,7 @@ fn initGraphics(info: *const boot_info.BootInfo) void {
     renderer = renderer_mod.Renderer.init(&fb_storage.?);
     graphics.init(renderer);
     renderer.fillScreen(0x000000);
+    mouse_cursor.init(&fb_storage.?, @intCast(fb_info.width / 2), @intCast(fb_info.height / 2));
     serial.writeLine("graphics: framebuffer ok");
 }
 
@@ -171,8 +174,8 @@ fn eventLoop() noreturn {
 }
 
 fn poll() void {
-    // In M4 the Lua shell reads key events through input.next_event().
-    // Consume timer ticks here; stop at the first key so it stays queued.
+    // The kernel handles the mouse cursor directly (smooth overlay, no Lua
+    // round-trip). Timer ticks are consumed; keys are left queued for Lua.
     while (true) {
         const event = input_queue.global.peek() orelse break;
         switch (event) {
@@ -190,9 +193,9 @@ fn poll() void {
                 if (key.pressed) needs_render = true;
                 break;
             },
-            .mouse => {
-                needs_render = true;
-                break;
+            .mouse => |m| {
+                _ = input_queue.global.pop();
+                mouse_cursor.move(&fb_storage.?, m.dx, m.dy);
             },
         }
     }
@@ -206,6 +209,7 @@ fn update() void {
 fn render() void {
     if (graphics.renderer == null) return;
     _ = lua.callRender();
+    if (fb_storage) |*fb| mouse_cursor.redraw(fb);
 }
 
 fn printMemoryInfo(memory: *mem.Memory, info: *const boot_info.BootInfo) void {

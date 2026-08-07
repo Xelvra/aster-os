@@ -58,6 +58,24 @@ fn testMouseEvent() void {
     }
 }
 
+fn testMouseCursor() void {
+    const r = graphics.renderer orelse {
+        expect(false, "graphics renderer initialized");
+        return;
+    };
+    const cursor = @import("render/mouse_cursor.zig");
+    var cur = cursor.MouseCursor{};
+    cur.init(r.fb, 20, 20);
+    // Sprite offset (1,3) is the white core of the arrow.
+    const core = r.fb.pixelColor(0xFFFFFF);
+    expect(r.fb.getPixel(21, 23) == core, "cursor core drawn after init");
+    cur.move(r.fb, 5, 0);
+    expect(r.fb.getPixel(26, 23) == core, "cursor core drawn at new position");
+    // Moving restores the old spot back to what was underneath (black).
+    cur.redraw(r.fb);
+    expect(r.fb.getPixel(21, 23) == 0, "old cursor position restored");
+}
+
 fn testFramebufferWrites() void {
     const r = graphics.renderer orelse {
         expect(false, "graphics renderer initialized");
@@ -110,6 +128,7 @@ fn testRenderThroughput() void {
 const tests = [_]Test{
     .{ .name = "timer tick + event queue", .func = testTimerTicks },
     .{ .name = "mouse event queue", .func = testMouseEvent },
+    .{ .name = "mouse cursor overlay", .func = testMouseCursor },
     .{ .name = "framebuffer write + drawText", .func = testFramebufferWrites },
     .{ .name = "lua bindings + render", .func = testLuaBindings },
     .{ .name = "render throughput", .func = testRenderThroughput },

@@ -11,11 +11,6 @@ theme = {
     accent = 0x82DCCC,
 }
 
-screen_w = 1280
-screen_h = 800
-mx = screen_w // 2
-my = screen_h // 2
-
 local lines = {}
 local current = ""
 local col = 8
@@ -90,13 +85,6 @@ end
 function update()
     local ev = input.next_event()
     if not ev then return end
-    if ev.type == "mouse" then
-        mx = math.max(0, math.min(screen_w - 1, mx + math.floor(ev.dx)))
-        my = math.max(0, math.min(screen_h - 1, my + math.floor(ev.dy)))
-        if ev.left then debug.write("click " .. tostring(mx) .. "," .. tostring(my)) end
-        gfx.invalidate()
-        return
-    end
     if ev.type ~= "key" or not ev.pressed then return end
     local code = ev.code
     if code == "enter" or code == "numpad_enter" then
@@ -140,6 +128,4 @@ function render()
     gfx.draw_text("> " .. current, col, ty, theme.text)
     local cx = col + (2 + cursor) * glyph_w
     gfx.draw_rect(cx, ty, glyph_w, glyph_h, theme.accent)
-    gfx.draw_rect(mx, my, 12, 2, theme.accent)
-    gfx.draw_rect(mx, my + 2, 2, 10, theme.accent)
 end
