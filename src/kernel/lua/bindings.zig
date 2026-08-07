@@ -68,6 +68,105 @@ fn gfxDrawRect(L: ?*lua_c.lua_State) callconv(.c) c_int {
     return 1;
 }
 
+fn gfxRoundRect(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    const x = checkInteger(L, 1, "x") orelse return 2;
+    const y = checkInteger(L, 2, "y") orelse return 2;
+    const w = checkInteger(L, 3, "w") orelse return 2;
+    const h = checkInteger(L, 4, "h") orelse return 2;
+    const radius = checkInteger(L, 5, "radius") orelse return 2;
+    const color = checkInteger(L, 6, "color") orelse return 2;
+
+    const RoundRectArgs = extern struct {
+        x: i32,
+        y: i32,
+        w: u32,
+        h: u32,
+        radius: u32,
+        color: u32,
+    };
+    var args = RoundRectArgs{
+        .x = @intCast(x),
+        .y = @intCast(y),
+        .w = @intCast(w),
+        .h = @intCast(h),
+        .radius = @intCast(radius),
+        .color = @intCast(color),
+    };
+    _ = sys.dispatch(.Graphics, .{
+        .a = @intFromEnum(graphics.GraphicsOp.round_rect),
+        .b = @intFromPtr(&args),
+    });
+    lua_c.lua_pushinteger(L, 0);
+    return 1;
+}
+
+fn gfxRectBorder(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    const x = checkInteger(L, 1, "x") orelse return 2;
+    const y = checkInteger(L, 2, "y") orelse return 2;
+    const w = checkInteger(L, 3, "w") orelse return 2;
+    const h = checkInteger(L, 4, "h") orelse return 2;
+    const thickness = checkInteger(L, 5, "thickness") orelse return 2;
+    const color = checkInteger(L, 6, "color") orelse return 2;
+
+    const BorderArgs = extern struct {
+        x: i32,
+        y: i32,
+        w: u32,
+        h: u32,
+        thickness: u32,
+        color: u32,
+    };
+    var args = BorderArgs{
+        .x = @intCast(x),
+        .y = @intCast(y),
+        .w = @intCast(w),
+        .h = @intCast(h),
+        .thickness = @intCast(thickness),
+        .color = @intCast(color),
+    };
+    _ = sys.dispatch(.Graphics, .{
+        .a = @intFromEnum(graphics.GraphicsOp.rect_border),
+        .b = @intFromPtr(&args),
+    });
+    lua_c.lua_pushinteger(L, 0);
+    return 1;
+}
+
+fn gfxGradientBorder(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    const x = checkInteger(L, 1, "x") orelse return 2;
+    const y = checkInteger(L, 2, "y") orelse return 2;
+    const w = checkInteger(L, 3, "w") orelse return 2;
+    const h = checkInteger(L, 4, "h") orelse return 2;
+    const thickness = checkInteger(L, 5, "thickness") orelse return 2;
+    const color_a = checkInteger(L, 6, "color_a") orelse return 2;
+    const color_b = checkInteger(L, 7, "color_b") orelse return 2;
+
+    const GradientBorderArgs = extern struct {
+        x: i32,
+        y: i32,
+        w: u32,
+        h: u32,
+        thickness: u32,
+        color_a: u32,
+        color_b: u32,
+    };
+    var args = GradientBorderArgs{
+        .x = @intCast(x),
+        .y = @intCast(y),
+        .w = @intCast(w),
+        .h = @intCast(h),
+        .thickness = @intCast(thickness),
+        .color_a = @intCast(color_a),
+        .color_b = @intCast(color_b),
+    };
+    _ = sys.dispatch(.Graphics, .{
+        .a = @intFromEnum(graphics.GraphicsOp.gradient_border),
+        .b = @intFromPtr(&args),
+    });
+    lua_c.lua_pushinteger(L, 0);
+    return 1;
+}
+
 fn gfxDrawText(L: ?*lua_c.lua_State) callconv(.c) c_int {
     const text = checkString(L, 1, "text") orelse return 2;
     const x = checkInteger(L, 2, "x") orelse return 2;
@@ -164,6 +263,31 @@ fn inputNextEvent(L: ?*lua_c.lua_State) callconv(.c) c_int {
     }
 }
 
+fn inputMouseX(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    lua_c.lua_pushinteger(L, input.mouse_state.x);
+    return 1;
+}
+
+fn inputMouseY(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    lua_c.lua_pushinteger(L, input.mouse_state.y);
+    return 1;
+}
+
+fn inputMouseLeft(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    lua_c.lua_pushboolean(L, if (input.mouse_state.left) 1 else 0);
+    return 1;
+}
+
+fn inputMouseRight(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    lua_c.lua_pushboolean(L, if (input.mouse_state.right) 1 else 0);
+    return 1;
+}
+
+fn inputMouseMiddle(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    lua_c.lua_pushboolean(L, if (input.mouse_state.middle) 1 else 0);
+    return 1;
+}
+
 fn buildEventTable(L: ?*lua_c.lua_State, event: input_queue.Event) void {
     lua_c.lua_createtable(L, 0, 5);
     switch (event) {
@@ -179,6 +303,7 @@ fn buildEventTable(L: ?*lua_c.lua_State, event: input_queue.Event) void {
             setCtrl(key.code, key.pressed);
             setAlt(key.code, key.pressed);
             setAltGr(key.code, key.pressed);
+            setSuper(key.code, key.pressed);
             _ = lua_c.lua_pushliteral(L, "key");
             lua_c.lua_setfield(L, -2, "type");
             lua_c.lua_pushboolean(L, if (key.pressed) 1 else 0);
@@ -193,6 +318,8 @@ fn buildEventTable(L: ?*lua_c.lua_State, event: input_queue.Event) void {
             lua_c.lua_setfield(L, -2, "ctrl");
             lua_c.lua_pushboolean(L, if (alt_pressed) 1 else 0);
             lua_c.lua_setfield(L, -2, "alt");
+            lua_c.lua_pushboolean(L, if (super_pressed) 1 else 0);
+            lua_c.lua_setfield(L, -2, "super");
             lua_c.lua_pushboolean(L, if (alt_gr_pressed) 1 else 0);
             lua_c.lua_setfield(L, -2, "alt_gr");
             const eff_shift = effectiveShift();
@@ -216,6 +343,7 @@ var shift_pressed = false;
 var caps_lock_on = false;
 var ctrl_pressed = false;
 var alt_pressed = false;
+var super_pressed = false;
 var alt_gr_pressed = false;
 
 fn setShift(code: input.KeyCode, pressed: bool) void {
@@ -239,6 +367,13 @@ fn setAltGr(code: input.KeyCode, pressed: bool) void {
     }
 }
 
+fn setSuper(code: input.KeyCode, pressed: bool) void {
+    switch (code) {
+        .super_left, .super_right => super_pressed = pressed,
+        else => {},
+    }
+}
+
 fn setCapsLock(pressed: bool) void {
     if (pressed) caps_lock_on = !caps_lock_on;
 }
@@ -258,6 +393,9 @@ fn effectiveShift() bool {
 
 const GfxFuncs = [_]lua_c.luaL_Reg{
     .{ .name = "draw_rect", .func = gfxDrawRect },
+    .{ .name = "round_rect", .func = gfxRoundRect },
+    .{ .name = "rect_border", .func = gfxRectBorder },
+    .{ .name = "gradient_border", .func = gfxGradientBorder },
     .{ .name = "draw_text", .func = gfxDrawText },
     .{ .name = "fill_screen", .func = gfxFillScreen },
     .{ .name = "present", .func = gfxPresent },
@@ -269,6 +407,11 @@ const GfxFuncs = [_]lua_c.luaL_Reg{
 
 const InputFuncs = [_]lua_c.luaL_Reg{
     .{ .name = "next_event", .func = inputNextEvent },
+    .{ .name = "mouse_x", .func = inputMouseX },
+    .{ .name = "mouse_y", .func = inputMouseY },
+    .{ .name = "mouse_left", .func = inputMouseLeft },
+    .{ .name = "mouse_right", .func = inputMouseRight },
+    .{ .name = "mouse_middle", .func = inputMouseMiddle },
     .{ .name = null, .func = null },
 };
 

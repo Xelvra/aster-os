@@ -12,6 +12,9 @@ pub const GraphicsOp = enum(u64) {
     fill_screen = 4,
     present = 5,
     invalidate = 6,
+    round_rect = 7,
+    rect_border = 8,
+    gradient_border = 9,
 };
 
 /// Set by a client (Lua) when the shell needs a redraw. The event loop
@@ -52,6 +55,34 @@ const TextArgs = struct {
     color: u32,
 };
 
+const RoundRectArgs = struct {
+    x: i32,
+    y: i32,
+    w: u32,
+    h: u32,
+    radius: u32,
+    color: u32,
+};
+
+const BorderArgs = struct {
+    x: i32,
+    y: i32,
+    w: u32,
+    h: u32,
+    thickness: u32,
+    color: u32,
+};
+
+const GradientBorderArgs = struct {
+    x: i32,
+    y: i32,
+    w: u32,
+    h: u32,
+    thickness: u32,
+    color_a: u32,
+    color_b: u32,
+};
+
 pub var renderer: ?Renderer = null;
 
 pub fn init(renderer_instance: Renderer) void {
@@ -86,6 +117,18 @@ pub fn dispatch(args: sys.SyscallArgs) u64 {
         .present => {},
         .invalidate => {
             invalidate_requested = true;
+        },
+        .round_rect => {
+            const rr_args: *const RoundRectArgs = @ptrFromInt(@as(usize, @intCast(args.b)));
+            r.roundRect(rr_args.x, rr_args.y, rr_args.w, rr_args.h, rr_args.radius, rr_args.color);
+        },
+        .rect_border => {
+            const b_args: *const BorderArgs = @ptrFromInt(@as(usize, @intCast(args.b)));
+            r.rectBorder(b_args.x, b_args.y, b_args.w, b_args.h, b_args.thickness, b_args.color);
+        },
+        .gradient_border => {
+            const gb_args: *const GradientBorderArgs = @ptrFromInt(@as(usize, @intCast(args.b)));
+            r.gradientBorder(gb_args.x, gb_args.y, gb_args.w, gb_args.h, gb_args.thickness, gb_args.color_a, gb_args.color_b);
         },
     }
     return @intFromEnum(sys.KiStatus.Success);

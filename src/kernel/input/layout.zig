@@ -121,6 +121,8 @@ pub const Layout = struct {
             .ctrl_right,
             .alt_left,
             .alt_right,
+            .super_left,
+            .super_right,
             .caps_lock,
             .num_lock,
             .scroll_lock,

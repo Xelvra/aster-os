@@ -9,6 +9,7 @@ const pic = @import("drivers/pic.zig");
 const apic = @import("cpu/apic.zig");
 const page_map = @import("mem/page_map.zig");
 const ps2 = @import("drivers/ps2.zig");
+const input = @import("input.zig");
 const input_queue = @import("input_queue.zig");
 const framebuffer = @import("fb/framebuffer.zig");
 const renderer_mod = @import("render/renderer.zig");
@@ -132,6 +133,8 @@ fn initGraphics(info: *const boot_info.BootInfo) void {
     graphics.init(renderer);
     renderer.fillScreen(0x000000);
     mouse_cursor.init(&fb_storage.?, @intCast(fb_info.width / 2), @intCast(fb_info.height / 2));
+    input.mouse_state.x = @divTrunc(@as(i32, @intCast(fb_info.width)), 2);
+    input.mouse_state.y = @divTrunc(@as(i32, @intCast(fb_info.height)), 2);
     serial.writeLine("graphics: framebuffer ok");
 }
 
@@ -212,6 +215,11 @@ fn poll() void {
             .mouse => |m| {
                 _ = input_queue.mouse.pop();
                 mouse_cursor.move(&fb_storage.?, m.dx, m.dy);
+                input.mouse_state.x = mouse_cursor.x;
+                input.mouse_state.y = mouse_cursor.y;
+                input.mouse_state.left = m.left;
+                input.mouse_state.right = m.right;
+                input.mouse_state.middle = m.middle;
                 mouse_processed += 1;
             },
         }

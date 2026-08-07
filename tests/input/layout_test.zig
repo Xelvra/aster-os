@@ -42,6 +42,12 @@ test "layout: control keys return null" {
     try std.testing.expect(l.mapChar(.shift_left) == null);
 }
 
+test "layout: super keys return null" {
+    const l = layout.Layout{};
+    try std.testing.expect(l.mapChar(.super_left) == null);
+    try std.testing.expect(l.mapChar(.super_right) == null);
+}
+
 test "layout: caps lock XOR shift for letters" {
     const caps = layout.Layout{ .shift = true }; // effective shift = caps XOR shift
     try std.testing.expectEqual(@as(u8, 'A'), caps.mapChar(.a).?);

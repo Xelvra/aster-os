@@ -24,6 +24,18 @@ pub const Renderer = struct {
         self.fb.fillScreen(self.fb.pixelColor(color));
     }
 
+    pub fn roundRect(self: *const Renderer, x: i32, y: i32, w: u32, h: u32, radius: u32, color: Color) void {
+        self.fb.roundRect(x, y, w, h, radius, self.fb.pixelColor(color));
+    }
+
+    pub fn rectBorder(self: *const Renderer, x: i32, y: i32, w: u32, h: u32, thickness: u32, color: Color) void {
+        self.fb.rectBorder(x, y, w, h, thickness, self.fb.pixelColor(color));
+    }
+
+    pub fn gradientBorder(self: *const Renderer, x: i32, y: i32, w: u32, h: u32, thickness: u32, color_a: Color, color_b: Color) void {
+        self.fb.gradientBorder(x, y, w, h, thickness, color_a, color_b);
+    }
+
     pub fn drawGlyph(self: *const Renderer, codepoint: u32, x: i32, y: i32, color: Color) void {
         const pixels = font.glyph(codepoint);
         for (0..font.glyph_height) |row| {

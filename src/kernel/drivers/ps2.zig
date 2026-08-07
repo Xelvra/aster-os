@@ -305,6 +305,8 @@ fn extCode(code: u8) ?input.KeyCode {
         0x1D => .ctrl_right,
         0x35 => .numpad_divide,
         0x38 => .alt_right,
+        0x5B => .super_left,
+        0x5C => .super_right,
         0x47 => .home,
         0x48 => .up,
         0x49 => .page_up,

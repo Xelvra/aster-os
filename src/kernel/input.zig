@@ -81,6 +81,8 @@ pub const KeyCode = enum(u8) {
     ctrl_right,
     alt_left,
     alt_right,
+    super_left,
+    super_right,
     caps_lock,
     num_lock,
     scroll_lock,
@@ -109,6 +111,18 @@ pub const KeyEvent = struct {
     code: KeyCode,
     pressed: bool,
 };
+
+/// Current mouse state, shared between the kernel cursor overlay (main.zig
+/// poll()) and the Lua shell (input bindings). x/y are in framebuffer
+/// pixels; the buttons are the pressed state from the latest packet.
+pub const MouseState = struct {
+    x: i32 = 0,
+    y: i32 = 0,
+    left: bool = false,
+    right: bool = false,
+    middle: bool = false,
+};
+pub var mouse_state: MouseState = .{};
 
 /// PS/2 mouse event: relative movement since the last packet plus the
 /// current button state.

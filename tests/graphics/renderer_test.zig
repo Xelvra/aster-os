@@ -80,3 +80,32 @@ test "drawText writes sequential glyphs" {
     }
     try std.testing.expect(drawn > 0);
 }
+
+test "roundRect fills interior and rounds corners" {
+    var ctx: Context = undefined;
+    initCtx(&ctx);
+    ctx.renderer.roundRect(2, 2, 10, 10, 4, 0xFF0000);
+    try std.testing.expectEqual(@as(u32, 0xFF0000), ctx.fb.getPixel(6, 6)); // center
+    try std.testing.expectEqual(@as(u32, 0x000000), ctx.fb.getPixel(5, 5)); // corner cut (dx²+dy² > r²)
+    try std.testing.expectEqual(@as(u32, 0xFF0000), ctx.fb.getPixel(6, 2)); // top edge
+}
+
+test "rectBorder draws outline only, leaves interior empty" {
+    var ctx: Context = undefined;
+    initCtx(&ctx);
+    ctx.renderer.rectBorder(2, 2, 10, 10, 2, 0xFF0000);
+    try std.testing.expectEqual(@as(u32, 0xFF0000), ctx.fb.getPixel(2, 2)); // top-left
+    try std.testing.expectEqual(@as(u32, 0xFF0000), ctx.fb.getPixel(11, 11)); // bottom-right
+    try std.testing.expectEqual(@as(u32, 0x000000), ctx.fb.getPixel(6, 6)); // interior
+}
+
+test "gradientBorder interpolates colors around the perimeter" {
+    var ctx: Context = undefined;
+    initCtx(&ctx);
+    ctx.renderer.gradientBorder(0, 0, 8, 8, 1, 0x000000, 0xFFFFFF);
+    try std.testing.expectEqual(@as(u32, 0x000000), ctx.fb.getPixel(0, 0)); // start
+    const top_right = ctx.fb.getPixel(7, 0);
+    try std.testing.expect(top_right > 0x000000); // interpolated towards white
+    const bottom_right = ctx.fb.getPixel(7, 7);
+    try std.testing.expect(bottom_right >= top_right); // monotonic along perimeter
+}

@@ -116,6 +116,105 @@ pub const Framebuffer = struct {
     pub fn fillScreen(self: *Framebuffer, color: u32) void {
         self.fillRect(0, 0, self.width, self.height, color);
     }
+
+    /// Fill a rectangle with rounded corners of the given radius. Pixels
+    /// outside the rounded shape are left untouched.
+    pub fn roundRect(self: *Framebuffer, x: i32, y: i32, w: u32, h: u32, radius: u32, color: u32) void {
+        if (w == 0 or h == 0) return;
+        const r = @min(radius, @min(w / 2, h / 2));
+        const r_i: i32 = @intCast(r);
+        // Center body (covers everything except the four corners).
+        self.fillRect(x + r_i, y, w - r * 2, h, color);
+        // Top/bottom strips between the corners.
+        self.fillRect(x, y + r_i, w, h - r * 2, color);
+        // Corners: iterate the r x r box and keep pixels inside the arc.
+        var cy: i32 = 0;
+        while (cy < r_i) : (cy += 1) {
+            var cx: i32 = 0;
+            while (cx < r_i) : (cx += 1) {
+                if (cx * cx + cy * cy > r_i * r_i) continue;
+                const px = x + cx;
+                const py = y + cy;
+                const corners = [_][2]i32{
+                    .{ px, py },
+                    .{ x + @as(i32, @intCast(w)) - 1 - cx, py },
+                    .{ px, y + @as(i32, @intCast(h)) - 1 - cy },
+                    .{ x + @as(i32, @intCast(w)) - 1 - cx, y + @as(i32, @intCast(h)) - 1 - cy },
+                };
+                for (corners) |corner| {
+                    self.setPixel(@intCast(corner[0]), @intCast(corner[1]), color);
+                }
+            }
+        }
+    }
+
+    /// Draw the border of a rectangle (the interior is left untouched).
+    pub fn rectBorder(self: *Framebuffer, x: i32, y: i32, w: u32, h: u32, thickness: u32, color: u32) void {
+        if (w == 0 or h == 0 or thickness == 0) return;
+        const t_u: u32 = @min(thickness, @min(w / 2, h / 2));
+        const t: i32 = @intCast(t_u);
+        self.fillRect(x, y, w, t_u, color); // top
+        self.fillRect(x, y + @as(i32, @intCast(h)) - t, w, t_u, color); // bottom
+        self.fillRect(x, y, t_u, h, color); // left
+        self.fillRect(x + @as(i32, @intCast(w)) - t, y, t_u, h, color); // right
+    }
+
+    /// Draw a rectangle border whose color interpolates linearly from
+    /// `color_a` (top-left) to `color_b` (bottom-right), matching the
+    /// active window look. Colors are 0xRRGGBB.
+    pub fn gradientBorder(self: *Framebuffer, x: i32, y: i32, w: u32, h: u32, thickness: u32, color_a: u32, color_b: u32) void {
+        if (w == 0 or h == 0 or thickness == 0) return;
+        const t_u: u32 = @min(thickness, @min(w / 2, h / 2));
+        const t: i32 = @intCast(t_u);
+        const half: i32 = @divTrunc(t, 2);
+        const w_i: i32 = @intCast(w);
+        const h_i: i32 = @intCast(h);
+        // Perimeter of a w x h rectangle = 2w + 2h - 4 pixels.
+        const total: i32 = 2 * w_i + 2 * h_i - 4;
+        if (total <= 0) return;
+        const ar: i32 = @intCast((color_a >> 16) & 0xFF);
+        const ag: i32 = @intCast((color_a >> 8) & 0xFF);
+        const ab: i32 = @intCast(color_a & 0xFF);
+        const br: i32 = @intCast((color_b >> 16) & 0xFF);
+        const bg: i32 = @intCast((color_b >> 8) & 0xFF);
+        const bb: i32 = @intCast(color_b & 0xFF);
+        var i: i32 = 0;
+        while (i < total) : (i += 1) {
+            // Walk the perimeter clockwise: top, right, bottom, left.
+            var px: i32 = undefined;
+            var py: i32 = undefined;
+            if (i < w_i) {
+                px = x + i;
+                py = y;
+            } else if (i < w_i + h_i - 1) {
+                px = x + w_i - 1;
+                py = y + (i - w_i);
+            } else if (i < w_i + h_i - 1 + w_i - 1) {
+                px = x + (w_i - 1) - (i - w_i - h_i + 1);
+                py = y + h_i - 1;
+            } else {
+                px = x;
+                py = y + (h_i - 1) - (i - 2 * w_i - h_i + 2);
+            }
+            const t_frac = @divTrunc(i * 1000, total);
+            const rr = ar + @divTrunc((br - ar) * t_frac, 1000);
+            const gg = ag + @divTrunc((bg - ag) * t_frac, 1000);
+            const bbb = ab + @divTrunc((bb - ab) * t_frac, 1000);
+            const color: u32 = (@as(u32, @intCast(rr)) << 16) | (@as(u32, @intCast(gg)) << 8) | @as(u32, @intCast(bbb));
+            // Stamp the color as a t x t block at each perimeter pixel so a
+            // 2px border does not leave gaps.
+            for (0..@intCast(t)) |oy| {
+                for (0..@intCast(t)) |ox| {
+                    const ox_i: i32 = @intCast(ox);
+                    const oy_i: i32 = @intCast(oy);
+                    const dx = px + ox_i - half;
+                    const dy = py + oy_i - half;
+                    if (dx < x or dx >= x + w_i or dy < y or dy >= y + h_i) continue;
+                    self.setPixel(@intCast(dx), @intCast(dy), color);
+                }
+            }
+        }
+    }
 };
 
 const ClipRect = struct {
