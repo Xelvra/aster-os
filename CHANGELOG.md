@@ -60,3 +60,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Framebuffer cache attribute verified from PTE + PAT MSR (`cache_attr.zig`):
   Limine maps the framebuffer as **WC** (no M3 frame latency risk).
 - Kernel image 17.4 KB (target < 80 KB).
+
+### Architecture note — WASI as a future compatibility layer
+
+- Clarified Wasm has two roles: native Aster bindings (M7) and a future **WASI layer**
+  (M9+) for third-party Wasm applications. WASI lives in the runtime (over wasm3), not
+  the kernel — it maps WASI syscalls to KI calls, keeping the "no POSIX in kernel"
+  non-goal intact (`runtime.md` §7.1, `non-goals.md`, ADR-020).

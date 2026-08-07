@@ -13,7 +13,7 @@ na tento dokument.
 
 | Oblast | Stav | Poznámka / kdy by se to mohlo změnit |
 |---|---|---|
-| **POSIX kompatibilita** | ❌ Ne | Žádná POSIX API; KI je vlastní (ADR-004). |
+| **POSIX kompatibilita** | ❌ Ne | Žádná POSIX API v kernelu; KI je vlastní (ADR-004). **Výjimka:** runtime vrstva může hostit **WASI** pro cizí Wasm aplikace (viz `runtime.md` §7.1) — WASI je klient KI, ne součást kernelu. |
 | **SMP / vícejádro** | ❌ Ne | Single-core v prvních milnících; SMP je zásadní zásah do scheduleru a paměti. |
 | **USB** | ❌ Ne | Jen PS/2 klávesnice (M2). |
 | **Networking / TCP-IP** | ❌ Ne | Není v roadmapě; nejdřív by muselo být M9+ s plánem. **Bezpečnostní důvod:** vnitřní síťový stack parsuje malformovaný cizí provoz v Ring 0 — safety panic z `ReleaseSafe` na špatně naparsovaný paket by byl **vzdálený DoS celého systému** (fault policy = halt, ADR-002, `invariants.md` §1). Přidání sítě proto vyžaduje **samostatný ADR + plán** (přehodnocení fault containmentu a izolace), není to jen „přidám driver". |

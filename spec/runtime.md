@@ -198,6 +198,32 @@ způsobit pauzy mimo render — ohrožuje KPI `frame latency (p99) < 16 ms`
 - **Kernel nepřijme žádný Wasm-specifický kód.** Vše je za `Runtime.spawn`.
 - Před nasazením: benchmark vs. Lua (kvalitní metriky v `roadmap.md`).
 
+### 7.1 Dvě úrovně Wasm
+
+Wasm má v Asteru **dvě odlišné role**, které se nesmí zaměňovat:
+
+1. **Domácí Wasm (M7):** aplikace **psané pro Aster** — volají KI přes Aster bindings
+   (`gfx.*`, `input.*`, ...), jako Lua, ale s izolovanou lineární pamětí a bez sdíleného
+   stavu jádra. To je jediná Wasm role v M7.
+2. **WASI vrstva (výhledově, M9+):** kompatibilita s **cizím** Wasm ekosystémem.
+   Programy kompilované `wasm32-wasi` (CLI nástroje, text-UI hry, jednoduché aplikace)
+   by mohly běžet, pokud Aster implementuje mapování WASI syscallů na KI.
+
+**WASI není součást kernelu.** Je to čistá runtime vrstva nad wasm3, která překládá
+WASI syscall čísla na KI volání (`debug.write`, `net.*`, `storage.*`, ...). Kernel
+nikdy nevidí WASI — vidí jen svá vlastní KI volání. Tím zůstává `non-goals.md`
+pravdivé: **kernel nemá žádná POSIX API**, ale *runtime* může hostit WASI pro cizí
+aplikace — stejně jako hostuje prohlížeč v Luay (ADR-020).
+
+**Nasazení a omezení:**
+- Začíná se **podmnožinou WASI** (stdout, argv, filesystem) — ne plná WASI najednou.
+- Síťová WASI volání jedou přes `net.*`, takže podléhají bezpečnostní brzdě sítě
+  (ADR-020, `non-goals.md`).
+- WASI ≠ GUI. Aplikace s okny potřebují Aster bindings; WASI pokrývá konzolové/
+  výpočetní věci.
+- Design domácích Wasm bindings v M7 se navrhuje tak, aby šlo WASI vrstvu přidat
+  bez přepisu (Wasm importy oddělené od přímého volání KI).
+
 ---
 
 ## 8. Invarianty

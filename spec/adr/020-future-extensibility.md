@@ -21,6 +21,9 @@ její přepis („lepení nebo bourání").
   a čísla se nemění.
 - **Prohlížeč v Luay** je jen další Lua klient Graphics/Input/Net API — nevyžaduje žádný
   kernel-specifický kód. Sdílí stejnou cestu jako shell/UI (spawn přes `Runtime.spawn`).
+- **WASI (výhledově M9+)** je další cesta k ekosystému: runtime vrstva nad wasm3 mapuje
+  WASI syscally na KI (viz `spec/runtime.md` §7.1). Není to změna kernelu ani porušení
+  non-goal „žádné POSIX API v kernelu" — WASI je klient KI, ne součást jádra.
 - **Síť (výhledově M9+)** má bezpečnostní brzdu: parsování cizího provozu v Ring 0 +
   fault policy = halt znamená **vzdálený DoS** (`non-goals.md`). Přidání sítě proto
   vyžaduje **vlastní ADR + plán** (fault containment, případně izolace), ne jen modul.
