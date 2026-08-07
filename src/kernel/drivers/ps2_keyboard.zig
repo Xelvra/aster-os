@@ -110,7 +110,12 @@ pub fn init() void {
 }
 
 pub fn handleIrq1() void {
-    if (in8(ps2_status) & status_output_full != 0) {
+    const status = in8(ps2_status);
+    // Only consume bytes that belong to the keyboard (port 1): bit 5 of the
+    // status register marks data from the mouse. Without this check, IRQ1
+    // steals mouse packet bytes as bogus scancodes, desynchronizing the
+    // mouse and corrupting the keyboard stream.
+    if (status & status_output_full != 0 and status & status_mouse_data == 0) {
         const scancode = in8(ps2_data);
         if (scancode == 0x00 or scancode == 0xFF or scancode == 0xFA) return;
         const event = mapScancode(scancode) orelse return;
@@ -199,6 +204,7 @@ fn keypadOrNav(code: input.KeyCode) ?input.KeyCode {
 
 const ps2_status: u16 = 0x64;
 const status_output_full: u8 = 0x01;
+const status_mouse_data: u8 = 0x20; // bit 5: data belongs to port 2 (mouse)
 
 fn out8(port: u16, value: u8) void {
     asm volatile (
