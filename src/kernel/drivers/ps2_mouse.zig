@@ -87,9 +87,12 @@ pub fn handleIrq12() void {
     // would desynchronize the packet stream.
     if (status & status_output_full != 0 and status & status_mouse_data != 0) {
         const byte = in8(ps2_data);
-        // No ACK filtering here: after 0xF4 the device streams pure packet
-        // data, and 0xFA/0xAA are valid dx/dy byte values. ACKs are only
-        // consumed synchronously inside mouseCommand() during init.
+        // The first byte of a 3-byte packet always has bit 3 (0x08) set.
+        // If we expect a packet start and this bit is clear, the stream is
+        // out of sync (e.g. after a dropped packet): skip the byte and
+        // realign on the next one. Without this, dx/dy get garbage values
+        // and the cursor "shoots" across the screen.
+        if (mouse_byte_idx == 0 and byte & 0x08 == 0) return;
         mouse_packet[mouse_byte_idx] = byte;
         mouse_byte_idx +%= 1;
         if (mouse_byte_idx >= 3) {

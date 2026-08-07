@@ -118,8 +118,17 @@ function update()
     end
 end
 
+local text_w = 1280
+local text_area_h = (max_lines + 1) * row_h
+local current_bg = -1
+
 function render()
-    gfx.fill_screen(theme.background)
+    if current_bg ~= theme.background then
+        gfx.fill_screen(theme.background)
+        current_bg = theme.background
+    else
+        gfx.draw_rect(0, 0, text_w, text_area_h, theme.background)
+    end
     local ty = 4
     for i = 1, #lines do
         gfx.draw_text(lines[i], col, ty, theme.text)
