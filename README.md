@@ -68,11 +68,12 @@ BIOS / UEFI
      ↓
 Limine (bootloader)
      ↓
-Zig kernel (Ring 0)
+Zig kernel (Ring 0)                      # M0/M1/M2
      ↓
-KI (api/*)
-     ├──→ Lua userland (shell/UI)
-     └──→ WASI → WASM (standalone processes)
+KI (api/*)                               # M2
+     ├──→ Lua userland (shell/UI)        # M4/M5
+     ├──→ Wasm (Aster apps)              # M7
+     └──→ Wasm → WASI (foreign programs) # M9+
 ```
 
 Detailed layers, interfaces, and diagram: [`spec/architecture-overview.md`](spec/architecture-overview.md) §3.
