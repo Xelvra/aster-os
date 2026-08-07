@@ -17,7 +17,7 @@ Dokument je **druhý mozek** — piš lekci ve chvíli, kdy je problém vyřeše
 
 ---
 
-## 1. Zig 0.16 build API
+## 1. Zig 0.16 — build API
 
 Build API se mezi 0.15 a 0.16 výrazně změnilo. **Nejlepší zdroj je instalovaná std lib
 (`/usr/lib/zig/std/Build.zig`, `Build/Step/Run.zig`), ne webové docs** — docs byly
@@ -35,7 +35,7 @@ v kontextu zpožděné.
 
 ---
 
-## 2. Limine boot protokol
+## 2. Limine — boot protokol
 
 | Záznam | Symptom | Příčina | Řešení | Ověřit |
 |--------|---------|---------|--------|--------|
@@ -49,6 +49,7 @@ v kontextu zpožděné.
 
 ## 3. Build a determinismus (ADR-014)
 
+
 | Záznam | Symptom | Příčina | Řešení | Ověřit |
 |--------|---------|---------|--------|--------|
 | D1 | dvakrát build → jiný hash | `.debug_str` sekce obsahuje absolutní cestu do build cache (`/home/.../.zig-cache/...`), která se mění | `strip = optimize != .Debug` v module | `tools/verify-reproducible.sh` |
@@ -57,7 +58,7 @@ v kontextu zpožděné.
 
 ---
 
-## 4. Tooling (QEMU, xorriso, Limine host tool)
+## 4. Nástroje (QEMU, xorriso, Limine host tool)
 
 | Záznam | Symptom | Příčina | Řešení | Ověřit |
 |--------|---------|---------|--------|--------|
@@ -138,7 +139,7 @@ Toto ladění stálo nejvíc času v M5 — čti pečlivě, než se dotkneš `dr
 
 ---
 
-## 6a. Graphics a event loop (M3)
+## 6a. Grafika a event loop (M3)
 | Záznam | Symptom | Příčina | Řešení | Ověřit |
 | C14 | #GP (vec 0x0d) v renderu/fillRect jen když event loop běží; s breakpointem OK | `isr_common` **ukládal jen callee-saved registry**, `%rax` (caller-saved) nechal zničit — timer IRQ (1 kHz) přeruší render, handler přes `callq handle_isr` přepíše `%rax`, smyčka pak zapisuje na kontaminovanou adresu | `isr_common` push/pop i `%rax`; `InterruptFrame` dostane pole `rax` (na konci, před `vector`) | render běží stabilně, žádný #GP v event loop |
 | C15 | framebuffer zápis "nefunguje" (screendump ukazuje starý obsah), ale gdb vidí data v paměti | screendump zachycen uprostřed/po rychlém event loop renderu, nebo z VGA bufferu místo GOP; framebuffer `address` z Limine je **už v hhdm prostoru** (`0xffff8000fd000000`) — přičtení hhdm offsetu podruhé přeteče (safety trap) | psát přímo na `info.address` bez hhdm offsetu; renderovat jen když je stav `dirty`; ověřovat screendump po dostatečné prodlevě | `screendump` ukáže text, žádný fault |
