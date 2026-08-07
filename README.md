@@ -26,6 +26,11 @@ This project requires the Zig version listed in [`.zig-version`](.zig-version).
 
 ## Status
 
+- **Milestone M3 (Graphics) complete:** Limine GOP framebuffer wrapped in `Framebuffer`;
+  renderer (`drawRect`, `blit`, `fillScreen`, `drawGlyph`, `drawText`) with clipping;
+  embedded VGA 8×16 bitmap font; Graphics API module (`api/graphics.zig`) in KI dispatch;
+  event loop `poll → update → render` (render-on-dirty); keyboard types visible text
+  on screen (shift-aware); host tests for renderer clipping/blit + runtime test.
 - **Milestone M2 (CPU) complete:** GDT/IDT (256 ISR stubs), fault policy with
   freestanding backtrace; Local APIC timer (1 kHz) + IOAPIC routing for IRQ1; PS/2
   keyboard with hardware-neutral `KeyCode`/`KeyEvent` input subsystem; KI dispatch
@@ -98,7 +103,7 @@ If the system crashes or hangs: [`spec/debugging.md`](spec/debugging.md)
 | M0 ✅ | Boot: deterministic build, boots in QEMU, serial marker |
 | M1 ✅ | Memory: PFA + heap allocator |
 | M2 ✅ | CPU: IDT, APIC timer, IOAPIC, PS/2 keyboard |
-| M3 | Graphics: framebuffer, renderer, text on screen |
+| M3 ✅ | Graphics: framebuffer, renderer, text on screen |
 | M4 | Lua: "Hello from Lua" on screen, hot reload |
 | M5–M8 | UI (shell in Lua), storage, runtime (wasm), stabilization |
 

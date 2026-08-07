@@ -45,7 +45,12 @@ Všechny host unit testy (`tests/`) musí být zelené. Host testy pokrývají �
 kterou jde spustit mimo cílový hardware:
 - PFA (alokace/uvolnění/fragmentace),
 - heap alokátor (coalescing, out-of-memory),
-- font blit / clipping,
+- framebuffer: `fillRect`/`blit`/`fillScreen` s clippingem (hrany, negativní počátky,
+  plně mimo), `pixelColor` encodování,
+- renderer: `drawGlyph` (pixel-přesně vůči fontu), `drawText`,
+- font: fallback glyf, prázdný `space`,
+- console: psaní, wrap, backspace, scroll, clear,
+- input: `KeyCode` → ASCII (lower/upper, číslice, symboly, control → null),
 - binding marshalling,
 - kruhová fronta událostí.
 

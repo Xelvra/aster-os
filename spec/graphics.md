@@ -70,7 +70,10 @@ renderer.zig
 
 ## 4. Framebuffer
 
-- Zdroj: **Limine GOP framebuffer** (UEFI) — fyzická adresa, width/height, pitch, bpp.
+- Zdroj: **Limine GOP framebuffer** (UEFI) — width/height, pitch, bpp. `address` z Limine
+  je **již v hhdm prostoru** (vyšší polovina; empiricky ověřeno v M3, QEMU q35) — zapisuje
+  se přímo, bez přičítání hhdm offsetu. To je důvod, proč `cache_attr` walk (`memory.md` §6)
+  bere tuto adresu jako virtuální.
 - Reprezentace: `Framebuffer` struct s pointerem na paměť + metadaty.
 - Formát pixelu: závisí na GOP; pro první verzi fixní RGBA/BGRA dle Limine info.
 - Cache atribut (UC vs WC): viz `spec/memory.md` §6 — v M1 se ověří, v M3 případný

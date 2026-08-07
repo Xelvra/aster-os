@@ -50,6 +50,7 @@ isr_stubs:
   .endr
 .globl isr_common
 isr_common:
+  pushq %rax
   pushq %rbp
   pushq %rbx
   pushq %r15
@@ -80,5 +81,6 @@ isr_common:
   popq %r15
   popq %rbx
   popq %rbp
+  popq %rax
   addq $16, %rsp
   iretq

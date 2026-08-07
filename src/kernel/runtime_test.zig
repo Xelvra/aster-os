@@ -1,6 +1,7 @@
 const std = @import("std");
 const serial = @import("serial.zig");
 const input_queue = @import("input_queue.zig");
+const graphics = @import("api/graphics.zig");
 const build_options = @import("build_options");
 
 const debug_exit_port: u16 = 0x501;
@@ -31,8 +32,21 @@ fn testTimerTicks() void {
     expect(ticks_seen >= 5, "APIC timer produces tick events through the queue");
 }
 
+fn testFramebufferWrites() void {
+    const r = graphics.renderer orelse {
+        expect(false, "graphics renderer initialized");
+        return;
+    };
+    r.fillScreen(0xFF0000);
+    const pixel = r.fb.getPixel(0, 0);
+    expect(pixel == 0x00FF0000, "fillScreen writes expected color to framebuffer");
+    r.drawText("rt", 0, 0, 0xFFFFFF);
+    expect(true, "drawText draws without fault");
+}
+
 const tests = [_]Test{
     .{ .name = "timer tick + event queue", .func = testTimerTicks },
+    .{ .name = "framebuffer write + drawText", .func = testFramebufferWrites },
 };
 
 pub fn runAll() noreturn {

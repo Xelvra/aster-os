@@ -48,7 +48,8 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 | M1 (cíl) | < 80 KB | ≤ 4 MB | < 15 ms | — | TBD |
 | **M2 (měřeno)** | **28.8 KB** | — | **≈ 3.5 s wall-clock**¹ | — | TBD |
 | M2 (cíl) | < 96 KB | ≤ 4 MB | < 20 ms | — | TBD |
-| M3 | < 128 KB | ≤ 6 MB | < 25 ms | < 16 ms | TBD |
+| **M3 (měřeno)** | **33.8 KB** | — | **≈ 3.6 s wall-clock**¹ | — | TBD |
+| M3 (cíl) | < 128 KB | ≤ 6 MB | < 25 ms | < 16 ms | TBD |
 | M4 | < 512 KB (s Lua) | ≤ 12 MB | < 40 ms | < 16 ms | TBD |
 | M5 | < 512 KB | ≤ 16 MB | < 40 ms | < 16 ms | TBD |
 | M6 | < 768 KB | ≤ 24 MB | < 50 ms | < 16 ms | TBD |
@@ -141,13 +142,13 @@ první runtime testy v QEMU zelené (exit kód 0).
 
 **Cíl:** viditelný text ve framebufferu.
 
-- [ ] GOP framebuffer init (Limine), `Framebuffer` struct.
-- [ ] **Renderer:** `fillRect`, `blit`, `fillScreen` s clippingem (spec `graphics.md`).
-- [ ] **Embedded bitmap font** + `drawGlyph`, `drawText`.
-- [ ] Graphics API modul (`api/graphics.zig`) + dispatch.
-- [ ] **Event loop** `poll() → update() → render()` (spec `input.md`).
-- [ ] Klávesnice → text na obrazovce (psaní viditelné v QEMU).
-- [ ] Metriky do tabulky.
+- [x] GOP framebuffer init (Limine), `Framebuffer` struct.
+- [x] **Renderer:** `fillRect`, `blit`, `fillScreen` s clippingem (spec `graphics.md`).
+- [x] **Embedded bitmap font** + `drawGlyph`, `drawText`.
+- [x] Graphics API modul (`api/graphics.zig`) + dispatch.
+- [x] **Event loop** `poll() → update() → render()` (spec `input.md`).
+- [x] Klávesnice → text na obrazovce (psaní viditelné v QEMU).
+- [x] Metriky do tabulky.
 
 **DoD:** píšeš na obrazovku z kódu; testy rendereru (blit clipping) host-zelené.
 

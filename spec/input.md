@@ -102,7 +102,8 @@ while (true) {
   → `KeyCode` (mapovací tabulka), push `KeyEvent` do fronty.
 - **M2 stav:** `KeyEvent` (code + pressed) na serial pro ladění — ověřeno v QEMU
   (`key a down`, `key enter up`, ...).
-- **M3 cíl:** `KeyCode` → codepoint (ASCII sady), modifikátory jako vstup do layoutu.
+- **M3 stav:** `KeyCode` → ASCII codepoint s modifikátorem shift (`keyToCodepoint`),
+  konzole vypisuje znaky na obrazovku (psaní viditelné v QEMU).
 - **Odloženo:** USB HID (mapuje usage → stejný `KeyCode`), klávesnice layouty, myš
   (myš je samostatná událost — viz §7).
 

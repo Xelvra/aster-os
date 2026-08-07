@@ -68,7 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the kernel — it maps WASI syscalls to KI calls, keeping the "no POSIX in kernel"
   non-goal intact (`runtime.md` §7.1, `non-goals.md`, ADR-020).
 
-### Milestone M2 — CPU (WIP, not committed)
+### Milestone M2 — CPU
 
 - GDT/IDT setup (`src/kernel/cpu/idt.zig`, `isr.s`): 256 uniform ISR stubs (9 B each via
   `.byte 0x6a`), exception/fault policy, `lidt` via `[10]u8` descriptor buffer.
@@ -100,3 +100,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `spec/troubleshooting.md`: new section 6 with IDT/APIC/IOAPIC/PS/2 lessons (C1–C13);
   `spec/input.md` updated with driver/subsystem/KI layering.
 - Kernel image 28.8 KB (target < 96 KB).
+
+### Milestone M3 — Graphics
+
+- **Framebuffer** (`src/kernel/fb/framebuffer.zig`): Limine GOP framebuffer wrapped in a
+  `Framebuffer` struct (base, width/height, pitch, bpp, color shifts). `address` from
+  Limine is already in the higher-half — written directly, no hhdm offset added
+  (verified empirically; `graphics.md` §4 updated).
+- **Renderer** (`src/kernel/render/renderer.zig`): `drawRect`, `blit`, `fillScreen`,
+  `drawGlyph`, `drawText` with mandatory clipping. No heap allocation on the draw path.
+- **Embedded bitmap font** (`src/kernel/render/font_data.zig`): VGA 8×16 console font
+  (public domain), generated once into Zig source, glyphs 0x20–0x7E with `?` fallback.
+- **Graphics API** (`src/kernel/api/graphics.zig`): `GraphicsOp` sub-op numbers
+  0–5 (`draw_rect`, `blit`, `draw_glyph`, `draw_text`, `fill_screen`, `present`)
+  wired into `sys.dispatch`; composite args passed by pointer.
+- **Event loop** `poll() → update() → render()`: renders only when the console is dirty
+  (event-driven, not spin-rendering); `hlt` between iterations.
+- **Keyboard → text**: `KeyCode` → ASCII codepoint with shift (`input.keyToCodepoint`),
+  console line buffer with wrap/scroll/backspace, cursor; typing visible in QEMU
+  (verified via `sendkey` + screendump: `>hi`, uppercase `A`).
+- **ISR fix**: `isr_common` now also saves/restores `%rax` (and `InterruptFrame` gained
+  `rax`) — the timer IRQ corrupted a live register during render, causing a #GP
+  (troubleshooting C14).
+- Host tests for framebuffer (fill/clip/blit), renderer (drawGlyph/drawText), font,
+  console, and input mapping; runtime test for framebuffer writes in QEMU.
+- Kernel image 33.8 KB (target < 128 KB).

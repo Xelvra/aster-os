@@ -138,6 +138,7 @@ pub const InterruptFrame = struct {
     r15: u64,
     rbx: u64,
     rbp: u64,
+    rax: u64,
     vector: u64,
     error_code: u64,
     rip: u64,

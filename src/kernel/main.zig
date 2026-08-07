@@ -10,8 +10,12 @@ const apic = @import("cpu/apic.zig");
 const page_map = @import("mem/page_map.zig");
 const ps2 = @import("drivers/ps2.zig");
 const input_queue = @import("input_queue.zig");
+const input = @import("input.zig");
+const framebuffer = @import("fb/framebuffer.zig");
+const renderer_mod = @import("render/renderer.zig");
+const console_mod = @import("ui/console.zig");
+const graphics = @import("api/graphics.zig");
 const runtime_test = @import("runtime_test.zig");
-const build_options = @import("build_options");
 
 export fn _start() callconv(.c) noreturn {
     enable_sse();
@@ -93,6 +97,8 @@ fn kernelMain() !void {
     ps2.init();
     serial.writeLine("apic: init ok");
 
+    initGraphics(&info);
+
     testKiDispatch();
 
     asm volatile ("sti" ::: .{ .memory = true });
@@ -101,6 +107,29 @@ fn kernelMain() !void {
     }
     serial.writeLine("timer test: waiting for ticks");
     eventLoop();
+}
+
+const console_cols = 80;
+const console_rows = 24;
+var shift_pressed = false;
+var fb_storage: ?framebuffer.Framebuffer = null;
+var renderer: renderer_mod.Renderer = undefined;
+var console = console_mod.Console.init();
+var console_cells_storage: [console_rows * console_cols]u8 = undefined;
+
+fn initGraphics(info: *const boot_info.BootInfo) void {
+    const fb_info = info.framebuffer orelse {
+        serial.writeLine("graphics: no framebuffer, console disabled");
+        return;
+    };
+    fb_storage = framebuffer.Framebuffer.init(fb_info);
+    renderer = renderer_mod.Renderer.init(&fb_storage.?);
+    graphics.init(renderer);
+    console.reset(console_cols, console_rows, &console_cells_storage);
+    console.typeChar('>');
+    renderer.fillScreen(0x000000);
+    console.render(&renderer, 8, 8, 0xFFFFFF);
+    serial.writeLine("graphics: framebuffer ok");
 }
 
 fn testKiDispatch() void {
@@ -119,29 +148,60 @@ fn testKiDispatch() void {
 }
 
 fn eventLoop() noreturn {
-    var last_tick: u64 = 0;
-    var buf: [64]u8 = undefined;
     while (true) {
-        const ticks = idt.tick_counter.load(.monotonic);
-        if (ticks >= last_tick + 1000) {
-            last_tick = ticks;
-            const line = std.fmt.bufPrint(&buf, "ticks: {}", .{ticks}) catch "ticks: err";
-            serial.writeLine(line);
-        }
-        while (input_queue.global.pop()) |event| {
-            switch (event) {
-                .timer_tick => |t| {
-                    _ = t;
-                },
-                .key => |key| {
-                    const state = if (key.pressed) "down" else "up";
-                    const line = std.fmt.bufPrint(&buf, "key {s} {s}", .{ @tagName(key.code), state }) catch "key err";
-                    serial.writeLine(line);
-                },
-            }
-        }
+        poll();
+        update();
+        render();
         asm volatile ("hlt" ::: .{ .memory = true });
     }
+}
+
+fn poll() void {
+    while (input_queue.global.pop()) |event| {
+        switch (event) {
+            .timer_tick => |t| {
+                _ = t;
+            },
+            .key => |key| {
+                if (key.pressed) {
+                    updateKey(key.code);
+                } else {
+                    releaseKey(key.code);
+                }
+            },
+        }
+    }
+}
+
+fn releaseKey(code: input.KeyCode) void {
+    switch (code) {
+        .shift_left, .shift_right => shift_pressed = false,
+        else => {},
+    }
+}
+
+fn updateKey(code: input.KeyCode) void {
+    switch (code) {
+        .shift_left, .shift_right => shift_pressed = true,
+        .enter => console.newline(),
+        .backspace => console.backspace(),
+        else => {
+            if (input.keyToCodepoint(code, shift_pressed)) |c| {
+                console.typeChar(c);
+            }
+        },
+    }
+}
+
+fn update() void {}
+
+fn render() void {
+    if (graphics.renderer == null) return;
+    if (!console.dirty) return;
+    console.dirty = false;
+    const r = graphics.renderer.?;
+    r.fillScreen(0x000000);
+    console.render(&r, 8, 8, 0xFFFFFF);
 }
 
 fn printMemoryInfo(memory: *mem.Memory, info: *const boot_info.BootInfo) void {
@@ -168,10 +228,10 @@ fn printBootInfo(info: *const boot_info.BootInfo) void {
     const hhdm = std.fmt.bufPrint(&buf, "hhdm offset: 0x{x:0>16}", .{info.hhdm_offset}) catch return;
     serial.writeLine(hhdm);
 
-    if (info.framebuffer) |fb| {
-        const fb_line = std.fmt.bufPrint(&buf, "framebuffer: {}x{} pitch={} bpp={}", .{ fb.width, fb.height, fb.pitch, fb.bpp }) catch return;
+    if (info.framebuffer) |fb_info| {
+        const fb_line = std.fmt.bufPrint(&buf, "framebuffer: {}x{} pitch={} bpp={}", .{ fb_info.width, fb_info.height, fb_info.pitch, fb_info.bpp }) catch return;
         serial.writeLine(fb_line);
-        const attr = cache_attr.framebufferCacheAttr(fb.address, info.hhdm_offset);
+        const attr = cache_attr.framebufferCacheAttr(fb_info.address, info.hhdm_offset);
         const attr_line = std.fmt.bufPrint(&buf, "framebuffer cache: {s}", .{@tagName(attr)}) catch return;
         serial.writeLine(attr_line);
     } else {

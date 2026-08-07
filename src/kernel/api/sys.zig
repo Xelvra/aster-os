@@ -1,6 +1,7 @@
 const std = @import("std");
 const serial = @import("../serial.zig");
 const input_queue = @import("../input_queue.zig");
+const graphics = @import("graphics.zig");
 
 pub const Syscall = enum(u64) {
     Debug = 0,
@@ -41,8 +42,9 @@ pub const InputOp = enum(u64) {
 pub fn dispatch(num: Syscall, args: SyscallArgs) u64 {
     return switch (num) {
         .Debug => debugDispatch(args),
+        .Graphics => graphics.dispatch(args),
         .Input => inputDispatch(args),
-        .Graphics, .Timer, .Runtime, .Yield => @intFromEnum(KiStatus.NotSupported),
+        .Timer, .Runtime, .Yield => @intFromEnum(KiStatus.NotSupported),
     };
 }
 

@@ -101,6 +101,15 @@ v kontextu zpožděné.
 
 ---
 
+## 6a. Graphics a event loop (M3)
+
+| Záznam | Symptom | Příčina | Řešení | Ověřit |
+| C14 | #GP (vec 0x0d) v renderu/fillRect jen když event loop běží; s breakpointem OK | `isr_common` **ukládal jen callee-saved registry**, `%rax` (caller-saved) nechal zničit — timer IRQ (1 kHz) přeruší render, handler přes `callq handle_isr` přepíše `%rax`, smyčka pak zapisuje na kontaminovanou adresu | `isr_common` push/pop i `%rax`; `InterruptFrame` dostane pole `rax` (na konci, před `vector`) | render běží stabilně, žádný #GP v event loop |
+| C15 | framebuffer zápis "nefunguje" (screendump ukazuje starý obsah), ale gdb vidí data v paměti | screendump zachycen uprostřed/po rychlém event loop renderu, nebo z VGA bufferu místo GOP; framebuffer `address` z Limine je **už v hhdm prostoru** (`0xffff8000fd000000`) — přičtení hhdm offsetu podruhé přeteče (safety trap) | psát přímo na `info.address` bez hhdm offsetu; renderovat jen když je stav `dirty`; ověřovat screendump po dostatečné prodlevě | `screendump` ukáže text, žádný fault |
+| C16 | text psaný z klávesnice se neobjeví / obrazovka jen černá | event loop renderuje každou iteraci (`fillScreen` + text) — QEMU screendump zachytí stav uprostřed `fillScreen` (černý); nebo konzole není "dirty" | `Console.dirty` flag: render jen při změně stavu; `fillScreen` + `console.render` až tehdy | screendump po stisku klávesy ukáže text |
+
+---
+
 ## 7. Jak předcházet (meta-lekce)
 
 - **Měň jednu věc a ověřuj** — při M0 se střídaly strip/linker.ld/optimize současně, což
