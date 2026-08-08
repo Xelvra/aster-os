@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Install the project git hooks (hooks/* -> .git/hooks/).
 # The pre-push hook refuses to push when the documented boot log
-# (docs/boot-log.md and the README terminal block) is stale.
+# (boot-log.md and the README terminal block) is stale.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

@@ -169,7 +169,7 @@ Pravidlo: **každý commit musí zanechat systém spustitelný v QEMU.**
 
 > **Git hooks:** `./tools/install-hooks.sh` nainstaluje pre-push hook, který před pushem
 > spustí `./tools/capture-boot.sh --check` — boot log v dokumentaci
-> (`docs/boot-log.md`) nesmí zastarat vůči kódu. Instalaci hooků doporučujeme po klonu;
+> (`boot-log.md`) nesmí zastarat vůči kódu. Instalaci hooků doporučujeme po klonu;
 > CI to ověřuje taky.
 
 ---

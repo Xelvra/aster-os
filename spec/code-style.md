@@ -19,7 +19,7 @@ Zigu, ale doplňují je o projektovou disciplínu.
   (framebuffer, syscall, Renderer, Runtime, ADR statusy apod.).
 - Komentář v kódu, který vysvětluje "proč", je v angličtině. Český text do kódu nepatří.
 
-### Pojmenování dokumentů (`spec/*.md`, `docs/*`)
+### Pojmenování dokumentů (`spec/*.md`, kořenové soubory)
 
 - **Lowercase**, jednoslovné, kde to jde (`memory.md`, `input.md`, `timer.md`).
 - **Složeniny kebab-case** (`kernel-interface.md`, `non-goals.md`, `code-style.md`,

@@ -4,15 +4,15 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 MODE="${1:-generate}"
-DOC="docs/boot-log.md"
+DOC="boot-log.md"
 START_MARKER="ASTER KERNEL ENTRY"
 END_MARKER="ASTER FIRST FRAME"
 TIMEOUT="${BOOT_LOG_TIMEOUT:-30}"
 
 if [[ "$MODE" != "generate" && "$MODE" != "--check" && "$MODE" != "check" ]]; then
     echo "usage: $0 [--check]"
-    echo "  (no args)  capture a fresh boot and regenerate docs/boot-log.md"
-    echo "  --check    verify docs/boot-log.md matches a fresh boot (CI)"
+    echo "  (no args)  capture a fresh boot and regenerate boot-log.md"
+    echo "  --check    verify boot-log.md matches a fresh boot (CI)"
     exit 2
 fi
 
@@ -78,11 +78,11 @@ if [[ "$MODE" == "--check" || "$MODE" == "check" ]]; then
     stored="$(sed -n '/^```$/,/^```$/p' "$DOC" | sed '1d;$d' | normalize)"
     fresh="$(normalize < "$tmpdir/plain.log")"
     if [[ "$stored" == "$fresh" ]]; then
-        echo "capture-boot: OK (docs/boot-log.md matches a fresh boot)"
+        echo "capture-boot: OK (boot-log.md matches a fresh boot)"
         rm -rf "$tmpdir"
         exit 0
     fi
-    echo "capture-boot: FAIL (docs/boot-log.md is stale — regenerate with $0)"
+    echo "capture-boot: FAIL (boot-log.md is stale — regenerate with $0)"
     diff -u <(printf '%s\n' "$stored") <(printf '%s\n' "$fresh") || true
     rm -rf "$tmpdir"
     exit 1
