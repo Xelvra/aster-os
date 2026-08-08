@@ -1,3 +1,8 @@
+remote_theme: just-the-docs/just-the-docs@v0.12.0
 title: Aster OS
 description: Experimental desktop operating system written in Zig
-theme: minima
+color_scheme: dark
+search_enabled: true
+aux_links:
+  "GitHub":
+    - "https://github.com/Xelvra/aster-os"

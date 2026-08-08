@@ -1,6 +1,7 @@
 ---
-layout: page
+layout: default
 title: Milestones
+nav_order: 3
 ---
 
 # Milestones

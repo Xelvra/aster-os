@@ -1,6 +1,7 @@
 ---
-layout: page
+layout: default
 title: Status
+nav_order: 2
 ---
 
 # Status

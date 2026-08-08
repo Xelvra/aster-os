@@ -1,6 +1,7 @@
 ---
-layout: page
-title: Aster OS
+layout: home
+title: Home
+nav_order: 1
 ---
 
 # Aster OS
