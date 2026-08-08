@@ -137,6 +137,11 @@ ASTER KERNEL ENTRY
 [ OK ] storage          virtio-blk
 [ OK ] gpt              1 partition(s)
 [ OK ] fs               ext2
+  fs .
+  fs ..
+  fs lost+found
+  fs theme.lua
+  file bg=0x0f1117
 [ OK ] graphics         800x600 framebuffer · wc
 [ OK ] renderer         primitives + bitmap font
 [ OK ] runtime          lua 5.4.8 shell
@@ -145,9 +150,6 @@ ASTER KERNEL ENTRY
 [ OK ] accelerator      kvm
 [ OK ] boot sequence    complete
 
-  fs .
-  fs ..
-  fs lost+found
 ASTER BOOT OK
 ASTER FIRST FRAME
 ```
