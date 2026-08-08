@@ -31,6 +31,7 @@ samostatný soubor. Pravidla:
 | [018](018-ring3-ki-transport.md) | Transport KI v Ring 3: mailbox IPC, comptime dispatch, IRQ routing | Přijato |
 | [019](019-bootloader-gate.md) | Bootloader gate: kernel nezávisí na typech bootloaderu (BootInfo) | Přijato |
 | [020](020-future-extensibility.md) | Rozšiřitelnost: nové features jako nové KI moduly na konec | Přijato |
+| [021](021-extended-rendering-primitives.md) | Rozšířená renderovací primitiva pro UI (roundRect, border, gradient) | Přijato |
 
 ## Šablona nového ADR
 

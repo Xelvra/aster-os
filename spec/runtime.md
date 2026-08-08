@@ -34,7 +34,7 @@ pub const RuntimeKind = enum(u8) {
 
 pub const SpawnOptions = struct {
     kind: RuntimeKind,
-    entry: []const u8,   // např. "shell/main.lua" pro Lua, "app.wasm" pro Wasm
+    entry: []const u8,   // např. "ui/main.lua" pro Lua, "app.wasm" pro Wasm
     args: []const u8 = &.{},
 };
 
@@ -71,10 +71,12 @@ Veškerý přístup z Lua jde přes KI, nikdy přímo do kernel struktur.
 
 | KI modul | Lua funkce |
 |---|---|
-| `graphics` | `gfx.draw_rect(x, y, w, h, color)`, `gfx.blit(...)`, `gfx.draw_glyph(...)`, `gfx.draw_text(str, x, y, color)` |
-| `input` | `input.next_event()`, `input.flush()` |
+| `graphics` | `gfx.draw_rect(x, y, w, h, color)`, `gfx.blit(...)`, `gfx.draw_glyph(...)`, `gfx.draw_text(str, x, y, color)`, `gfx.fill_screen(color)`, `gfx.round_rect(x, y, w, h, radius, color)`, `gfx.rect_border(x, y, w, h, thickness, color)`, `gfx.gradient_border(x, y, w, h, thickness, color_a, color_b)`, `gfx.width()`, `gfx.height()`, `gfx.invalidate()`, `gfx.present()` |
+| `input` | `input.next_event()`, `input.mouse_x()`, `input.mouse_y()`, `input.mouse_left()`, `input.mouse_right()`, `input.mouse_middle()` |
 | `timer` | `time.ticks()`, `time.sleep_ms(ms)` |
 | `runtime` | `runtime.spawn(kind, entry, args)` |
+| `sysmon` | `sysmon.ram_total_mb()`, `sysmon.ram_free_mb()` |
+| `debug` | `debug.write(str)` (výpis na serial) |
 
 **Konvence marshallingu:**
 - Chybové stavy → Lua vrací `nil, err_string` (idiomatické pro Lua).
@@ -134,6 +136,11 @@ Lua běží vestavěně v jádře (Ring 0) — chyba skriptu **nesmí shodit ker
   externích struktur je porušení invariantu use-after-free (`spec/invariants.md`).
 - **Marshalling je bezpečnostní hranice:** bindingy striktně validují typ a rozsah
   hodnot z Lua stacku (viz §4 + fuzz testy v `spec/verification.md` §3).
+- **Chyba v `update()`/`render()` spouští hot reload (M5):** `callUpdate`/`callRender`
+  vrací `CallResult` (`ok`/`no_function`/`err`); při `err` event loop automaticky
+  znovu načte shell (`runtime.reload()`), aby se desktop zotavil z polorozkresleného
+  stavu. Chybová zpráva Lua se loguje na serial. Ověřeno runtime testem „error
+  containment".
 
 **Známé omezení (M0–M6):** v M0–M6 běží **jediný `lua_State`** (shell). `lua_pcall`
 chytí chyby, ale **ne nekonečné smyčky ani memory leak** — `while true do end` v

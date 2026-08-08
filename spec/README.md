@@ -19,7 +19,7 @@
 | 5 | [adr/](adr/README.md) | Architektonická rozhodnutí (ADR-001..020), každé v samostatném souboru. |
 | 6 | [kernel-interface.md](kernel-interface.md) | **Kernel Interface (KI):** `sys.dispatch`, syscall čísla, moduly rozhraní, pravidla. |
 | 7 | [graphics.md](graphics.md) | Grafická podvrstva: Graphics API → Renderer → Framebuffer. |
-| 8 | [input.md](input.md) | Vstupní model: PS/2 klávesnice, fronta událostí, mapování na Lua. |
+| 8 | [input.md](input.md) | Vstupní model: PS/2 klávesnice + myš, fronta událostí, mapování na Lua. |
 | 9 | [runtime.md](runtime.md) | Runtime API: `Runtime.spawn`, `RuntimeKind`, vazba Runtime → Program. |
 | 10 | [timer.md](timer.md) | Čas: tick zdroj (M2), KI `timer`, kooperativní sleep. |
 | 11 | [memory.md](memory.md) | Paměť: PFA, obecný heap alokátor, `lua_Alloc`, cache atributy. |
@@ -41,7 +41,7 @@
 ## Stav
 
 - **Verze specifikace:** 1.0 (draft)
-- **Schváleno k implementaci:** Milníky M0–M4
+- **Schváleno k implementaci:** Milníky M0–M4; M5 (UI) rozpracovaný
 - **Aktualizace:** nová architektonická rozhodnutí se zapisují do `spec/adr/` (každé
   samostatný soubor); přehled se udržuje v `architecture-overview.md`. Rozhodnutí se nemění
   dodatečně — doplňují se nová.

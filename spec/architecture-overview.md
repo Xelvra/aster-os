@@ -182,7 +182,7 @@ aster-os/
 │   ├── manifest.md
 │   ├── non-goals.md              # co systém vědomě nedělá
 │   ├── coding-style.md           # filozofie a pravidla kódu
-│   ├── adr/                      # architektonická rozhodnutí (ADR-001..020)
+│   ├── adr/                      # architektonická rozhodnutí (ADR-001..021)
 │   ├── kernel-interface.md       # KI: sys.dispatch + interface moduly
 │   ├── graphics.md               # Graphics API → Renderer → Framebuffer
 │   ├── input.md                  # vstupní události
@@ -195,8 +195,10 @@ aster-os/
 │   └── debugging.md              # Debugging Survival Guide (GDB, serial dump)
 ├── src/
 │   ├── kernel/                   # boot, mem/pfa+heap, cpu/idt+timer, drivers/ps2,
-│   │   │                         # fb/framebuffer, render/renderer+font+text, api/, sys/
-│   └── shell/                    # main.lua (embedded) + UI v Luay
+│   │   │                         # fb/framebuffer, render/renderer+font+text, api/,
+│   │   │                         # lua/ (Lua 5.4 binding + ui/ shell moduly), sys/
+│   └── kernel/lua/ui/            # desktop shell v Luay: theme, wm, repl, launcher,
+│                                 # input, main (concatenované do jednoho chunku)
 ├── libs/
 │   ├── limine/                   # vendored bootloader + hlavičky
 │   └── lua-5.4/                  # vendored Lua 5.4 zdroj
@@ -216,7 +218,7 @@ aster-os/
 | `manifest.md` | Filozofie projektu — jednoduchost před izolací, evolvabilní rozhraní. |
 | `non-goals.md` | Co systém vědomě nedělá (POSIX, SMP, USB, networking, ...). |
 | `coding-style.md` | Pravidla struktury kódu a návrhu modulů (kontrolní seznam pro review). |
-| `adr/` | Architektonická rozhodnutí (ADR-001..020), každé v samostatném souboru. |
+| `adr/` | Architektonická rozhodnutí (ADR-001..021), každé v samostatném souboru. |
 | `kernel-interface.md` | KI: sys.dispatch, syscall čísla, interface moduly, pravidla verzování. |
 | `graphics.md` | Graphics API / Renderer / Framebuffer — vrstvy a povolené operace. |
 | `input.md` | Vstupní události: PS/2 klávesnice, fronta, mapování na Lua. |

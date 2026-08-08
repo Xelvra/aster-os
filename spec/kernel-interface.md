@@ -29,10 +29,11 @@ Všechna veřejná rozhraní žijí v `src/kernel/api/`:
 |---|---|---|
 | `sys.zig` | `dispatch(num, args)` — jediný vstupní bod operací | viz §3 |
 | `debug.zig` | Ladící/konzolový výstup (výpis na serial) | viz §3.5 |
-| `graphics.zig` | Kreslení: `drawRect`, `blit`, `drawGlyph` | `spec/graphics.md` |
+| `graphics.zig` | Kreslení: `drawRect`, `blit`, `drawGlyph`, border/round/gradient | `spec/graphics.md` |
 | `input.zig` | Vstupní události: `pollEvent`, `nextEvent` | `spec/input.md` |
 | `timer.zig` | Čas: `ticks`, `sleepMs`, tick zdroj | `spec/timer.md` |
 | `runtime.zig` | Spouštění programů: `spawn`, `RuntimeKind` | `spec/runtime.md` |
+| `sysmon.zig` | Systémové metriky: RAM usage pro shell | tento soubor |
 
 > **Výjimka z pravidla:** `Yield` (vzdání se kvanta) je **triviální/interní** — nespravuje
 > ho modul v `api/`, volá přímo `scheduler.yield()`. Nespadá pod plné pravidlo „KI je
@@ -60,6 +61,7 @@ pub const Syscall = enum(u64) {
     Timer   = 3,   // sleep/tick dotaz
     Runtime = 4,   // Runtime.spawn a související
     Yield   = 5,   // dobrovolné vzdání se časového kvanta (výhledově)
+    Sysmon  = 6,   // systémové metriky (RAM usage pro shell, M5)
 };
 ```
 
@@ -136,6 +138,20 @@ konzoli pro ladění. Nemá vlastní spec soubor, protože je triviální:
 | 1 | `status` | `() → u64` | flag pro aktivní ladění (0/1) |
 
 - Žádné formátování (bez alokace); formátování řeší volající (Lua).
+- Sub-op čísla jsou zmrazená jako ostatní (§4 pravidlo 2).
+
+### 3.6 Modul `sysmon` (systémové metriky, M5)
+
+Malý KI modul, který vystavuje reálné metriky jádra shellu (Lua). Nejdřív jen RAM
+(ze stránkového alokátoru), rozšiřuje se s M6/M7 (CPU, disk, ...):
+
+| # | Operace | Signatura | Poznámka |
+|---|---------|-----------|----------|
+| 0 | `ram_total_mb` | `() → u64` | celková RAM z `PageFrameAllocator.total_pages` |
+| 1 | `ram_free_mb` | `() → u64` | volná RAM z `totalFreePages()` |
+
+- Žádná alokace, žádné blokování — čisté čtení stavu alokátoru.
+- Lua bindingy: `sysmon.ram_total_mb()`, `sysmon.ram_free_mb()` (viz `spec/runtime.md` §4).
 - Sub-op čísla jsou zmrazená jako ostatní (§4 pravidlo 2).
 
 ---

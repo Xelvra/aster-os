@@ -106,13 +106,14 @@ while (true) {
   konzole vypisuje znaky na obrazovku (psaní viditelné v QEMU).
 - **M4 stav:** klávesy jdou do Lua shellu přes `input.next_event()`; kernel v `poll()`
   zpracovává jen timer ticky a klávesy nechává ve frontě (F5 vyhraděno pro hot reload).
+- **M5 stav:** super klávesa (Win): `KeyCode.super_left/right` z PS/2 extended scancodů
+  `0x5B`/`0x5C`; Lua vidí stav přes `ev.super` (modifikátor jako shift/ctrl/alt).
 - **Layout infrastruktura:** `src/kernel/input/layout.zig` je jediné místo, které zná
   rozložení klávesnice (`KeyCode × shift/ctrl → char`, US 105+). KI binding
   `input.next_event()` posílá Lua **připravený `char`** — Lua nic nemapuje. Přidání
   jiného layoutu (národní znaková sada) = nová datová tabulka v `layout.zig`, bez
   změny logiky. Host testy: `tests/input/layout_test.zig`.
-- **Odloženo:** USB HID (mapuje usage → stejný `KeyCode`), myš (myš je samostatná
-  událost — viz §7).
+- **Odloženo:** USB HID (mapuje usage → stejný `KeyCode`).
 
 ---
 
@@ -126,12 +127,33 @@ Lua vidí frontu přes `api/input.zig` jako funkce:
 Události se do Lua předávají jako tabulky (`{ type = "key", code = "enter", pressed = true }`).
 Detailní marshalování je definováno v `spec/runtime.md` §4 (Lua bindings konvence).
 
+**Stav myši (M5):** Lua nečte myš z event streamu (pakety konzumuje kernel overlay
+kvůli hladkosti kurzoru), ale dotazuje se sdíleného stavu přes bindings:
+
+- `input.mouse_x()` / `input.mouse_y()` — pozice kurzoru ve framebuffer pixelech
+- `input.mouse_left()` / `input.mouse_right()` / `input.mouse_middle()` — stav tlačítek
+
+Kernel (`main.zig` `poll()`) aktualizuje `input.mouse_state` z každého paketu; overlay
+a shell čtou stejné hodnoty, takže kliknutí a drag souhlasí s vykresleným kurzorem.
+
 ---
 
-## 7. Myš (výhledově)
+## 7. Myš (PS/2, M5)
 
-Není součástí M0–M4. Až přijde, platí stejný model: IRQ → atomický push → event loop.
-Relativní souřadnice; absolutní pozici počítá shell/UI, ne driver.
+PS/2 myš (IRQ12, druhý port i8042) — hotovo v M5. Model odpovídá klávesnici:
+IRQ → atomický push do vlastní fronty (`input_queue.mouse`, nezávislá na klávesnici,
+aby aktivní myš nevyhladověla klávesy/Lua) → event loop.
+
+- **Paket:** standardní 3-byte PS/2 (b0 = tlačítka + sign/overflow flagy, b1/b2 = delta).
+- **Decode:** `input.decodeMousePacket` — čistá funkce, host-testovaná
+  (`tests/input/mouse_test.zig`): resync na paket-start bitu 3 (0x08), odmítnutí
+  přetečených delt (bity 6/7), `dy = -dy` (PS/2 +dy = nahoru, obrazovka y roste dolů).
+- **Driver:** `src/kernel/drivers/ps2.zig` — sdílený i8042 s klávesnicí; každý IRQ
+  konzumuje jen bajty, které status bit 5 označí jako jeho zařízení. Detailní ladění
+  viz `spec/troubleshooting.md` sekce 8 (C18–C26).
+- **Kurzor:** kernel overlay (`render/mouse_cursor.zig`) — ukládá/obnovuje pixely pod
+  kurzorem, pohyb vykreslí jen 12×19 px místo celé obrazovky.
+- **Absolutní souřadnice:** počítá kernel (clamp na framebuffer); shell čte přes §6.
 
 ---
 

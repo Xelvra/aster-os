@@ -34,6 +34,9 @@ Veřejná operace (čísla sub-op jsou rozšiřitelná, zmrazená):
 | 4 | `fillScreen` | `(color)` | |
 | 5 | `present` | `()` | výhledově: commit bufferu; dnes no-op/okamžitý |
 | 6 | `invalidate` | `()` | shell žádá re-render bez klávesy (živá transformace, M5) |
+| 7 | `roundRect` | `(x, y, w, h, radius, color)` | zaoblené rohy (M5, kaple v taskbaru) |
+| 8 | `rectBorder` | `(x, y, w, h, thickness, color)` | ohraničení obdélníku (M5) |
+| 9 | `gradientBorder` | `(x, y, w, h, thickness, colorA, colorB)` | lineární interpolace po obvodu (M5, aktivní okno) |
 
 **Typ barvy (rozhodnuto, V1):** `Color = u32`, reprezentace **`0xRRGGBB`** (horní byte 0).
 Stejná reprezentace ve všech vrstvách (Lua → KI → Graphics API → Renderer → Framebuffer)
@@ -43,7 +46,7 @@ Zápis do framebufferu podle jeho pixel formátu (RGBA/BGRA dle GOP info, §4).
 **Předávání argumentů:** složené argumenty (barva, stringy) se přes `dispatch`
 předávají pointerem na paměť volajícího (viz `spec/kernel-interface.md` §3.2).
 
-**Povolené, ale odložené (YAGNI):** alpha blending, rounded corners, stb_truetype (TTF),
+**Povolené, ale odložené (YAGNI):** alpha blending, stb_truetype (TTF),
 GPU backend, dvojitý buffer / vsync. Přidávají se až s reálným důvodem a měřením.
 
 ---
@@ -55,10 +58,13 @@ kde se zítra objeví GPU backend nebo IPC → Compositor.
 
 ```
 renderer.zig
-    drawRect(...)  → fb.fillRect(...)
-    blit(...)      → fb.blit(...)
-    drawGlyph(...) → font.rasterize(...) → fb.blit(...)
-    drawText(...)  → iterace glyphů
+    drawRect(...)      → fb.fillRect(...)
+    blit(...)          → fb.blit(...)
+    drawGlyph(...)     → font.rasterize(...) → fb.blit(...)
+    drawText(...)      → iterace glyphů
+    roundRect(...)     → fb.roundRect(...)
+    rectBorder(...)    → fb.rectBorder(...)
+    gradientBorder(...)→ fb.gradientBorder(...)
 ```
 
 **Požadavky na Renderer:**
@@ -87,9 +93,17 @@ renderer.zig
 fn fillRect(fb: *Framebuffer, x: i32, y: i32, w: u32, h: u32, color: Color) void
 fn blit(fb: *Framebuffer, src: [*]const u8, srcX: i32, srcY: i32, dstX: i32, dstY: i32, w: u32, h: u32) void
 fn fillScreen(fb: *Framebuffer, color: Color) void
+fn roundRect(fb: *Framebuffer, x: i32, y: i32, w: u32, h: u32, radius: u32, color: Color) void  // M5
+fn rectBorder(fb: *Framebuffer, x: i32, y: i32, w: u32, h: u32, thickness: u32, color: Color) void  // M5
+fn gradientBorder(fb: *Framebuffer, x: i32, y: i32, w: u32, h: u32, thickness: u32, colorA: Color, colorB: Color) void  // M5
 ```
 
 Oříznutí (clipping) na hranice framebufferu je **povinné** ve všech primitivech.
+
+- `roundRect` vyplňuje obdélník se zaoblenými rohy; rohové pixely mimo oblouk se nechávají
+  beze změny (střed + pásy se plní `fillRect`, rohy po čtverci r×r).
+- `gradientBorder` kreslí ohraničení, jehož barva lineárně interpoluje od `colorA`
+  (levý horní roh) k `colorB` (pravý dolní) po celém obvodu (2w + 2h − 4 pixelů).
 
 ---
 

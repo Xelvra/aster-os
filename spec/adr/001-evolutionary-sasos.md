@@ -14,7 +14,8 @@ výsledku. Mikrojádro navíc obětuje výkon (ring přechody, TLB flushe) za iz
 v hobby fázi nejvyšší prioritou. Stabilní rozhraní (ADR-003) umožní migraci bez přepisování.
 
 ## Důsledky
-- `src/kernel/` obsahuje i uživatelské služby; `src/shell/` je součást image.
+- `src/kernel/` obsahuje i uživatelské služby; shell (Lua, `src/kernel/lua/ui/`) je součást
+  kernel image.
 - Izolace je až výhledový cíl (M8+), nikoli požadavek na první iteraci.
 
 ## Související

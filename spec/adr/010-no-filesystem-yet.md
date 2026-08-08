@@ -12,7 +12,8 @@ FS je komplikace bez přidané hodnoty, dokud není co ukládat. Embedded assety
 boot i build a jsou v souladu s deterministickým buildem (ADR-014).
 
 ## Důsledky
-- `src/shell/main.lua` je `@embedFile` / `@embedBytes`.
+- Shell v `src/kernel/lua/ui/` (theme, wm, repl, launcher, input, main) je `@embedFile`
+  — moduly se v `lua.zig` concatenují do jednoho chunku.
 - M6 přidá initfs (Limine initrd), pak **perzistenci ve standardním formátu** — nikdy
   vlastní (FAT32, ext2/ext4, ... dle potřeby v M6; FAT32 je příklad, ne cíl).
 - Žádná perzistence před M6 (viz `spec/non-goals.md`).
