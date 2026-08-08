@@ -219,8 +219,27 @@ fn probeStorage(alloc: std.mem.Allocator, memory: *mem.Memory) void {
     var buf: [48]u8 = undefined;
     const msg = std.fmt.bufPrint(&buf, "{d} partition(s)", .{count}) catch return;
     bootlog.ok("gpt", msg);
-    // Exit check: read the first sector of the first partition.
-    partitions[0].readSector(0, &sector) catch return;
+
+    // M6.1.3: mount ext2 read-only on the linux-filesystem partition and
+    // list the root directory as the exit check ("výpis souborů").
+    const ext2 = @import("fs/ext2.zig");
+    var fs_partition: ?block.PartitionView = null;
+    for (partitions[0..count]) |p| {
+        if (gpt.eqlGuid(p.type_guid, gpt.type_guid_linux_fs)) {
+            fs_partition = p;
+            break;
+        }
+    }
+    const part = fs_partition orelse return;
+    const fs = ext2.Ext2.init(part) catch return;
+    bootlog.ok("fs", "ext2");
+    var entries: [32]ext2.DirEntry = undefined;
+    const n = fs.readDir(ext2.root_inode, &entries) catch return;
+    for (entries[0..n]) |e| {
+        serial.write("  fs ");
+        serial.write(e.name[0..e.name_len]);
+        serial.writeLine("");
+    }
 }
 
 fn testKiDispatch() bool {

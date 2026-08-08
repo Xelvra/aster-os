@@ -135,6 +135,7 @@ pub fn discover(alloc: std.mem.Allocator, disk: block.BlockDevice, out: []block.
             .disk = disk,
             .first_lba = e.first_lba,
             .last_lba = e.last_lba,
+            .type_guid = e.type_guid,
         };
         written += 1;
     }

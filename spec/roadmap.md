@@ -291,9 +291,14 @@ binding marshallingu zelené.
       array z disku, vrací oddíly jako views), `virtio.asBlockDevice()`; boot log `[ OK ] gpt
       N partition(s)` s diskem. QEMU boot order opraven na CD (`-boot order=d`) — GPT disk
       s protective MBR by jinak zablokoval boot. Host testy s mock BlockDevice.
-- [ ] **M6.1.3 ext2 mount (read-only):** superblock, block groups, bitmapy (validace), inode
+- [x] **M6.1.3 ext2 mount (read-only):** superblock, block groups, bitmapy (validace), inode
       table, inode lookup, directory entries, data (direct + nutné indirect bloky); validace
-      feature flags + **reject**. *Exit: mount host-created ext2 image + výpis souborů.*
+      feature flags + **reject**. *Exit: mount host-created ext2 image + výpis souborů.* —
+      **hotovo:** `ext2.zig` přepsán na `PartitionView` (čtení z disku), `readFile` (direct +
+      single indirect), `find()`; feature subset opraven dle reálného `mke2fs -t ext2`
+      (`filetype` = incompat 0x2, `dir_index` = compat 0x20 → reject); boot log
+      `[ OK ] fs ext2` + výpis kořenového adresáře. Ověřeno na obraze
+      `mke2fs -t ext2 -O ^dir_index` + GPT.
 - [ ] **M6.1.4 Tenké Aster File API:** `open` / `read` / `close`, opaque reference. **Ne:**
       inode čísla, uid/gid, mode bity, ACL, hardlink sémantiku, ext2 metadata. *Exit: runtime
       čte ext2 soubor, aniž ví, že ext2 existuje.*

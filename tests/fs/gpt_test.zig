@@ -182,6 +182,7 @@ test "discover finds partitions as block-device views" {
     try std.testing.expectEqual(@as(usize, 1), count);
     try std.testing.expectEqual(@as(u64, 3), views[0].first_lba);
     try std.testing.expectEqual(@as(u64, 5), views[0].last_lba);
+    try std.testing.expect(gpt.eqlGuid(views[0].type_guid, gpt.type_guid_linux_fs));
     var sector: [512]u8 = undefined;
     try views[0].readSector(0, &sector);
     try std.testing.expect(std.mem.eql(u8, "DATA", sector[0..4]));

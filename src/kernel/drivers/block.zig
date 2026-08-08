@@ -18,6 +18,7 @@ pub const PartitionView = struct {
     disk: BlockDevice,
     first_lba: u64,
     last_lba: u64,
+    type_guid: [16]u8,
 
     /// Read a 512-byte sector by partition-local index.
     pub fn readSector(self: PartitionView, index: u64, out: []u8) BlockError!void {
