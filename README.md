@@ -136,6 +136,7 @@ ASTER KERNEL ENTRY
 [ OK ] input            ps/2 keyboard + mouse
 [ OK ] storage          virtio-blk
 [ OK ] gpt              1 partition(s)
+[ OK ] fs               ext2
 [ OK ] graphics         800x600 framebuffer · wc
 [ OK ] renderer         primitives + bitmap font
 [ OK ] runtime          lua 5.4.8 shell
@@ -144,6 +145,9 @@ ASTER KERNEL ENTRY
 [ OK ] accelerator      kvm
 [ OK ] boot sequence    complete
 
+  fs .
+  fs ..
+  fs lost+found
 ASTER BOOT OK
 ASTER FIRST FRAME
 ```
