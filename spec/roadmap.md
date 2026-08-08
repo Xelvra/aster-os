@@ -53,7 +53,8 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 | M3 (cíl) | < 128 KB | ≤ 6 MB | < 25 ms | < 16 ms | TBD |
 | **M4 (měřeno)** | **336 KiB** (RF 259) | — | **≈ 60 ms**² | TBD | TBD |
 | M4 (cíl) | < 512 KB (s Lua) | ≤ 12 MB | < 40 ms | < 16 ms | TBD |
-| M5 | < 512 KB | ≤ 16 MB | < 40 ms | < 16 ms | TBD |
+| **M5 (měřeno)** | **366 KiB** | — | **≈ 90 ms**² | TBD | TBD |
+| M5 (cíl) | < 512 KB | ≤ 16 MB | < 40 ms | < 16 ms | TBD |
 | M6 | < 768 KB | ≤ 24 MB | < 50 ms | < 16 ms | TBD |
 | M7 | < 1 MB | ≤ 32 MB | < 50 ms | < 16 ms | TBD |
 | M8 | TBD | TBD | TBD | TBD | TBD |
@@ -172,7 +173,8 @@ první runtime testy v QEMU zelené (exit kód 0).
       dependency pro target).
 - [x] `@cImport` Lua hlaviček; `api/runtime.zig` s `RuntimeKind.Lua`.
 - [x] Bindings: `gfx.*`, `input.*`, `time.*` (konvence spec `runtime.md` §4).
-- [x] `main.lua` **embedded** v binárce, spouštěný při bootu.
+- [x] `ui/` moduly **embedded** v binárce (theme, wm, repl, launcher, input, main —
+      concatenované do jednoho chunku), spouštěné při bootu.
 - [x] Lua kreslí první snímek ("Hello from Lua"), reaguje na klávesnici.
 - [x] **GC tempo:** rozpočet `collectgarbage("step", N)` v každém `update()`, měření
       frame latency p99; případně generační režim (spec `runtime.md` §6).
@@ -202,14 +204,18 @@ binding marshallingu zelené.
 **Cíl:** použitelný desktop v Luay.
 
 - [x] **Živá transformace — základ:** `gfx.invalidate()` — shell (Lua) si vyžádá re-render
-      bez klávesy; `main.lua` deklarativní theme (barvy jako data) se mění živě z REPL.
-- [ ] Okna: seznam oken, focus, z-order, drag.
-- [ ] Taskbar, launcher, menu — vše jako Lua klienti Graphics API.
-- [ ] REPL konzole (`~`) — psaní Lua kódu do běžícího systému.
+      bez klávesy; `ui/theme.lua` deklarativní theme (barvy jako data) se mění živě z REPL.
+- [x] Okna: seznam oken, focus, z-order, drag (tiling + float, Super+Alt+Space).
+- [x] Taskbar + launcher — Lua klienti Graphics API (taskbar 35px: launcher, clock,
+      workspace kaple, volume/session; launcher se search boxem + filtrováním).
+- [x] REPL konzole (`~`) — psaní Lua kódu do běžícího systému (jako okno v shellu).
 - [ ] **Živá transformace:** příkaz v Luay okamžitě překreslí prostředí (barvy, tvary)
       bez ztráty oken/obsahu terminalu; **F5** = manuální refresh (spec `runtime.md` §5a).
-- [ ] Restart shellu nesmí shodit jádro (error containment, `spec/runtime.md` §5).
-- [ ] Metriky do tabulky.
+      (Částečně: theme reload funguje; F5 hot reload ano.)
+- [x] Restart shellu nesmí shodit jádro (error containment, `spec/runtime.md` §5;
+      runtime test „error containment").
+- [x] Metriky do tabulky (bench 2026-08-08: kernel 366 KiB, Kernel Entry → First Frame
+      ≈ 90 ms; render throughput ≈ 3 renders / 10 ticks).
 
 ### M6 — Storage
 
@@ -294,6 +300,6 @@ QEMU → BIOS/UEFI → Limine (bootloader)
    → cpu.init: IDT, timer, PS/2 (M2)
    → fb.init, renderer, font (M3)
    → runtime.init: Lua state (M4)
-   → main.lua běží → "Hello from Lua"
+   → ui/main.lua běží (concatenované ui/ moduly) → "Hello from Lua"
    → event loop: poll() → update() → render()
 ```
