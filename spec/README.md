@@ -72,3 +72,20 @@ a README je vstupní brána pro návštěvníky. Interní specifikace (`spec/*.m
 
 To se týká **dokumentace**. **Kód, komentáře a commit messages zůstávají anglicky vždy**
 (`spec/code-style.md` §0).
+
+## Strategie dvou vrstev (web)
+
+Veřejný web (`docs/`, GitHub Pages) je **kurátorská vrstva** nad interní specifikací.
+Princip: **čeština = mozek, angličtina = tvář.** Jeden směr toku, žádná duplicita.
+
+- `spec/` (česky) = **kanonický zdroj pravdy** — upravuje se volně, vždy aktuální.
+- `docs/` (anglicky) = **kurátorská veřejná vrstva** — publikuje se z `main` přes
+  GitHub Pages (native Jekyll, theme just-the-docs; konfigurace `docs/_config.yml`).
+- Každá anglická stránka nese `source: spec/<soubor>.md` + datum poslední
+  synchronizace (`synced:`).
+- **Jednosměrný tok:** spec → docs. Nikdy zpětně (anglická stránka se nepromítá
+  do českého spec).
+- **Drift je design, ne bug:** web může zaostávat za spec — veřejná tvář je stabilní,
+  mozek je rychlý.
+- Nové věci se píší česky do `spec/`, anglicky na web ve volných chvílích.
+- `CHANGELOG.md` a `README.md` zůstávají anglicky (veřejné rozhraní projektu).

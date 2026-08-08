@@ -298,13 +298,33 @@ binding marshallingu zelené.
 GPT disk image → GPT → ext2 partition → Aster FS backend → open/read/close → runtime
 ```
 
+### Fáze 2 — hranice M6.1/M7
+
+Rozhodnutí a přesuny mezi M6.1 a M7 (zapsáno 2026-08-08). Cíl: design a přesuny, které
+se musí vyřešit **před** spuštěním dalších features, ne až na konci stabilizace (M8).
+
+- [ ] **Multi-layout klávesnice (design teď):** `input/layout.zig` přestane být hardcode
+      US 105+; zavedou se **KL registry** — layout jako registrovaná mapovací tabulka
+      (`KeyCode` × modifikátory → `char`/akce), přepínatelná za běhu. Design se dělá
+      teď, než přibude cokoliv dalšího (Wasm aplikace, další runtimes). Rozšíření KI
+      (`input.set_layout`) = nový ADR.
+      *Exit: přepnutí layoutu za běhu (US ↔ CZ) na stejném řetězci scancodes, bez restartu.*
+- [ ] **Sdílené buffery + present přesunuté z M7 dopředu (render quality):** tearing/flicker
+      se řeší **před stabilizací (M8)**, ne na jejím konci. Render do vlastní offscreen
+      surface + `present` do framebufferu (původní M7 položka, přesun viz M7 níže).
+      *Exit: dvoubufferový present bez tearingu; zapíše se frame latency p99 (§2).*
+- [ ] **USB HID — rozhodnout jako podmínku M10:** bez USB není reálný hardware (PS/2 je
+      mrtvé). Rozhodnutí na hranici Fáze 2: (a) USB HID stack přesunout dřív
+      (~M6.3/M7.x), nebo (b) M10 = „QEMU + legacy HW (PS/2)".
+      *Exit: zapsané rozhodnutí s dopadem na M10.*
+
 ### M7 — Runtime (Wasm)
 
 **Cíl:** izolované aplikace.
 
 - [ ] wasm3 vendored; `Runtime.spawn(.Wasm, ...)`.
 - [ ] První `.wasm` aplikace (C/Rust → wasm) kreslící do vlastní surface.
-- [ ] Sdílené buffery + present (spec `graphics.md` budoucí cesta).
+- ~~Sdílené buffery + present~~ — přesunuto do Fáze 2 (render quality před stabilizací).
 - [ ] **Preemptivní RR scheduler** pro více tasků (ADR-017) — kritické sekce se
       zakázanou preempcí, žádné locky; `sleepMs` přechází na blokující sleep úkolu
       (`spec/timer.md` §5).

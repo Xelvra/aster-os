@@ -180,8 +180,12 @@ pre-push hook and CI verify it never drifts from the code
 
 ## Documentation
 
-The complete architecture specification lives in [`spec/`](spec/README.md).
-Start with the [architecture overview](spec/architecture.md).
+- **Public website:** the English documentation site lives at
+  [xelvra.github.io/aster-os](https://xelvra.github.io/aster-os/) — a curated,
+  stable public layer over the internal spec (see the two-layer strategy in
+  [`spec/README.md`](spec/README.md)).
+- **Internal specification:** the complete architecture spec lives in
+  [`spec/`](spec/README.md). Start with the [architecture overview](spec/architecture.md).
 
 The internal specs are written in Czech by design — this is the author's working
 documentation, not marketing; see the language policy in
