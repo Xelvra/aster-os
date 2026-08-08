@@ -40,16 +40,24 @@ Full history up to 0.1.0-alpha.1 is archived in
   First Frame ≈ 24 ms (vs 90 ms TCG), render throughput ≈ 32 renders/10 ticks (vs 3–4
   TCG), RAM idle ≈ 2 MiB. Confirms the < 40 ms target is reachable — TCG was the boot
   bottleneck.
-- **Boot log**: the serial boot sequence is now a styled `[ OK ]` log — the `/-\STER OS`
-  header line, colored status lines (green OK / yellow warn / red fail),
-  a memory summary, a "boot sequence complete" capstone and a closing rule before
-  `ASTER BOOT OK`. New `src/kernel/bootlog.zig`; boot markers (`ASTER KERNEL ENTRY` /
-  `ASTER BOOT OK` / `ASTER FIRST FRAME`) preserved for the tools.
-- **Boot log proof of work**: `tools/capture-boot.sh` boots a real image and regenerates
-  `docs/boot-log.md` with metadata (date, host, accelerator, commit); `--check` verifies
-  it never drifts from the code and runs in CI (`.github/workflows/ci.yml`) and a
-  pre-push hook (`tools/install-hooks.sh` installs `hooks/pre-push`). README shows an
-  illustrative plain-text excerpt and links to the full capture.
+- **Boot proof of work**: the serial boot sequence is a styled `[ OK ]` log — the
+  `/-\STER OS` header, colored status lines (green OK / yellow warn / red fail), a memory
+  summary and a "boot sequence complete" capstone separated by blank lines
+  (`src/kernel/bootlog.zig`); boot markers (`ASTER KERNEL ENTRY` / `ASTER BOOT OK` /
+  `ASTER FIRST FRAME`) preserved for the tools. `tools/capture-boot.sh` boots a real image,
+  regenerates `docs/boot-log.md` with metadata (date, host, accelerator, commit) and
+  `--check` verifies it never drifts (CI + pre-push hook, `tools/install-hooks.sh`).
+  README shows the full log as plain text.
+- **Roadmap M9/M10**: new milestones in `spec/roadmap.md` and README — M9 Ecosystem
+  (network, audio, browser, WASI) and M10 Adoption (real hardware, installable image,
+  docs, contributors); the "M9+" shorthand is now a proper M9 milestone everywhere.
+- **ADR-022 — network as a KI module**: planned for M9 (`net.*` — virtio-net,
+  ARP/IPv4/ICMP/UDP), with the Ring 0 remote-DoS safety brake resolved (parser that
+  never faults on foreign input, off by default, fuzz tests); `non-goals.md` updated.
+- **License transparency**: `LICENSE-THIRD-PARTY.md` now names
+  [cachyos-hypr-noctalia](https://github.com/CachyOS/cachyos-hypr-noctalia) as the
+  desktop inspiration (upstream has no license — we reimplement, not copy); sections
+  alphabetized and trimmed to what is actually required.
 
 ### Changed
 

@@ -134,6 +134,7 @@ aby pozdější konsultace návrhu měla k dispozici *proč*, ne jen *co*.
 | [019](adr/019-bootloader-gate.md) | Bootloader gate: kernel nezávisí na typech bootloaderu (BootInfo) | Accepted |
 | [020](adr/020-future-extensibility.md) | Rozšiřitelnost: nové features jako nové KI moduly na konec | Accepted |
 | [021](adr/021-extended-rendering-primitives.md) | Rozšířená renderovací primitiva pro UI (roundRect, border, gradient) | Accepted |
+| [022](adr/022-network.md) | Síť jako KI modul `net.*` — minimální stack (virtio-net, ARP/IPv4/ICMP/UDP), M9 | Accepted |
 
 **Pravidla ADR:** rozhodnutí se nemění dodatečně — změna názoru = nový ADR odkazující na
 starý. Čísla se nepřehazují a nemazají.
@@ -183,7 +184,7 @@ aster-os/
 │   ├── manifest.md
 │   ├── non-goals.md              # co systém vědomě nedělá
 │   ├── code-style.md             # filozofie a pravidla kódu
-│   ├── adr/                      # architektonická rozhodnutí (ADR-001..021)
+│   ├── adr/                      # architektonická rozhodnutí (ADR-001..022)
 │   ├── kernel-interface.md       # KI: sys.dispatch + interface moduly
 │   ├── graphics.md               # Graphics API → Renderer → Framebuffer
 │   ├── desktop-ui.md            # desktop UI port (bar, launcher, okna, widgety)
@@ -223,10 +224,10 @@ aster-os/
 | `manifest.md` | Filozofie projektu — jednoduchost před izolací, evolvabilní rozhraní. |
 | `non-goals.md` | Co systém vědomě nedělá (POSIX, SMP, USB, networking, ...). |
 | `code-style.md` | Pravidla struktury kódu a návrhu modulů (kontrolní seznam pro review). |
-| `adr/` | Architektonická rozhodnutí (ADR-001..021), každé v samostatném souboru. |
+| `adr/` | Architektonická rozhodnutí (ADR-001..022), každé v samostatném souboru. |
 | `kernel-interface.md` | KI: sys.dispatch, syscall čísla, interface moduly, pravidla verzování. |
 | `graphics.md` | Graphics API / Renderer / Framebuffer — vrstvy a povolené operace. |
-| `desktop-ui.md` | Desktop UI — atomický port cachyos-hypr-noctalia (bar, launcher, okna, widgety). |
+| `desktop-ui.md` | Desktop UI — port vzhledu/chování z cachyos-hypr-noctalia, reimplementováno (bar, launcher, okna, widgety). |
 | `input.md` | Vstupní události: PS/2 klávesnice, fronta, mapování na Lua. |
 | `runtime.md` | Runtime.spawn, RuntimeKind, vazba Runtime → Program, error containment. |
 | `timer.md` | Čas: tick zdroj (M2), KI `timer`, kooperativní sleep. |

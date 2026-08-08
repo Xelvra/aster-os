@@ -13,6 +13,7 @@ Projekt se řídí **dvěma nezávislými posloupnostmi**:
 ```
 M0 Boot → M1 Memory → M2 CPU → M3 Graphics → M4 Lua
         → M5 UI → M6 Storage → M7 Runtime → M8 Stabilizace
+        → M9 Ekosystém → M10 Adopce
 ```
 
 ### 1.2 Kvalitní metriky (musí se hlídat při KAŽDÉM milníku)
@@ -58,6 +59,8 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 | M6 | < 768 KB | ≤ 24 MB | < 50 ms | < 16 ms | TBD |
 | M7 | < 1 MB | ≤ 32 MB | < 50 ms | < 16 ms | TBD |
 | M8 | TBD | TBD | TBD | TBD | TBD |
+| M9 | TBD | TBD | TBD | TBD | TBD |
+| M10 | TBD | TBD | TBD | TBD | TBD |
 
 **Definice:**
 - **Kernel Entry → First Frame:** doba od Limine handoff (vstup do našeho kódu) po první
@@ -293,8 +296,34 @@ binding marshallingu zelené.
 - [ ] Rozhodnutí o dalším směru: (a) více funkcí, (b) začít oddělovat do Ring 3.
       Pro volbu (b) je **transport KI připravený dopředu** (ADR-018: mailbox IPC,
       comptime dispatch, IRQ routing) — implementuje se až tady, ne dřív.
-- [ ] Nové features (zvuk/audio, síť M9+, prohlížeč v Luay) se přidávají podle
+- [ ] Nové features (zvuk/audio, síť M9, prohlížeč v Luay) se přidávají podle
       **ADR-020** — jako nové KI moduly na konec enumu, bez úpravy existujících.
+
+---
+
+### M9 — Ekosystém (Network, Audio, Browser, WASI)
+
+**Cíl:** otevřít systém širšímu ekosystému aplikací.
+
+- [ ] **Síť (M9, ADR-022):** KI modul `net.*` — virtio-net driver + ARP/IPv4/ICMP/UDP;
+      parser bez faultu na cizím vstupu, síť defaultně vypnutá, fuzz testy
+      (bezpečnostní brzda z `non-goals.md` řešena ADR-022).
+- [ ] **Audio:** nový KI modul `sound.*` (ADR-020).
+- [ ] **Prohlížeč v Luay:** klient Graphics/Input/Net API — žádný kernel-specifický kód
+      (ADR-020).
+- [ ] **WASI vrstva:** mapování WASI syscallů na KI pro cizí wasm aplikace
+      (`runtime.md` §7.1) — začíná podmnožinou (stdout, argv, filesystem), ne plná WASI.
+
+### M10 — Adopce (real hardware, image, docs, komunita)
+
+**Cíl:** aby si systém mohl spustit a přispět i někdo mimo autora.
+
+- [ ] **Boot na reálném hardware** (USB / disk) — měření metrik na reálném HW uzavře
+      pozn. ³ v §2.
+- [ ] **Instalovatelný image** (boot z disku, ne jen ISO v QEMU).
+- [ ] **Dokumentace pro přispěvatele** (CONTRIBUTING, překlad spec do angličtiny — viz
+      jazykový přechod v `spec/README.md`).
+- [ ] **Adopce:** stabilní ABI, další features dle ADR-020 na základě zpětné vazby.
 
 ---
 

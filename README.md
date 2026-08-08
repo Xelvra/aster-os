@@ -126,7 +126,7 @@ sources are always compiled with `-Os` regardless of the mode.
   ▼               ▼
 ┌──────────────┐  ┌──────────────────────┐
 │ LUA RUNTIME  │  │     WASM RUNTIME     │
-│     # M4     │  │       # M7/M9+       │
+│     # M4     │  │       # M7/M9       │
 └──────┬───────┘  │                      │
        │ ▲        │ ┌──────────────────┐ │
        │ └──────┐ │ │    ASTER APPS    │ │
@@ -136,17 +136,17 @@ sources are always compiled with `-Os` regardless of the mode.
 │    # M5    │    │ ┌──────────────────┐ │
 └────────────┘    │ │       WASI       │ │
                   │ │   FOREIGN APPS   │ │
-                  │ │      # M9+       │ │
+                  │ │      # M9       │ │
                   │ └──────────────────┘ │
                   └──────────────────────┘
 ```
 
 Detailed layers, interfaces, and diagram: [`spec/architecture.md`](spec/architecture.md) §3.
 
-### Boot
+### Boot proof of work
 
-A sample of the kernel boot log from `zig build run` (the terminal shows it in
-color; this excerpt is plain text and is maintained by hand):
+Booting is the work, the log is the proof. The kernel boot log from `zig build run`
+(the terminal shows it in color; here it is plain text, maintained by hand):
 
 ```
 ASTER KERNEL ENTRY
@@ -197,6 +197,10 @@ If the system crashes or hangs: [`spec/debugging.md`](spec/debugging.md)
 | M4 ✅ | Lua: interactive REPL in kernel, hot reload |
 | M5 ✅ | UI: desktop shell in Lua — tiling WM, bar, launcher, workspace, mouse, error containment, live transformation |
 | M6 🔄 | Storage: initfs, virtio-blk, GPT, filesystem, cooperative reads |
+| M7 ⏳ | Runtime: wasm apps, multitasking, app isolation |
+| M8 ⏳ | Stabilization: invariant audit, metrics, Ring 3 decision |
+| M9 ⏳ | Ecosystem: network, audio, browser, WASI |
+| M10 ⏳ | Adoption: real hardware, installable image, docs, contributors |
 
 Details in [`spec/roadmap.md`](spec/roadmap.md).
 

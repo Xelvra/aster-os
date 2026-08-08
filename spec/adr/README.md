@@ -32,6 +32,7 @@ samostatný soubor. Pravidla:
 | [019](019-bootloader-gate.md) | Bootloader gate: kernel nezávisí na typech bootloaderu (BootInfo) | Přijato |
 | [020](020-future-extensibility.md) | Rozšiřitelnost: nové features jako nové KI moduly na konec | Přijato |
 | [021](021-extended-rendering-primitives.md) | Rozšířená renderovací primitiva pro UI (roundRect, border, gradient) | Přijato |
+| [022](022-network.md) | Síť jako KI modul `net.*` — minimální stack (virtio-net, ARP/IPv4/ICMP/UDP), M9 | Přijato |
 
 ## Šablona nového ADR
 

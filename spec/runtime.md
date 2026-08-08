@@ -230,7 +230,7 @@ Wasm má v Asteru **dvě odlišné role**, které se nesmí zaměňovat:
 1. **Domácí Wasm (M7):** aplikace **psané pro Aster** — volají KI přes Aster bindings
    (`gfx.*`, `input.*`, ...), jako Lua, ale s izolovanou lineární pamětí a bez sdíleného
    stavu jádra. To je jediná Wasm role v M7.
-2. **WASI vrstva (výhledově, M9+):** kompatibilita s **cizím** Wasm ekosystémem.
+2. **WASI vrstva (výhledově, M9):** kompatibilita s **cizím** Wasm ekosystémem.
    Programy kompilované `wasm32-wasi` (CLI nástroje, text-UI hry, jednoduché aplikace)
    by mohly běžet, pokud Aster implementuje mapování WASI syscallů na KI.
 

@@ -5,6 +5,12 @@ komponenta po komponentě. Zdrojem je [`cachyos-hypr-noctalia`](https://github.c
 (config/dotfiles pro Hyprland + Noctalia shell); portujeme **vzhled a chování**, ne
 software (Hyprland/Wayland/GTK/Qt v našem kernelu neběží).
 
+> **Transparentnost / licence:** upstream repo **nemá licenční soubor** (výchozí stav
+> „all rights reserved") — Aster proto **neobsahuje a nevendoruje žádný jeho soubor**.
+> Port znamená reimplementaci vizuálního konceptu a Hyprland konvencí vlastním kódem
+> (barvy jako data, klávesové zkratky jako data); poděkování viz
+> `LICENSE-THIRD-PARTY.md` (sekce „Thematic inspiration").
+
 ---
 
 ## 1. Vize

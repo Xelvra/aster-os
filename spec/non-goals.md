@@ -16,7 +16,7 @@ na tento dokument.
 | **POSIX kompatibilita** | ❌ Ne | Žádná POSIX API v kernelu; KI je vlastní (ADR-004). **Výjimka:** runtime vrstva může hostit **WASI** pro cizí Wasm aplikace (viz `runtime.md` §7.1) — WASI je klient KI, ne součást kernelu. |
 | **SMP / vícejádro** | ❌ Ne | Single-core v prvních milnících; SMP je zásadní zásah do scheduleru a paměti. |
 | **USB** | ❌ Ne | Jen PS/2 klávesnice (M2). |
-| **Networking / TCP-IP** | ❌ Ne | Není v roadmapě; nejdřív by muselo být M9+ s plánem. **Bezpečnostní důvod:** vnitřní síťový stack parsuje malformovaný cizí provoz v Ring 0 — safety panic z `ReleaseSafe` na špatně naparsovaný paket by byl **vzdálený DoS celého systému** (fault policy = halt, ADR-002, `invariants.md` §1). Přidání sítě proto vyžaduje **samostatný ADR + plán** (přehodnocení fault containmentu a izolace), není to jen „přidám driver". |
+| **Networking / TCP-IP** | ⚠️ M9 (ADR-022) | Síť je plánovaná jako KI modul `net.*` (virtio-net, ARP/IPv4/ICMP/UDP) — viz ADR-022. Bezpečnostní brzda: parser bez faultu na cizím vstupu, síť defaultně vypnutá, fuzz testy; residuální riziko DoS v Ring 0 je přijato pro hobby rozsah (dlouhodobě Ring 3, ADR-018). |
 | **GPU akcelerace** | ❌ Ne | Framebuffer přes GOP (Limine); renderer je softwarový. |
 | **Bezpečnostní certifikace** | ❌ Ne | Neformální systém; izolace je managed runtime úroveň (ADR-002). |
 | **Multi-user prostředí** | ❌ Ne | Jeden uživatel, žádné účty. |
