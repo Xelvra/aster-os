@@ -60,11 +60,11 @@ a README je vstupní brána pro návštěvníky. Interní specifikace (`spec/*.m
   zatím neexistuje.
 - Psát pro sebe = rychlost, konzistence a soustředění na kód; čeština je pro autora
   nejrychlejší médium přesného vyjádření.
-- **Přechod na angličtinu u `spec/*.md` je vědomý, jednorázový krok** — nastane ve chvíli,
-  kdy systém funguje a je stabilizovaný (přibližně **M8**, po stabilizačním milníku) a
-  projekt hledá kontributory. Tehdy se interní dokumentace přeloží jako jeden ucelený
-  celek, ne postupně za běhu. Posunuto z M4 na M8 (2026-08-08): M4/M5 se soustředí na
-  implementaci a měření, ne na překlad.
+- **Anglická verze specifikace nevzniká hromadným překladem, ale postupně** — jako
+  anglická vrstva v `docs/` (web, viz „Strategie dvou vrstev" níže). `spec/*.md` zůstává
+  český zdroj pravdy; anglický ekvivalent se vytváří průběžně při práci, ne jako
+  jednorázový krok (původní plán „hromadný překlad v M8" nahrazen 2026-08-08). Nejde
+  tedy o podmínku žádného milníku.
 
 > **Odchylka od původního plánu (zapsáno při M0):** původní záměr byl anglické dokumentace
 > od M4+ včetně README. Protože je repo public už od M0, README se přeložilo hned;

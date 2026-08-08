@@ -171,6 +171,11 @@ Pravidlo: **každý commit musí zanechat systém spustitelný v QEMU.**
 > spustí `./tools/capture-boot.sh --check` — boot log v dokumentaci
 > (`boot-log.md`) nesmí zastarat vůči kódu. Instalaci hooků doporučujeme po klonu;
 > CI to ověřuje taky.
+>
+> **Známé riziko (zapsáno 2026-08-08):** boot log jako CI gate je **záměrná funkce**
+> (Boot proof of work), ne bug. Je nepohodlný jen při obcházení hooku (např. stash)
+> nebo změně prostředí/akcelerace — hook se nemá obcházet; boot log se regeneruje
+> přes `./tools/capture-boot.sh`. Pokud hook padá bez obcházení, je to chyba a hlásí se.
 
 ---
 

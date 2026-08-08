@@ -274,6 +274,9 @@ binding marshallingu zelené.
 - [ ] **Auto-reload na uložení:** uložení `theme.lua`/config souboru → automatické
       překreslení prostředí bez klávesy (spec `runtime.md` §5a spouštěč 2).
 - [ ] (Výhledově: ukládání, editor.)
+      > **Poznámka (2026-08-08):** uložení nastavení (`theme.lua` apod.) nepůjde vyzkoušet,
+      > dokud disk neumí zapisovat — ext2 je read-only, testovatelnost auto-reloadu je
+      > vázaná na výhledové ukládání.
 
 #### M6.1 — Persistence foundation (ADR-023)
 
@@ -388,8 +391,9 @@ se musí vyřešit **před** spuštěním dalších features, ne až na konci st
       buď s USB stackem dřív (~M6.3/M7.x), nebo jako „QEMU + legacy HW (PS/2)".
       Měření metrik na reálném HW uzavře pozn. ³ v §2.
 - [ ] **Instalovatelný image** (boot z disku, ne jen ISO v QEMU).
-- [ ] **Dokumentace pro přispěvatele** (CONTRIBUTING, překlad spec do angličtiny — viz
-      jazykový přechod v `spec/README.md`).
+- [ ] **Dokumentace pro přispěvatele a anglická vrstva:** CONTRIBUTING (hotovo),
+      pokračující anglická vrstva v `docs/` (web) — průběžně, **není podmínka M10**;
+      viz jazyková strategie v `spec/README.md`.
 - [ ] **Adopce:** stabilní ABI, další features dle ADR-020 na základě zpětné vazby.
 
 ---
