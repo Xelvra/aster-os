@@ -60,6 +60,14 @@ Full history up to 0.1.0-alpha.1 is archived in
   exact `mke2fs` invocation, and a thin stable `open/read/close` interface that keeps
   the door open for later backends (FAT32, EROFS, 9P, ext4); `spec/roadmap.md` M6.1
   breakdown added.
+- **PCI configuration space**: minimal driver for the classic port-based mechanism
+  (0xCF8/0xCFC) — `enumerate`, `findDevice` and BAR decoding (`src/kernel/drivers/pci.zig`).
+- **virtio-blk driver** (M6.1.1): modern (capability-based) transport over PCI — capability
+  parsing, MMIO BAR mapping via the page tables, feature negotiation (VIRTIO_F_VERSION_1),
+  a split virtqueue and sector reads. Works on both the transitional (0x1af4:0x1001) and
+  the modern-only (0x1af4:0x1042) device that QEMU exposes with/without `disable-legacy`.
+  On boot with a disk attached the log gains `[ OK ] storage virtio-blk`
+  (`src/kernel/drivers/virtio.zig`).
 - **License transparency**: `LICENSE-THIRD-PARTY.md` now names
   [cachyos-hypr-noctalia](https://github.com/CachyOS/cachyos-hypr-noctalia) as the
   desktop inspiration (upstream has no license — we reimplement, not copy); sections

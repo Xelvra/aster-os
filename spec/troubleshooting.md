@@ -153,7 +153,7 @@ Toto ladění stálo nejvíc času v M5 — čti pečlivě, než se dotkneš `dr
 ## 9. KVM / reálný hardware (KVM infra, 2026-08-08)
 
 KVM se zapojil jako akcelerační cesta (`tools/qemu-accel.sh`, `-Dkvm`). Pod KVM se
-okamžitě obnažily bugy, které TCG maskuje — viz C28 a meta-lekce v §10.
+okamžitě obnažily bugy, které TCG maskuje — viz C28 a meta-lekce v §11.
 
 > **Detekce akcelerátoru:** boot log ukazuje accelerator (`[ OK ] accelerator kvm` /
 > `tcg` / `hv`) — CPUID leaf 1, ECX bit 31 = hypervisor present; leaf 0x40000000 =
@@ -166,7 +166,25 @@ okamžitě obnažily bugy, které TCG maskuje — viz C28 a meta-lekce v §10.
 
 ---
 
-## 10. Jak předcházet (meta-lekce)
+## 10. Storage — virtio-blk a PCI (M6, 2026-08-08)
+
+virtio-blk je postavený na moderním (capability-based) PCI transportu. Debug byl
+zacyklený nebo zařízení request nezpracovalo — obojí mělo překvapivou příčinu, ne ve
+specifikaci na první pohled.
+
+| Záznam | Symptom | Příčina | Řešení | Ověřit |
+|--------|---------|---------|--------|--------|
+| C29 | boot zacyklený po PCI scanu, serial tiskne nekonečně jeden řádek | **`continue` v cap walku bez posunu `cap_offset`**: transitional zařízení (0x1af4:0x1001) má legacy I/O BAR0, na který `barAddress` vrací null → `orelse continue` se opakovalo věčně | `barAddress` řešit `if`/`orelse` uvnitř iterace a `cap_offset = cap_next` **vždy** — `continue` nikdy nepřeskakovat bez posunu pointeru | boot s diskem projde cap walk |
+| C30 | `setupQueue` i `init` OK, ale čtení vrací `IoError` (timeout); QEMU hlásí `virtio-blk missing headers` | descriptor chain postrádá **`VIRTQ_DESC_F_NEXT`** na prvních dvou descriptorech → device vidí řetězec délky 1 (`out_num=1, in_num=0`), request je nevalidní, zařízení ho nezpracuje | `desc[head]` a `desc[head+1]` musí mít flag `desc_f_next`; jen poslední (status) descriptor ho nemá; navíc vyjednat `VIRTIO_F_VERSION_1` (bit 32), jinak device čeká legacy 12B layout | `readSector` vrátí očekávaná data, žádný timeout |
+| C31 | zařízení nastaví `DEVICE_NEED_RESET` (status=0x4f) i v čistém modern režimu | **chybějící `VIRTIO_F_VERSION_1`**: bez něj device (transitional) běží v legacy režimu a moderní 16B queue layout je nekompatibilní | negotiace: `driver_feature_select=1; driver_feature=1` (bit 32 = VERSION_1) | status bez NEED_RESET, read funguje |
+
+> **Meta:** cap walk je vždy `while (ptr != 0)` s **jediným** místem posunu pointeru —
+> žádný `continue`/`break` uvnitř. Virtio flagy: u descriptorů je výchozí absence
+> `NEXT` = konec řetězce; zapomenutí `NEXT` tiše změní délku řetězce, ne crash.
+
+---
+
+## 11. Jak předcházet (meta-lekce)
 
 - **Měň jednu věc a ověřuj** — při M0 se střídaly strip/linker.ld/optimize současně, což
   zamlžilo příčiny. Jeden faktor na krok.
@@ -198,7 +216,7 @@ okamžitě obnažily bugy, které TCG maskuje — viz C28 a meta-lekce v §10.
 
 ---
 
-## 11. Nevyřešené problémy → handoff
+## 12. Nevyřešené problémy → handoff
 
 Problém, který se nepodaří vyřešit v čase (viz `spec/handoff.md` §1), **se nezapisuje do
 této tabulky** (ta je jen pro vyřešené lekce). Použije se šablona v `spec/handoff.md` a

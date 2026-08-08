@@ -143,6 +143,7 @@ fn kernelMain() !void {
 
     ps2.init();
     bootlog.ok("input", "ps/2 keyboard + mouse");
+    probeStorage(alloc, &memory);
 
     if (initGraphics(&info)) {
         var gfx_buf: [96]u8 = undefined;
@@ -199,6 +200,15 @@ fn initGraphics(info: *const boot_info.BootInfo) bool {
     input.mouse_state.x = @divTrunc(@as(i32, @intCast(fb_info.width)), 2);
     input.mouse_state.y = @divTrunc(@as(i32, @intCast(fb_info.height)), 2);
     return true;
+}
+
+fn probeStorage(alloc: std.mem.Allocator, memory: *mem.Memory) void {
+    const virtio = @import("drivers/virtio.zig");
+    var blk = virtio.VirtioBlk.init(alloc, &memory.pfa, memory.pfa.hhdm_offset) catch return;
+    blk.setupQueue() catch return;
+    var sector: [512]u8 = undefined;
+    blk.readSector(0, &sector) catch return;
+    bootlog.ok("storage", "virtio-blk");
 }
 
 fn testKiDispatch() bool {

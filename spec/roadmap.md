@@ -258,8 +258,10 @@ binding marshallingu zelené.
       **Formát: tar** (jednoduchý, streamovatelný, dobře se generuje build-time;
       rozhodnutí z fáze přípravy — implementuje se zde). Shell moduly (`ui/*.lua`) se
       načítají z taru místo `@embedFile` (Limine module request + `src/kernel/fs/tar.zig`).
-- [ ] **Block device driver** — **virtio-blk** (standard QEMU), čtení. Bez block device
-      neexistuje žádná persistence; driver je samostatný bod (až pak FS).
+- [x] **Block device driver** — **virtio-blk** (standard QEMU), čtení. Bez block device
+      neexistuje žádná persistence; driver je samostatný bod (až pak FS). Modern
+      (capability-based) transport, funguje na transitional (0x1af4:0x1001) i modern-only
+      (0x1af4:0x1042) zařízení; boot log `[ OK ] storage virtio-blk`.
 - [ ] **Partition table** — **GPT** (standard), čtení; ext2/ext4 i FAT32 na disku potřebují
       partition table. Nikdy vlastní formát.
 - [ ] **Perzistence: ext2 read-only** (ADR-023) — **nikdy vlastní formát**. ext2 je jen on-disk
@@ -275,8 +277,10 @@ binding marshallingu zelené.
 
 #### M6.1 — Persistence foundation (ADR-023)
 
-- [ ] **M6.1.1 Block device API:** stabilní rozhraní + **virtio-blk** (čtení sektorů); FS kód
-      nezávisí na konkrétním driveru. *Exit: deterministické čtení bloků z disku.*
+- [x] **M6.1.1 Block device API:** stabilní rozhraní + **virtio-blk** (čtení sektorů); FS kód
+      nezávisí na konkrétním driveru. *Exit: deterministické čtení bloků z disku.* —
+      **hotovo:** `src/kernel/drivers/pci.zig` + `virtio.zig`, čte sektor 0 (verifikováno
+      magic bajty), boot log `[ OK ] storage virtio-blk` jen když je disk přítomen.
 - [ ] **M6.1.2 GPT partition discovery:** oddíly jako block-device views, nezávislé na FS.
       *Exit: nalezení cílového oddílu a čtení jeho sektorů.*
 - [ ] **M6.1.3 ext2 mount (read-only):** superblock, block groups, bitmapy (validace), inode

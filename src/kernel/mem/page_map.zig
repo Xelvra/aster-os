@@ -1,7 +1,7 @@
 const std = @import("std");
 const pfa = @import("pfa.zig");
 const present: u64 = 1 << 0;
-const rw: u64 = 1 << 1;
+pub const rw: u64 = 1 << 1;
 const addr_mask: u64 = 0x000FFFFFFFFFF000;
 
 var hhdm_offset: u64 = 0;
