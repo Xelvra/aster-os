@@ -187,7 +187,6 @@ If the system crashes or hangs: [`spec/debugging.md`](spec/debugging.md)
 | M3 ✅ | Graphics: framebuffer, renderer, text on screen |
 | M4 ✅ | Lua: interactive REPL in kernel, hot reload |
 | M5 ✅ | UI: desktop shell in Lua — tiling WM, bar, launcher, workspace, mouse, error containment, live transformation |
-
 | M6 ✅ | Storage: initfs, virtio-blk, GPT, filesystem, cooperative reads |
 | M7 🔄 | Runtime: wasm apps, multitasking, app isolation |
 | M8 ⏳ | Stabilization: invariant audit, metrics, Ring 3 decision |
