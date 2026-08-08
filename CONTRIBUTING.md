@@ -74,6 +74,9 @@ boot log (`boot-log.md`) still matches the code via
   actual change.
 - Each commit must leave the system bootable (see above).
 - Keep commits focused; do not mix unrelated changes.
+- The aggregated `CHANGELOG.md` is **hand-curated**. Regenerate the raw commit
+  history via `tools/generate-changelog.sh` (writes `CHANGELOG-commits.md`) —
+  never overwrite the aggregated file with it.
 
 ### Style
 

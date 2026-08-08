@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The version number matches the project milestone (0.0.0 = M0 Boot, 0.6.0 = M6
 Storage). Newer versions are listed first.
 
+> This file is **hand-curated** (what the system can do). The raw commit
+> history is regenerated separately by `tools/generate-changelog.sh` — never
+> point it at this file; it writes `CHANGELOG-commits.md` instead. See Dev
+> tools below.
+
 ---
 
 ## [0.6.0-alpha.1] — Milestone M6 — Storage (in progress)
@@ -47,9 +52,12 @@ Storage). Newer versions are listed first.
 
 ### Added
 
-* **Desktop environment & window manager:** Tiling and floating windows,
-  Hyprland-style keybindings, Noctalia-style bar, launcher with search,
-  workspace switching, fullscreen, togglesplit and UI hot reload (F5).
+* **Desktop environment & window manager:** Shell split into `ui/` modules
+  (theme, wm, repl, launcher, input, main); tiling (60/40 split, focus ring via
+  gradient border) and floating windows; Hyprland-standard keybindings (Super
+  key); Noctalia-style bar (launcher, clock, workspace capsules,
+  volume/session placeholders); launcher with search; workspace switching,
+  fullscreen, togglesplit and UI hot reload (F5).
 * **Live transformation ("config is code"):** `gfx.invalidate()` repaints the
   environment without a key press; the `theme` table is data — changing a color
   takes effect live.
@@ -79,13 +87,18 @@ Storage). Newer versions are listed first.
 ### Added
 
 * **Lua 5.4.8 in the kernel:** Embedded interpreter (27 `.c` files) with a
-  freestanding libc shim — scripts run directly in the kernel, no host OS
+  freestanding libc shim (custom openlibs: `base`, `coroutine`, `table`,
+  `string`, `utf8`, `math`) — scripts run directly in the kernel, no host OS
   dependency.
 * **Interactive REPL:** A Lua console starts after boot — type code, Enter runs
   it, `print()` writes to the screen; line editing and command history.
 * **Lua bindings:** `gfx.*`, `input.next_event`, `time.ticks`, `sysmon.*` with
   strict type validation (floats rejected); the shell receives a ready `char`.
 * **Hot reload (F5):** UI script changes take effect without a system restart.
+* **GC budget per frame:** a `collectgarbage("step", ...)` budget in every
+  `update()` keeps GC pauses off the hot render path.
+* **Runtime tests for the bindings in QEMU:** the bindings are exercised in the
+  real kernel context (a real `lua_State`), not host mocks.
 * **Keyboard layout:** `input/layout.zig` infrastructure (US 105+) — maps
   `KeyCode`+shift/ctrl to a character, numpad, extended keys, Alt/AltGr layer.
 
@@ -108,7 +121,8 @@ Storage). Newer versions are listed first.
   `drawText` with clipping — no heap allocation on the draw path.
 * **Embedded VGA font (8×16):** Bitmap font (public domain) with `?` fallback.
 * **Graphics API in KI:** `api/graphics.zig` with `GraphicsOp` 0–5 wired into
-  `sys.dispatch`.
+  `sys.dispatch`; host tests for renderer clipping/blit.
+* **Event loop:** `poll → update → render` with render-on-dirty.
 * **Text on screen:** Keyboard → ASCII with shift; console with wrap, scroll,
   backspace and cursor; typing visible in QEMU.
 
@@ -153,7 +167,8 @@ Storage). Newer versions are listed first.
 ### Added
 
 * **Bitmap Page Frame Allocator:** 4 KiB pages, 1 bit per page, deterministic
-  first-free allocation, zeroing on request, OOM as an error (never a panic).
+  first-free allocation, zeroing on request, OOM as an error (never a panic);
+  host unit tests (16).
 * **First-fit heap allocator:** Boundary tags, coalescing, dynamic growth from
   the PFA — implements `std.mem.Allocator`.
 * **Boot memory dump:** RAM layout (usable bytes, free pages) + heap allocator
@@ -182,35 +197,40 @@ Storage). Newer versions are listed first.
 
 ## Dev tools
 
-**The changelog is generated automatically from the commit history — no manual
-writing.**
+**`CHANGELOG.md` is hand-curated — never overwrite it with a generator.**
 
-### How to regenerate CHANGELOG
+The raw commit history is regenerated separately:
+
+- `tools/generate-changelog.sh` writes `CHANGELOG-commits.md` (raw, oldest
+  first, verbatim).
+- `tools/generate-changelog.sh --log` prints it to stdout without writing.
+- `tools/generate-changelog.sh --help` shows the options.
+
+### Why two files
+
+- **`CHANGELOG.md`** — the curated, aggregated view (what the system can do,
+  one version per milestone). Read this.
+- **`CHANGELOG-commits.md`** — the raw, verbatim commit log; regenerated on
+  demand, never edited by hand.
+
+### Regenerate the raw commit history
 
 1. **One-time alias setup (in a terminal):**
    ```bash
    git config alias.changelog '!bash tools/generate-changelog.sh'
    ```
 
-2. **Regenerate the changelog:**
+2. **Regenerate:**
    ```bash
-   git changelog
+   git changelog            # writes CHANGELOG-commits.md
+   git changelog --log      # prints to stdout (no write)
+   git changelog --help     # help
    ```
-
-   The command creates/overwrites `CHANGELOG.md` with the full commit history.
-
-### Script alternatives
-
-```bash
-tools/generate-changelog.sh --log     # print the full log to stdout (no write)
-tools/generate-changelog.sh --help    # show help
-```
 
 ### Why this approach
 
-* **Always up to date:** Anyone regenerates the changelog with one command
-  exactly when needed.
-* **No merge conflicts:** Developers do not overwrite each other's file in merge
-  requests.
-* **Clean repository:** The versioned `CHANGELOG.md` is the aggregated summary
-  (what the system can do); the full commit history is one command away.
+* **Two layers, no accidents:** readers get the curated `CHANGELOG.md`; the raw
+  history is one command away and can never clobber it.
+* **Always up to date:** anyone regenerates the raw history exactly when needed.
+* **No merge conflicts:** developers do not overwrite each other's file in
+  merge requests.

@@ -27,45 +27,17 @@ This project requires the Zig version listed in [`.zig-version`](.zig-version).
 
 ## Status
 
-- **Milestone M6 (Storage) in progress:** persistence foundation — PCI configuration
-  space driver, virtio-blk block device (modern transport, sector reads, boot log
-  `[ OK ] storage virtio-blk` when a disk is attached), initfs loading the shell from a
-  Limine initrd (tar). Planned next: GPT partition discovery and a read-only ext2
-  backend (ADR-023).
-- **Milestone M5 (UI) complete:** desktop shell in Lua split into `ui/` modules
-  (theme, wm, repl, launcher, input, main) concatenated into one chunk by `lua.zig`.
-  Tiling window manager (60/40 split, focus ring via gradient border, float + drag,
-  fullscreen, togglesplit), Noctalia-style 35px bar (launcher, clock, workspace
-  capsules, volume/session placeholders), working launcher with search, PS/2 mouse with kernel
-  cursor overlay, Super key + Hyprland-standard keybindings, error containment
-  (a script error hot-reloads the shell instead of crashing the kernel), sysmon
-  KI module exposing live RAM usage.
-- **Milestone M4 (Lua) complete:** Lua 5.4.8 runtime embedded in the kernel (freestanding
-  libc shim + custom openlibs: base/coroutine/table/string/utf8/math); `api/runtime.zig`
-  with `RuntimeKind.Lua` and hot reload (F5); Lua bindings `gfx.*`, `input.next_event`,
-  `time.ticks` with strict type validation (floats rejected); keyboard layout is
-  infrastructure (`input/layout.zig`, US 105+) — bindings send a ready `char`; after boot
-  an interactive **Lua REPL** starts (banner + `> ` prompt, type code, Enter runs it,
-  `print()` writes to the screen); GC step budget per frame; runtime tests for Lua
-  bindings in QEMU. Kernel image 336 KiB (< 512 KB target; ReleaseFast 259 KiB).
-- **Milestone M3 (Graphics) complete:** Limine GOP framebuffer wrapped in `Framebuffer`;
-  renderer (`drawRect`, `blit`, `fillScreen`, `drawGlyph`, `drawText`) with clipping;
-  embedded VGA 8×16 bitmap font; Graphics API module (`api/graphics.zig`) in KI dispatch;
-  event loop `poll → update → render` (render-on-dirty); keyboard types visible text
-  on screen (shift-aware); host tests for renderer clipping/blit + runtime test.
-- **Milestone M2 (CPU) complete:** GDT/IDT (256 ISR stubs), fault policy with
-  freestanding backtrace; Local APIC timer (1 kHz) + IOAPIC routing for IRQ1; PS/2
-  keyboard with hardware-neutral `KeyCode`/`KeyEvent` input subsystem; KI dispatch
-  layer (`api/sys.zig`); in-QEMU runtime tests via `isa-debug-exit`.
-- **Milestone M1 (Memory) complete:** Limine memory map parsed into `BootInfo`;
-  bitmap Page Frame Allocator; first-fit heap allocator implementing `std.mem.Allocator`;
-  host unit tests (16); boot prints RAM layout; framebuffer verified as **WC** cache.
-- **Milestone M0 (Boot) complete:** deterministic, reproducible build; boots in QEMU via
-  Limine; prints `ASTER BOOT OK` on serial.
-- Bootable-commit rule: **every commit must leave the system runnable in QEMU.**
-  See [`spec/verification.md`](spec/verification.md).
-- Roadmap M0–M8: [`spec/roadmap.md`](spec/roadmap.md). This is a pre-alpha prototype,
-  not a usable OS yet.
+- **M6 (Storage) — in progress:** persistence foundation — virtio-blk block device
+  (sector reads, `[ OK ] storage virtio-blk` when a disk is attached) and initfs loading
+  the shell from a Limine initrd (tar). Next: GPT partition discovery and a read-only
+  ext2 backend (ADR-023).
+- **M0–M5 complete:** boot → memory → CPU → graphics → Lua runtime → desktop shell in
+  Lua (tiling WM, launcher, mouse, error containment).
+- **Bootable-commit rule:** every commit must leave the system runnable in QEMU
+  ([`spec/verification.md`](spec/verification.md)).
+- **Feature history:** per-milestone details (Added/Fixed) in
+  [`CHANGELOG.md`](CHANGELOG.md); metrics in [`spec/roadmap.md`](spec/roadmap.md).
+- This is a pre-alpha prototype, not a usable OS yet.
 
 ## Prerequisites
 
