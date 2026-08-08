@@ -55,6 +55,7 @@ Full tool table and dependency status: [`spec/verification.md`](spec/verificatio
 ```bash
 zig build run          # boot in QEMU (auto KVM when /dev/kvm is available)
 zig build run -Dkvm=false  # force TCG emulation
+zig build run -Ddisk=disk.img  # boot with a raw disk attached (shows '[ OK ] storage virtio-blk')
 zig build test         # host unit tests
 ./tools/qemu-smoke.sh  # automated boot test (serial marker + timeout; auto KVM)
 ./tools/qemu-test.sh   # in-QEMU runtime tests (isa-debug-exit; auto KVM)
@@ -133,6 +134,7 @@ ASTER KERNEL ENTRY
 [ OK ] interrupts       idt · pic
 [ OK ] cpu              page tables · apic timer
 [ OK ] input            ps/2 keyboard + mouse
+[ OK ] storage          virtio-blk
 [ OK ] graphics         800x600 framebuffer · wc
 [ OK ] renderer         primitives + bitmap font
 [ OK ] runtime          lua 5.4.8 shell
