@@ -47,11 +47,13 @@ fn load() void {
     const base: u64 = @intFromPtr(&idt_entries);
     std.mem.writeInt(u16, idt_reg[0..2], limit, .little);
     std.mem.writeInt(u64, idt_reg[2..10], base, .little);
-    const reg_ptr: *const [10]u8 = &idt_reg;
-    asm volatile ("lidtq (%[idt])"
+    // Zig 0.16 rejects `lidtq (%[reg])` with an "r" operand in Debug builds
+    // ("invalid memory operand"), while ReleaseSafe accepts it. Moving the
+    // address into %rax first and then using `(%rax)` works in both modes.
+    asm volatile ("mov %[reg], %%rax\nlidtq (%%rax)"
         :
-        : [idt] "r" (reg_ptr),
-        : .{ .memory = true });
+        : [reg] "r" (@intFromPtr(&idt_reg)),
+        : .{ .rax = true, .memory = true });
 }
 
 fn handleIsrImpl(frame: *InterruptFrame) callconv(.c) void {

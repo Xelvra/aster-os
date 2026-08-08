@@ -123,6 +123,7 @@ Co přesně považujeme za vyřešení (definice „hotovo" pro tento problém).
 | ID | Název | Datum | Status |
 |----|-------|-------|--------|
 | H1 | `zig build` hlásí falešné `failed command: xorriso` při prvním buildu | 2026-08-07 | closed |
+| H2 | Debug build — `invalid memory operand` u `lidtq`/`invlpg` (Zig 0.16) | 2026-08-08 | closed |
 
 ---
 

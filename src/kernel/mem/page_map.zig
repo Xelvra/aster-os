@@ -44,10 +44,13 @@ fn ensureTable(alloc: *pfa.PageFrameAllocator, parent_phys: u64, index: usize) u
 }
 
 fn flushTlb(virtual: u64) void {
-    asm volatile ("invlpg (%[addr])"
+    // Zig 0.16 rejects `invlpg (%[addr])` with an "r" operand in Debug builds
+    // ("invalid memory operand"), while ReleaseSafe accepts it. Moving the
+    // address into %rax first and then using `(%rax)` works in both modes.
+    asm volatile ("mov %[addr], %%rax\ninvlpg (%%rax)"
         :
         : [addr] "r" (virtual),
-        : .{ .memory = true });
+        : .{ .rax = true, .memory = true });
 }
 
 fn read_cr3() u64 {

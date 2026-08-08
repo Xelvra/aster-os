@@ -128,6 +128,7 @@ Toto ladění stálo nejvíc času v M5 — čti pečlivě, než se dotkneš `dr
 | C24 | myš/klávesnice se chovají eraticky (nepřesně, zasekaně) i po všech opravách | **i8042 je pomalý** — příkazy posílané back-to-back bez čekání na `status_input_full == 0` se ztrácí/korumpují sdílený config byte | **Každý** zápis do kontroléru přes `sendCommand`/`sendData`, které čekají na input-empty (bounded timeout). Read-modify-write config, ne natvrdo konstantu | stabilní pohyb i psaní |
 | C25 | myš neposílá pakety, i když je init OK | Po `0xF4` (streaming) se **nesmí filtrovat bajty 0xFA/0xAA** z datového proudu — to jsou platné hodnoty `dx`/`dy` (250/170). Filtrace rozhazuje paket | ACK se čte jen **synchronně v `mouseCommand()`** při init, nikdy z proudu v `handleIrq12` | plynulý pohyb, žádné zasekávání |
 | C26 | kurzor myši fyzicky nedosáhne viditelných okrajů okna | Framebuffer **800×600** se škálováním displeje (150 %/125 %) ne vždy sedí na hostitelský monitor — **QEMU-specifické** (ovlivněno i volbou VGA výstupu v QEMU); na reálném HW se chování liší a musí se ověřit až při bootu z USB | `zig build run`: `-display gtk,zoom-to-fit=on` — škáluje okno, framebuffer i myší souřadnice zůstávají nativní; `resolution: 800x600` v `limine.conf` | okno se vejde na obrazovku, kurzor dojede ke všem hranám |
+| C27 | `zig build -Doptimize=Debug` nekompiluje: `invalid memory operand: '(%[reg])'` v `lidtq`/`invlpg` | **Nekonzistence Zig 0.16** mezi módy: zápis `asm ("lidtq (%[reg])", : : [reg] "r" (...))` (register + memory deref) ReleaseSafe **přijímá**, Debug **odmítá** ("invalid memory operand") — reprodukováno i v izolovaném host exe, není kernel-specifické | Přesunout adresu přes scratch registr: `"mov %[reg], %%rax\nlidtq (%%rax)"` s clobbers `.{ .rax = true, .memory = true }` — funguje v obou módech; pozor, constraint `"m"` je sémanticky špatně (invaliduje stránku proměnné, ne adresu) | `zig build -Doptimize=Debug` + boot v Debug |
 
 **Shrnutí pravidel (nejdůležitější meta-lekce z M5):**
 
@@ -168,6 +169,11 @@ Toto ladění stálo nejvíc času v M5 — čti pečlivě, než se dotkneš `dr
 - **MMIO periferie (APIC/IOAPIC) vyžadují explicitní mapování** — HHDM je mapuje jen když
   bootloader řekne; bez `mapPage` je přístup #PF. Adresy kernelu (`0xffffffff8...`) a HHDM
   (`0xffff8000...`) jsou různé rozsahy, hhdm_offset platí jen pro fyzické mapování (C4).
+- **Lua `local` je viditelná až po deklaraci** — funkce, která používá `local` proměnnou
+  deklarovanou **později v souboru**, dostane `nil` a spadne (launcher: `launcher_input`
+  bylo za `launcher_render` → "attempt to index a nil value" při prvním renderu, jen u
+  Super+Space). Deklaruj stav **před** funkcemi, které ho čtou, nebo ho sdílej přes
+  globální tabulku.
 
 ---
 
