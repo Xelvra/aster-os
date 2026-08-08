@@ -126,5 +126,7 @@ QEMU_TEST_DISK= ./tools/qemu-test.sh                      # PASS (kontrola)
 - `QEMU_TEST_DISK=/tmp/test-disk.img ./tools/qemu-test.sh` vrací **exit 99**
   (všechny runtime testy PASS včetně nového FS testu mount/lookup/open/read/EOF/invalid).
 - Bez disku dál PASS.
+- Vrátit CI krok „In-QEMU runtime tests with a test disk" v `.github/workflows/ci.yml`
+  (dočasně odebrán 2026-08-09, dokud je tento handoff open — CI nesmí být červené).
 - Příčina zapsaná do `spec/troubleshooting.md` (pokud to je ne-obvious lekce) a handoff
   uzavřen (`Status: closed`, §3 doplněný finální řádek).

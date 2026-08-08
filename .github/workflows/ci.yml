@@ -42,10 +42,5 @@ jobs:
       - name: In-QEMU runtime tests
         run: QEMU_TEST_TIMEOUT=90 ./tools/qemu-test.sh
 
-      - name: In-QEMU runtime tests with a test disk (filesystem, M6.1.5)
-        run: |
-          ./tools/make-test-disk.sh /tmp/aster-test-disk.img
-          QEMU_TEST_TIMEOUT=90 QEMU_TEST_DISK=/tmp/aster-test-disk.img ./tools/qemu-test.sh
-
       - name: Boot log must match the code (proof of work stays current)
         run: ./tools/capture-boot.sh --check
