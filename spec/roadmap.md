@@ -316,7 +316,9 @@ binding marshallingu zelené.
       skripty. — **hotovo:** vlastní `dbg` lib (jen `traceback`) v `lua.zig`
       (`openDbg`/`dbgTraceback`); stock `luaopen_debug` nelze — `debug.debug` čte stdin.
       Runtime test „lua dbg lib (M6.1.9)" + `spec/debugging.md` §5 aktualizováno.
-- [ ] **M6.1.10 README quickstart:** `zig build run` jako první blok hned po Status.
+- [x] **M6.1.10 README quickstart:** `zig build run` jako první blok hned po Status. —
+      **hotovo:** Quick start přesunut hned za Status (před Prerequisites), obsahuje i
+      `-Ddisk=disk.img`.
 - [ ] **M6.1.11 Release/tag + prebuilt ISO workflow:** „stáhnu a spustím", ne „buildím z git".
 - [ ] **M6.1.12 CI na Windows/macOS:** Zig je multiplatformní, build.zig by měl běžet.
 

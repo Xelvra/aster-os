@@ -39,17 +39,6 @@ This project requires the Zig version listed in [`.zig-version`](.zig-version).
   [`CHANGELOG.md`](CHANGELOG.md); metrics in [`spec/roadmap.md`](spec/roadmap.md).
 - This is a pre-alpha prototype, not a usable OS yet.
 
-## Prerequisites
-
-- **Zig** — exact version in [`.zig-version`](.zig-version) (0.16.0), not a distro package
-  (see [`spec/verification.md`](spec/verification.md) §3).
-- **QEMU** (`qemu-system-x86_64`) — target emulation.
-- **Limine** — vendored in `libs/limine/` (ADR-012), no system packages.
-- **xorriso / mtools** — building the bootable ISO / disk image.
-- **Lua 5.4.8** — vendored in `libs/lua-5.4/` (ADR-007).
-
-Full tool table and dependency status: [`spec/verification.md`](spec/verification.md) §6.
-
 ## Quick start
 
 ```bash
@@ -66,6 +55,17 @@ Build modes (default is `ReleaseSafe`, the verified production mode):
 `zig build -Doptimize=ReleaseFast` trades safety checks for ~20 % smaller
 image and faster execution; `-Doptimize=Debug` for debugging. The Lua C
 sources are always compiled with `-Os` regardless of the mode.
+
+## Prerequisites
+
+- **Zig** — exact version in [`.zig-version`](.zig-version) (0.16.0), not a distro package
+  (see [`spec/verification.md`](spec/verification.md) §3).
+- **QEMU** (`qemu-system-x86_64`) — target emulation.
+- **Limine** — vendored in `libs/limine/` (ADR-012), no system packages.
+- **xorriso / mtools** — building the bootable ISO / disk image.
+- **Lua 5.4.8** — vendored in `libs/lua-5.4/` (ADR-007).
+
+Full tool table and dependency status: [`spec/verification.md`](spec/verification.md) §6.
 
 ## Architecture at a glance
 
