@@ -154,6 +154,11 @@ Toto ladění stálo nejvíc času v M5 — čti pečlivě, než se dotkneš `dr
 KVM se zapojil jako akcelerační cesta (`tools/qemu-accel.sh`, `-Dkvm`). Pod KVM se
 okamžitě obnažily bugy, které TCG maskuje — viz C28 a meta-lekce v §10.
 
+> **Detekce akcelerátoru:** kernel tiskne na serial `accel: kvm` / `accel: tcg` /
+> `accel: hv` (CPUID leaf 1, ECX bit 31 = hypervisor present; leaf 0x40000000 =
+> vendor v **EBX, ECX, EDX** — pozor, u leaf 0 je pořadí EBX, EDX, ECX). QEMU TCG
+> nastavuje hypervisor bit a vrací `"TCGTCGTCGTCG"`; KVM vrací `"KVMKVMKVM"`.
+
 | Záznam | Symptom | Příčina | Řešení | Ověřit |
 |--------|---------|---------|--------|--------|
 | C28 | kernel pod KVM **nenabootuje** (ReleaseSafe), serial němý, Limine zůstává na menu; TCG + Debug fungují | **Zig ReleaseSafe codegen pro `asm volatile ("ldmxcsr %[v]")` s operandem `"m"`**: `%[v]` předává jako *adresu-adresy* (uloží pointer na stack a `ldmxcsr` čte tyto 4 bajty = pointer, ne hodnotu 0x1F80) → MXCSR dostane garbage s rezervovanými bity → **#GP**. TCG MXCSR rezervované bity **nevaliduje** → bug se v emulaci neprojeví; Debug negeneruje tento vzor. Navíc fault je tak brzy (před `serial.init`), že není vidět | `write_mxcsr` předává adresu **v registru** a dereferencuje: `asm volatile ("mov %[addr], %%rax\nldmxcsr (%%rax)" : : [addr] "r" (&v) : .{ .rax = true, .memory = true })` — vzor scratch registru viz C27 | `zig build` + boot pod KVM |

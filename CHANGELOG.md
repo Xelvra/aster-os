@@ -30,6 +30,8 @@ Full history up to 0.1.0-alpha.1 is archived in
   `tools/qemu-smoke.sh`, `tools/qemu-test.sh` and `tools/bench.sh` auto-add
   `-enable-kvm` via `tools/qemu-accel.sh` when `/dev/kvm` is available (TCG fallback
   otherwise). QEMU TCG is the quick-capture path; KVM is closer to real hardware.
+- **Accelerator marker**: the kernel reports `accel: kvm` / `accel: tcg` / `accel: hv` on
+  serial at boot (CPUID hypervisor leaf 0x40000000, vendor in EBX/ECX/EDX).
 
 ### Changed
 

@@ -75,9 +75,49 @@ fn write_mxcsr(value: u32) void {
         : .{ .rax = true, .memory = true });
 }
 
+/// Run CPUID and return EAX, EBX, ECX, EDX.
+fn cpuId(leaf: u32, subleaf: u32) [4]u32 {
+    var eax: u32 = undefined;
+    var ebx: u32 = undefined;
+    var ecx: u32 = undefined;
+    var edx: u32 = undefined;
+    asm volatile ("cpuid"
+        : [out_eax] "={eax}" (eax),
+          [out_ebx] "={ebx}" (ebx),
+          [out_ecx] "={ecx}" (ecx),
+          [out_edx] "={edx}" (edx),
+        : [leaf] "{eax}" (leaf),
+          [subleaf] "{ecx}" (subleaf),
+        : .{ .memory = true });
+    return .{ eax, ebx, ecx, edx };
+}
+
+/// Report the accelerator: "kvm" under KVM, "tcg" when no hypervisor is
+/// present (QEMU TCG by default), "hv" for any other hypervisor. CPUID
+/// leaf 1 ECX bit 31 is the hypervisor-present bit; leaf 0x40000000
+/// carries the hypervisor vendor (EBX, EDX, ECX — KVM = "KVMKVMKVM").
+/// Report the accelerator: "kvm" under KVM, "tcg" under QEMU TCG, "hv" for
+/// any other hypervisor. CPUID leaf 1 ECX bit 31 is the hypervisor-present
+/// bit; leaf 0x40000000 carries the hypervisor vendor in EBX, ECX, EDX
+/// (KVM = "KVMKVMKVM", QEMU TCG = "TCGTCGTCGTCG").
+fn accelName() []const u8 {
+    const leaf1 = cpuId(1, 0);
+    if ((leaf1[2] & (1 << 31)) == 0) return "tcg";
+    const hv = cpuId(0x40000000, 0);
+    var vendor: [12]u8 = undefined;
+    @memcpy(vendor[0..4], &std.mem.toBytes(hv[1]));
+    @memcpy(vendor[4..8], &std.mem.toBytes(hv[2]));
+    @memcpy(vendor[8..12], &std.mem.toBytes(hv[3]));
+    if (std.mem.startsWith(u8, &vendor, "KVMKVMKVM")) return "kvm";
+    if (std.mem.startsWith(u8, &vendor, "TCG")) return "tcg";
+    return "hv";
+}
+
 fn kernelMain() !void {
     serial.writeLine("ASTER KERNEL ENTRY");
     serial.writeLine("ASTER BOOT OK");
+    serial.write("accel: ");
+    serial.writeLine(accelName());
 
     const info = try boot.collect();
     printBootInfo(&info);
