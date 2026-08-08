@@ -1,0 +1,52 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Zig 0.16.0 (pinned by .zig-version)
+        run: |
+          curl -fLo /tmp/zig.tar.xz "https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz"
+          mkdir -p /opt/zig
+          tar -xJf /tmp/zig.tar.xz -C /opt/zig --strip-components=1
+          echo "/opt/zig" >> "$GITHUB_PATH"
+
+      - name: Install QEMU and ISO tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 xorriso mtools
+
+      # Nothing is published unless the full verification passes on the tag.
+      - name: Build
+        run: zig build
+
+      - name: Host unit tests
+        run: zig build test
+
+      - name: Boot smoke test
+        run: ./tools/qemu-smoke.sh
+
+      - name: Runtime tests with a test disk (storage, M6.1)
+        run: |
+          ./tools/make-test-disk.sh /tmp/release-disk.img
+          QEMU_TEST_TIMEOUT=120 QEMU_TEST_DISK=/tmp/release-disk.img ./tools/qemu-test.sh
+
+      - name: Build the bootable ISO
+        run: |
+          zig build iso
+          mkdir -p dist
+          cp "$(find .zig-cache -name aster.iso | head -1)" dist/aster.iso
+
+      - name: Publish release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "${GITHUB_REF_NAME}" dist/aster.iso --generate-notes

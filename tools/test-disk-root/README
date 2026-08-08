@@ -1,0 +1,3 @@
+Aster OS test disk
+
+Deterministic image built by tools/make-test-disk.sh (GPT + ext2 read-only, ^dir_index).

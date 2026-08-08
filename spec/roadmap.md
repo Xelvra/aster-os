@@ -334,7 +334,11 @@ binding marshallingu zelené.
 - [x] **M6.1.10 README quickstart:** `zig build run` jako první blok hned po Status. —
       **hotovo:** Quick start přesunut hned za Status (před Prerequisites), obsahuje i
       `-Ddisk=disk.img`.
-- [ ] **M6.1.11 Release/tag + prebuilt ISO workflow:** „stáhnu a spustím", ne „buildím z git".
+- [x] **M6.1.11 Release/tag + prebuilt ISO workflow:** „stáhnu a spustím", ne „buildím z git". —
+      **hotovo:** `.github/workflows/release.yml` — na tag `v*` spustí plnou verifikaci
+      (build, host testy, smoke, runtime testy s diskem), a teprve při zelené publikuje
+      `aster.iso` jako release asset (`gh` CLI, žádná third-party akce). **Release se
+      nevytváří teď** — až po ručním vyzkoušení a dohodě o tagu.
 - [ ] **M6.1.12 CI na Windows/macOS:** Zig je multiplatformní, build.zig by měl běžet.
 
 ```text
