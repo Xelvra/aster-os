@@ -305,10 +305,13 @@ binding marshallingu zelené.
       (`File.open/read/close`, `fileSize`, `eof`; backend reference opaque), `ext2.readAt`
       (čtení od offsetu); boot log `  file <obsah>` z `theme.lua` na disku. Fix: kernel stack
       16 KiB → 64 KiB (16.9 KiB dir-entry buffer přetekl 16 KiB stack).
-- [ ] **M6.1.5 Integrace:** persistentní FS vedle initfs (oddělené backendy); deterministické
+- [x] **M6.1.5 Integrace:** persistentní FS vedle initfs (oddělené backendy); deterministické
       testovací obrazy z host toolingu; QEMU runtime testy (mount, lookup, open, read, EOF,
       invalid path); dokumentace feature subsetu + přesné `mke2fs` flagy. *Exit: viz diagram
-      níže.*
+      níže.* — **hotovo:** `tools/make-test-disk.sh` (deterministický GPT+ext2 obraz),
+      QEMU runtime test „ext2 filesystem on disk", CI krok s diskem, ADR-023 (feature subset +
+      přesná invokace). **Bug z pořadí:** PFA alokoval low-memory stránky, které hhdm nemapuje
+      → fault; fix `low_memory_end` (C32, H3 closed).
 
 **M6.1 — doplňkové úkoly (teď):**
 

@@ -1,6 +1,11 @@
 const boot_info = @import("../boot/boot_info.zig");
 
 pub const page_size: u64 = 4096;
+
+/// Physical memory below this address is never allocated: the bootloader's
+/// direct map does not map it, even though the memory map lists it usable
+/// (handoff H3). 1 MiB is the conventional boundary for "low memory".
+pub const low_memory_end: u64 = 0x100000;
 const max_pages_per_run: usize = 64;
 
 pub const PfaError = error{
@@ -45,6 +50,11 @@ pub const PageFrameAllocator = struct {
                 const first_page = entry.base / page_size;
                 const page_count = entry.length / page_size;
                 for (first_page..first_page + page_count) |i| {
+                    // Low memory below 1 MiB is reported usable by the
+                    // bootloader's memory map, but it is NOT mapped into the
+                    // higher-half direct map (H3, verified by a page-table
+                    // walk) - allocating it would page-fault on first touch.
+                    if (i * page_size < low_memory_end) continue;
                     self.clearBit(i);
                 }
             }

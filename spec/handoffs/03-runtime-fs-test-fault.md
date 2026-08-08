@@ -1,7 +1,7 @@
 # Handoff H3: QEMU runtime testy s diskem — page fault v reload testu
 
 **Datum:** 2026-08-09
-**Status:** open
+**Status:** closed
 
 ---
 
@@ -57,6 +57,9 @@ ASTER FAULT
 | 3 | Host unit testy ext2/file API na reálném `mke2fs` obraze (mock BlockDevice, GPT offset 2048) | 89/89 PASS | FS logika + offset jsou v pořádku na hostu |
 | 4 | `addr2line` / `llvm-addr2line` na rip/bt adresách (Debug build, offset 0xffffffff80000000 odečten) | `??` + "DWARF error: unknown format content type 8193" / "premature terminator" | Zig 0.16 DWARF není čitelný ani GNU, ani LLVM addr2line — **nelze namapovat adresy na řádky tímto nástrojem** |
 | 5 | Kernel stack 16 KiB → 64 KiB + `lookupDir` buffer [64]→[32] (fix předchozího stack-overflow v M6.1.4) | fault přetrvává | není stack overflow (jiný bug) |
+| 6 | **Vyřešeno:** PFA přestal alokovat fyzické stránky pod 1 MiB (`low_memory_end`) — Limine memory mapa je hlásí usable, ale hhdm je nemapuje (ověřeno page-table walkem: PTE=0 pro `0x9f000`) | qemu-test s diskem **PASS (exit 99)** | příčina potvrzena a opravena |
+
+**Příčina:** PFA vzal stránky z low-memory regionu `0x6c000–0x9fc00` (memory mapa type `usable`), ale Limine hhdm direct map tuto oblast **nemapuje** (page table walk: PTE na indexu `0x9f` je 0). Heap tam proto umístil bloky, a první dotyk (při `lua.reload` → heap free/coalesce) faultoval `err=0x0` (non-present) na `cr2=0xffff80000009f018`. Bez disku se PFA do nízké paměti nedostal (méně alokací), proto PASS.
 
 ## 4. Hypotézy
 
@@ -130,3 +133,6 @@ QEMU_TEST_DISK= ./tools/qemu-test.sh                      # PASS (kontrola)
   (dočasně odebrán 2026-08-09, dokud je tento handoff open — CI nesmí být červené).
 - Příčina zapsaná do `spec/troubleshooting.md` (pokud to je ne-obvious lekce) a handoff
   uzavřen (`Status: closed`, §3 doplněný finální řádek).
+
+> **Splněno 2026-08-09:** qemu-test s diskem vrací exit 99, CI krok s diskem vrácen
+> (commit s uzavřením), lekce v `troubleshooting.md` (C32).
