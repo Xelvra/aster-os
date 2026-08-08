@@ -294,6 +294,20 @@ binding marshallingu zelené.
       invalid path); dokumentace feature subsetu + přesné `mke2fs` flagy. *Exit: viz diagram
       níže.*
 
+**M6.1 — doplňkové úkoly (teď):**
+
+- [ ] **M6.1.6 CI job s diskem:** qemu-smoke s `-drive ... -device virtio-blk-pci` + marker
+      `[ OK ] storage`. Dnes CI nikdy netestuje storage — cap-walk bug by CI bez disku
+      nikdy nechytilo.
+- [ ] **M6.1.7 Host unit testy GPT parseru:** čistá funkce nad `[]u8` (vzor `tests/mem/`).
+- [ ] **M6.1.8 Host unit testy ext2 parseru:** superblock / features / inode / dir traversal.
+- [ ] **M6.1.9 Rozhodnout Lua `dbg` lib teď:** otevřít `luaopen_debug` jako `dbg`
+      (`dbg.traceback()`), vyhnout se kolizi s KI modulem `debug`. Později to rozbije
+      skripty.
+- [ ] **M6.1.10 README quickstart:** `zig build run` jako první blok hned po Status.
+- [ ] **M6.1.11 Release/tag + prebuilt ISO workflow:** „stáhnu a spustím", ne „buildím z git".
+- [ ] **M6.1.12 CI na Windows/macOS:** Zig je multiplatformní, build.zig by měl běžet.
+
 ```text
 GPT disk image → GPT → ext2 partition → Aster FS backend → open/read/close → runtime
 ```
@@ -366,8 +380,13 @@ se musí vyřešit **před** spuštěním dalších features, ne až na konci st
 
 **Cíl:** aby si systém mohl spustit a přispět i někdo mimo autora.
 
-- [ ] **Boot na reálném hardware** (USB / disk) — měření metrik na reálném HW uzavře
-      pozn. ³ v §2.
+- [ ] **Důkaz ADR-018 (mailbox transport):** před plnou adopcí (stabilní ABI) se
+      demonstruje slib „mikrojádro bez přepisu aplikací" — **jeden KI modul** přes
+      mailbox IPC (Ring 3 transport; implementace se rozjíždí v M8, položka (b)) se
+      spuštěnou existující aplikací **bez změny aplikačního API**. Důkaz, ne deklarace.
+- [ ] **Boot na reálném hardware** — **navazuje na rozhodnutí o USB HID (Fáze 2)**:
+      buď s USB stackem dřív (~M6.3/M7.x), nebo jako „QEMU + legacy HW (PS/2)".
+      Měření metrik na reálném HW uzavře pozn. ³ v §2.
 - [ ] **Instalovatelný image** (boot z disku, ne jen ISO v QEMU).
 - [ ] **Dokumentace pro přispěvatele** (CONTRIBUTING, překlad spec do angličtiny — viz
       jazykový přechod v `spec/README.md`).
