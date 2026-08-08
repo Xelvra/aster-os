@@ -76,8 +76,8 @@ Full tool table and dependency status: [`spec/verification.md`](spec/verificatio
 ## Quick start
 
 ```bash
-zig build run          # boot in QEMU (TCG)
-zig build run -Dkvm=true  # boot in QEMU with KVM acceleration (closer to HW)
+zig build run          # boot in QEMU (auto KVM when /dev/kvm is available)
+zig build run -Dkvm=false  # force TCG emulation
 zig build test         # host unit tests
 ./tools/qemu-smoke.sh  # automated boot test (serial marker + timeout; auto KVM)
 ./tools/qemu-test.sh   # in-QEMU runtime tests (isa-debug-exit; auto KVM)
@@ -142,6 +142,34 @@ sources are always compiled with `-Os` regardless of the mode.
 ```
 
 Detailed layers, interfaces, and diagram: [`spec/architecture.md`](spec/architecture.md) §3.
+
+### Boot
+
+Real output of `zig build run` (kernel serial log, ANSI colors stripped):
+
+```
+ASTER KERNEL ENTRY
+/-\STER OS  0.1.0-alpha.1
+-------------------------
+[ OK ] bootloader       limine handoff
+[ OK ] interrupts       idt · pic
+[ OK ] cpu              page tables · apic timer
+[ OK ] input            ps/2 keyboard + mouse
+[ OK ] graphics         800x600 framebuffer · wc
+[ OK ] renderer         primitives + bitmap font
+[ OK ] runtime          lua 5.4.8 shell
+[ OK ] memory           509 MiB usable · 2 MiB used
+[ OK ] kernel interface dispatch ready
+[ OK ] accelerator      kvm
+[ OK ] boot sequence    complete
+-------------------------
+ASTER BOOT OK
+ASTER FIRST FRAME
+```
+
+The full, regenerable capture (with date, host, accelerator and commit metadata) is in
+[`docs/boot-log.md`](docs/boot-log.md) — refresh it with `tools/capture-boot.sh`; CI
+verifies it never drifts from the code (`./tools/capture-boot.sh --check`).
 
 ## Documentation
 

@@ -26,19 +26,29 @@ Full history up to 0.1.0-alpha.1 is archived in
   desktop), Reboot (`power.reboot()` — i8042 reset). New KI module `api/power.zig`
   (`Power = 7`), `RuntimeOp.reload = 3`, Lua bindings `runtime.reload()` and
   `power.reboot()`.
-- **KVM acceleration**: `zig build run -Dkvm=true` adds `-enable-kvm`;
+- **KVM acceleration**: `zig build run` auto-detects `/dev/kvm` and adds `-enable-kvm`
+  (override with `-Dkvm=false` to force TCG, `-Dkvm=true` to force KVM);
   `tools/qemu-smoke.sh`, `tools/qemu-test.sh` and `tools/bench.sh` auto-add
   `-enable-kvm` via `tools/qemu-accel.sh` when `/dev/kvm` is available (TCG fallback
   otherwise). QEMU TCG is the quick-capture path; KVM is closer to real hardware.
-- **Accelerator marker**: the kernel reports `accel: kvm` / `accel: tcg` / `accel: hv` on
-  serial at boot (CPUID hypervisor leaf 0x40000000, vendor in EBX/ECX/EDX).
-- **RAM idle marker**: the kernel reports `ram idle: X MiB used` on serial after the shell
-  loads (PFA-managed memory: kernel image + heap + bitmap + stacks; the framebuffer is
-  MMIO, not RAM) — closes the ADR-015 measurement gap.
+- **Accelerator marker**: the boot log reports the accelerator (`[ OK ] accelerator kvm` /
+  `tcg` / `hv`) via CPUID hypervisor leaf 0x40000000, vendor in EBX/ECX/EDX.
+- **RAM idle marker**: the boot log's memory line shows `X MiB usable · Y MiB used` after
+  the shell loads (PFA-managed memory: kernel image + heap + bitmap + stacks; the
+  framebuffer is MMIO, not RAM) — closes the ADR-015 measurement gap.
 - **M5 measurements under KVM** (recorded in `spec/roadmap.md` notes 4/5): Kernel Entry →
   First Frame ≈ 24 ms (vs 90 ms TCG), render throughput ≈ 32 renders/10 ticks (vs 3–4
   TCG), RAM idle ≈ 2 MiB. Confirms the < 40 ms target is reachable — TCG was the boot
   bottleneck.
+- **Boot log**: the serial boot sequence is now a styled `[ OK ]` log — the `/-\STER OS`
+  header line, colored status lines (green OK / yellow warn / red fail),
+  a memory summary, a "boot sequence complete" capstone and a closing rule before
+  `ASTER BOOT OK`. New `src/kernel/bootlog.zig`; boot markers (`ASTER KERNEL ENTRY` /
+  `ASTER BOOT OK` / `ASTER FIRST FRAME`) preserved for the tools.
+- **Boot log proof of work**: `tools/capture-boot.sh` boots a real image and regenerates
+  `docs/boot-log.md` with metadata (date, host, accelerator, commit); `--check` verifies
+  the documented log never drifts from the code and runs in CI (`.github/workflows/ci.yml`).
+  README shows a short excerpt + link to the full capture.
 
 ### Changed
 
