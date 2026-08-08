@@ -1,4 +1,4 @@
-# Aster — Specifikace
+# Aster OS — Specifikace
 
 **Aster** je experimentální desktopový operační systém napsaný v Zigu. Tento soubor je
 úvodem do kompletní architektonické dokumentace projektu.
@@ -30,6 +30,7 @@
 | 16 | [debugging.md](debugging.md) | Debugging Survival Guide — GDB+QEMU, čtení serial dumpu, pravidla pro IRQ. |
 | 17 | [troubleshooting.md](troubleshooting.md) | Známé pasti a lekce — build API, protokoly, determinismus, tooling. |
 | 18 | [handoff.md](handoff.md) | Formální postup pro nevyřešené problémy — šablona, kdy ji spustit, jak ji zavřít. |
+| 19 | [changelog.md](changelog.md) | Česká verze changelogu — agregovaný přehled co systém umí (anglický originál v `CHANGELOG.md`). |
 
 ## Jak konzultovat návrh
 
