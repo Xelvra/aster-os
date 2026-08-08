@@ -33,6 +33,7 @@ samostatný soubor. Pravidla:
 | [020](020-future-extensibility.md) | Rozšiřitelnost: nové features jako nové KI moduly na konec | Přijato |
 | [021](021-extended-rendering-primitives.md) | Rozšířená renderovací primitiva pro UI (roundRect, border, gradient) | Přijato |
 | [022](022-network.md) | Síť jako KI modul `net.*` — minimální stack (virtio-net, ARP/IPv4/ICMP/UDP), M9 | Přijato |
+| [023](023-filesystem-ext2-non-posix.md) | Persistence: ext2 backend (read-only), non-POSIX sémantika, tenké rozhraní | Přijato |
 
 ## Šablona nového ADR
 

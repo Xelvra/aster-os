@@ -54,6 +54,12 @@ Full history up to 0.1.0-alpha.1 is archived in
 - **ADR-022 — network as a KI module**: planned for M9 (`net.*` — virtio-net,
   ARP/IPv4/ICMP/UDP), with the Ring 0 remote-DoS safety brake resolved (parser that
   never faults on foreign input, off by default, fuzz tests); `non-goals.md` updated.
+- **ADR-023 — persistent filesystem**: ext2 read-only as the first persistent backend
+  (M6.1), used only as on-disk representation (no POSIX semantics leak into the Aster
+  API), explicit supported feature subset with mount-time feature check paired with the
+  exact `mke2fs` invocation, and a thin stable `open/read/close` interface that keeps
+  the door open for later backends (FAT32, EROFS, 9P, ext4); `spec/roadmap.md` M6.1
+  breakdown added.
 - **License transparency**: `LICENSE-THIRD-PARTY.md` now names
   [cachyos-hypr-noctalia](https://github.com/CachyOS/cachyos-hypr-noctalia) as the
   desktop inspiration (upstream has no license — we reimplement, not copy); sections

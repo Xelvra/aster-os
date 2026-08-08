@@ -262,14 +262,37 @@ binding marshallingu zelené.
       neexistuje žádná persistence; driver je samostatný bod (až pak FS).
 - [ ] **Partition table** — **GPT** (standard), čtení; ext2/ext4 i FAT32 na disku potřebují
       partition table. Nikdy vlastní formát.
-- [ ] **Perzistence: standardní čtecí formát** — **nikdy vlastní**. Konkrétní výběr
-      (FAT32, ext2/ext4, ...) se rozhodne v M6 podle potřeby; FAT32 je jen příklad,
-      ne cíl.
+- [ ] **Perzistence: ext2 read-only** (ADR-023) — **nikdy vlastní formát**. ext2 je jen on-disk
+      reprezentace, žádná POSIX sémantika v API (výhrady v ADR-023); feature check odmítá
+      nepodporované features; subset je spárován s přesnou `mke2fs -t ext2` invokací
+      (ADR-014; pozor na defaultní `dir_index`). FAT32/ext4/EROFS/9P jsou budoucí backendy
+      dle triggerů v ADR-023, ne povinný cíl.
 - [ ] **Kooperativní čtení:** pomalé FS operace neblokují event loop — kooperativní
       suspendace (spec `kernel-interface.md` §6.2, `timer.md` §3).
 - [ ] **Auto-reload na uložení:** uložení `theme.lua`/config souboru → automatické
       překreslení prostředí bez klávesy (spec `runtime.md` §5a spouštěč 2).
 - [ ] (Výhledově: ukládání, editor.)
+
+#### M6.1 — Persistence foundation (ADR-023)
+
+- [ ] **M6.1.1 Block device API:** stabilní rozhraní + **virtio-blk** (čtení sektorů); FS kód
+      nezávisí na konkrétním driveru. *Exit: deterministické čtení bloků z disku.*
+- [ ] **M6.1.2 GPT partition discovery:** oddíly jako block-device views, nezávislé na FS.
+      *Exit: nalezení cílového oddílu a čtení jeho sektorů.*
+- [ ] **M6.1.3 ext2 mount (read-only):** superblock, block groups, bitmapy (validace), inode
+      table, inode lookup, directory entries, data (direct + nutné indirect bloky); validace
+      feature flags + **reject**. *Exit: mount host-created ext2 image + výpis souborů.*
+- [ ] **M6.1.4 Tenké Aster File API:** `open` / `read` / `close`, opaque reference. **Ne:**
+      inode čísla, uid/gid, mode bity, ACL, hardlink sémantiku, ext2 metadata. *Exit: runtime
+      čte ext2 soubor, aniž ví, že ext2 existuje.*
+- [ ] **M6.1.5 Integrace:** persistentní FS vedle initfs (oddělené backendy); deterministické
+      testovací obrazy z host toolingu; QEMU runtime testy (mount, lookup, open, read, EOF,
+      invalid path); dokumentace feature subsetu + přesné `mke2fs` flagy. *Exit: viz diagram
+      níže.*
+
+```text
+GPT disk image → GPT → ext2 partition → Aster FS backend → open/read/close → runtime
+```
 
 ### M7 — Runtime (Wasm)
 
