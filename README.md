@@ -27,14 +27,6 @@ This project requires the Zig version listed in [`.zig-version`](.zig-version).
 
 ## Status
 
-- **Milestone M4 (Lua) complete:** Lua 5.4.8 runtime embedded in the kernel (freestanding
-  libc shim + custom openlibs: base/coroutine/table/string/utf8/math); `api/runtime.zig`
-  with `RuntimeKind.Lua` and hot reload (F5); Lua bindings `gfx.*`, `input.next_event`,
-  `time.ticks` with strict type validation (floats rejected); keyboard layout is
-  infrastructure (`input/layout.zig`, US 105+) — bindings send a ready `char`; after boot
-  an interactive **Lua REPL** starts (banner + `> ` prompt, type code, Enter runs it,
-  `print()` writes to the screen); GC step budget per frame; runtime tests for Lua
-  bindings in QEMU. Kernel image 343 KiB (< 512 KB target).
 - **Milestone M5 (UI) in progress:** desktop shell in Lua split into `ui/` modules
   (theme, wm, repl, launcher, input, main) concatenated into one chunk by `lua.zig`.
   Tiling window manager (60/40 split, focus ring via gradient border, float + drag,
@@ -43,6 +35,14 @@ This project requires the Zig version listed in [`.zig-version`](.zig-version).
   cursor overlay, Super key + Hyprland-standard keybindings, error containment
   (a script error hot-reloads the shell instead of crashing the kernel), sysmon
   KI module exposing live RAM usage.
+- **Milestone M4 (Lua) complete:** Lua 5.4.8 runtime embedded in the kernel (freestanding
+  libc shim + custom openlibs: base/coroutine/table/string/utf8/math); `api/runtime.zig`
+  with `RuntimeKind.Lua` and hot reload (F5); Lua bindings `gfx.*`, `input.next_event`,
+  `time.ticks` with strict type validation (floats rejected); keyboard layout is
+  infrastructure (`input/layout.zig`, US 105+) — bindings send a ready `char`; after boot
+  an interactive **Lua REPL** starts (banner + `> ` prompt, type code, Enter runs it,
+  `print()` writes to the screen); GC step budget per frame; runtime tests for Lua
+  bindings in QEMU. Kernel image 343 KiB (< 512 KB target).
 - **Milestone M3 (Graphics) complete:** Limine GOP framebuffer wrapped in `Framebuffer`;
   renderer (`drawRect`, `blit`, `fillScreen`, `drawGlyph`, `drawText`) with clipping;
   embedded VGA 8×16 bitmap font; Graphics API module (`api/graphics.zig`) in KI dispatch;
