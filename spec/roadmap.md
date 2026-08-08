@@ -69,7 +69,7 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
   Latence je důležitější než FPS.
 - **RAM (idle):** rezidentní paměť systému bez spuštěných aplikací.
   > ⁴ M5: **≈ 2 MiB** (PFA-managed: kernel image + heap + bitmap + stacky; framebuffer je
-  > MMIO, ne RAM). Měří kernel na serial (`ram idle:` po spawnu shellu); ADR-015 splněno.
+  > MMIO, ne RAM). Kernel reportuje v boot logu (řádek `[ OK ] memory`); ADR-015 splněno.
 
 > ¹ M0–M3 měřily `tools/bench.sh` **wall-clock** od spuštění QEMU po serial marker — zahrnují
 > firmware/BIOS/Limine init, který je mimo kontrolu kernelu (≈ 3 s prodleva bootloaderu).
@@ -90,13 +90,14 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 > a `lua_newstate` běží nativně → mikrosekundy; alokace nejsou bottleneck, ~1071 allocs /
 > 157 KB). **Až bude OS kompletně hotový, změří se tato metrika na reálném HW.**
 > **KVM cesta (2026-08-08):** pro interaktivní práci a testování WM/myši se používá KVM
-> (`zig build run -Dkvm=true`; nástroje auto-přidají `-enable-kvm` přes `tools/qemu-accel.sh`).
+> (`zig build run` auto-přidá `-enable-kvm`, když je `/dev/kvm` přístupný; `-Dkvm=false`
+> vynutí TCG, `-Dkvm=true` vynutí KVM; nástroje auto-přidají přes `tools/qemu-accel.sh`).
 > KVM je bližší reálnému HW (TCG maskuje chyby, např. C28). TCG zůstává rychlý záchyt pro
 > automatické testy.
 > ⁵ **M5 KVM měření (2026-08-08, `tools/bench.sh` + runtime test):** Kernel Entry → First
-> Frame **≈ 24 ms** (cíl < 40 ms je pod KVM dosažitelný — potvrzeno, že TCG byl bottleneck),
-> render throughput **≈ 32 renders/10 ticks** (vs 3–4 v TCG → TCG ~8–10× pomalejší),
-> RAM idle ≈ 2 MiB (pozn. ⁴), kernel image 371 KiB.
+> Frame **≈ 20–24 ms** (cíl < 40 ms je pod KVM dosažitelný — potvrzeno, že TCG byl
+> bottleneck), render throughput **≈ 32 renders/10 ticks** (vs 3–4 v TCG → TCG ~8–10×
+> pomalejší), RAM idle ≈ 2 MiB (pozn. ⁴), kernel image 371 KiB.
 > **Render throughput** (M4): `testRenderThroughput` v runtime testech měří plné Lua
 > rendery za 10 APIC ticků. Baseline po optimalizaci rendereru: **8–9 renders/10 ticks**
 > (před tím 5). **Hodnota je vázaná na zátěž renderu:** 8–9 platí pro M4 shell (REPL

@@ -1,4 +1,13 @@
 const std = @import("std");
+const builtin = @import("builtin");
+
+/// True when the KVM device is accessible on this host (mirrors
+/// tools/qemu-accel.sh); used as the default for `zig build run` so it
+/// accelerates when available and falls back to TCG otherwise.
+fn kvmAvailable() bool {
+    if (builtin.os.tag != .linux) return false;
+    return std.os.linux.access("/dev/kvm", 0) == 0;
+}
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{ .default_target = .{
@@ -12,10 +21,11 @@ pub fn build(b: *std.Build) void {
         .ReleaseSafe;
 
     const runtime_tests = b.option(bool, "runtime-tests", "Build kernel with in-QEMU runtime tests") orelse false;
-    const use_kvm = b.option(bool, "kvm", "Run QEMU with KVM acceleration (-enable-kvm)") orelse false;
+    const use_kvm = b.option(bool, "kvm", "Run QEMU with KVM acceleration (-enable-kvm); auto-detects /dev/kvm when omitted") orelse kvmAvailable();
 
     const kernel_options = b.addOptions();
     kernel_options.addOption(bool, "runtime_tests", runtime_tests);
+    kernel_options.addOption([]const u8, "version", @embedFile(".version"));
 
     const kernel = b.addExecutable(.{
         .name = "aster",

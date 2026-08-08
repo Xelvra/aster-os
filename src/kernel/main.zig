@@ -19,6 +19,7 @@ const graphics = @import("api/graphics.zig");
 const runtime = @import("api/runtime.zig");
 const runtime_test = @import("runtime_test.zig");
 const lua = @import("lua/lua.zig");
+const bootlog = @import("bootlog.zig");
 
 export fn _start() callconv(.c) noreturn {
     enable_sse();
@@ -116,20 +117,16 @@ fn accelName() []const u8 {
 
 fn kernelMain() !void {
     serial.writeLine("ASTER KERNEL ENTRY");
-    serial.writeLine("ASTER BOOT OK");
-    serial.write("accel: ");
-    serial.writeLine(accelName());
+    bootlog.banner();
 
     const info = try boot.collect();
-    printBootInfo(&info);
+    bootlog.ok("bootloader", "limine handoff");
 
     idt.init();
-    serial.writeLine("idt: init ok");
     pic.remap();
-    serial.writeLine("pic: remap ok");
+    bootlog.ok("interrupts", "idt · pic");
 
     var memory = try mem.Memory.init(&info);
-    printMemoryInfo(&memory, &info);
     const sysmon = @import("api/sysmon.zig");
     sysmon.init(&memory);
 
@@ -137,35 +134,53 @@ fn kernelMain() !void {
     const test_buf = try alloc.alloc(u8, 64);
     defer alloc.free(test_buf);
     @memset(test_buf, 0xAB);
-    if (test_buf[0] == 0xAB and test_buf[63] == 0xAB) {
-        serial.writeLine("heap alloc test: ok");
-    } else {
-        serial.writeLine("heap alloc test: failed");
-    }
+    if (test_buf[0] != 0xAB or test_buf[63] != 0xAB) return error.HeapTestFailed;
 
     page_map.init(&memory.pfa, info.hhdm_offset);
     apic.init(info.hhdm_offset);
-    ps2.init();
-    serial.writeLine("apic: init ok");
+    bootlog.ok("cpu", "page tables · apic timer");
 
-    initGraphics(&info);
+    ps2.init();
+    bootlog.ok("input", "ps/2 keyboard + mouse");
+
+    if (initGraphics(&info)) {
+        var gfx_buf: [96]u8 = undefined;
+        bootlog.ok("graphics", graphicsDetail(&info, &gfx_buf));
+        bootlog.ok("renderer", "primitives + bitmap font");
+    } else {
+        bootlog.warn("graphics", "no framebuffer, console disabled");
+    }
 
     runtime.init(alloc);
     const program = runtime.spawn(.{ .kind = .Lua, .entry = "main.lua" }) catch |err| {
-        serial.writeLine("runtime: lua spawn failed");
+        bootlog.fail("runtime", "lua shell failed to start");
         return err;
     };
     _ = program;
-    serial.writeLine("runtime: lua spawn ok");
-    reportRamIdle(&memory);
+    bootlog.ok("runtime", "lua 5.4.8 shell");
 
-    testKiDispatch();
+    var mem_buf: [64]u8 = undefined;
+    const mem_detail = std.fmt.bufPrint(&mem_buf, "{d} MiB usable · {d} MiB used", .{
+        usableMiB(&info), ramUsedMiB(&memory),
+    }) catch "memory";
+    bootlog.ok("memory", mem_detail);
+
+    if (testKiDispatch()) {
+        bootlog.ok("kernel interface", "dispatch ready");
+    } else {
+        bootlog.fail("kernel interface", "dispatch failed");
+    }
+
+    bootlog.ok("accelerator", accelName());
+    bootlog.ok("boot sequence", "complete");
+    bootlog.rule();
+
+    serial.writeLine("ASTER BOOT OK");
 
     asm volatile ("sti" ::: .{ .memory = true });
     if (comptime runtime_test.enabled) {
         runtime_test.runAll();
     }
-    serial.writeLine("timer test: waiting for ticks");
     eventLoop();
 }
 
@@ -173,11 +188,8 @@ var fb_storage: ?framebuffer.Framebuffer = null;
 var renderer: renderer_mod.Renderer = undefined;
 var mouse_cursor: mouse_cursor_mod.MouseCursor = .{};
 
-fn initGraphics(info: *const boot_info.BootInfo) void {
-    const fb_info = info.framebuffer orelse {
-        serial.writeLine("graphics: no framebuffer, console disabled");
-        return;
-    };
+fn initGraphics(info: *const boot_info.BootInfo) bool {
+    const fb_info = info.framebuffer orelse return false;
     fb_storage = framebuffer.Framebuffer.init(fb_info);
     renderer = renderer_mod.Renderer.init(&fb_storage.?);
     graphics.init(renderer);
@@ -185,23 +197,21 @@ fn initGraphics(info: *const boot_info.BootInfo) void {
     mouse_cursor.init(&fb_storage.?, @intCast(fb_info.width / 2), @intCast(fb_info.height / 2));
     input.mouse_state.x = @divTrunc(@as(i32, @intCast(fb_info.width)), 2);
     input.mouse_state.y = @divTrunc(@as(i32, @intCast(fb_info.height)), 2);
-    serial.writeLine("graphics: framebuffer ok");
+    return true;
 }
 
-fn testKiDispatch() void {
+fn testKiDispatch() bool {
     const sys = @import("api/sys.zig");
     const debug = @import("api/debug.zig");
-    const msg = "ki dispatch test";
+    // Dispatch the Debug write op with an empty message: exercises the full
+    // KI path (sys.dispatch -> debug module) without polluting the boot log.
+    const dummy: u8 = 0;
     const status = sys.dispatch(.Debug, .{
         .a = @intFromEnum(debug.DebugOp.write),
-        .b = @intFromPtr(msg),
-        .c = msg.len,
+        .b = @intFromPtr(&dummy),
+        .c = 0,
     });
-    if (status == 0) {
-        serial.writeLine("ki dispatch: ok");
-    } else {
-        serial.writeLine("ki dispatch: failed");
-    }
+    return status == 0;
 }
 
 var needs_render = true;
@@ -305,49 +315,28 @@ fn render() void {
     if (fb_storage) |*fb| mouse_cursor.redraw(fb);
 }
 
-fn reportRamIdle(memory: *mem.Memory) void {
+fn ramUsedMiB(memory: *mem.Memory) u64 {
     // Used at the PFA level = kernel image + framebuffer + heap + stacks +
     // bitmap (everything the PFA bitmap marks as taken). This is the
     // "RAM (idle)" metric from spec/roadmap.md §2.
     const used_bytes = (memory.pfa.total_pages - memory.pfa.totalFreePages()) * pfa.page_size;
-    var buf: [64]u8 = undefined;
-    const line = std.fmt.bufPrint(&buf, "ram idle: {d} MiB used", .{used_bytes / (1024 * 1024)}) catch "ram idle: n/a";
-    serial.writeLine(line);
+    return used_bytes / (1024 * 1024);
 }
 
-fn printMemoryInfo(memory: *mem.Memory, info: *const boot_info.BootInfo) void {
-    var buf: [128]u8 = undefined;
-
-    var usable_total: u64 = 0;
+fn usableMiB(info: *const boot_info.BootInfo) u64 {
+    var total: u64 = 0;
     for (info.memory_entries) |entry| {
-        if (entry.type == .usable) usable_total += entry.length;
-        if (entry.base >= 0xfe000000 and entry.base < 0xff000000) {
-            const mm = std.fmt.bufPrint(&buf, "mm: base=0x{x} len=0x{x} type={}", .{ entry.base, entry.length, @intFromEnum(entry.type) }) catch return;
-            serial.writeLine(mm);
-        }
+        if (entry.type == .usable) total += entry.length;
     }
-    const ram = std.fmt.bufPrint(&buf, "usable ram: {} bytes ({} MiB)", .{ usable_total, usable_total / (1024 * 1024) }) catch return;
-    serial.writeLine(ram);
-
-    const free = std.fmt.bufPrint(&buf, "free pages: {}", .{memory.pfa.totalFreePages()}) catch return;
-    serial.writeLine(free);
+    return total / (1024 * 1024);
 }
 
-fn printBootInfo(info: *const boot_info.BootInfo) void {
-    var buf: [128]u8 = undefined;
-
-    const hhdm = std.fmt.bufPrint(&buf, "hhdm offset: 0x{x:0>16}", .{info.hhdm_offset}) catch return;
-    serial.writeLine(hhdm);
-
-    if (info.framebuffer) |fb_info| {
-        const fb_line = std.fmt.bufPrint(&buf, "framebuffer: {}x{} pitch={} bpp={}", .{ fb_info.width, fb_info.height, fb_info.pitch, fb_info.bpp }) catch return;
-        serial.writeLine(fb_line);
-        const attr = cache_attr.framebufferCacheAttr(fb_info.address, info.hhdm_offset);
-        const attr_line = std.fmt.bufPrint(&buf, "framebuffer cache: {s}", .{@tagName(attr)}) catch return;
-        serial.writeLine(attr_line);
-    } else {
-        serial.writeLine("framebuffer: none");
+fn graphicsDetail(info: *const boot_info.BootInfo, buf: []u8) []const u8 {
+    if (info.framebuffer) |fb| {
+        const attr = cache_attr.framebufferCacheAttr(fb.address, info.hhdm_offset);
+        return std.fmt.bufPrint(buf, "{d}x{d} framebuffer · {s}", .{ fb.width, fb.height, @tagName(attr) }) catch "framebuffer";
     }
+    return "none";
 }
 
 fn halt() noreturn {

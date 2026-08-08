@@ -155,9 +155,9 @@ Toto ladění stálo nejvíc času v M5 — čti pečlivě, než se dotkneš `dr
 KVM se zapojil jako akcelerační cesta (`tools/qemu-accel.sh`, `-Dkvm`). Pod KVM se
 okamžitě obnažily bugy, které TCG maskuje — viz C28 a meta-lekce v §10.
 
-> **Detekce akcelerátoru:** kernel tiskne na serial `accel: kvm` / `accel: tcg` /
-> `accel: hv` (CPUID leaf 1, ECX bit 31 = hypervisor present; leaf 0x40000000 =
-> vendor v **EBX, ECX, EDX** — pozor, u leaf 0 je pořadí EBX, EDX, ECX). QEMU TCG
+> **Detekce akcelerátoru:** boot log ukazuje accelerator (`[ OK ] accelerator kvm` /
+> `tcg` / `hv`) — CPUID leaf 1, ECX bit 31 = hypervisor present; leaf 0x40000000 =
+> vendor v **EBX, ECX, EDX** (pozor, u leaf 0 je pořadí EBX, EDX, ECX). QEMU TCG
 > nastavuje hypervisor bit a vrací `"TCGTCGTCGTCG"`; KVM vrací `"KVMKVMKVM"`.
 
 | Záznam | Symptom | Příčina | Řešení | Ověřit |
