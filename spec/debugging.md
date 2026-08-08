@@ -190,9 +190,11 @@ Při podezření na pád v IRQ:
 - **Hostitelské Lua debugery** (tomblind, VS Code Local Lua Debugger) **neplatí** —
   spouští samostatný `lua5.4` proces. Aster běží vlastní embedded Lua uvnitř kernelu;
   debugger se k ní z hostitele nepřipojí.
-- **`debug.traceback()` neexistuje** — kernel otvírá jen base/coroutine/table/string/
-  utf8/math (`lua.zig` `openLibraries`), **ne** `luaopen_debug`. Navíc jméno `debug`
-  je obsazené vlastním KI bindingem (`debug.write`).
+- **`debug.traceback()` neexistuje** — jméno `debug` je obsazené KI bindingem
+  (`debug.write`); Lua debug knihovna je proto otevřená **pod jménem `dbg`**
+  (M6.1.9): v Lua je k dispozici **`dbg.traceback()`**. (Stock `luaopen_debug` se
+  neotevírá — její `debug.debug` by četlo ze stdin, které kernel nemá; `dbg` je
+  vlastní lib s `traceback`.)
 
 ### Co funguje dnes
 
@@ -203,12 +205,11 @@ Při podezření na pád v IRQ:
    serial, ať víš, kde skript spadl.
 3. **Rozděl problém na malé kroky** — podezřelou funkci zavolej samostatně
    (např. z REPL) a sleduj, co vrací.
+4. **`dbg.traceback([msg], [level])`** — stack trace aktuálního Lua stavu na
+   serial (M6.1.9; jméno `dbg`, protože `debug` drží KI modul).
 
 ### Budoucí cesta (vyžaduje implementaci)
 
-- **Otevřít `debug` library pod jiným jménem** (např. `dbg`) → v Lua by pak byl
-  `dbg.traceback()`, `dbg.getinfo()`. Vyžaduje přidat `luaopen_debug` do
-  `openLibraries` s jiným jménem (nedá se pojmenovat `debug` — kolize s KI modulem).
 - **`lua_sethook` → serial** — hook (line/call/return události) by posílal na COM1
   číslo řádku + funkci. To je cesta pro krokování embedded Lua z kernelu (přes
   `debug.write` na serial), ne z hostitele.

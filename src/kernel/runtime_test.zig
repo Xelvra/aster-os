@@ -135,6 +135,34 @@ fn testLuaBindings() void {
     expect(true, "lua render ran without fault");
 }
 
+fn testDbgLib() void {
+    // The Lua debug library is opened as 'dbg' (M6.1.9) so the KI debug
+    // module keeps the 'debug' name. dbg.traceback() must exist and the
+    // Lua library must not leak into 'debug'.
+    const lua = @import("lua/lua.zig");
+    const L = @import("lua/cimport.zig").c;
+    const lua_state = lua.getState() orelse {
+        expect(false, "lua state exists");
+        return;
+    };
+    _ = L.lua_getglobal(lua_state, "dbg");
+    expect(L.lua_istable(lua_state, -1), "dbg library table is registered");
+    _ = L.lua_getfield(lua_state, -1, "traceback");
+    expect(L.lua_isfunction(lua_state, -1), "dbg.traceback is a function");
+    _ = L.lua_pop(lua_state, 1);
+    _ = L.lua_pop(lua_state, 1);
+
+    _ = L.lua_getglobal(lua_state, "debug");
+    expect(L.lua_istable(lua_state, -1), "KI debug module still registered as 'debug'");
+    _ = L.lua_getfield(lua_state, -1, "write");
+    expect(L.lua_isfunction(lua_state, -1), "KI debug.write still present");
+    _ = L.lua_pop(lua_state, 1);
+    _ = L.lua_getfield(lua_state, -1, "traceback");
+    expect(L.lua_isnil(lua_state, -1), "Lua debug library did not leak into 'debug'");
+    _ = L.lua_pop(lua_state, 1);
+    _ = L.lua_pop(lua_state, 1);
+}
+
 fn testErrorContainment() void {
     // A Lua error inside update/render must be caught by lua_pcall and
     // reported as CallResult.err, not crash the kernel (spec/runtime.md §5).
@@ -243,6 +271,7 @@ const tests = [_]Test{
     .{ .name = "mouse cursor overlay", .func = testMouseCursor },
     .{ .name = "framebuffer write + drawText", .func = testFramebufferWrites },
     .{ .name = "lua bindings + render", .func = testLuaBindings },
+    .{ .name = "lua dbg lib (M6.1.9)", .func = testDbgLib },
     .{ .name = "live theme change (render stays healthy)", .func = testLiveThemeChange },
     .{ .name = "reload from Lua is deferred, state survives", .func = testLuaTriggeredReload },
     .{ .name = "error containment (lua error)", .func = testErrorContainment },

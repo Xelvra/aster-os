@@ -72,12 +72,40 @@ fn openLibraries(L: *lua_c.lua_State) void {
         .{ .name = lua_c.LUA_STRLIBNAME, .opener = lua_c.luaopen_string },
         .{ .name = lua_c.LUA_UTF8LIBNAME, .opener = lua_c.luaopen_utf8 },
         .{ .name = lua_c.LUA_MATHLIBNAME, .opener = lua_c.luaopen_math },
+        // Lua's debug library is opened as 'dbg' because the 'debug' name is
+        // taken by the KI debug module (debug.write); see spec/roadmap.md
+        // M6.1.9. Stock luaopen_debug cannot be used: its debug.debug reads
+        // stdin, which the kernel does not have — only traceback is opened.
+        .{ .name = "dbg", .opener = openDbg },
     };
     for (libs) |lib| {
         lua_c.luaL_requiref(L, lib.name, lib.opener, 1);
         lua_c.lua_pop(L, 1);
     }
     bindings.register(L);
+}
+
+const DbgFuncs = [_]lua_c.luaL_Reg{
+    .{ .name = "traceback", .func = dbgTraceback },
+    .{ .name = null, .func = null },
+};
+
+/// dbg.traceback([message], [level]) — formats a stack traceback of the
+/// current Lua state (luaL_traceback, like the stock library's traceback).
+fn dbgTraceback(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    const msg = lua_c.lua_tolstring(L, 1, null);
+    const level: c_int = if (lua_c.lua_isnoneornil(L, 2))
+        1
+    else
+        @intCast(lua_c.lua_tointegerx(L, 2, null));
+    lua_c.luaL_traceback(L, L, msg, level);
+    return 1;
+}
+
+fn openDbg(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    lua_c.lua_createtable(L, 0, 1);
+    lua_c.luaL_setfuncs(L, @ptrCast(&DbgFuncs), 0);
+    return 1;
 }
 
 /// The shell is split into small modules concatenated into one chunk in

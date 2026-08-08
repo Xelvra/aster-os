@@ -311,9 +311,11 @@ binding marshallingu zelené.
       **hotovo:** `src/kernel/fs/ext2.zig` (read-only reader: superblock validace, feature
       reject per ADR-023, inode lookup, dir traversal; žádné alokace) + `tests/fs/ext2_test.zig`
       (14 testů). Data/indirect bloky zůstávají M6.1.3.
-- [ ] **M6.1.9 Rozhodnout Lua `dbg` lib teď:** otevřít `luaopen_debug` jako `dbg`
+- [x] **M6.1.9 Rozhodnout Lua `dbg` lib teď:** otevřít `luaopen_debug` jako `dbg`
       (`dbg.traceback()`), vyhnout se kolizi s KI modulem `debug`. Později to rozbije
-      skripty.
+      skripty. — **hotovo:** vlastní `dbg` lib (jen `traceback`) v `lua.zig`
+      (`openDbg`/`dbgTraceback`); stock `luaopen_debug` nelze — `debug.debug` čte stdin.
+      Runtime test „lua dbg lib (M6.1.9)" + `spec/debugging.md` §5 aktualizováno.
 - [ ] **M6.1.10 README quickstart:** `zig build run` jako první blok hned po Status.
 - [ ] **M6.1.11 Release/tag + prebuilt ISO workflow:** „stáhnu a spustím", ne „buildím z git".
 - [ ] **M6.1.12 CI na Windows/macOS:** Zig je multiplatformní, build.zig by měl běžet.
