@@ -48,6 +48,29 @@ watchlist). Existence kandidátů není závazek je implementovat.
   buď reader podporuje indexed directory, nebo builder použije `-O ^dir_index`.
   (`sparse_super` reader nezajímá — zálohy group descriptorů se pro čtení nepotřebují.)
 
+### Podporovaný subset (implementováno M6.1.3–M6.1.5, `src/kernel/fs/ext2.zig`)
+
+| Features | Bity | Stav |
+|---|---|---|
+| `filetype` (incompat) | 0x0002 | podporováno |
+| `ext_attr` (compat) | 0x0008 | podporováno (xattr se nečtou) |
+| `resize_inode` (compat) | 0x0010 | podporováno |
+| `sparse_super` (ro_compat) | 0x0001 | podporováno |
+| `large_file` (ro_compat) | 0x0002 | podporováno |
+| **`dir_index` (compat)** | **0x0020** | **reject — HTree se nečte** |
+| cokoli neznámé | — | **reject** |
+
+### Přesná invokace (testovací obrazy, `tools/make-test-disk.sh`)
+
+```bash
+parted -s <disk>.img mklabel gpt
+parted -s <disk>.img mkpart primary ext2 2048s 100%
+mke2fs -t ext2 -O ^dir_index -d <rootfs_dir> -E offset=$((2048 * 512)) <disk>.img
+```
+
+- Čtenář dat: direct bloky + single indirect (`i_block[12]`); double/triple indirect se
+  odmítají (`UnsupportedIndirect`).
+
 ## Rozhraní (hranice)
 
 ```text

@@ -12,11 +12,20 @@ fi
 
 PASS_CODE="99"
 TIMEOUT="${QEMU_TEST_TIMEOUT:-30}"
+DISK="${QEMU_TEST_DISK:-}"
 
 read -r -a ACCEL <<< "$(./tools/qemu-accel.sh)"
 
 echo "qemu-test: booting $ISO"
 echo "qemu-test: expecting isa-debug-exit pass code $PASS_CODE (timeout ${TIMEOUT}s)"
+if [[ -n "$DISK" ]]; then
+    echo "qemu-test: disk attached: $DISK"
+fi
+
+disk_args=()
+if [[ -n "$DISK" ]]; then
+    disk_args=(-drive "file=$DISK,format=raw,if=none,id=hd0" -device virtio-blk-pci,drive=hd0,disable-legacy=on)
+fi
 
 set +e
 timeout "$TIMEOUT" qemu-system-x86_64 \
@@ -24,6 +33,7 @@ timeout "$TIMEOUT" qemu-system-x86_64 \
     -M q35 \
     -m 512M \
     -cdrom "$ISO" \
+    "${disk_args[@]}" \
     -device isa-debug-exit \
     -serial stdio \
     -boot order=d \

@@ -182,7 +182,7 @@ fn kernelMain() !void {
 
     asm volatile ("sti" ::: .{ .memory = true });
     if (comptime runtime_test.enabled) {
-        runtime_test.runAll();
+        runtime_test.runAll(alloc, &memory);
     }
     eventLoop();
 }

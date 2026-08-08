@@ -2,6 +2,7 @@ const std = @import("std");
 const serial = @import("serial.zig");
 const input_queue = @import("input_queue.zig");
 const graphics = @import("api/graphics.zig");
+const mem = @import("mem/mem.zig");
 const build_options = @import("build_options");
 
 const debug_exit_port: u16 = 0x501;
@@ -278,12 +279,81 @@ const tests = [_]Test{
     .{ .name = "render throughput", .func = testRenderThroughput },
 };
 
-pub fn runAll() noreturn {
+fn testFilesystem(alloc: std.mem.Allocator, memory: *mem.Memory) void {
+    // Mount the ext2 partition of an attached test disk and exercise the
+    // thin file API: mount, lookup, open, read, EOF, invalid path
+    // (spec/roadmap.md M6.1.5). Skipped when no disk is attached.
+    const virtio = @import("drivers/virtio.zig");
+    const block = @import("drivers/block.zig");
+    const gpt = @import("fs/gpt.zig");
+    const ext2 = @import("fs/ext2.zig");
+    const file = @import("fs/file.zig");
+
+    var blk = virtio.VirtioBlk.init(alloc, &memory.pfa, memory.pfa.hhdm_offset) catch {
+        expect(true, "filesystem test skipped (no disk attached)");
+        return;
+    };
+    blk.setupQueue() catch {
+        expect(true, "filesystem test skipped (virtio queue failed)");
+        return;
+    };
+    var partitions: [8]block.PartitionView = undefined;
+    const count = gpt.discover(alloc, blk.asBlockDevice(), &partitions) catch {
+        expect(true, "filesystem test skipped (no GPT)");
+        return;
+    };
+    var fs_partition: ?block.PartitionView = null;
+    for (partitions[0..count]) |p| {
+        if (gpt.eqlGuid(p.type_guid, gpt.type_guid_linux_fs)) {
+            fs_partition = p;
+            break;
+        }
+    }
+    const part = fs_partition orelse {
+        expect(true, "filesystem test skipped (no linux partition)");
+        return;
+    };
+    const fs = ext2.Ext2.init(part) catch {
+        expect(false, "ext2 mounts");
+        return;
+    };
+    expect(true, "ext2 mounts");
+
+    const ino = fs.find("/theme.lua") catch {
+        expect(false, "lookup finds /theme.lua");
+        return;
+    };
+    expect(ino > 0, "lookup finds /theme.lua");
+
+    var f = file.File.open(&fs, "/theme.lua") catch {
+        expect(false, "open /theme.lua");
+        return;
+    };
+    defer f.close();
+    var buf: [128]u8 = undefined;
+    const n = f.read(&buf) catch {
+        expect(false, "read /theme.lua");
+        return;
+    };
+    expect(n > 0, "read /theme.lua returns data");
+    expect(std.mem.eql(u8, buf[0..n], "bg=0x0f1117"), "read returns the config content");
+    expect(f.eof(), "read reaches EOF");
+
+    if (file.File.open(&fs, "/missing.lua")) |_| {
+        expect(false, "open invalid path fails");
+    } else |_| {
+        expect(true, "open invalid path fails");
+    }
+}
+
+pub fn runAll(alloc: std.mem.Allocator, memory: *mem.Memory) noreturn {
     if (!comptime enabled) @compileError("runtime tests are not enabled");
     serial.writeLine("RUNTIME TESTS START");
     for (tests) |t| {
         runOne(t);
     }
+    serial.writeLine("ext2 filesystem on disk (M6.1.5)");
+    testFilesystem(alloc, memory);
     if (failures == 0) {
         serial.writeLine("RUNTIME TESTS PASS");
         exitQemu(exit_pass);
