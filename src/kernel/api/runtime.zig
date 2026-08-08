@@ -27,13 +27,15 @@ pub const RuntimeOp = enum(u64) {
 };
 
 var next_handle: u64 = 1;
+var reload_requested = false;
 
 pub fn init(allocator: std.mem.Allocator) void {
     lua.init(allocator);
 }
 
 /// Re-initialize the Lua shell state without restarting the system
-/// (hot reload, spec/runtime.md §5).
+/// (hot reload, spec/runtime.md §5). Safe only when no Lua frame is on
+/// the stack — the event loop is the single caller (performReload).
 pub fn reload() void {
     lua.reload();
     lua.runMain("main.lua") catch |err| {
@@ -42,6 +44,26 @@ pub fn reload() void {
         const line = std.fmt.bufPrint(&buf, "shell: reload failed ({s})", .{@errorName(err)}) catch "shell: reload failed";
         serial.writeLine(line);
     };
+}
+
+/// Request a shell reload. Safe from anywhere, including inside a Lua
+/// call (e.g. `runtime.reload()` from the session menu): the reload
+/// itself is deferred to the event loop, which performs it outside the
+/// Lua call frame (never close a lua_State that is currently executing).
+pub fn requestReload() void {
+    reload_requested = true;
+}
+
+pub fn reloadRequested() bool {
+    return reload_requested;
+}
+
+/// Perform the pending reload and clear the flag. Called by the event
+/// loop only (no Lua frame on the stack).
+pub fn performReload() void {
+    if (!reload_requested) return;
+    reload_requested = false;
+    reload();
 }
 pub fn spawn(opts: SpawnOptions) !Program {
     switch (opts.kind) {
@@ -68,7 +90,9 @@ pub fn dispatch(args: sys.SyscallArgs) u64 {
         },
         .kill, .status => return @intFromEnum(sys.KiStatus.NotSupported),
         .reload => {
-            reload();
+            // Deferred: the event loop performs the reload outside the
+            // Lua call that triggered it (spec/runtime.md §5).
+            requestReload();
             return @intFromEnum(sys.KiStatus.Success);
         },
     }

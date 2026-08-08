@@ -50,6 +50,11 @@ Full history up to 0.1.0-alpha.1 is archived in
   integer bindings reject floats, so every bar widget (launcher button, clock, workspace
   capsules, volume/session) and the window titles silently failed to draw. Switched the
   affected divisions to integer `//` (`wm.lua`).
+- **Reload from within Lua was a use-after-free**: `runtime.reload()` from the session
+  menu (Logout) closed the `lua_State` that was mid-call. Reload is now deferred — a
+  trigger only sets a flag and the event loop performs it outside any Lua call frame
+  (`api/runtime.zig` `requestReload`/`performReload`, runtime test "reload from Lua is
+  deferred").
 
 ## [0.1.0-alpha.1] - 2026-08-08
 

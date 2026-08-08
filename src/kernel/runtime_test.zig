@@ -189,6 +189,34 @@ fn testLiveThemeChange() void {
     expect(true, "shell reloaded after live theme change");
 }
 
+fn testLuaTriggeredReload() void {
+    // A reload requested from inside a Lua call (session menu "Logout")
+    // must not close the lua_State mid-call: the binding only sets a
+    // flag, the event loop performs the reload outside the Lua frame.
+    const lua = @import("lua/lua.zig");
+    const L = @import("lua/cimport.zig").c;
+    const runtime = @import("api/runtime.zig");
+    const lua_state = lua.getState() orelse {
+        expect(false, "lua state exists");
+        return;
+    };
+    const script = "runtime.reload()";
+    const load_status = L.luaL_loadstring(lua_state, script);
+    expect(load_status == L.LUA_OK, "reload script compiles");
+    if (load_status == L.LUA_OK) {
+        const run_status = L.lua_pcallk(lua_state, 0, 0, 0, 0, null);
+        expect(run_status == L.LUA_OK, "reload from Lua returns without closing the state");
+    }
+    expect(runtime.reloadRequested(), "reload flag set, not performed yet");
+    _ = lua.callRender();
+    expect(true, "lua state survives a reload request");
+    // The event loop performs the deferred reload.
+    runtime.performReload();
+    expect(!runtime.reloadRequested(), "reload performed and flag cleared");
+    _ = lua.callRender();
+    expect(true, "shell healthy after deferred reload");
+}
+
 fn testRenderThroughput() void {
     const idt = @import("cpu/idt.zig");
     const lua = @import("lua/lua.zig");
@@ -216,6 +244,7 @@ const tests = [_]Test{
     .{ .name = "framebuffer write + drawText", .func = testFramebufferWrites },
     .{ .name = "lua bindings + render", .func = testLuaBindings },
     .{ .name = "live theme change (render stays healthy)", .func = testLiveThemeChange },
+    .{ .name = "reload from Lua is deferred, state survives", .func = testLuaTriggeredReload },
     .{ .name = "error containment (lua error)", .func = testErrorContainment },
     .{ .name = "render throughput", .func = testRenderThroughput },
 };

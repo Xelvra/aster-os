@@ -15,6 +15,7 @@ const framebuffer = @import("fb/framebuffer.zig");
 const renderer_mod = @import("render/renderer.zig");
 const mouse_cursor_mod = @import("render/mouse_cursor.zig");
 const graphics = @import("api/graphics.zig");
+const runtime = @import("api/runtime.zig");
 const runtime_test = @import("runtime_test.zig");
 const lua = @import("lua/lua.zig");
 
@@ -108,7 +109,6 @@ fn kernelMain() !void {
 
     initGraphics(&info);
 
-    const runtime = @import("api/runtime.zig");
     runtime.init(alloc);
     const program = runtime.spawn(.{ .kind = .Lua, .entry = "main.lua" }) catch |err| {
         serial.writeLine("runtime: lua spawn failed");
@@ -176,13 +176,19 @@ fn eventLoop() noreturn {
             // The shell errored; reload it so the desktop recovers instead
             // of staying half-drawn (spec/runtime.md §5 error containment).
             serial.writeLine("shell: error, hot reload");
-            const runtime = @import("api/runtime.zig");
-            runtime.reload();
+            runtime.requestReload();
             needs_render = true;
         }
         if (graphics.invalidate_requested) {
             needs_render = true;
             graphics.invalidate_requested = false;
+        }
+        if (runtime.reloadRequested()) {
+            // The reload is performed here, outside any Lua call frame —
+            // a pending reload can come from F5 (poll) or from Lua itself
+            // (session menu "Logout"). Never close a lua_State mid-call.
+            runtime.performReload();
+            needs_render = true;
         }
         if (needs_render) {
             render();
@@ -212,8 +218,7 @@ fn poll() void {
                 if (key.code == .f5 and key.pressed) {
                     _ = input_queue.global.pop();
                     serial.writeLine("shell: hot reload (F5)");
-                    const runtime = @import("api/runtime.zig");
-                    runtime.reload();
+                    runtime.requestReload();
                     needs_render = true;
                 }
                 if (key.pressed) needs_render = true;
@@ -253,8 +258,7 @@ fn render() void {
     if (lua.callRender() == .err) {
         // The shell draw loop failed; reload so the next frame is clean.
         serial.writeLine("shell: render error, hot reload");
-        const runtime = @import("api/runtime.zig");
-        runtime.reload();
+        runtime.requestReload();
     }
     if (fb_storage) |*fb| mouse_cursor.redraw(fb);
 }

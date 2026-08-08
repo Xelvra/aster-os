@@ -140,6 +140,18 @@ Lua běží vestavěně v jádře (Ring 0) — chyba skriptu **nesmí shodit ker
   svůj `lua_State`** — všechna kernelová data, na která Lua ukazuje, jsou vlastněná
   daným státem a uvolní se s ním (žádné dangling pointery). Zbytečné držení
   externích struktur je porušení invariantu use-after-free (`spec/invariants.md`).
+- **Reload je vždy odložený (M5 close):** trigger — F5, chyba `update()`/`render()`,
+  nebo `runtime.reload()` z Lua (session menu „Logout") — jen **nastaví flag**;
+  samotné `lua_close`+`createState` provádí **event loop mimo jakýkoliv Lua call
+  frame** (`api/runtime.zig` `requestReload`/`performReload`). Nikdy se nezavírá
+  `lua_State`, na kterém právě stojí C funkce (use-after-free). Ověřeno runtime
+  testem „reload from Lua is deferred, state survives".
+- **Model restartů (session):** `F5`/`Logout` = restart **UI vrstvy** (shell) — kernel,
+  paměť, drivery a ticky běží dál. `Reboot` = restart **celého stroje** (i8042 reset →
+  BIOS → Limine → kernel → shell, `api/power.zig`). Restart **jen kernelu bez resetu
+  stroje** neexistuje (single address space; re-init kernelu = reboot) — to je smysl
+  F5/Logout: levnější než reboot. F5 a Logout jsou dnes identické; rozdělí se s M7
+  (programy — logout je ukončí, F5 jen přenačte shell).
 - **Marshalling je bezpečnostní hranice:** bindingy striktně validují typ a rozsah
   hodnot z Lua stacku (viz §4 + fuzz testy v `spec/verification.md` §3).
 - **Chyba v `update()`/`render()` spouští hot reload (M5):** `callUpdate`/`callRender`

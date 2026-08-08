@@ -86,7 +86,7 @@ Noctalia bar, 35 px, plné šířky. Zleva:
 - **Tray / Notifications** — ⏳ (placeholder ikona).
 - **Network** — ⏳ (žádná síť; placeholder "Net —").
 - **Volume** — ⏳ (žádné audio; placeholder "Vol —").
-- **Session** (lock/logout/reboot) — ✅ (menu: Lock = overlay, jakákoli klávesa odemkne — bez auth; Logout = reload shellu; Reboot = i8042 reset).
+- **Session** (lock/logout/reboot) — ✅ (menu: Lock = overlay, jakákoli klávesa odemkne — bez auth; Logout = reload shellu; Reboot = i8042 reset). Model restartů viz `spec/runtime.md` §5 (F5/Logout = UI vrstva, Reboot = celý stroj).
 
 Pravá část baru je dnes placeholder, ale **má správné rozložení** (widgety zprava).
 
