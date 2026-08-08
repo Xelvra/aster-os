@@ -1,4 +1,4 @@
-const std = @import("std");
+const io = @import("../cpu/io.zig");
 const pfa = @import("pfa.zig");
 const present: u64 = 1 << 0;
 pub const rw: u64 = 1 << 1;
@@ -14,7 +14,7 @@ pub fn init(alloc: *pfa.PageFrameAllocator, hhdm: u64) void {
 
 pub fn mapPage(virtual: u64, physical: u64, flags: u64) void {
     const alloc = pfa_inst orelse return;
-    const cr3 = read_cr3();
+    const cr3 = io.readCr3();
 
     const pml4_idx: usize = @intCast((virtual >> 39) & 0x1FF);
     const pdpt_idx: usize = @intCast((virtual >> 30) & 0x1FF);
@@ -51,10 +51,4 @@ fn flushTlb(virtual: u64) void {
         :
         : [addr] "r" (virtual),
         : .{ .rax = true, .memory = true });
-}
-
-fn read_cr3() u64 {
-    return asm volatile ("mov %%cr3, %[v]"
-        : [v] "=r" (-> u64),
-    );
 }

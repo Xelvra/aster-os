@@ -1,4 +1,3 @@
-const std = @import("std");
 const input = @import("../input.zig");
 
 /// Keyboard layout: maps a `KeyCode` (plus shift/ctrl state) to a printable

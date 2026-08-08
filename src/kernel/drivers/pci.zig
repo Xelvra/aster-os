@@ -1,4 +1,4 @@
-const std = @import("std");
+const io = @import("../cpu/io.zig");
 
 /// Minimal PCI configuration-space access (port 0xCF8/0xCFC). The classic
 /// mechanism works in QEMU without ACPI/ECAM and is enough to find devices
@@ -32,28 +32,13 @@ pub const Device = struct {
     }
 };
 
-fn out32(port: u16, value: u32) void {
-    asm volatile ("outl %[val], %[port]"
-        :
-        : [val] "{eax}" (value),
-          [port] "{dx}" (port),
-        : .{ .memory = true });
-}
-
-fn in32(port: u16) u32 {
-    return asm volatile ("inl %[port], %[val]"
-        : [val] "={eax}" (-> u32),
-        : [port] "{dx}" (port),
-        : .{ .memory = true });
-}
-
 pub fn readConfig32(bus: u8, slot: u8, func: u8, offset: u8) u32 {
     const address: u32 = (1 << 31) | (@as(u32, bus) << 16) | (@as(u32, slot) << 11) | (@as(u32, func) << 8) | (@as(u32, offset) & 0xFC);
-    out32(config_address_port, address);
-    return in32(config_data_port);
+    io.out32(config_address_port, address);
+    return io.in32(config_data_port);
 }
 
-pub fn readConfig16(bus: u8, slot: u8, func: u8, offset: u8) u16 {
+fn readConfig16(bus: u8, slot: u8, func: u8, offset: u8) u16 {
     const value = readConfig32(bus, slot, func, offset);
     const shift: u5 = @intCast((offset & 2) * 8);
     return @truncate(value >> shift);
@@ -86,20 +71,6 @@ fn readDevice(bus: u8, slot: u8, func: u8) ?Device {
             readConfig32(bus, slot, func, 0x24),
         },
     };
-}
-
-/// Enumerate devices on bus 0. QEMU q35 exposes everything on the root bus.
-pub fn enumerate(comptime callback: fn (Device) void) void {
-    for (0..32) |slot| {
-        const vendor = readConfig16(0, @intCast(slot), 0, 0);
-        if (vendor == 0xFFFF) continue;
-        const func_count: u8 = if (readConfig16(0, @intCast(slot), 0, 0x0E) & 0x80 != 0) 8 else 1;
-        for (0..func_count) |func| {
-            if (readDevice(0, @intCast(slot), @intCast(func))) |device| {
-                callback(device);
-            }
-        }
-    }
 }
 
 /// Find the first device matching vendor/device.

@@ -1,4 +1,3 @@
-const std = @import("std");
 const sys = @import("sys.zig");
 const serial = @import("../serial.zig");
 

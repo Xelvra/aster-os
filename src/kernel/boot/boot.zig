@@ -1,4 +1,3 @@
-const std = @import("std");
 const limine = @import("limine.zig");
 const boot_info = @import("boot_info.zig");
 

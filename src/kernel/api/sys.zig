@@ -1,4 +1,3 @@
-const std = @import("std");
 const debug = @import("debug.zig");
 const graphics = @import("graphics.zig");
 const input = @import("input.zig");

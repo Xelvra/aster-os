@@ -1,4 +1,3 @@
-const std = @import("std");
 const fb_mod = @import("../fb/framebuffer.zig");
 const font = @import("font.zig");
 

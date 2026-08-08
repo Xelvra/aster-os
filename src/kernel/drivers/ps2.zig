@@ -1,4 +1,4 @@
-const std = @import("std");
+const io = @import("../cpu/io.zig");
 const input = @import("../input.zig");
 const input_queue = @import("../input_queue.zig");
 
@@ -153,17 +153,17 @@ fn initMouse() void {
     // Drain any stale bytes left in the output buffer (e.g. the keyboard's
     // ACK to 0xF4 from initKeyboard) so the port-2 test result below is not
     // confused with leftover data.
-    while (in8(ps2_status) & status_output_full != 0) {
-        _ = in8(ps2_data);
+    while (io.in8(ps2_status) & status_output_full != 0) {
+        _ = io.in8(ps2_data);
     }
 
     // Test whether a device is present on port 2 before touching it.
     sendCommand(0xA9); // test port 2
     var spins: u32 = 0;
-    while (in8(ps2_status) & status_output_full == 0) : (spins += 1) {
+    while (io.in8(ps2_status) & status_output_full == 0) : (spins += 1) {
         if (spins > 100000) return; // no response -> no mouse
     }
-    const test_result = in8(ps2_data);
+    const test_result = io.in8(ps2_data);
     if (test_result != ps2_test_passed) return; // port 2 has no working device
 
     // Enable port 2 and set its IRQ bit in the config byte. Keep the
@@ -182,26 +182,26 @@ fn initMouse() void {
 
 fn sendCommand(cmd: u8) void {
     var spins: u32 = 0;
-    while (in8(ps2_status) & status_input_full != 0) : (spins += 1) {
+    while (io.in8(ps2_status) & status_input_full != 0) : (spins += 1) {
         if (spins > 100000) return;
     }
-    out8(ps2_command, cmd);
+    io.out8(ps2_command, cmd);
 }
 
 fn sendData(data: u8) void {
     var spins: u32 = 0;
-    while (in8(ps2_status) & status_input_full != 0) : (spins += 1) {
+    while (io.in8(ps2_status) & status_input_full != 0) : (spins += 1) {
         if (spins > 100000) return;
     }
-    out8(ps2_data, data);
+    io.out8(ps2_data, data);
 }
 
 fn waitOutput() ?u8 {
     var spins: u32 = 0;
-    while (in8(ps2_status) & status_output_full == 0) : (spins += 1) {
+    while (io.in8(ps2_status) & status_output_full == 0) : (spins += 1) {
         if (spins > 100000) return null;
     }
-    return in8(ps2_data);
+    return io.in8(ps2_data);
 }
 
 fn mouseCommand(cmd: u8) ?u8 {
@@ -211,8 +211,8 @@ fn mouseCommand(cmd: u8) ?u8 {
     // Wait for the ACK byte.
     var spins: u32 = 0;
     while (spins < 100000) : (spins += 1) {
-        if (in8(ps2_status) & status_output_full != 0) {
-            const b = in8(ps2_data);
+        if (io.in8(ps2_status) & status_output_full != 0) {
+            const b = io.in8(ps2_data);
             if (b == ps2_resend) {
                 return mouseCommand(cmd); // retry once
             }
@@ -225,13 +225,13 @@ fn mouseCommand(cmd: u8) ?u8 {
 // ─── IRQ handlers ──────────────────────────────────────────────────────
 
 pub fn handleIrq1() void {
-    const status = in8(ps2_status);
+    const status = io.in8(ps2_status);
     // Only consume bytes that belong to the keyboard (port 1): bit 5 of the
     // status register marks data from the mouse. Without this check, IRQ1
     // steals mouse packet bytes as bogus scancodes, desynchronizing the
     // mouse and corrupting the keyboard stream.
     if (status & status_output_full != 0 and status & status_mouse_data == 0) {
-        const scancode = in8(ps2_data);
+        const scancode = io.in8(ps2_data);
         if (scancode == 0x00 or scancode == 0xFF or scancode == ps2_ack) return;
         const event = mapScancode(scancode) orelse return;
         input_queue.global.push(.{ .key = event });
@@ -239,12 +239,12 @@ pub fn handleIrq1() void {
 }
 
 pub fn handleIrq12() void {
-    const status = in8(ps2_status);
+    const status = io.in8(ps2_status);
     // Only consume bytes that belong to the mouse port (bit 5). Keyboard
     // scancodes share the data register; without this check a keyboard byte
     // would desynchronize the packet stream.
     if (status & status_output_full != 0 and status & status_mouse_data != 0) {
-        const byte = in8(ps2_data);
+        const byte = io.in8(ps2_data);
         // The first byte of a 3-byte packet always has bit 3 (0x08) set.
         // If we expect a packet start and this bit is clear, the stream is
         // out of sync (e.g. after a dropped packet): skip the byte and
@@ -349,23 +349,4 @@ fn keypadOrNav(code: input.KeyCode) ?input.KeyCode {
 fn pushMousePacket() void {
     const event = input.decodeMousePacket(&mouse_packet) orelse return;
     input_queue.mouse.push(.{ .mouse = event });
-}
-
-// ─── Port I/O ──────────────────────────────────────────────────────────
-
-fn out8(port: u16, value: u8) void {
-    asm volatile (
-        \\outb %[val], %[port]
-        :
-        : [val] "{al}" (value),
-          [port] "{dx}" (port),
-        : .{ .memory = true });
-}
-
-fn in8(port: u16) u8 {
-    return asm volatile (
-        \\inb %[port], %[val]
-        : [val] "={al}" (-> u8),
-        : [port] "{dx}" (port),
-        : .{ .memory = true });
 }

@@ -1,4 +1,3 @@
-const std = @import("std");
 const data = @import("font_data.zig");
 
 pub const glyph_width = data.glyph_width;

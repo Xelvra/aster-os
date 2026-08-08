@@ -1,5 +1,3 @@
-const std = @import("std");
-
 pub const KeyCode = enum(u8) {
     a,
     b,

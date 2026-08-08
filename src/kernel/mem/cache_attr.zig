@@ -1,4 +1,4 @@
-const std = @import("std");
+const io = @import("../cpu/io.zig");
 
 pub const CacheAttr = enum(u8) {
     uc = 0,
@@ -13,7 +13,7 @@ var hhdm_offset: u64 = 0;
 
 pub fn framebufferCacheAttr(fb_address: u64, offset: u64) CacheAttr {
     hhdm_offset = offset;
-    const cr3 = read_cr3();
+    const cr3 = io.readCr3();
     const pte = walkPageTable(cr3, fb_address) orelse return .other;
     const pat_index = ((pte >> 7) & 1) << 2 | ((pte >> 4) & 1) << 1 | ((pte >> 3) & 1);
     return patToAttr(pat_index);
@@ -45,7 +45,7 @@ fn readEntry(phys_addr: u64) ?u64 {
 }
 
 fn patToAttr(index: usize) CacheAttr {
-    const pat_msr = read_msr(0x277);
+    const pat_msr = io.readMsr(0x277);
     const pat_value: u8 = @intCast((pat_msr >> @intCast(index * 8)) & 0xFF);
     return switch (pat_value) {
         0x00 => .uc,
@@ -55,21 +55,4 @@ fn patToAttr(index: usize) CacheAttr {
         0x07 => .uc_minus,
         else => .other,
     };
-}
-
-fn read_cr3() u64 {
-    return asm volatile ("mov %%cr3, %[v]"
-        : [v] "=r" (-> u64),
-    );
-}
-
-fn read_msr(msr: u32) u64 {
-    var lo: u32 = undefined;
-    var hi: u32 = undefined;
-    asm volatile ("rdmsr"
-        : [_] "={eax}" (lo),
-          [_] "={edx}" (hi),
-        : [_] "{ecx}" (msr),
-    );
-    return (@as(u64, hi) << 32) | lo;
 }

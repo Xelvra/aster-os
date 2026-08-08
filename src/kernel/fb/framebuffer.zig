@@ -1,4 +1,3 @@
-const std = @import("std");
 const boot_info = @import("../boot/boot_info.zig");
 
 pub const Framebuffer = struct {

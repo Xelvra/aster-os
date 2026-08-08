@@ -1,4 +1,3 @@
-const std = @import("std");
 const sys = @import("sys.zig");
 const mem = @import("../mem/mem.zig");
 const pfa = @import("../mem/pfa.zig");

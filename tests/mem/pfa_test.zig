@@ -70,7 +70,7 @@ test "allocPages returns contiguous run" {
 test "freePages frees all" {
     var alloc = initAllocator();
     const pages = try alloc.allocPages(3, false);
-    alloc.freePages(pages);
+    try alloc.freePages(pages);
     try std.testing.expectEqual(expected_free_pages, alloc.totalFreePages());
 }
 

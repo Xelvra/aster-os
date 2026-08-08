@@ -1,4 +1,3 @@
-const std = @import("std");
 const renderer_mod = @import("../render/renderer.zig");
 const sys = @import("sys.zig");
 

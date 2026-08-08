@@ -227,7 +227,7 @@ pub const VirtioBlk = struct {
 
         common.queue_select = 0;
         const size = common.queue_size;
-        if (size == 0 or size > queue_max) return error.QueueFailed;
+        if (size < 3 or size > queue_max) return error.QueueFailed;
 
         const desc_phys = self.pfa_inst.allocPage(true) catch return error.QueueFailed;
         const avail_phys = self.pfa_inst.allocPage(true) catch return error.QueueFailed;
@@ -274,6 +274,12 @@ pub const VirtioBlk = struct {
         header.* = .{ .type = blk_req_in, .reserved = 0, .sector = sector };
         status_byte.* = 0xFF;
 
+        // The previous chain is consumed (we wait on the used ring below), so
+        // descriptor slots can be reused. Cycle the head so head+2 stays within
+        // the descriptor table (size entries).
+        if (self.queue.next_desc + 3 > self.queue.size) {
+            self.queue.next_desc = 0;
+        }
         const head = self.queue.next_desc;
         const desc = self.queue.desc;
         desc[head] = .{

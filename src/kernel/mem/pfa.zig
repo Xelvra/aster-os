@@ -1,4 +1,3 @@
-const std = @import("std");
 const boot_info = @import("../boot/boot_info.zig");
 
 pub const page_size: u64 = 4096;
@@ -93,9 +92,9 @@ pub const PageFrameAllocator = struct {
         return self.pages_storage[0..count];
     }
 
-    pub fn freePages(self: *PageFrameAllocator, addrs: []const u64) void {
+    pub fn freePages(self: *PageFrameAllocator, addrs: []const u64) PfaError!void {
         for (addrs) |addr| {
-            self.freePage(addr) catch {};
+            try self.freePage(addr);
         }
     }
 

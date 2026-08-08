@@ -1,5 +1,3 @@
-const std = @import("std");
-
 export var requests_start_marker: [4]u64 linksection(".limine_requests") = .{ 0xf6b8f4b39de7d1ae, 0xfab91a6940fcb9cf, 0x785c6ed015d3e316, 0x181e920a7852b9d9 };
 export var requests_end_marker: [2]u64 linksection(".limine_requests") = .{ 0xadc0e0531bb10d03, 0x9572709f31764c62 };
 
@@ -64,18 +62,6 @@ pub const memmap_request = extern struct {
     response: ?*memmap_response,
 };
 
-pub const bootloader_info_response = extern struct {
-    revision: u64,
-    name: [*:0]const u8,
-    version: [*:0]const u8,
-};
-
-pub const bootloader_info_request = extern struct {
-    id: [4]u64,
-    revision: u64,
-    response: ?*bootloader_info_response,
-};
-
 pub const file = extern struct {
     revision: u64,
     address: u64,
@@ -129,12 +115,6 @@ export var memmap_req: memmap_request linksection(".limine_requests") = .{
     .response = null,
 };
 
-export var bootloader_info_req: bootloader_info_request linksection(".limine_requests") = .{
-    .id = .{ 0xc7b1dd30df4c8b88, 0x0a82e883a194f07b, 0xf55038d8e2a1202f, 0x279426fcf5f59740 },
-    .revision = 0,
-    .response = null,
-};
-
 export var module_req: module_request linksection(".limine_requests") = .{
     .id = .{ 0xc7b1dd30df4c8b88, 0x0a82e883a194f07b, 0x3e7e279702be32af, 0xca1c4f3bd1280cee },
     .revision = 0,
@@ -151,11 +131,6 @@ comptime {
 pub fn base_revision_supported() bool {
     const tag = @as(*const volatile [3]u64, @ptrCast(&base_revision));
     return tag[2] == 0;
-}
-
-pub fn bootloader_info() ?*const bootloader_info_response {
-    const req = @as(*volatile bootloader_info_request, @ptrCast(&bootloader_info_req));
-    return req.response;
 }
 
 pub fn hhdm_offset() ?u64 {

@@ -1,4 +1,4 @@
-const std = @import("std");
+const io = @import("io.zig");
 const idt = @import("idt.zig");
 const page_map = @import("../mem/page_map.zig");
 
@@ -27,7 +27,7 @@ var apic_base: u64 = 0;
 var ioapic_base: u64 = 0;
 
 pub fn init(hhdm_offset: u64) void {
-    const msr = read_msr(ia32_apic_base_msr);
+    const msr = io.readMsr(ia32_apic_base_msr);
     const apic_phys = msr & 0xFFFFF000;
     apic_base = apic_phys + hhdm_offset;
 
@@ -72,15 +72,4 @@ fn ioapicWrite(reg: u32, value: u32) void {
     sel_ptr[0] = reg;
     const win_ptr: [*]volatile u32 = @ptrFromInt(ioapic_base + ioapic_win);
     win_ptr[0] = value;
-}
-
-fn read_msr(msr: u32) u64 {
-    var lo: u32 = undefined;
-    var hi: u32 = undefined;
-    asm volatile ("rdmsr"
-        : [_] "={eax}" (lo),
-          [_] "={edx}" (hi),
-        : [_] "{ecx}" (msr),
-    );
-    return (@as(u64, hi) << 32) | lo;
 }

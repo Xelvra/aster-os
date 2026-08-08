@@ -1,5 +1,3 @@
-const std = @import("std");
-
 pub const MemoryEntryType = enum(u64) {
     usable = 0,
     reserved = 1,
