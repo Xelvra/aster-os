@@ -287,14 +287,55 @@ local function sysmon_render()
     gfx.draw_text("ticks " .. tostring(time.ticks()), tx, ty, theme.text_dim)
 end
 
+-- Applications the launcher can run. Each entry is { title, id }; the id
+-- maps to a shell action (open a window, toggle something).
+local apps = {
+    { title = "repl",        id = "repl" },
+    { title = "sysmon",      id = "sysmon" },
+    { title = "files",       id = "files" },
+    { title = "toggle fullscreen", id = "fullscreen" },
+    { title = "close",       id = "close" },
+}
+
+-- Launcher state (declared before the render/input functions that use it,
+-- so a local in Lua is visible from the first render).
+local launcher_open = false
+local launcher_input = ""
+local launcher_sel = 1
+local launcher_was_down = false
+
+local function launcher_filtered()
+    local q = launcher_input:lower()
+    local out = {}
+    for _, a in ipairs(apps) do
+        if q == "" or a.title:lower():find(q, 1, true) then
+            out[#out + 1] = a
+        end
+    end
+    return out
+end
+
 local function launcher_render()
-    -- A centered popup with a prompt line. Launcher toggled by SUPER+D.
-    local lw, lh = 320, 40
+    -- A centered popup with a search box and the filtered app list.
+    local items = launcher_filtered()
+    local row_h = 20
+    local lw, lh = 320, 40 + math.max(#items, 1) * row_h
     local lx = math.floor((SW - lw) / 2)
-    local ly = math.floor(bar_height / 2)
+    local ly = bar_height + 8 + math.max(math.floor((SH - bar_height - 8 - lh) / 2), 0)
     gfx.round_rect(lx, ly, lw, lh, 10, theme.surface)
     gfx.rect_border(lx, ly, lw, lh, 1, theme.accent)
-    gfx.draw_text("run: " .. launcher_input, lx + 8, ly + (lh - 16) / 2 + 1, theme.text)
+    -- Search box.
+    gfx.draw_text("run: " .. launcher_input, lx + 8, ly + 8, theme.text)
+    local ty = ly + 30
+    for i, a in ipairs(items) do
+        local sel = (i == launcher_sel)
+        local color = sel and theme.accent or theme.text_dim
+        gfx.draw_text(a.title, lx + 12, ty, color)
+        ty = ty + row_h
+    end
+    if #items == 0 then
+        gfx.draw_text("no match", lx + 12, ty, theme.text_dim)
+    end
 end
 
 -- ---------------------------------------------------------------------------
@@ -342,14 +383,6 @@ local function run(code)
 end
 
 -- ---------------------------------------------------------------------------
--- Launcher state.
--- ---------------------------------------------------------------------------
-local launcher_open = false
-local launcher_input = ""
-local launcher_items = { "sysmon", "files", "repl", "close" }
-local launcher_was_down = false
-
--- ---------------------------------------------------------------------------
 -- Input handling.
 -- ---------------------------------------------------------------------------
 local function is_in_header(w)
@@ -365,6 +398,46 @@ local function is_in_window(w)
     return mx >= w.x and mx <= w.x + w.w and my >= w.y and my <= w.y + w.h
 end
 
+-- ---------------------------------------------------------------------------
+-- Launcher actions: map an app id to a shell action.
+-- ---------------------------------------------------------------------------
+local function launcher_run(id)
+    if id == "repl" then
+        repl_visible = true
+        set_focus("repl")
+    elseif id == "sysmon" then
+        local w = find_win("sysmon")
+        if not w then
+            windows[#windows + 1] = window("sysmon", current_ws)
+            w = windows[#windows]
+        end
+        w.ws = current_ws
+        set_focus("sysmon")
+    elseif id == "files" then
+        local w = find_win("files")
+        if not w then
+            windows[#windows + 1] = window("files", current_ws)
+        else
+            w.ws = current_ws
+        end
+        set_focus("files")
+    elseif id == "fullscreen" then
+        if fullscreen_win == focused then
+            fullscreen_win = nil
+        elseif find_win(focused) then
+            fullscreen_win = focused
+        end
+    elseif id == "close" then
+        if find_win(focused) then
+            for i, w in ipairs(windows) do
+                if w.title == focused then table.remove(windows, i) break end
+            end
+            if #windows > 0 then set_focus(windows[#windows].title) end
+        end
+    end
+    layout_pass()
+end
+
 local function handle_mouse()
     local mx = input.mouse_x()
     local my = input.mouse_y()
@@ -373,14 +446,16 @@ local function handle_mouse()
     if launcher_open then
         if left and not launcher_was_down then
             -- Clicking an item runs it; click outside closes.
-            local lw, lh = 320, 40 + #launcher_items * 20
+            local items = launcher_filtered()
+            local row_h = 20
+            local lw, lh = 320, 40 + math.max(#items, 1) * row_h
             local lx = math.floor((SW - lw) / 2)
-            local ly = math.floor(bar_height / 2)
+            local ly = bar_height + 8 + math.max(math.floor((SH - bar_height - 8 - lh) / 2), 0)
             if mx >= lx and mx <= lx + lw and my >= ly and my <= ly + lh then
-                local item = launcher_items[math.floor((my - ly - 30) / 20) + 1]
-                if item then
+                local idx = math.floor((my - ly - 30) / row_h) + 1
+                if items[idx] then
                     launcher_open = false
-                    if item == "repl" then repl_visible = true end
+                    launcher_run(items[idx].id)
                     gfx.invalidate()
                 end
             else
@@ -437,15 +512,22 @@ end
 local function handle_key(ev)
     local code = ev.code
     if launcher_open then
+        local items = launcher_filtered()
         if code == "escape" then
             launcher_open = false
         elseif code == "enter" then
             launcher_open = false
-            gfx.invalidate()
+            if items[launcher_sel] then launcher_run(items[launcher_sel].id) end
+        elseif code == "up" then
+            launcher_sel = math.max(launcher_sel - 1, 1)
+        elseif code == "down" then
+            launcher_sel = math.min(launcher_sel + 1, math.max(#items, 1))
         elseif code == "backspace" then
             launcher_input = string.sub(launcher_input, 1, -2)
+            launcher_sel = 1
         elseif ev.char then
             launcher_input = launcher_input .. ev.char
+            launcher_sel = 1
         end
         gfx.invalidate()
         return
@@ -498,6 +580,10 @@ local function handle_key(ev)
                 end
             else
                 launcher_open = not launcher_open
+                if launcher_open then
+                    launcher_input = ""
+                    launcher_sel = 1
+                end
             end
         elseif code == "f" or code == "d" then
             -- Fullscreen toggle.
