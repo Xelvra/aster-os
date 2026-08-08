@@ -3,6 +3,7 @@ const serial = @import("serial.zig");
 const boot = @import("boot/boot.zig");
 const boot_info = @import("boot/boot_info.zig");
 const mem = @import("mem/mem.zig");
+const pfa = @import("mem/pfa.zig");
 const cache_attr = @import("mem/cache_attr.zig");
 const idt = @import("cpu/idt.zig");
 const pic = @import("drivers/pic.zig");
@@ -156,6 +157,7 @@ fn kernelMain() !void {
     };
     _ = program;
     serial.writeLine("runtime: lua spawn ok");
+    reportRamIdle(&memory);
 
     testKiDispatch();
 
@@ -301,6 +303,16 @@ fn render() void {
         runtime.requestReload();
     }
     if (fb_storage) |*fb| mouse_cursor.redraw(fb);
+}
+
+fn reportRamIdle(memory: *mem.Memory) void {
+    // Used at the PFA level = kernel image + framebuffer + heap + stacks +
+    // bitmap (everything the PFA bitmap marks as taken). This is the
+    // "RAM (idle)" metric from spec/roadmap.md §2.
+    const used_bytes = (memory.pfa.total_pages - memory.pfa.totalFreePages()) * pfa.page_size;
+    var buf: [64]u8 = undefined;
+    const line = std.fmt.bufPrint(&buf, "ram idle: {d} MiB used", .{used_bytes / (1024 * 1024)}) catch "ram idle: n/a";
+    serial.writeLine(line);
 }
 
 fn printMemoryInfo(memory: *mem.Memory, info: *const boot_info.BootInfo) void {

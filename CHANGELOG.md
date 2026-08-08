@@ -32,6 +32,13 @@ Full history up to 0.1.0-alpha.1 is archived in
   otherwise). QEMU TCG is the quick-capture path; KVM is closer to real hardware.
 - **Accelerator marker**: the kernel reports `accel: kvm` / `accel: tcg` / `accel: hv` on
   serial at boot (CPUID hypervisor leaf 0x40000000, vendor in EBX/ECX/EDX).
+- **RAM idle marker**: the kernel reports `ram idle: X MiB used` on serial after the shell
+  loads (PFA-managed memory: kernel image + heap + bitmap + stacks; the framebuffer is
+  MMIO, not RAM) — closes the ADR-015 measurement gap.
+- **M5 measurements under KVM** (recorded in `spec/roadmap.md` notes 4/5): Kernel Entry →
+  First Frame ≈ 24 ms (vs 90 ms TCG), render throughput ≈ 32 renders/10 ticks (vs 3–4
+  TCG), RAM idle ≈ 2 MiB. Confirms the < 40 ms target is reachable — TCG was the boot
+  bottleneck.
 
 ### Changed
 

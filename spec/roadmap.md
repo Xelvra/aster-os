@@ -53,7 +53,7 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 | M3 (cíl) | < 128 KB | ≤ 6 MB | < 25 ms | < 16 ms | TBD |
 | **M4 (měřeno)** | **336 KiB** (RF 259) | — | **≈ 60 ms**² | TBD | TBD |
 | M4 (cíl) | < 512 KB (s Lua) | ≤ 12 MB | < 40 ms | < 16 ms | TBD |
-| **M5 (měřeno)** | **366 KiB** | — | **≈ 90 ms**² | TBD | TBD |
+| **M5 (měřeno)** | **371 KiB** | **2 MiB**⁴ | **≈ 90 ms**² (TCG) / **≈ 24 ms**⁵ (KVM) | TBD | TBD |
 | M5 (cíl) | < 512 KB | ≤ 16 MB | < 40 ms | < 16 ms | TBD |
 | M6 | < 768 KB | ≤ 24 MB | < 50 ms | < 16 ms | TBD |
 | M7 | < 1 MB | ≤ 32 MB | < 50 ms | < 16 ms | TBD |
@@ -68,8 +68,8 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 - **Frame latency (p99):** percentil 99 rozložení doby mezi `render()` a `present()`.
   Latence je důležitější než FPS.
 - **RAM (idle):** rezidentní paměť systému bez spuštěných aplikací.
-  > ⁴ **Zatím neměřena** (sloupec „—"): ADR-015 dluh — žádná feature bez měření. Doplnit
-  > s M6 (storage přidává spotřebu initrd/FS, kdy se měření stane smysluplným benchmarkem).
+  > ⁴ M5: **≈ 2 MiB** (PFA-managed: kernel image + heap + bitmap + stacky; framebuffer je
+  > MMIO, ne RAM). Měří kernel na serial (`ram idle:` po spawnu shellu); ADR-015 splněno.
 
 > ¹ M0–M3 měřily `tools/bench.sh` **wall-clock** od spuštění QEMU po serial marker — zahrnují
 > firmware/BIOS/Limine init, který je mimo kontrolu kernelu (≈ 3 s prodleva bootloaderu).
@@ -93,12 +93,17 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 > (`zig build run -Dkvm=true`; nástroje auto-přidají `-enable-kvm` přes `tools/qemu-accel.sh`).
 > KVM je bližší reálnému HW (TCG maskuje chyby, např. C28). TCG zůstává rychlý záchyt pro
 > automatické testy.
+> ⁵ **M5 KVM měření (2026-08-08, `tools/bench.sh` + runtime test):** Kernel Entry → First
+> Frame **≈ 24 ms** (cíl < 40 ms je pod KVM dosažitelný — potvrzeno, že TCG byl bottleneck),
+> render throughput **≈ 32 renders/10 ticks** (vs 3–4 v TCG → TCG ~8–10× pomalejší),
+> RAM idle ≈ 2 MiB (pozn. ⁴), kernel image 371 KiB.
 > **Render throughput** (M4): `testRenderThroughput` v runtime testech měří plné Lua
 > rendery za 10 APIC ticků. Baseline po optimalizaci rendereru: **8–9 renders/10 ticks**
 > (před tím 5). **Hodnota je vázaná na zátěž renderu:** 8–9 platí pro M4 shell (REPL
 > konzole), M5 full-shell render (celý WM) měří **≈ 3–4 renders/10 ticks** (TCG variabilní,
 > přeměřeno 2026-08-08). Pokles 8–9 → 3–4 je zátěž (těžiště: WM kreslí celý desktop), ne
-> regrese render pipeline. Při změně render pipeline se číslo nesmí zhoršit **při stejné
+> regrese render pipeline. **Pod KVM (pozn. ⁵) M5 full-shell měří ≈ 32 renders/10 ticks.**
+> Při změně render pipeline se číslo nesmí zhoršit **při stejné
 > zátěži** bez zdůvodnění.
 
 ---
@@ -235,11 +240,11 @@ binding marshallingu zelené.
 - [x] Metriky do tabulky (bench 2026-08-08: kernel 366 KiB, Kernel Entry → First Frame
       ≈ 90 ms; render throughput ≈ 3–4 renders / 10 ticks — full-shell render, viz pozn. ³).
 
-> **Optimalizační průchod M5 (pravidlo 5 v §4):** proběhl částečně — renderer throughput
-> byl měřen (3–4 renders/10 ticks) a velikost kernelu drží cíl < 512 KiB. Doplňující průchod
-> (frame latency p99, RAM idle) se odkládá: v QEMU TCG nejsou čísla směrodatná pro reálný
-> HW (pozn. ³), benchmark se přesune na reálný hardware po M8 stabilizaci. RAM idle:
-> pozn. ⁴.
+> **Optimalizační průchod M5 (pravidlo 5 v §4):** proběhl — renderer throughput měřen
+> (3–4 TCG / **32 KVM**, pozn. ⁵), Kernel Entry → First Frame měřen pod KVM (≈ 24 ms,
+> cíl < 40 ms dosažitelný), RAM idle změřeno (2 MiB, pozn. ⁴), velikost kernelu drží cíl
+> < 512 KiB. Zbývá frame latency p99 (měřicí mechanismus zatím není) a měření na reálném
+> HW po M8 stabilizaci (pozn. ³).
 
 ### M6 — Storage
 

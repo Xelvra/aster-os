@@ -66,6 +66,7 @@ v kontextu zpožděné.
 | T2 | `limine bios-install` FileNotFound | hostitelský `limine` nástroj není v systému | zkompilovat z `libs/limine/tools/limine.c` (cc) v build.zig; argv[0] přes `addFileArg` | `zig build iso` |
 | T3 | smoke/bench čekají celý timeout | kernel haltuje, QEMU běží dál | číst serial živě přes FIFO (`-chardev pipe`), ukončit po markeru | smoke za ~3s ne 30s |
 | T4 | `bc: příkaz nenalezen` v bench | `bc` není nainstalovaný | `awk "BEGIN { printf ... }"` místo `bc` | `./tools/bench.sh` |
+| T5 | Zig 0.16 tiskne `failed command: xorriso` při exit 0 (stderr banner) | Zig považuje stderr z `addSystemCommand` za diagnostický výstup a tiskne `failed command` **i pro úspěšný step** (Run.zig, build_runner.zig) | xorriso běží přes `sh -c` wrapper, který zachytí stderr a přehraje ho jen při nenulovém exit kódu (build.zig; detail viz handoff H1) | `rm -rf .zig-cache && zig build run` |
 
 ---
 
