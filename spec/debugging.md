@@ -5,6 +5,25 @@
 
 ---
 
+## 0. Co se kdy debuguje (rozhodovací strom)
+
+Debug ovlivňuje, **v jaké vrstvě** se problém nachází — podle toho se vybere nástroj.
+Nejdřív se určí vrstva, pak se ladí.
+
+| Vrstva | Projev | Nástroj |
+|---|---|---|
+| **Boot / kernel start** | serial němý, Limine menu, hang před `ASTER KERNEL ENTRY` | GDB + QEMU (§2) |
+| **Kernel kód (Zig)** | fault dump, divný stav, RIP v kernelu | GDB + QEMU (§2), serial dump (§3) |
+| **Event loop / IRQ** | render/input pád, zacyklení | GDB (§2), IRQ pravidla (§4) |
+| **Lua shell** | Lua chyba, `attempt to index a nil`, špatné UI chování | `debug` KI modul + `traceback` (§5) |
+| **Build / toolchain** | kompilace, Limine, determinismus | `troubleshooting.md` (build-time) |
+
+Pravidlo prvního kroku: **urči vrstvu z projevu, ne hádej.** Boot marker
+(`ASTER BOOT OK`) řekne, zda kernel dojel; fault dump řekne, kde spadl; Lua chyba
+říká, že problém je ve skriptu. Teprve pak se sáhne po GDB.
+
+---
+
 ## 1. Rychlý triage
 
 | Symptom | První krok |
@@ -20,29 +39,89 @@ nedefinovaný stav, ne race.
 
 ---
 
-## 2. GDB + QEMU
+## 2. GDB + QEMU (kernel)
 
-Kernel se dá ladit z hostitele přes GDB:
+### Kdy
+
+Když je problém v kernel kódu (Zig): fault, hang, divný stav, kdy serial dump
+nestačí a je potřeba krokovat nebo prohlížet paměť/registry živě.
+
+### Co je potřeba vědět předem
+
+- Kernel bootuje **z ISO přes Limine** — QEMU se spouští s `-cdrom <iso>`, **ne**
+  s `-kernel <elf>`. Kernel binárka pro gdb je `zig-out/bin/aster`.
+- **Symboly jsou jen v Debug buildu** (`build.zig`: `strip = optimize != .Debug`).
+  Default je `ReleaseSafe` → stripped. Pro gdb stav `-Doptimize=Debug`.
+- Debug build dnes **buildí a bootuje** (C27/C28 workaroundy), ale je pomalejší a
+  nepředpovídá chování ReleaseSafe (L2, D1). Ladí se v Debug, **verifikuje** v
+  ReleaseSafe.
+
+### Postup
 
 ```bash
-# 1. QEMU čeká na GDB (-S), poslouchá na :1234
-qemu-system-x86_64 -s -S <ostatní parametry>
+# 1. sestav debug ISO (symboly v binárce)
+zig build iso -Doptimize=Debug
 
-# 2. v jiném terminálu
-gdb zig-out/bin/aster.elf
-(gdb) target remote :1234
-(gdb) continue
+# 2. QEMU: -s = gdb stub na :1234, -S = počká na připojení
+ISO=$(find .zig-cache -name aster.iso -printf '%T@ %p\n' | sort -rn | head -1 | cut -d' ' -f2-)
+qemu-system-x86_64 -s -S -M q35 -m 512M -cdrom "$ISO" \
+    -serial stdio -no-reboot -no-shutdown
+
+# 3. v jiném terminálu
+# Breakpoint se musí dát na higher-half adresu (base 0xffffffff80000000),
+# viz poznámka níže.
+gdb zig-out/bin/aster \
+    -ex "target remote :1234" \
+    -ex "b *0xffffffff801031c0" \
+    -ex "continue"
 ```
+
+> **Proč adresa, ne jméno funkce:** gdb symboly mangluje na offset bez higher-half
+> base (např. `main.kernelMain` = `0x1031c0`), ale kernel běží na
+> `0xffffffff80000000 + offset`. Breakpoint `b main.kernelMain` by nikdy nezastavil.
+> Adresu zjistíš takto:
+> ```bash
+> nm zig-out/bin/aster | grep main.kernelMain   # -> 0x1031c0
+> # breakpoint: 0xffffffff80000000 + 0x1031c0 = 0xffffffff801031c0
+> ```
+>
+> Pozor: bez `-S` QEMU naběhne a kernel může fault dřív, než se gdb připojí.
+> `-s` bez `-S` je pro "připoj se k běžícímu" scénáři — pak breakpointy můžeš
+> nastavit jen na kód, který ještě neproběhl.
 
 Užitečné příkazy:
 - `info registers` — stav registrů.
-- `bt` — backtrace z aktuálního rámce (funguje, pokud máme symboly).
-- `b kernel_main` / `b <fn>` — breakpoint; Zig funghuje s `-g`.
-- `x/20i $rip` — rozebírané instrukce kolem crashu.
+- `bt` — backtrace (funguje, pokud máme symboly = Debug build).
+- `b *<higher-half adresa>` — breakpoint (viz poznámka o adresách).
+- `x/20i $rip` — instrukce kolem crashu.
+- `p/x *(u64*)0xffff800000000000` — čtení paměti (kernel je na vyšší polovičce).
 
-> Poznámka: kernel se buildí `ReleaseSafe` (spec `invariants.md`). Debug build dává
-> plné symboly; `ReleaseSafe` zachová safety checky, ale optimalizuje — některé
-> proměnné nemusí být viditelné. Pro těžké ladění použij `Debug`.
+> Poznámka k adresám: kernel běží na `0xffffffff80000000+` (HHDM na
+> `0xffff800000000000+`). gdb `bt` a breakpointy fungují přes symboly; adresy pro
+> `x/` se berou z dumpu/registrů, ne z fyzických adres.
+
+### CodeLLDB (VS Code) — attach, ne launch
+
+Kernel není hostitelský proces — LLDB ho **nelze spustit** (`launch` selže).
+Správně je **attach** na gdb stub přes custom request:
+
+```json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "custom",
+      "name": "Attach to QEMU kernel",
+      "targetCreateCommands": ["target create ${workspaceFolder}/zig-out/bin/aster"],
+      "processCreateCommands": ["gdb-remote 1234"]
+    }
+  ]
+}
+```
+
+Postup: sestav `-Doptimize=Debug`, spusť QEMU s `-s -S`, ve VS Code F5 (attach).
+Stejný workflow jako gdb v terminálu, jen s klikacím UI.
 
 ---
 
@@ -62,12 +141,18 @@ ASTER FAULT: page fault
 
 Jak číst:
 1. **`error`** — typ faultu (page fault / GPF / double fault) a operace (read/write).
-2. **`rip`** — kde přesně došlo k chybě. Přelož na funkci:
+2. **`rip`** — kde přesně došlo k chybě. Přelož na funkci: **odečti higher-half base**
+   (`0xffffffff80000000`) a dej výsledek do addr2line:
    ```bash
-   addr2line -e zig-out/bin/aster.elf -f 0xffffffff80001234
+   addr2line -e zig-out/bin/aster -f 0x0000000000001234
    ```
+   (z `0xffffffff80001234` − `0xffffffff80000000` = `0x1234`). Pozor: bez Debug
+   buildu jsou symboly stripped — addr2line pak nedá funkci. binutils může hlásit
+   `DWARF error` u Zig debug info a zobrazit funkci bez řádku — to je omezení
+   nástroje, funkce je důvěryhodná.
 3. **`cr2`** — adresa, která fault způsobila (jen page fault).
-4. **`backtrace`** — řetězec návratových adres; každou nech přes `addr2line`.
+4. **`backtrace`** — řetězec návratových adres; každou odečti base a dej přes
+   `addr2line`.
 
 > **Double fault / triple fault:** je-li dump trojitý (QEMU se restartuje), může být
 > samotný fault handler rozbitý — podezřívej IDT entry, stack switch (TSS), nebo
@@ -98,12 +183,44 @@ Při podezření na pád v IRQ:
 
 ---
 
-## 5. Nástroje
+## 5. Lua shell (embedded) — jak debugovat
+
+### Co NEfunguje (a proč)
+
+- **Hostitelské Lua debugery** (tomblind, VS Code Local Lua Debugger) **neplatí** —
+  spouští samostatný `lua5.4` proces. Aster běží vlastní embedded Lua uvnitř kernelu;
+  debugger se k ní z hostitele nepřipojí.
+- **`debug.traceback()` neexistuje** — kernel otvírá jen base/coroutine/table/string/
+  utf8/math (`lua.zig` `openLibraries`), **ne** `luaopen_debug`. Navíc jméno `debug`
+  je obsazené vlastním KI bindingem (`debug.write`).
+
+### Co funguje dnes
+
+1. **`debug.write(str)`** — výpis z Lua na serial (KI modul, `runtime.md` §5).
+   `debug.write("x=" .. tostring(x))` — ekvivalent printu pro embedded shell.
+2. **Lua chyba se píše na serial** — `runtime.md` §5 obsah chyby (spouštěč 2).
+   Chybová zpráva Lua (`attempt to index a nil value`, stack trace, ...) jde na
+   serial, ať víš, kde skript spadl.
+3. **Rozděl problém na malé kroky** — podezřelou funkci zavolej samostatně
+   (např. z REPL) a sleduj, co vrací.
+
+### Budoucí cesta (vyžaduje implementaci)
+
+- **Otevřít `debug` library pod jiným jménem** (např. `dbg`) → v Lua by pak byl
+  `dbg.traceback()`, `dbg.getinfo()`. Vyžaduje přidat `luaopen_debug` do
+  `openLibraries` s jiným jménem (nedá se pojmenovat `debug` — kolize s KI modulem).
+- **`lua_sethook` → serial** — hook (line/call/return události) by posílal na COM1
+  číslo řádku + funkci. To je cesta pro krokování embedded Lua z kernelu (přes
+  `debug.write` na serial), ne z hostitele.
+
+---
+
+## 6. Nástroje
 
 | Nástroj | Použití |
 |---|---|
 | `addr2line` (binutils) | překlad adresy z dumpu na funkci/řádek |
-| `gdb` + QEMU `-s -S` | interaktivní ladění |
+| `gdb` + QEMU `-s -S` | interaktivní ladění kernelu (Debug build) |
 | `objdump -d` | disassembl pro kontrolu generovaného kódu |
 | `tools/qemu-smoke.sh` | automatický boot test |
 | `tools/bench.sh` | metriky (ADR-015) |
@@ -115,3 +232,4 @@ Při podezření na pád v IRQ:
 >
 > Problém, který se nedaří vyřešit v rozumném čase, se předává přes formální postup
 > [`handoff.md`](handoff.md) — šablona a seznam otevřených handoffů, ne improvizace.
+
