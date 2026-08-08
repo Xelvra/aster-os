@@ -138,6 +138,8 @@ ASTER KERNEL ENTRY
 [ OK ] gpt              1 partition(s)
 [ OK ] fs               ext2
   lost+found
+  apps
+  readme.txt
   theme.lua           bg=0x0f1117
 [ OK ] graphics         800x600 framebuffer · wc
 [ OK ] renderer         primitives + bitmap font
