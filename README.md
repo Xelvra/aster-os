@@ -1,6 +1,6 @@
 # Aster OS
 
-[![status](https://img.shields.io/badge/status-pre--alpha-red.svg)](spec/roadmap.md)
+[![status](https://img.shields.io/badge/status-alpha-orange.svg)](spec/roadmap.md)
 [![version](https://img.shields.io/badge/version-0.6.0--alpha.1-orange.svg)](.version)
 [![milestone](https://img.shields.io/badge/milestone-M6%20Storage-informational.svg)](spec/roadmap.md)
 [![Zig](https://img.shields.io/badge/Zig-0.16.0-f7a41d.svg)](.zig-version)
@@ -37,7 +37,7 @@ This project requires the Zig version listed in [`.zig-version`](.zig-version).
   ([`spec/verification.md`](spec/verification.md)).
 - **Feature history:** per-milestone details (Added/Fixed) in
   [`CHANGELOG.md`](CHANGELOG.md); metrics in [`spec/roadmap.md`](spec/roadmap.md).
-- This is a pre-alpha prototype, not a usable OS yet.
+- This is an alpha prototype, not a usable OS yet.
 
 ## Quick start
 
@@ -135,6 +135,7 @@ ASTER KERNEL ENTRY
 [ OK ] cpu              page tables · apic timer
 [ OK ] input            ps/2 keyboard + mouse
 [ OK ] storage          virtio-blk
+[ OK ] gpt              1 partition(s)
 [ OK ] graphics         800x600 framebuffer · wc
 [ OK ] renderer         primitives + bitmap font
 [ OK ] runtime          lua 5.4.8 shell

@@ -16,7 +16,7 @@ public interfaces are designed as **stable abstractions**, so individual
 subsystems can later be moved into isolated processes **without changing
 application APIs**.
 
-This is a pre-alpha prototype — the goal is a working, measurable system, not
+This is an alpha prototype — the goal is a working, measurable system, not
 yet a usable OS. Milestone **M6 (Storage)** is in progress; the project is
 building on M0–M5 (boot, memory, CPU, graphics, Lua, UI).
 

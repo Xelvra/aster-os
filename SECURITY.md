@@ -1,6 +1,6 @@
 # Security Policy
 
-Aster is an **experimental, pre-alpha hobby operating system**, not production
+Aster is an **experimental, alpha hobby operating system**, not production
 software. It runs in QEMU, has no isolation (single address space, Ring 0), and
 is not intended for untrusted inputs or real hardware yet. Please read the
 following so we are both on the same page.
