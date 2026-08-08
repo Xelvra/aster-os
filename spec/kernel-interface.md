@@ -34,6 +34,7 @@ Všechna veřejná rozhraní žijí v `src/kernel/api/`:
 | `timer.zig` | Čas: `ticks`, `sleepMs`, tick zdroj | `spec/timer.md` |
 | `runtime.zig` | Spouštění programů: `spawn`, `RuntimeKind` | `spec/runtime.md` |
 | `sysmon.zig` | Systémové metriky: RAM usage pro shell | tento soubor |
+| `power.zig` | Napájení: reboot (i8042 reset) | session menu, M5 |
 
 > **Výjimka z pravidla:** `Yield` (vzdání se kvanta) je **triviální/interní** — nespravuje
 > ho modul v `api/`, volá přímo `scheduler.yield()`. Nespadá pod plné pravidlo „KI je
@@ -62,6 +63,7 @@ pub const Syscall = enum(u64) {
     Runtime = 4,   // Runtime.spawn a související
     Yield   = 5,   // dobrovolné vzdání se časového kvanta (výhledově)
     Sysmon  = 6,   // systémové metriky (RAM usage pro shell, M5)
+    Power   = 7,   // reboot (session menu, M5)
 };
 ```
 

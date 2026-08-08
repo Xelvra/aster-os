@@ -86,7 +86,7 @@ Noctalia bar, 35 px, plné šířky. Zleva:
 - **Tray / Notifications** — ⏳ (placeholder ikona).
 - **Network** — ⏳ (žádná síť; placeholder "Net —").
 - **Volume** — ⏳ (žádné audio; placeholder "Vol —").
-- **Session** (lock/logout/reboot) — ⏳ (placeholder "Lock", menu zatím ne).
+- **Session** (lock/logout/reboot) — ✅ (menu: Lock = overlay, jakákoli klávesa odemkne — bez auth; Logout = reload shellu; Reboot = i8042 reset).
 
 Pravá část baru je dnes placeholder, ale **má správné rozložení** (widgety zprava).
 
@@ -167,7 +167,7 @@ Cíl: btop/Noctalia sysmon widget v baru + okno.
 
 ## 7. Prioritizace (co portovat dál)
 
-1. **Bar: reálné hodiny + session menu** (high impact, low effort).
+1. **Bar: reálné hodiny + session menu** — ✅ hotovo (M5 close: hodiny žijí z ticků, menu Lock/Logout/Reboot).
 2. **Sysmon CPU widget** (potřebuje kernel binding, medium effort).
 3. **Fade animace přepínání workspace** (bez GPU, medium effort).
 4. **Files aplikace** (po M6 initfs).

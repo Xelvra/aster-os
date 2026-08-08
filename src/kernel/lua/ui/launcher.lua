@@ -34,7 +34,7 @@ local function launcher_render()
     local row_h = 20
     local lw, lh = 320, 40 + math.max(#items, 1) * row_h
     local lx = math.floor((SW - lw) / 2)
-    local ly = bar_height + 8 + math.max(math.floor((SH - bar_height - 8 - lh) / 2), 0)
+    local ly = theme.bar.height + 8 + math.max(math.floor((SH - theme.bar.height - 8 - lh) / 2), 0)
     gfx.round_rect(lx, ly, lw, lh, 10, theme.surface)
     gfx.rect_border(lx, ly, lw, lh, 1, theme.accent)
     -- Search box.

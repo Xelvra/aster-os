@@ -23,6 +23,7 @@ pub const RuntimeOp = enum(u64) {
     spawn = 0,
     kill = 1,
     status = 2,
+    reload = 3,
 };
 
 var next_handle: u64 = 1;
@@ -66,5 +67,9 @@ pub fn dispatch(args: sys.SyscallArgs) u64 {
             }
         },
         .kill, .status => return @intFromEnum(sys.KiStatus.NotSupported),
+        .reload => {
+            reload();
+            return @intFromEnum(sys.KiStatus.Success);
+        },
     }
 }

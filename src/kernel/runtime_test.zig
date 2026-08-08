@@ -122,6 +122,12 @@ fn testLuaBindings() void {
     _ = L.lua_getglobal(lua_state, "gfx");
     expect(L.lua_istable(lua_state, -1), "gfx binding table is registered");
     _ = L.lua_pop(lua_state, 1);
+    _ = L.lua_getglobal(lua_state, "runtime");
+    expect(L.lua_istable(lua_state, -1), "runtime binding table is registered");
+    _ = L.lua_pop(lua_state, 1);
+    _ = L.lua_getglobal(lua_state, "power");
+    expect(L.lua_istable(lua_state, -1), "power binding table is registered");
+    _ = L.lua_pop(lua_state, 1);
     _ = L.lua_getglobal(lua_state, "render");
     expect(L.lua_isfunction(lua_state, -1), "render function is defined by main.lua");
     _ = L.lua_pop(lua_state, 1);
@@ -156,6 +162,33 @@ fn testErrorContainment() void {
     expect(true, "shell reloaded after error containment");
 }
 
+fn testLiveThemeChange() void {
+    // A theme change typed into the REPL must repaint without losing the
+    // shell and without faulting render (spec/runtime.md §5a). The bar
+    // height is read live from the theme, so a change takes effect on the
+    // next render and mouse hit-testing follows it.
+    const lua = @import("lua/lua.zig");
+    const L = @import("lua/cimport.zig").c;
+    const lua_state = lua.getState() orelse {
+        expect(false, "lua state exists");
+        return;
+    };
+    const script = "theme.background = 0x112233; theme.bar.height = 48; theme.wm.gap_out = 12";
+    const load_status = L.luaL_loadstring(lua_state, script);
+    expect(load_status == L.LUA_OK, "live theme script compiles");
+    if (load_status == L.LUA_OK) {
+        const run_status = L.lua_pcallk(lua_state, 0, 0, 0, 0, null);
+        expect(run_status == L.LUA_OK, "live theme script runs");
+    }
+    const result = lua.callRender();
+    expect(result == lua.CallResult.ok, "render stays healthy after a live theme change");
+    // Restore the real shell so later tests start clean.
+    const runtime = @import("api/runtime.zig");
+    runtime.reload();
+    _ = lua.callRender();
+    expect(true, "shell reloaded after live theme change");
+}
+
 fn testRenderThroughput() void {
     const idt = @import("cpu/idt.zig");
     const lua = @import("lua/lua.zig");
@@ -182,6 +215,7 @@ const tests = [_]Test{
     .{ .name = "mouse cursor overlay", .func = testMouseCursor },
     .{ .name = "framebuffer write + drawText", .func = testFramebufferWrites },
     .{ .name = "lua bindings + render", .func = testLuaBindings },
+    .{ .name = "live theme change (render stays healthy)", .func = testLiveThemeChange },
     .{ .name = "error containment (lua error)", .func = testErrorContainment },
     .{ .name = "render throughput", .func = testRenderThroughput },
 };

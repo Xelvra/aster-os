@@ -8,8 +8,6 @@ hist_idx = hist_idx or 0
 cursor = cursor or 0
 glyph_w = 8
 glyph_h = 16
-bar_height = theme.bar.height
-
 local function add_line(s)
     table.insert(lines, s)
     if #lines > 200 then table.remove(lines, 1) end

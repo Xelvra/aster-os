@@ -24,6 +24,29 @@ windows[#windows + 1] = window("files", 2)
 focused = windows[1].title
 local repl_visible = true
 
+-- Session menu (bar "Lock" button): lock overlay, logout (shell reload),
+-- reboot (i8042 reset). "Lock" has no auth yet — any key unlocks.
+local session_items = {
+    { title = "Lock",   id = "lock" },
+    { title = "Logout", id = "logout" },
+    { title = "Reboot", id = "reboot" },
+}
+local session_open = false
+local session_sel = 1
+local session_btn = { x = 0, w = 0 }
+local locked = false
+
+local function session_run(id)
+    if id == "lock" then
+        locked = true
+    elseif id == "logout" then
+        runtime.reload()
+    elseif id == "reboot" then
+        power.reboot()
+    end
+    gfx.invalidate()
+end
+
 local function find_win(title)
     for _, w in ipairs(windows) do
         if w.title == title then return w end
@@ -119,9 +142,9 @@ local function bar_render()
 
     local x = 8
     -- Launcher (a square rounded button).
-    gfx.round_rect(x, (bar_h - 20) / 2, 20, 20, 6, theme.launcher)
+    gfx.round_rect(x, (bar_h - 20) // 2, 20, 20, 6, theme.launcher)
     x = x + 20 + 8
-    gfx.draw_text(">", x - 20 + 6, (bar_h - 16) / 2 + 1, theme.background)
+    gfx.draw_text(">", x - 20 + 6, (bar_h - 16) // 2 + 1, theme.background)
     x = x + 4
 
     -- Clock.
@@ -130,7 +153,7 @@ local function bar_render()
     local hh = math.floor(secs / 3600) % 24
     local mm = math.floor(secs / 60) % 60
     local clock = string.format("%02d:%02d", hh, mm)
-    gfx.draw_text(clock, x, (bar_h - 16) / 2 + 1, theme.text)
+    gfx.draw_text(clock, x, (bar_h - 16) // 2 + 1, theme.text)
     x = x + 5 * 8 + 12
 
     -- Workspace capsules.
@@ -139,18 +162,37 @@ local function bar_render()
         local active = (i == current_ws)
         local color = active and theme.accent or theme.surface_alt
         local text_color = active and theme.background or theme.text_dim
-        gfx.round_rect(x, (bar_h - 20) / 2, w, 20, 10, color)
-        gfx.draw_text(name, x + 4, (bar_h - 16) / 2 + 1, text_color)
+        gfx.round_rect(x, (bar_h - 20) // 2, w, 20, 10, color)
+        gfx.draw_text(name, x + 4, (bar_h - 16) // 2 + 1, text_color)
         x = x + w + 6
     end
 
-    -- Right side: volume and session placeholders.
+    -- Right side: volume placeholder and the session button (opens the menu).
     local right = SW - 8
     local vol = "Vol 100%"
-    gfx.draw_text(vol, right - vol:len() * 8, (bar_h - 16) / 2 + 1, theme.text)
+    gfx.draw_text(vol, right - vol:len() * 8, (bar_h - 16) // 2 + 1, theme.text)
     right = right - vol:len() * 8 - 16
     local sess = "Lock"
-    gfx.draw_text(sess, right - sess:len() * 8, (bar_h - 16) / 2 + 1, theme.text_dim)
+    local sess_x = right - sess:len() * 8
+    gfx.draw_text(sess, sess_x, (bar_h - 16) // 2 + 1, theme.text_dim)
+    session_btn.x = sess_x
+    session_btn.w = sess:len() * 8
+end
+
+local function session_menu_render()
+    local row_h = 20
+    local w = 140
+    local h = 8 + #session_items * row_h
+    local x = session_btn.x
+    local y = theme.bar.height + 2
+    gfx.round_rect(x, y, w, h, 8, theme.surface)
+    gfx.rect_border(x, y, w, h, 1, theme.accent)
+    local ty = y + 4
+    for i, it in ipairs(session_items) do
+        local sel = (i == session_sel)
+        gfx.draw_text(it.title, x + 8, ty, sel and theme.accent or theme.text_dim)
+        ty = ty + row_h
+    end
 end
 
 -- ---------------------------------------------------------------------------
@@ -199,5 +241,5 @@ local function win_render(w)
     elseif w.title == "sysmon" then
         label = "sysmon"
     end
-    gfx.draw_text(label, tx + 6, ty + (th - 16) / 2 + 1, active and theme.text or theme.text_dim)
+    gfx.draw_text(label, tx + 6, ty + (th - 16) // 2 + 1, active and theme.text or theme.text_dim)
 end

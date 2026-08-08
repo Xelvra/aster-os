@@ -74,7 +74,8 @@ Veškerý přístup z Lua jde přes KI, nikdy přímo do kernel struktur.
 | `graphics` | `gfx.draw_rect(x, y, w, h, color)`, `gfx.round_rect(x, y, w, h, radius, color)`, `gfx.rect_border(x, y, w, h, thickness, color)`, `gfx.gradient_border(x, y, w, h, thickness, color_a, color_b)`, `gfx.draw_text(str, x, y, color)`, `gfx.fill_screen(color)`, `gfx.invalidate()`, `gfx.present()`, `gfx.width()`, `gfx.height()` |
 | `input` | `input.next_event()`, `input.mouse_x()`, `input.mouse_y()`, `input.mouse_left()`, `input.mouse_right()`, `input.mouse_middle()` |
 | `timer` | `time.ticks()` |
-| `runtime` | *(Zig API; Lua binding `runtime.spawn` se neexponuje do M7)* |
+| `runtime` | `runtime.reload()` (restart shellu, M5; `spawn` se neexponuje do M7) |
+| `power` | `power.reboot()` (i8042 reset, M5) |
 | `sysmon` | `sysmon.ram_total_mb()`, `sysmon.ram_free_mb()` |
 | `debug` | `debug.write(str)` (výpis na serial, přidává `\n`) |
 

@@ -43,7 +43,7 @@
 ## Stav
 
 - **Verze specifikace:** 1.0 (draft)
-- **Schváleno k implementaci:** Milníky M0–M4; M5 (UI) rozpracovaný
+- **Schváleno k implementaci:** Milníky M0–M5; M6 (Storage) v plánu
 - **Aktualizace:** nová architektonická rozhodnutí se zapisují do `spec/adr/` (každé
   samostatný soubor); přehled se udržuje v `architecture-overview.md`. Rozhodnutí se nemění
   dodatečně — doplňují se nová.

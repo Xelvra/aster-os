@@ -19,10 +19,26 @@ Full history up to 0.1.0-alpha.1 is archived in
   emulation artifact, not a kernel problem. Verified that allocations are not a
   bottleneck (1071 allocs / 157 KB during shell load). See the metric note ³ in
   `spec/roadmap.md`.
+- **Live theme change runtime test**: changing `theme.*` fields from Lua and re-rendering
+  stays healthy (M5 live transformation, `spec/runtime.md` §5a).
+- **Session menu** (M5 close): the bar "Lock" placeholder is now a working menu —
+  Lock (full-screen overlay, any key unlocks), Logout (`runtime.reload()` — fresh
+  desktop), Reboot (`power.reboot()` — i8042 reset). New KI module `api/power.zig`
+  (`Power = 7`), `RuntimeOp.reload = 3`, Lua bindings `runtime.reload()` and
+  `power.reboot()`.
 
 ### Changed
 
 ### Fixed
+
+- **Live transformation**: the bar height was captured once at shell load (`bar_height`),
+  so changing `theme.bar.height` at runtime desynced mouse hit-testing (launcher position,
+  workspace capsules, drag clamp) from rendering. It is now read live from the theme
+  everywhere (`input.lua`, `launcher.lua`).
+- **Empty bar and missing window titles**: Lua `/` always yields a float, and the strict
+  integer bindings reject floats, so every bar widget (launcher button, clock, workspace
+  capsules, volume/session) and the window titles silently failed to draw. Switched the
+  affected divisions to integer `//` (`wm.lua`).
 
 ## [0.1.0-alpha.1] - 2026-08-08
 

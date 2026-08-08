@@ -1,5 +1,7 @@
 -- input.lua - mouse and keyboard handling for the shell.
 
+local session_was_down = false
+
 local function is_in_header(w)
     local mx = input.mouse_x()
     local my = input.mouse_y()
@@ -18,6 +20,25 @@ local function handle_mouse()
     local my = input.mouse_y()
     local left = input.mouse_left()
 
+    if session_open then
+        if left and not session_was_down then
+            -- Clicking an item runs it; click outside closes.
+            local row_h = 20
+            local w, h = 140, 8 + #session_items * row_h
+            local x, y = session_btn.x, theme.bar.height + 2
+            if mx >= x and mx <= x + w and my >= y and my <= y + h then
+                local idx = math.floor((my - y - 4) / row_h) + 1
+                session_open = false
+                if session_items[idx] then session_run(session_items[idx].id) end
+            else
+                session_open = false
+            end
+            gfx.invalidate()
+        end
+        session_was_down = left
+        return
+    end
+
     if launcher_open then
         if left and not launcher_was_down then
             -- Clicking an item runs it; click outside closes.
@@ -25,7 +46,7 @@ local function handle_mouse()
             local row_h = 20
             local lw, lh = 320, 40 + math.max(#items, 1) * row_h
             local lx = math.floor((SW - lw) / 2)
-            local ly = bar_height + 8 + math.max(math.floor((SH - bar_height - 8 - lh) / 2), 0)
+            local ly = theme.bar.height + 8 + math.max(math.floor((SH - theme.bar.height - 8 - lh) / 2), 0)
             if mx >= lx and mx <= lx + lw and my >= ly and my <= ly + lh then
                 local idx = math.floor((my - ly - 30) / row_h) + 1
                 if items[idx] then
@@ -59,12 +80,18 @@ local function handle_mouse()
             local x = 8 + 20 + 8 + 5 * 8 + 12 + 4
             for i, name in ipairs(theme.ws) do
                 local ww = 4 + name:len() * 8 + 8
-                if mx >= x and mx <= x + ww and my >= 0 and my <= bar_height then
+                if mx >= x and mx <= x + ww and my >= 0 and my <= theme.bar.height then
                     current_ws = i
                     layout_pass()
                     gfx.invalidate()
                 end
                 x = x + ww + 6
+            end
+            -- Clicking the session button opens the session menu.
+            if mx >= session_btn.x and mx <= session_btn.x + session_btn.w and my >= 0 and my <= theme.bar.height then
+                session_open = true
+                session_sel = 1
+                gfx.invalidate()
             end
         end
         if drag then
@@ -86,6 +113,23 @@ end
 
 local function handle_key(ev)
     local code = ev.code
+    if session_open then
+        if code == "escape" then
+            session_open = false
+        elseif code == "enter" then
+            session_open = false
+            session_run(session_items[session_sel].id)
+        elseif code == "up" then
+            session_sel = math.max(session_sel - 1, 1)
+        elseif code == "down" then
+            session_sel = math.min(session_sel + 1, #session_items)
+        else
+            session_open = false
+        end
+        gfx.invalidate()
+        return
+    end
+
     if launcher_open then
         local items = launcher_filtered()
         if code == "escape" then

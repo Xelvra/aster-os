@@ -5,6 +5,7 @@ const input = @import("input.zig");
 const timer = @import("timer.zig");
 const runtime = @import("runtime.zig");
 const sysmon = @import("sysmon.zig");
+const power = @import("power.zig");
 
 pub const Syscall = enum(u64) {
     Debug = 0,
@@ -14,6 +15,7 @@ pub const Syscall = enum(u64) {
     Runtime = 4,
     Yield = 5,
     Sysmon = 6,
+    Power = 7,
 };
 
 pub const KiStatus = enum(u16) {
@@ -41,5 +43,6 @@ pub fn dispatch(num: Syscall, args: SyscallArgs) u64 {
         .Runtime => runtime.dispatch(args),
         .Yield => @intFromEnum(KiStatus.NotSupported),
         .Sysmon => sysmon.dispatch(args),
+        .Power => power.dispatch(args),
     };
 }

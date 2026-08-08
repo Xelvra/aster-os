@@ -5,6 +5,8 @@ const graphics = @import("../api/graphics.zig");
 const api_input = @import("../api/input.zig");
 const api_timer = @import("../api/timer.zig");
 const api_debug = @import("../api/debug.zig");
+const api_runtime = @import("../api/runtime.zig");
+const api_power = @import("../api/power.zig");
 const sysmon = @import("../api/sysmon.zig");
 
 fn pushError(L: ?*lua_c.lua_State, comptime format: []const u8, args: anytype) void {
@@ -428,6 +430,16 @@ const SysmonFuncs = [_]lua_c.luaL_Reg{
     .{ .name = null, .func = null },
 };
 
+const RuntimeFuncs = [_]lua_c.luaL_Reg{
+    .{ .name = "reload", .func = runtimeReload },
+    .{ .name = null, .func = null },
+};
+
+const PowerFuncs = [_]lua_c.luaL_Reg{
+    .{ .name = "reboot", .func = powerReboot },
+    .{ .name = null, .func = null },
+};
+
 fn sysmonRamTotalMb(L: ?*lua_c.lua_State) callconv(.c) c_int {
     const value = sys.dispatch(.Sysmon, .{ .a = @intFromEnum(sysmon.SysmonOp.ram_total_mb) });
     lua_c.lua_pushinteger(L, @intCast(value));
@@ -437,6 +449,18 @@ fn sysmonRamTotalMb(L: ?*lua_c.lua_State) callconv(.c) c_int {
 fn sysmonRamFreeMb(L: ?*lua_c.lua_State) callconv(.c) c_int {
     const value = sys.dispatch(.Sysmon, .{ .a = @intFromEnum(sysmon.SysmonOp.ram_free_mb) });
     lua_c.lua_pushinteger(L, @intCast(value));
+    return 1;
+}
+
+fn runtimeReload(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    _ = sys.dispatch(.Runtime, .{ .a = @intFromEnum(api_runtime.RuntimeOp.reload) });
+    lua_c.lua_pushinteger(L, 0);
+    return 1;
+}
+
+fn powerReboot(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    _ = sys.dispatch(.Power, .{ .a = @intFromEnum(api_power.PowerOp.reboot) });
+    lua_c.lua_pushinteger(L, 0);
     return 1;
 }
 
@@ -480,4 +504,12 @@ pub fn register(L: *lua_c.lua_State) void {
     lua_c.lua_createtable(L, 0, 2);
     lua_c.luaL_setfuncs(L, @ptrCast(&SysmonFuncs), 0);
     lua_c.lua_setglobal(L, "sysmon");
+
+    lua_c.lua_createtable(L, 0, 1);
+    lua_c.luaL_setfuncs(L, @ptrCast(&RuntimeFuncs), 0);
+    lua_c.lua_setglobal(L, "runtime");
+
+    lua_c.lua_createtable(L, 0, 1);
+    lua_c.luaL_setfuncs(L, @ptrCast(&PowerFuncs), 0);
+    lua_c.lua_setglobal(L, "power");
 }

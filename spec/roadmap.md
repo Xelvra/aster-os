@@ -222,9 +222,10 @@ binding marshallingu zelené.
 - [x] Taskbar + launcher — Lua klienti Graphics API (taskbar 35px: launcher, clock,
       workspace kaple, volume/session; launcher se search boxem + filtrováním).
 - [x] REPL konzole (`~`) — psaní Lua kódu do běžícího systému (jako okno v shellu).
-- [ ] **Živá transformace:** příkaz v Luay okamžitě překreslí prostředí (barvy, tvary)
+- [x] **Živá transformace:** příkaz v Luay okamžitě překreslí prostředí (barvy, tvary)
       bez ztráty oken/obsahu terminalu; **F5** = manuální refresh (spec `runtime.md` §5a).
-      (Částečně: theme reload funguje; F5 hot reload ano.)
+      (REPL příkaz mění theme za běhu bez ztráty oken; bar height se čte živě ze theme —
+      runtime test „live theme change"; F5 = hot reload = restart shellu dle §5.)
 - [x] Restart shellu nesmí shodit jádro (error containment, `spec/runtime.md` §5;
       runtime test „error containment").
 - [x] Metriky do tabulky (bench 2026-08-08: kernel 366 KiB, Kernel Entry → First Frame

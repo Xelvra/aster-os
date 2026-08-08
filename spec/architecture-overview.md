@@ -1,7 +1,7 @@
 # Aster OS — Architektonický přehled
 
 **Verze:** 1.0 (draft)
-**Status:** Current design — Schváleno k implementaci (Milníky M0–M4)
+**Status:** Current design — Schváleno k implementaci (Milníky M0–M5)
 
 > Tento dokument je **hlavním architektonickým přehledem** projektu. Zachycuje aktuální
 > návrh a jeho rozhodnutí. Slouží jako referenční bod pro konzultaci návrhu architektury a
