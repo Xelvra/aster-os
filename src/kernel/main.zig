@@ -235,21 +235,30 @@ fn probeStorage(alloc: std.mem.Allocator, memory: *mem.Memory) void {
     bootlog.ok("fs", "ext2");
     var entries: [32]ext2.DirEntry = undefined;
     const n = fs.readDir(ext2.root_inode, &entries) catch return;
+    // Listing (variant A): real entries only (no "." / ".."), no repeated
+    // prefix; the theme.lua config value is read through the thin file API
+    // (M6.1.4) and printed after its name.
+    const column: usize = 22;
+    const config_name = "theme.lua";
     for (entries[0..n]) |e| {
-        serial.write("  fs ");
-        serial.write(e.name[0..e.name_len]);
+        const name = e.name[0..e.name_len];
+        if (std.mem.eql(u8, name, ".") or std.mem.eql(u8, name, "..")) continue;
+        serial.write("  ");
+        serial.write(name);
+        if (std.mem.eql(u8, name, config_name)) {
+            const file = @import("fs/file.zig");
+            var fh = file.File.open(&fs, name) catch null;
+            if (fh) |*f| {
+                var fbuf: [128]u8 = undefined;
+                const m = f.read(&fbuf) catch 0;
+                if (m > 0) {
+                    var pad: usize = name.len + 2;
+                    while (pad < column) : (pad += 1) serial.write(" ");
+                    serial.write(fbuf[0..m]);
+                }
+            }
+        }
         serial.writeLine("");
-    }
-    // M6.1.4: read a config file through the thin Aster File API — the caller
-    // never touches ext2 directly (ADR-023). theme.lua may not exist on the
-    // image.
-    const file = @import("fs/file.zig");
-    var fh = file.File.open(&fs, "/theme.lua") catch null;
-    if (fh) |*f| {
-        var fbuf: [128]u8 = undefined;
-        const m = f.read(&fbuf) catch return;
-        serial.write("  file ");
-        serial.writeLine(fbuf[0..m]);
     }
 }
 
