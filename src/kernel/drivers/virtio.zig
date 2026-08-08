@@ -2,6 +2,7 @@ const std = @import("std");
 const pci = @import("pci.zig");
 const pfa = @import("../mem/pfa.zig");
 const page_map = @import("../mem/page_map.zig");
+const block = @import("block.zig");
 
 /// virtio-blk over the modern (capability-based) PCI transport. Only the
 /// blocks needed to read sectors are implemented: one split virtqueue, no
@@ -256,6 +257,20 @@ pub const VirtioBlk = struct {
 
         common.device_status = status_acknowledge | status_driver | status_features_ok | status_driver_ok;
         if (common.device_status & status_failed != 0) return error.InitFailed;
+    }
+
+    /// Expose the driver behind the block-device interface so the GPT and
+    /// filesystem layers never depend on virtio directly.
+    pub fn asBlockDevice(self: *VirtioBlk) block.BlockDevice {
+        return .{
+            .ctx = self,
+            .read_fn = blockRead,
+        };
+    }
+
+    fn blockRead(ctx: *anyopaque, sector: u64, out: []u8) block.BlockError!void {
+        const blk: *VirtioBlk = @ptrCast(@alignCast(ctx));
+        blk.readSector(sector, out) catch return error.IoError;
     }
 
     /// Read one 512-byte sector into out. A heap-backed buffer is used for

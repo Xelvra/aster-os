@@ -285,8 +285,12 @@ binding marshallingu zelené.
       **hotovo:** `src/kernel/drivers/pci.zig` + `virtio.zig`, čte sektor 0 (verifikováno
       magic bajty), boot log `[ OK ] storage virtio-blk` jen když je disk přítomen.
       Lokálně se disk připojí přes `zig build run -Ddisk=disk.img`.
-- [ ] **M6.1.2 GPT partition discovery:** oddíly jako block-device views, nezávislé na FS.
-      *Exit: nalezení cílového oddílu a čtení jeho sektorů.*
+- [x] **M6.1.2 GPT partition discovery:** oddíly jako block-device views, nezávislé na FS.
+      *Exit: nalezení cílového oddílu a čtení jeho sektorů.* — **hotovo:**
+      `drivers/block.zig` (BlockDevice + PartitionView), `gpt.discover()` (čte header + entry
+      array z disku, vrací oddíly jako views), `virtio.asBlockDevice()`; boot log `[ OK ] gpt
+      N partition(s)` s diskem. QEMU boot order opraven na CD (`-boot order=d`) — GPT disk
+      s protective MBR by jinak zablokoval boot. Host testy s mock BlockDevice.
 - [ ] **M6.1.3 ext2 mount (read-only):** superblock, block groups, bitmapy (validace), inode
       table, inode lookup, directory entries, data (direct + nutné indirect bloky); validace
       feature flags + **reject**. *Exit: mount host-created ext2 image + výpis souborů.*

@@ -39,6 +39,7 @@ timeout "$TIMEOUT" qemu-system-x86_64 \
     -chardev pipe,id=serial0,path="$tmpdir/serial" \
     -serial chardev:serial0 \
     -display none \
+    -boot order=d \
     -no-reboot \
     -no-shutdown \
     >/dev/null 2>&1 &

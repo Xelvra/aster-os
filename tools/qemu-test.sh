@@ -26,6 +26,7 @@ timeout "$TIMEOUT" qemu-system-x86_64 \
     -cdrom "$ISO" \
     -device isa-debug-exit \
     -serial stdio \
+    -boot order=d \
     -no-reboot \
     -display none \
     >/dev/null 2>&1

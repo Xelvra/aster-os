@@ -1,5 +1,6 @@
 const std = @import("std");
 const bytes = @import("bytes.zig");
+const block = @import("../drivers/block.zig");
 
 pub const GptError = error{
     TooShort,
@@ -10,6 +11,8 @@ pub const GptError = error{
     BadEntrySize,
     BufferTooSmall,
 };
+
+pub const DiscoveryError = GptError || error{ OutOfMemory, IoError, OutOfBounds };
 
 pub const header_signature = "EFI PART";
 pub const header_min_size: usize = 92;
@@ -108,6 +111,46 @@ pub fn parseEntries(buf: []const u8, header: GptHeader, out: []PartitionEntry) G
 
 pub fn eqlGuid(a: [16]u8, b: [16]u8) bool {
     return std.mem.eql(u8, &a, &b);
+}
+
+/// Read the primary GPT (header on LBA 1 + the partition entry array) from a
+/// block device and return the partitions as block-device views
+/// (spec/roadmap.md M6.1.2). The entry array is heap-allocated for the read.
+pub fn discover(alloc: std.mem.Allocator, disk: block.BlockDevice, out: []block.PartitionView) DiscoveryError!usize {
+    var header_sector: [512]u8 = undefined;
+    try disk.read(1, &header_sector);
+    const header = try parseHeader(&header_sector);
+    const entry_size = @as(usize, header.entry_size);
+    const array_bytes = @as(usize, header.num_entries) * entry_size;
+    const buf = try alloc.alloc(u8, array_bytes);
+    defer alloc.free(buf);
+    try readDiskBytes(disk, header.partition_entry_lba, buf);
+
+    var entries: [256]PartitionEntry = undefined;
+    const count = try parseEntries(buf, header, &entries);
+    var written: usize = 0;
+    for (entries[0..count]) |e| {
+        if (written == out.len) return GptError.BufferTooSmall;
+        out[written] = .{
+            .disk = disk,
+            .first_lba = e.first_lba,
+            .last_lba = e.last_lba,
+        };
+        written += 1;
+    }
+    return written;
+}
+
+fn readDiskBytes(disk: block.BlockDevice, start_lba: u64, out: []u8) DiscoveryError!void {
+    var offset: usize = 0;
+    var lba = start_lba;
+    while (offset < out.len) : (lba += 1) {
+        var sector_buf: [512]u8 = undefined;
+        try disk.read(lba, &sector_buf);
+        const n = @min(@as(usize, 512), out.len - offset);
+        @memcpy(out[offset .. offset + n], sector_buf[0..n]);
+        offset += n;
+    }
 }
 
 fn readGuid(buf: []const u8, off: usize) [16]u8 {

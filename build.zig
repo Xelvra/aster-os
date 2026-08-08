@@ -174,6 +174,8 @@ pub fn build(b: *std.Build) void {
     run_cmd.addArg("gtk,zoom-to-fit=on");
     run_cmd.addArg("-serial");
     run_cmd.addArg("stdio");
+    run_cmd.addArg("-boot");
+    run_cmd.addArg("order=d");
     run_cmd.addArg("-no-reboot");
     run_cmd.addArg("-no-shutdown");
 
@@ -193,6 +195,8 @@ pub fn build(b: *std.Build) void {
     rt_run_cmd.addArg("isa-debug-exit");
     rt_run_cmd.addArg("-serial");
     rt_run_cmd.addArg("stdio");
+    rt_run_cmd.addArg("-boot");
+    rt_run_cmd.addArg("order=d");
     rt_run_cmd.addArg("-no-reboot");
     rt_run_cmd.expectExitCode(99);
 

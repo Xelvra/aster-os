@@ -10,6 +10,7 @@ const pic = @import("drivers/pic.zig");
 const apic = @import("cpu/apic.zig");
 const page_map = @import("mem/page_map.zig");
 const ps2 = @import("drivers/ps2.zig");
+const block = @import("drivers/block.zig");
 const input = @import("input.zig");
 const input_queue = @import("input_queue.zig");
 const framebuffer = @import("fb/framebuffer.zig");
@@ -204,11 +205,22 @@ fn initGraphics(info: *const boot_info.BootInfo) bool {
 
 fn probeStorage(alloc: std.mem.Allocator, memory: *mem.Memory) void {
     const virtio = @import("drivers/virtio.zig");
+    const gpt = @import("fs/gpt.zig");
     var blk = virtio.VirtioBlk.init(alloc, &memory.pfa, memory.pfa.hhdm_offset) catch return;
     blk.setupQueue() catch return;
     var sector: [512]u8 = undefined;
     blk.readSector(0, &sector) catch return;
     bootlog.ok("storage", "virtio-blk");
+
+    // GPT partition discovery (M6.1.2): partitions become block-device views.
+    var partitions: [8]block.PartitionView = undefined;
+    const count = gpt.discover(alloc, blk.asBlockDevice(), &partitions) catch return;
+    if (count == 0) return;
+    var buf: [48]u8 = undefined;
+    const msg = std.fmt.bufPrint(&buf, "{d} partition(s)", .{count}) catch return;
+    bootlog.ok("gpt", msg);
+    // Exit check: read the first sector of the first partition.
+    partitions[0].readSector(0, &sector) catch return;
 }
 
 fn testKiDispatch() bool {
