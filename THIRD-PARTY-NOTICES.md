@@ -1,4 +1,4 @@
-# LICENSE-THIRD-PARTY
+# THIRD-PARTY-NOTICES
 
 This document is the **single place** where third-party licenses and acknowledgments
 are recorded. Whenever anything foreign is added to Aster OS (library, tool, asset,

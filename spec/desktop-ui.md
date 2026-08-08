@@ -9,7 +9,7 @@ software (Hyprland/Wayland/GTK/Qt v našem kernelu neběží).
 > „all rights reserved") — Aster proto **neobsahuje a nevendoruje žádný jeho soubor**.
 > Port znamená reimplementaci vizuálního konceptu a Hyprland konvencí vlastním kódem
 > (barvy jako data, klávesové zkratky jako data); poděkování viz
-> `LICENSE-THIRD-PARTY.md` (sekce „Thematic inspiration").
+> `THIRD-PARTY-NOTICES.md` (sekce „Thematic inspiration").
 
 ---
 
