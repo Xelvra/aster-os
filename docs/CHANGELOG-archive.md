@@ -1,10 +1,11 @@
-# Changelog — archiv (0.1.0-alpha.1 a starší)
+# Changelog — archive (0.1.0-alpha.1 and earlier)
 
-> **Tento soubor je archiv kompletní historie do verze 0.1.0-alpha.1.**
-> Nové změny se zapisují do [`CHANGELOG.md`](../CHANGELOG.md); zde se už nic nepřidává.
+> **This file is the archive of the full history up to version 0.1.0-alpha.1.**
+> New changes go into [`CHANGELOG.md`](../CHANGELOG.md); nothing is added here.
 >
-> Původně byl celý tento obsah v `CHANGELOG.md` a při uzavření první verze
-> `0.1.0-alpha.1` (2026-08-08) se přesunul sem — init projektu + milníky M0–M5.
+> This content used to live entirely in `CHANGELOG.md`; when the first version
+> `0.1.0-alpha.1` (2026-08-08) was closed, it moved here — project init + milestones
+> M0–M5.
 
 Format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
