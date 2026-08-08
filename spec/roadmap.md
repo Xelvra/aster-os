@@ -304,7 +304,9 @@ binding marshallingu zelené.
       `[ OK ] storage`. Dnes CI nikdy netestuje storage — cap-walk bug by CI bez disku
       nikdy nechytilo. — **hotovo:** `tools/qemu-smoke.sh` podporuje `SMOKE_DISK` /
       `SMOKE_MARKER` (ANSI-strip + fixed-string grep), CI má krok „Storage boot smoke test".
-- [ ] **M6.1.7 Host unit testy GPT parseru:** čistá funkce nad `[]u8` (vzor `tests/mem/`).
+- [x] **M6.1.7 Host unit testy GPT parseru:** čistá funkce nad `[]u8` (vzor `tests/mem/`). —
+      **hotovo:** `src/kernel/fs/gpt.zig` (parseHeader + parseEntries, CRC32 validace, bez
+      alokací) + `tests/fs/gpt_test.zig` (10 testů).
 - [ ] **M6.1.8 Host unit testy ext2 parseru:** superblock / features / inode / dir traversal.
 - [ ] **M6.1.9 Rozhodnout Lua `dbg` lib teď:** otevřít `luaopen_debug` jako `dbg`
       (`dbg.traceback()`), vyhnout se kolizi s KI modulem `debug`. Později to rozbije
