@@ -80,6 +80,13 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 > build (`zig build -Doptimize=ReleaseFast`) — bez safety checks, menší a rychlejší;
 > produkce a verifikace běží na `ReleaseSafe` (safety checky zachytily reálné bugy C2/C17).
 > Lua C kód se kompiluje s `-Os` (úspora ~40 KB oproti defaultu bez `-O`).
+> ³ M5 rozpad Kernel Entry → First Frame (měřeno 2026-08-08): mem ≈ 9 ms, ps2+apic ≈ 2 ms,
+> graphics ≈ 4 ms, **Lua createState ≈ 27 ms**, **Lua load (parse 25 KB shellu) ≈ 35 ms**,
+> první render (WM) ≈ 23 ms. QEMU běží **bez KVM** (čistá TCG interpretace), proto je Lua
+> interpretace dominantní — **cíl < 40 ms je v QEMU TCG nedosažitelný kvůli emulované Lua
+> interpretaci, ne kvůli našemu kódu**. Na reálném HW by se boot vešel do cíle (Lua parser
+> a `lua_newstate` běží nativně → mikrosekundy; alokace nejsou bottleneck, ~1071 allocs /
+> 157 KB). **Až bude OS kompletně hotový, změří se tato metrika na reálném HW.**
 > **Render throughput** (M4): `testRenderThroughput` v runtime testech měří plné Lua
 > REPL rendery za 10 APIC ticků. Baseline po optimalizaci rendereru: **8–9 renders/10 ticks**
 > (před tím 5). Při změně render pipeline se číslo nesmí zhoršit bez zdůvodnění.

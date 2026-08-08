@@ -12,6 +12,14 @@ Full history up to 0.1.0-alpha.1 is archived in
 
 ### Added
 
+- **First-frame latency profiling**: measured the Kernel Entry → First Frame split
+  (mem ~9 ms, ps2+apic ~2 ms, graphics ~4 ms, Lua createState ~27 ms, Lua load ~35 ms,
+  first render ~23 ms). Finding: QEMU runs without KVM (pure TCG interpretation), so the
+  Lua interpreter (createState + load of the 25 KB shell) dominates the boot time — an
+  emulation artifact, not a kernel problem. Verified that allocations are not a
+  bottleneck (1071 allocs / 157 KB during shell load). See the metric note ³ in
+  `spec/roadmap.md`.
+
 ### Changed
 
 ### Fixed
