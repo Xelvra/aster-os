@@ -49,7 +49,6 @@ pořadové číslo. Šablona:
 # Handoff <id>: <název problému>
 
 **Datum:** RRRR-MM-DD
-**Autor:** <kdo problém předává>
 **Status:** open / in_progress / closed
 
 ---
