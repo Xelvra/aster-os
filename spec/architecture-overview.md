@@ -185,6 +185,7 @@ aster-os/
 │   ├── adr/                      # architektonická rozhodnutí (ADR-001..021)
 │   ├── kernel-interface.md       # KI: sys.dispatch + interface moduly
 │   ├── graphics.md               # Graphics API → Renderer → Framebuffer
+│   ├── desktop.md                # desktop UI port (bar, launcher, okna, widgety)
 │   ├── input.md                  # vstupní události
 │   ├── runtime.md                # Runtime.spawn + RuntimeKind
 │   ├── timer.md                  # čas: tick zdroj (M2), KI timer, kooperativní sleep
@@ -221,6 +222,7 @@ aster-os/
 | `adr/` | Architektonická rozhodnutí (ADR-001..021), každé v samostatném souboru. |
 | `kernel-interface.md` | KI: sys.dispatch, syscall čísla, interface moduly, pravidla verzování. |
 | `graphics.md` | Graphics API / Renderer / Framebuffer — vrstvy a povolené operace. |
+| `desktop.md` | Desktop UI — atomický port cachyos-hypr-noctalia (bar, launcher, okna, widgety). |
 | `input.md` | Vstupní události: PS/2 klávesnice, fronta, mapování na Lua. |
 | `runtime.md` | Runtime.spawn, RuntimeKind, vazba Runtime → Program, error containment. |
 | `timer.md` | Čas: tick zdroj (M2), KI `timer`, kooperativní sleep. |
