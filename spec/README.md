@@ -16,7 +16,7 @@
 | 2 | [manifest.md](manifest.md) | Manifest projektu — jednoduchost před izolací, evolvabilní rozhraní. |
 | 3 | [non-goals.md](non-goals.md) | Co systém vědomě nedělá (POSIX, SMP, USB, networking, ...). |
 | 4 | [coding-style.md](coding-style.md) | Filozofie a pravidla kódu — struktura modulů, kontrakty, paměť, review checklist. |
-| 5 | [adr/](adr/README.md) | Architektonická rozhodnutí (ADR-001..020), každé v samostatném souboru. |
+| 5 | [adr/](adr/README.md) | Architektonická rozhodnutí (ADR-001..021), každé v samostatném souboru. |
 | 6 | [kernel-interface.md](kernel-interface.md) | **Kernel Interface (KI):** `sys.dispatch`, syscall čísla, moduly rozhraní, pravidla. |
 | 7 | [graphics.md](graphics.md) | Grafická podvrstva: Graphics API → Renderer → Framebuffer. |
 | 8 | [desktop.md](desktop.md) | Desktop UI — atomický port cachyos-hypr-noctalia (bar, launcher, okna, widgety). |
@@ -60,8 +60,10 @@ a README je vstupní brána pro návštěvníky. Interní specifikace (`spec/*.m
 - Psát pro sebe = rychlost, konzistence a soustředění na kód; čeština je pro autora
   nejrychlejší médium přesného vyjádření.
 - **Přechod na angličtinu u `spec/*.md` je vědomý, jednorázový krok** — nastane ve chvíli,
-  kdy systém funguje (přibližně M4+) a projekt hledá kontributory. Tehdy se interní
-  dokumentace přeloží jako jeden ucelený celek, ne postupně za běhu.
+  kdy systém funguje a je stabilizovaný (přibližně **M8**, po stabilizačním milníku) a
+  projekt hledá kontributory. Tehdy se interní dokumentace přeloží jako jeden ucelený
+  celek, ne postupně za běhu. Posunuto z M4 na M8 (2026-08-08): M4/M5 se soustředí na
+  implementaci a měření, ne na překlad.
 
 > **Odchylka od původního plánu (zapsáno při M0):** původní záměr byl anglické dokumentace
 > od M4+ včetně README. Protože je repo public už od M0, README se přeložilo hned;

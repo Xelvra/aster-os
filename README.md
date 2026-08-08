@@ -31,7 +31,7 @@ This project requires the Zig version listed in [`.zig-version`](.zig-version).
   (theme, wm, repl, launcher, input, main) concatenated into one chunk by `lua.zig`.
   Tiling window manager (60/40 split, focus ring via gradient border, float + drag,
   fullscreen, togglesplit), Noctalia-style 35px bar (launcher, clock, workspace
-  capsules, volume/session), working launcher with search, PS/2 mouse with kernel
+  capsules, volume/session placeholders), working launcher with search, PS/2 mouse with kernel
   cursor overlay, Super key + Hyprland-standard keybindings, error containment
   (a script error hot-reloads the shell instead of crashing the kernel), sysmon
   KI module exposing live RAM usage.
@@ -42,7 +42,7 @@ This project requires the Zig version listed in [`.zig-version`](.zig-version).
   infrastructure (`input/layout.zig`, US 105+) — bindings send a ready `char`; after boot
   an interactive **Lua REPL** starts (banner + `> ` prompt, type code, Enter runs it,
   `print()` writes to the screen); GC step budget per frame; runtime tests for Lua
-  bindings in QEMU. Kernel image 343 KiB (< 512 KB target).
+  bindings in QEMU. Kernel image 336 KiB (< 512 KB target; ReleaseFast 259 KiB).
 - **Milestone M3 (Graphics) complete:** Limine GOP framebuffer wrapped in `Framebuffer`;
   renderer (`drawRect`, `blit`, `fillScreen`, `drawGlyph`, `drawText`) with clipping;
   embedded VGA 8×16 bitmap font; Graphics API module (`api/graphics.zig`) in KI dispatch;

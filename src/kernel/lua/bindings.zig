@@ -2,10 +2,9 @@ const std = @import("std");
 const lua_c = @import("cimport.zig").c;
 const sys = @import("../api/sys.zig");
 const graphics = @import("../api/graphics.zig");
-const input = @import("../input.zig");
-const layout = @import("../input/layout.zig");
-const input_queue = @import("../input_queue.zig");
-const idt = @import("../cpu/idt.zig");
+const api_input = @import("../api/input.zig");
+const api_timer = @import("../api/timer.zig");
+const api_debug = @import("../api/debug.zig");
 const sysmon = @import("../api/sysmon.zig");
 
 fn pushError(L: ?*lua_c.lua_State, comptime format: []const u8, args: anytype) void {
@@ -223,73 +222,70 @@ fn gfxInvalidate(L: ?*lua_c.lua_State) callconv(.c) c_int {
 }
 
 fn gfxWidth(L: ?*lua_c.lua_State) callconv(.c) c_int {
-    const r = graphics.renderer orelse {
-        lua_c.lua_pushinteger(L, 0);
-        return 1;
-    };
-    lua_c.lua_pushinteger(L, @intCast(r.fb.width));
+    const value = sys.dispatch(.Graphics, .{ .a = @intFromEnum(graphics.GraphicsOp.width) });
+    lua_c.lua_pushinteger(L, @intCast(value));
     return 1;
 }
 
 fn gfxHeight(L: ?*lua_c.lua_State) callconv(.c) c_int {
-    const r = graphics.renderer orelse {
-        lua_c.lua_pushinteger(L, 0);
-        return 1;
-    };
-    lua_c.lua_pushinteger(L, @intCast(r.fb.height));
+    const value = sys.dispatch(.Graphics, .{ .a = @intFromEnum(graphics.GraphicsOp.height) });
+    lua_c.lua_pushinteger(L, @intCast(value));
     return 1;
 }
 
 fn timeTicks(L: ?*lua_c.lua_State) callconv(.c) c_int {
-    const ticks = idt.tick_counter.load(.monotonic);
+    const ticks = sys.dispatch(.Timer, .{ .a = @intFromEnum(api_timer.TimerOp.ticks) });
     lua_c.lua_pushinteger(L, @intCast(ticks));
     return 1;
 }
 
 fn inputNextEvent(L: ?*lua_c.lua_State) callconv(.c) c_int {
-    // Mouse packets are consumed by the kernel cursor overlay in poll(); they
-    // are skipped here so a busy mouse cannot flood the Lua event stream.
-    while (true) {
-        const event = input_queue.global.pop() orelse {
-            lua_c.lua_pushnil(L);
-            return 1;
-        };
-        switch (event) {
-            .mouse => continue,
-            else => {
-                buildEventTable(L, event);
-                return 1;
-            },
-        }
+    // Mouse packets are consumed by the kernel cursor overlay and filtered
+    // out by the KI input module; a busy mouse cannot flood the Lua stream.
+    var event: api_input.Event = undefined;
+    const has_event = sys.dispatch(.Input, .{
+        .a = @intFromEnum(api_input.InputOp.next_event),
+        .b = @intFromPtr(&event),
+    });
+    if (has_event == 0) {
+        lua_c.lua_pushnil(L);
+        return 1;
     }
+    buildEventTable(L, event);
+    return 1;
 }
 
 fn inputMouseX(L: ?*lua_c.lua_State) callconv(.c) c_int {
-    lua_c.lua_pushinteger(L, input.mouse_state.x);
+    const value = sys.dispatch(.Input, .{ .a = @intFromEnum(api_input.InputOp.mouse_x) });
+    lua_c.lua_pushinteger(L, @intCast(value));
     return 1;
 }
 
 fn inputMouseY(L: ?*lua_c.lua_State) callconv(.c) c_int {
-    lua_c.lua_pushinteger(L, input.mouse_state.y);
+    const value = sys.dispatch(.Input, .{ .a = @intFromEnum(api_input.InputOp.mouse_y) });
+    lua_c.lua_pushinteger(L, @intCast(value));
     return 1;
 }
 
 fn inputMouseLeft(L: ?*lua_c.lua_State) callconv(.c) c_int {
-    lua_c.lua_pushboolean(L, if (input.mouse_state.left) 1 else 0);
+    const value = sys.dispatch(.Input, .{ .a = @intFromEnum(api_input.InputOp.mouse_left) });
+    lua_c.lua_pushboolean(L, @intCast(value));
     return 1;
 }
 
 fn inputMouseRight(L: ?*lua_c.lua_State) callconv(.c) c_int {
-    lua_c.lua_pushboolean(L, if (input.mouse_state.right) 1 else 0);
+    const value = sys.dispatch(.Input, .{ .a = @intFromEnum(api_input.InputOp.mouse_right) });
+    lua_c.lua_pushboolean(L, @intCast(value));
     return 1;
 }
 
 fn inputMouseMiddle(L: ?*lua_c.lua_State) callconv(.c) c_int {
-    lua_c.lua_pushboolean(L, if (input.mouse_state.middle) 1 else 0);
+    const value = sys.dispatch(.Input, .{ .a = @intFromEnum(api_input.InputOp.mouse_middle) });
+    lua_c.lua_pushboolean(L, @intCast(value));
     return 1;
 }
 
-fn buildEventTable(L: ?*lua_c.lua_State, event: input_queue.Event) void {
+fn buildEventTable(L: ?*lua_c.lua_State, event: api_input.Event) void {
     lua_c.lua_createtable(L, 0, 5);
     switch (event) {
         .timer_tick => |t| {
@@ -309,7 +305,7 @@ fn buildEventTable(L: ?*lua_c.lua_State, event: input_queue.Event) void {
             lua_c.lua_setfield(L, -2, "type");
             lua_c.lua_pushboolean(L, if (key.pressed) 1 else 0);
             lua_c.lua_setfield(L, -2, "pressed");
-            const name = input.eventName(key);
+            const name = api_input.eventName(key);
             const name_ptr: [*c]const u8 = @ptrCast(name.ptr);
             _ = lua_c.lua_pushlstring(L, name_ptr, name.len);
             lua_c.lua_setfield(L, -2, "code");
@@ -324,7 +320,7 @@ fn buildEventTable(L: ?*lua_c.lua_State, event: input_queue.Event) void {
             lua_c.lua_pushboolean(L, if (alt_gr_pressed) 1 else 0);
             lua_c.lua_setfield(L, -2, "alt_gr");
             const eff_shift = effectiveShift();
-            const l = layout.Layout{ .shift = eff_shift, .ctrl = ctrl_pressed, .alt = alt_pressed, .alt_gr = alt_gr_pressed };
+            const l = api_input.Layout{ .shift = eff_shift, .ctrl = ctrl_pressed, .alt = alt_pressed, .alt_gr = alt_gr_pressed };
             const mapped = l.mapChar(key.code);
             if (mapped) |ch| {
                 var ch_buf: [1]u8 = .{ch};
@@ -347,28 +343,28 @@ var alt_pressed = false;
 var super_pressed = false;
 var alt_gr_pressed = false;
 
-fn setShift(code: input.KeyCode, pressed: bool) void {
+fn setShift(code: api_input.KeyCode, pressed: bool) void {
     switch (code) {
         .shift_left, .shift_right => shift_pressed = pressed,
         else => {},
     }
 }
 
-fn setAlt(code: input.KeyCode, pressed: bool) void {
+fn setAlt(code: api_input.KeyCode, pressed: bool) void {
     switch (code) {
         .alt_left => alt_pressed = pressed,
         else => {},
     }
 }
 
-fn setAltGr(code: input.KeyCode, pressed: bool) void {
+fn setAltGr(code: api_input.KeyCode, pressed: bool) void {
     switch (code) {
         .alt_right => alt_gr_pressed = pressed,
         else => {},
     }
 }
 
-fn setSuper(code: input.KeyCode, pressed: bool) void {
+fn setSuper(code: api_input.KeyCode, pressed: bool) void {
     switch (code) {
         .super_left, .super_right => super_pressed = pressed,
         else => {},
@@ -379,7 +375,7 @@ fn setCapsLock(pressed: bool) void {
     if (pressed) caps_lock_on = !caps_lock_on;
 }
 
-fn setCtrl(code: input.KeyCode, pressed: bool) void {
+fn setCtrl(code: api_input.KeyCode, pressed: bool) void {
     switch (code) {
         .ctrl_left, .ctrl_right => ctrl_pressed = pressed,
         else => {},
@@ -446,9 +442,20 @@ fn sysmonRamFreeMb(L: ?*lua_c.lua_State) callconv(.c) c_int {
 
 fn debugWrite(L: ?*lua_c.lua_State) callconv(.c) c_int {
     const text = checkString(L, 1, "text") orelse return 2;
-    const serial = @import("../serial.zig");
-    for (text) |c| serial.writeChar(c);
-    serial.writeChar('\n');
+    var buf: [256]u8 = undefined;
+    const copy_len = @min(text.len, buf.len);
+    @memcpy(buf[0..copy_len], text[0..copy_len]);
+    var out_len = copy_len;
+    if (out_len < buf.len) {
+        buf[out_len] = '\n';
+        out_len += 1;
+    }
+    const out = buf[0..out_len];
+    _ = sys.dispatch(.Debug, .{
+        .a = @intFromEnum(api_debug.DebugOp.write),
+        .b = @intFromPtr(out.ptr),
+        .c = out.len,
+    });
     lua_c.lua_pushinteger(L, 0);
     return 1;
 }

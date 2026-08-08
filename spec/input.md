@@ -60,6 +60,7 @@ pub const KeyEvent = struct {
 pub const Event = union(enum) {
     timer_tick: u64,     // číslo ticku (M2+)
     key: KeyEvent,
+    mouse: MouseEvent,   // konzumuje kernel overlay; KI next_event ji filtruje, Lua ji nikdy nevidí
 };
 ```
 
@@ -68,7 +69,9 @@ pub const Event = union(enum) {
 > mapuje usage → stejný `KeyCode`. Modifikátory jsou samostatné `KeyCode` (shift/ctrl/alt
 > left+right), ne flagy — odpovídá M3 cíli (modifikátory → codepoint).
 
-Sub-op čísla pro `Input` v KI: `0=nextEvent`, `1=peekEvent`, `2=flush`.
+Sub-op čísla pro `Input` v KI: `0=next_event`, `1=peek_event`, `2=flush`, `3=mouse_x`,
+`4=mouse_y`, `5=mouse_left`, `6=mouse_right`, `7=mouse_middle` (myš se čte jako stav,
+ne event — §6). Implementace: `api/input.zig` (`sys.dispatch(.Input, ...)`).
 
 ---
 
@@ -119,11 +122,14 @@ while (true) {
 
 ## 6. Mapování na Lua
 
-Lua vidí frontu přes `api/input.zig` jako funkce:
+Lua vidí frontu přes `api/input.zig` (`sys.dispatch(.Input, ...)`) jako funkce:
 
-- `input.nextEvent()` → `Event | nil`
-- `input.flush()`
+- `input.next_event()` → `Event | nil` (myší pakety filtruje KI — kernel overlay je
+  konzumuje v `poll()`, busy myš nemůže zaplavit Lua event stream)
+- `input.mouse_x()`, `input.mouse_y()`, `input.mouse_left()`, `input.mouse_right()`,
+  `input.mouse_middle()` — stav myši
 
+`peek_event` a `flush` jsou KI sub-opy (zmrazené), Lua binding zatím neexponují.
 Události se do Lua předávají jako tabulky (`{ type = "key", code = "enter", pressed = true }`).
 Detailní marshalování je definováno v `spec/runtime.md` §4 (Lua bindings konvence).
 

@@ -134,9 +134,9 @@ fn callGlobalFunction(name: [*:0]const u8) CallResult {
         if (lua_c.lua_isstring(L, -1) != 0) {
             var len: usize = 0;
             const ptr = lua_c.lua_tolstring(L, -1, &len);
-            serial.write("shell: {s} failed: ");
+            serial.write("shell: ");
             serial.write(std.mem.span(name));
-            serial.writeLine("");
+            serial.writeLine(" failed:");
             serial.writeLine(ptr[0..len]);
         }
         _ = lua_c.lua_pop(L, 1);

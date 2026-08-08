@@ -42,7 +42,7 @@ First tagged version: an experimental desktop OS booting to a window manager in 
   dispatch, event loop `poll → update → render`.
 - **Lua (M4)**: Lua 5.4.8 vendored into the kernel (freestanding libc shim), generic
   runtime API (`spawn`/`reload`), interactive REPL, `gfx.*`/`input`/`time` bindings,
-  hot reload (F5). Kernel 343 KiB.
+  hot reload (F5). Kernel 336 KiB (ReleaseFast 259 KiB).
 - **Desktop shell (M5)**: tiling window manager in Lua (`src/kernel/lua/ui/` modules)
   with a Noctalia-style bar, workspace capsules, working launcher with search, float +
   drag, fullscreen, togglesplit, Super key and Hyprland-standard keybindings; PS/2

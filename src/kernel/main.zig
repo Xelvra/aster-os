@@ -142,9 +142,10 @@ fn initGraphics(info: *const boot_info.BootInfo) void {
 
 fn testKiDispatch() void {
     const sys = @import("api/sys.zig");
+    const debug = @import("api/debug.zig");
     const msg = "ki dispatch test";
     const status = sys.dispatch(.Debug, .{
-        .a = @intFromEnum(sys.DebugOp.write),
+        .a = @intFromEnum(debug.DebugOp.write),
         .b = @intFromPtr(msg),
         .c = msg.len,
     });

@@ -70,7 +70,8 @@ renderer.zig
 **Požadavky na Renderer:**
 
 - Žádný heap allocation na kritické cestě (invariant Performance, viz `spec/invariants.md`).
-- Žádná kopie framebufferu.
+- Žádná kopie celého framebufferu (výjimka: save/restore kurzoru myši 12×19 px, viz
+  `spec/invariants.md` Performance).
 - Deterministický: stejný vstup → stejné pixely.
 
 ---
@@ -119,7 +120,8 @@ Oříznutí (clipping) na hranice framebufferu je **povinné** ve všech primiti
 
 ## 6. Výkonnostní invarianty (viz `spec/invariants.md`)
 
-- Žádná kopie framebufferu.
+- Žádná kopie celého framebufferu (výjimka: save/restore kurzoru myši 12×19 px, viz
+  `spec/invariants.md` Performance).
 - Žádný heap allocation při renderingu.
 - Žádná dynamická alokace v běžném frame.
 - Frame latency (p99) je sledovaná metrika (viz `spec/roadmap.md`).

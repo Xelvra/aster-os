@@ -81,12 +81,13 @@ pub const SyscallArgs = struct {
 
 pub fn dispatch(num: Syscall, args: SyscallArgs) u64 {
     return switch (num) {
-        .Debug   => debug.dispatch(args),
+        .Debug    => debug.dispatch(args),   // api/debug.zig
         .Graphics => graphics.dispatch(args),
-        .Input   => input.dispatch(args),
-        .Timer   => timer.dispatch(args),
-        .Runtime => runtime.dispatch(args),
-        .Yield   => scheduler.yield(),
+        .Input    => input.dispatch(args),   // api/input.zig
+        .Timer    => timer.dispatch(args),   // api/timer.zig
+        .Runtime  => runtime.dispatch(args),
+        .Yield    => @intFromEnum(KiStatus.NotSupported), // scheduler.yield() od M7
+        .Sysmon   => sysmon.dispatch(args),
     };
 }
 ```

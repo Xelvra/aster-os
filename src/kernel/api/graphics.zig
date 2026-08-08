@@ -15,6 +15,8 @@ pub const GraphicsOp = enum(u64) {
     round_rect = 7,
     rect_border = 8,
     gradient_border = 9,
+    width = 10,
+    height = 11,
 };
 
 /// Set by a client (Lua) when the shell needs a redraw. The event loop
@@ -93,6 +95,8 @@ pub fn dispatch(args: sys.SyscallArgs) u64 {
     const r = renderer orelse return @intFromEnum(sys.KiStatus.NotSupported);
     const op: GraphicsOp = @enumFromInt(args.a);
     switch (op) {
+        .width => return @intCast(r.fb.width),
+        .height => return @intCast(r.fb.height),
         .draw_rect => {
             const rect: *const RectArgs = @ptrFromInt(@as(usize, @intCast(args.b)));
             r.drawRect(rect.x, rect.y, rect.w, rect.h, rect.color);

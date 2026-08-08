@@ -71,12 +71,17 @@ Veškerý přístup z Lua jde přes KI, nikdy přímo do kernel struktur.
 
 | KI modul | Lua funkce |
 |---|---|
-| `graphics` | `gfx.draw_rect(x, y, w, h, color)`, `gfx.blit(...)`, `gfx.draw_glyph(...)`, `gfx.draw_text(str, x, y, color)`, `gfx.fill_screen(color)`, `gfx.round_rect(x, y, w, h, radius, color)`, `gfx.rect_border(x, y, w, h, thickness, color)`, `gfx.gradient_border(x, y, w, h, thickness, color_a, color_b)`, `gfx.width()`, `gfx.height()`, `gfx.invalidate()`, `gfx.present()` |
+| `graphics` | `gfx.draw_rect(x, y, w, h, color)`, `gfx.round_rect(x, y, w, h, radius, color)`, `gfx.rect_border(x, y, w, h, thickness, color)`, `gfx.gradient_border(x, y, w, h, thickness, color_a, color_b)`, `gfx.draw_text(str, x, y, color)`, `gfx.fill_screen(color)`, `gfx.invalidate()`, `gfx.present()`, `gfx.width()`, `gfx.height()` |
 | `input` | `input.next_event()`, `input.mouse_x()`, `input.mouse_y()`, `input.mouse_left()`, `input.mouse_right()`, `input.mouse_middle()` |
-| `timer` | `time.ticks()`, `time.sleep_ms(ms)` |
-| `runtime` | `runtime.spawn(kind, entry, args)` |
+| `timer` | `time.ticks()` |
+| `runtime` | *(Zig API; Lua binding `runtime.spawn` se neexponuje do M7)* |
 | `sysmon` | `sysmon.ram_total_mb()`, `sysmon.ram_free_mb()` |
-| `debug` | `debug.write(str)` (výpis na serial) |
+| `debug` | `debug.write(str)` (výpis na serial, přidává `\n`) |
+
+**Neexponované KI operace:** `gfx.blit`, `gfx.draw_glyph` (KI ops, `graphics.md` §2) a `timer.sleep_ms`
+(zmrazený sub-op, kooperativní sleep přijde s M7) jsou deklarované, ale **Lua binding zatím nemají** —
+přidají se s reálným použitím. To, co Lua skutečně volá, je v tabulce výše a vše jde přes
+`sys.dispatch` → `api/*` moduly.
 
 **Konvence marshallingu:**
 - Chybové stavy → Lua vrací `nil, err_string` (idiomatické pro Lua).

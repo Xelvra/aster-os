@@ -68,6 +68,8 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 - **Frame latency (p99):** percentil 99 rozložení doby mezi `render()` a `present()`.
   Latence je důležitější než FPS.
 - **RAM (idle):** rezidentní paměť systému bez spuštěných aplikací.
+  > ⁴ **Zatím neměřena** (sloupec „—"): ADR-015 dluh — žádná feature bez měření. Doplnit
+  > s M6 (storage přidává spotřebu initrd/FS, kdy se měření stane smysluplným benchmarkem).
 
 > ¹ M0–M3 měřily `tools/bench.sh` **wall-clock** od spuštění QEMU po serial marker — zahrnují
 > firmware/BIOS/Limine init, který je mimo kontrolu kernelu (≈ 3 s prodleva bootloaderu).
@@ -88,8 +90,12 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 > a `lua_newstate` běží nativně → mikrosekundy; alokace nejsou bottleneck, ~1071 allocs /
 > 157 KB). **Až bude OS kompletně hotový, změří se tato metrika na reálném HW.**
 > **Render throughput** (M4): `testRenderThroughput` v runtime testech měří plné Lua
-> REPL rendery za 10 APIC ticků. Baseline po optimalizaci rendereru: **8–9 renders/10 ticks**
-> (před tím 5). Při změně render pipeline se číslo nesmí zhoršit bez zdůvodnění.
+> rendery za 10 APIC ticků. Baseline po optimalizaci rendereru: **8–9 renders/10 ticks**
+> (před tím 5). **Hodnota je vázaná na zátěž renderu:** 8–9 platí pro M4 shell (REPL
+> konzole), M5 full-shell render (celý WM) měří **≈ 3–4 renders/10 ticks** (TCG variabilní,
+> přeměřeno 2026-08-08). Pokles 8–9 → 3–4 je zátěž (těžiště: WM kreslí celý desktop), ne
+> regrese render pipeline. Při změně render pipeline se číslo nesmí zhoršit **při stejné
+> zátěži** bez zdůvodnění.
 
 ---
 
@@ -153,7 +159,7 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 - [x] **Runtime testy v QEMU** (`isa-debug-exit`, exit kód) — první běžící runtime
       testy (tick, IDT, fronta událostí); mechanismus spec `verification.md` Krok 4b.
 - [x] **Freestanding backtrace** v panic/fault handleru (spec `invariants.md` §1).
-- [ ] Metriky do tabulky.
+- [x] Metriky do tabulky (M2 28.8 KB, First Frame ≈ 0.5 s — viz §2).
 
 **DoD:** scancody a tickery na serial; dispatch vrstva kompiluje; host testy zelené;
 první runtime testy v QEMU zelené (exit kód 0).
@@ -222,7 +228,13 @@ binding marshallingu zelené.
 - [x] Restart shellu nesmí shodit jádro (error containment, `spec/runtime.md` §5;
       runtime test „error containment").
 - [x] Metriky do tabulky (bench 2026-08-08: kernel 366 KiB, Kernel Entry → First Frame
-      ≈ 90 ms; render throughput ≈ 3 renders / 10 ticks).
+      ≈ 90 ms; render throughput ≈ 3–4 renders / 10 ticks — full-shell render, viz pozn. ³).
+
+> **Optimalizační průchod M5 (pravidlo 5 v §4):** proběhl částečně — renderer throughput
+> byl měřen (3–4 renders/10 ticks) a velikost kernelu drží cíl < 512 KiB. Doplňující průchod
+> (frame latency p99, RAM idle) se odkládá: v QEMU TCG nejsou čísla směrodatná pro reálný
+> HW (pozn. ³), benchmark se přesune na reálný hardware po M8 stabilizaci. RAM idle:
+> pozn. ⁴.
 
 ### M6 — Storage
 

@@ -41,8 +41,9 @@ Invarianty proti UB, memory chybám a nedefinovanému chování.
 
 Invarianty proti plýtvání v kritických cestách. Měří se po každém milníku (roadmapa).
 
-- [ ] **Žádná kopie framebufferu.** Renderer píše přímo do GOP paměti. Prezentace =
-      přímý zápis.
+- [ ] **Žádná kopie celého framebufferu.** Renderer píše přímo do GOP paměti. Prezentace =
+      přímý zápis. Výjimka: kurzor myši ukládá/obnovuje 12×19 px pod kurzorem
+      (`render/mouse_cursor.zig`) — dílčí save/restore, ne kopie bufferu.
 - [ ] **Žádný heap allocation při renderingu.** Renderovací primitiva používají stack /
       statické buffery.
 - [ ] **Žádná dynamická alokace v běžném frame.** Event loop nesmí v `render()` ani v

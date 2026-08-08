@@ -32,10 +32,10 @@ a vyžádal by si vlastní změnu rozsahu (`spec/non-goals.md`).
 
 | Metrika | Cíl |
 |---|---|
-| Velikost kernel image | < 256 KB (bez Lua) |
-| Kernel Entry → First Frame (z Limine handoff) | < 50 ms |
+| Velikost kernel image | < 512 KB (s Lua; viz `roadmap.md` §2) |
+| Kernel Entry → First Frame (z Limine handoff) | < 40 ms (cíl M4/M5; v QEMU TCG měřeno ≈ 90 ms — viz `roadmap.md` pozn. ³) |
 | GUI paměť (idle) | < 32 MB RAM |
-| UI kreslení | 0 syscallů, 0 kopií framebufferu *(platí pro fázi Ring 0; od Ring 3 — M8+ — se přidávají ring přechody, viz `roadmap.md`)* |
+| UI kreslení | 0 syscallů, 0 kopií framebufferu *(platí pro fázi Ring 0; od Ring 3 — M8+ — se přidávají ring přechody, viz `roadmap.md`; výjimka: kurzor myši ukládá/obnovuje 12×19 px pod kurzorem)* |
 | Kompilace | reprodukovatelná (viz `spec/verification.md`) |
 
 > Konkrétní hodnoty per milník jsou v `spec/roadmap.md` jako rozsahy a cíle, ne falešně
@@ -69,26 +69,26 @@ důsledek manifestu.
 ┌────────────────────────────────────────────────────────────┐
 │  APPLIKACE (userspace-in-process)                          │
 │  ┌──────────────────────┐    ┌──────────────────────────┐  │
-│  │  Shell / UI (Lua)    │    │  Aplikace (Wasm, nativ) │  │
+│  │  Shell / UI (Lua)    │    │  Aplikace (Wasm, nativ)  │  │
 │  └──────────┬───────────┘    └────────────┬─────────────┘  │
 │             │   Runtime API               │                │
 │             └──────────────┬──────────────┘                │
 ├────────────────────────────┼───────────────────────────────┤
 │  KERNEL ROZHRANÍ (KI)      ▼                               │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │  Graphics API │ Input API │ Runtime API │ Sys.Dispatch│  │
-│  └──────────┬───────────┬───────────┬──────────┬─────────┘  │
-│             ▼           ▼           ▼          ▼           │
+│  ┌───────────────────────────────────────────────────────┐ │
+│  │ Graphics API │ Input API │ Runtime API │ Sys.Dispatch │ │
+│  └─────────┬───────────┬────────────┬──────────┬─────────┘ │
+│            ▼           ▼            ▼          ▼           │
 │  ┌─────────────┐ ┌────────────┐ ┌────────────┐ ┌─────────┐ │
-│  │  Renderer   │ │  Event loop│ │  Runtime   │ │  Sys    │ │
+│  │  Renderer   │ │ Event loop │ │  Runtime   │ │   Sys   │ │
 │  └──────┬──────┘ └─────┬──────┘ └─────┬──────┘ └────┬────┘ │
 │         ▼              ▼              ▼             ▼      │
-│  Framebuffer       Input (PS/2)   Lua / Wasm VM   Core    │
-│  ┌─────────────┐   ┌────────────┐  ┌────────────┐ ┌───────┐│
-│  │  GOP / FB   │   │  Keyboard  │  │  Lua 5.4   │ │ Mem,  ││
-│  │  (Limine)   │   │  IRQ       │  │  (vendored)│ │ CPU,  ││
-│  └─────────────┘   └────────────┘  └────────────┘ │ Timer ││
-│                                                    └───────┘│
+│   Framebuffer      Input (PS/2)   Lua / Wasm VM   Core     │
+│  ┌─────────────┐  ┌────────────┐  ┌────────────┐ ┌───────┐ │
+│  │  GOP / FB   │  │  Keyboard  │  │ Lua 5.4    │ │ Mem,  │ │
+│  │  (Limine)   │  │  IRQ       │  │ (vendored) │ │ CPU,  │ │
+│  └─────────────┘  └────────────┘  └────────────┘ │ Timer │ │
+│                                                  └───────┘ │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -133,6 +133,7 @@ aby pozdější konsultace návrhu měla k dispozici *proč*, ne jen *co*.
 | [018](adr/018-ring3-ki-transport.md) | Transport KI v Ring 3: mailbox IPC, comptime dispatch, IRQ routing | Accepted |
 | [019](adr/019-bootloader-gate.md) | Bootloader gate: kernel nezávisí na typech bootloaderu (BootInfo) | Accepted |
 | [020](adr/020-future-extensibility.md) | Rozšiřitelnost: nové features jako nové KI moduly na konec | Accepted |
+| [021](adr/021-extended-rendering-primitives.md) | Rozšířená renderovací primitiva pro UI (roundRect, border, gradient) | Accepted |
 
 **Pravidla ADR:** rozhodnutí se nemění dodatečně — změna názoru = nový ADR odkazující na
 starý. Čísla se nepřehazují a nemazají.
@@ -193,7 +194,10 @@ aster-os/
 │   ├── invariants.md             # Safety / Performance / Architecture
 │   ├── roadmap.md                # M0–M8 + kvalitní metriky
 │   ├── verification.md           # verifikační pipeline + deterministický build
-│   └── debugging.md              # Debugging Survival Guide (GDB, serial dump)
+│   ├── debugging.md              # Debugging Survival Guide (GDB, serial dump)
+│   ├── troubleshooting.md        # vyřešené pasti a lekce (C1..C27, H1..H2)
+│   ├── handoff.md                # postup pro nevyřešené problémy
+│   └── handoffs/                 # handoff dokumenty (open/closed)
 ├── src/
 │   ├── kernel/                   # boot, mem/pfa+heap, cpu/idt+timer, drivers/ps2,
 │   │   │                         # fb/framebuffer, render/renderer+font+text, api/,
@@ -231,3 +235,5 @@ aster-os/
 | `roadmap.md` | Milníky M0–M8 s kritérii "hotovo" + tabulka kvalitních metrik. |
 | `verification.md` | Verifikační pipeline (Zig), deterministický build, pravidlo bootovatelného commitu. |
 | `debugging.md` | Debugging Survival Guide — GDB+QEMU, čtení serial dumpu, pravidla pro IRQ. |
+| `troubleshooting.md` | Vyřešené pasti a lekce (Zig 0.16, Limine, heap, PS/2 myš). |
+| `handoff.md` | Formální postup pro nevyřešené problémy + seznam handoffů. |

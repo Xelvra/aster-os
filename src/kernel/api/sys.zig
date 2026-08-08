@@ -1,7 +1,8 @@
 const std = @import("std");
-const serial = @import("../serial.zig");
-const input_queue = @import("../input_queue.zig");
+const debug = @import("debug.zig");
 const graphics = @import("graphics.zig");
+const input = @import("input.zig");
+const timer = @import("timer.zig");
 const runtime = @import("runtime.zig");
 const sysmon = @import("sysmon.zig");
 
@@ -31,49 +32,14 @@ pub const SyscallArgs = struct {
     c: u64 = 0,
 };
 
-pub const DebugOp = enum(u64) {
-    write = 0,
-    status = 1,
-};
-
-pub const InputOp = enum(u64) {
-    next_event = 0,
-    peek_event = 1,
-    flush = 2,
-};
-
 pub fn dispatch(num: Syscall, args: SyscallArgs) u64 {
     return switch (num) {
-        .Debug => debugDispatch(args),
+        .Debug => debug.dispatch(args),
         .Graphics => graphics.dispatch(args),
-        .Input => inputDispatch(args),
-        .Timer => @intFromEnum(KiStatus.NotSupported),
+        .Input => input.dispatch(args),
+        .Timer => timer.dispatch(args),
         .Runtime => runtime.dispatch(args),
         .Yield => @intFromEnum(KiStatus.NotSupported),
         .Sysmon => sysmon.dispatch(args),
-    };
-}
-
-fn debugDispatch(args: SyscallArgs) u64 {
-    const op: DebugOp = @enumFromInt(args.a);
-    return switch (op) {
-        .write => {
-            const ptr: [*]const u8 = @ptrFromInt(@as(usize, @intCast(args.b)));
-            const len: usize = @intCast(args.c);
-            for (0..len) |i| {
-                serial.writeChar(ptr[i]);
-            }
-            return @intFromEnum(KiStatus.Success);
-        },
-        .status => @intFromEnum(KiStatus.Success),
-    };
-}
-
-fn inputDispatch(args: SyscallArgs) u64 {
-    const op: InputOp = @enumFromInt(args.a);
-    return switch (op) {
-        .next_event => @intFromEnum(KiStatus.NotSupported),
-        .peek_event => @intFromEnum(KiStatus.NotSupported),
-        .flush => @intFromEnum(KiStatus.NotSupported),
     };
 }
