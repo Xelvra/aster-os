@@ -10,22 +10,32 @@ if [[ -z "$ISO" ]]; then
     ISO="$(find .zig-cache -name aster.iso -printf '%T@ %p\n' | sort -rn | head -1 | cut -d' ' -f2-)"
 fi
 
-MARKER="ASTER BOOT OK"
+MARKER="${SMOKE_MARKER:-ASTER BOOT OK}"
 TIMEOUT="${SMOKE_TIMEOUT:-30}"
+DISK="${SMOKE_DISK:-}"
 
 echo "smoke: booting $ISO"
 echo "smoke: waiting for marker '$MARKER' (timeout ${TIMEOUT}s)"
+if [[ -n "$DISK" ]]; then
+    echo "smoke: disk attached: $DISK"
+fi
 
 tmpdir="$(mktemp -d)"
 mkfifo "$tmpdir/serial.in" "$tmpdir/serial.out"
 
 read -r -a ACCEL <<< "$(./tools/qemu-accel.sh)"
 
+disk_args=()
+if [[ -n "$DISK" ]]; then
+    disk_args=(-drive "file=$DISK,format=raw,if=none,id=hd0" -device virtio-blk-pci,drive=hd0,disable-legacy=on)
+fi
+
 timeout "$TIMEOUT" qemu-system-x86_64 \
     "${ACCEL[@]}" \
     -M q35 \
     -m 512M \
     -cdrom "$ISO" \
+    "${disk_args[@]}" \
     -chardev pipe,id=serial0,path="$tmpdir/serial" \
     -serial chardev:serial0 \
     -display none \
@@ -37,8 +47,9 @@ qemu_pid=$!
 
 found=""
 while IFS= read -r line; do
-    if grep -q "$MARKER" <<<"$line"; then
-        found="$line"
+    clean="$(sed $'s/\x1b\[[0-9;]*m//g' <<<"$line")"
+    if grep -qF "$MARKER" <<<"$clean"; then
+        found="$clean"
         break
     fi
 done <"$tmpdir/serial.out"

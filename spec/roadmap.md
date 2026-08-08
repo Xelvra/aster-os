@@ -299,9 +299,10 @@ binding marshallingu zelené.
 
 **M6.1 — doplňkové úkoly (teď):**
 
-- [ ] **M6.1.6 CI job s diskem:** qemu-smoke s `-drive ... -device virtio-blk-pci` + marker
+- [x] **M6.1.6 CI job s diskem:** qemu-smoke s `-drive ... -device virtio-blk-pci` + marker
       `[ OK ] storage`. Dnes CI nikdy netestuje storage — cap-walk bug by CI bez disku
-      nikdy nechytilo.
+      nikdy nechytilo. — **hotovo:** `tools/qemu-smoke.sh` podporuje `SMOKE_DISK` /
+      `SMOKE_MARKER` (ANSI-strip + fixed-string grep), CI má krok „Storage boot smoke test".
 - [ ] **M6.1.7 Host unit testy GPT parseru:** čistá funkce nad `[]u8` (vzor `tests/mem/`).
 - [ ] **M6.1.8 Host unit testy ext2 parseru:** superblock / features / inode / dir traversal.
 - [ ] **M6.1.9 Rozhodnout Lua `dbg` lib teď:** otevřít `luaopen_debug` jako `dbg`

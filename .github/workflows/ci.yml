@@ -34,6 +34,11 @@ jobs:
       - name: Boot smoke test (QEMU, TCG on CI runners)
         run: ./tools/qemu-smoke.sh
 
+      - name: Storage boot smoke test (virtio-blk disk attached)
+        run: |
+          dd if=/dev/zero of=/tmp/aster-storage.img bs=1M count=16 status=none
+          SMOKE_DISK=/tmp/aster-storage.img SMOKE_MARKER='[ OK ] storage' ./tools/qemu-smoke.sh
+
       - name: In-QEMU runtime tests
         run: QEMU_TEST_TIMEOUT=90 ./tools/qemu-test.sh
 
