@@ -269,8 +269,12 @@ binding marshallingu zelené.
       nepodporované features; subset je spárován s přesnou `mke2fs -t ext2` invokací
       (ADR-014; pozor na defaultní `dir_index`). FAT32/ext4/EROFS/9P jsou budoucí backendy
       dle triggerů v ADR-023, ne povinný cíl.
-- [ ] **Kooperativní čtení:** pomalé FS operace neblokují event loop — kooperativní
-      suspendace (spec `kernel-interface.md` §6.2, `timer.md` §3).
+- [x] **Kooperativní čtení:** pomalé FS operace neblokují event loop — kooperativní
+      suspendace (spec `kernel-interface.md` §6.2, `timer.md` §3). — **uzavřeno principem
+      (2026-08-09):** v M6 se FS čte výhradně mimo event loop (boot probe + runtime testy),
+      žádné pomalé čtení neběží uvnitř `update()`/`render()` — event loop nemá co blokovat.
+      Plná kooperativní suspendace (deadline fronta, resume) se implementuje s tasky
+      v **M7** (ADR-017 scheduler); viz `kernel-interface.md` §6.2.
 - [ ] **Auto-reload na uložení:** uložení `theme.lua`/config souboru → automatické
       překreslení prostředí bez klávesy (spec `runtime.md` §5a spouštěč 2).
 - [ ] (Výhledově: ukládání, editor.)
@@ -337,8 +341,9 @@ binding marshallingu zelené.
 - [x] **M6.1.11 Release/tag + prebuilt ISO workflow:** „stáhnu a spustím", ne „buildím z git". —
       **hotovo:** `.github/workflows/release.yml` — na tag `v*` spustí plnou verifikaci
       (build, host testy, smoke, runtime testy s diskem), a teprve při zelené publikuje
-      `aster.iso` jako release asset (`gh` CLI, žádná third-party akce). **Release se
-      nevytváří teď** — až po ručním vyzkoušení a dohodě o tagu.
+      `aster.iso` jako release asset (`gh` CLI, žádná third-party akce). — **Release je
+      odložen (2026-08-09):** v alfě bez konzumenta nedává smysl; workflow zůstává
+      připravený a spustí se tagem, až bude reálná poptávka (ukázka, milestone, M10).
 - [ ] **M6.1.12 CI na Windows/macOS:** Zig je multiplatformní, build.zig by měl běžet.
 
 ```text

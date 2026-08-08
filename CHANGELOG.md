@@ -5,8 +5,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-The version number matches the project milestone (0.0.0 = M0 Boot, 0.6.0 = M6
-Storage). Newer versions are listed first.
+The version number matches the project milestone (0.0.0 = M0 Boot, 0.7.0 = M7
+Runtime). Newer versions are listed first.
 
 > This file is **hand-curated** (what the system can do). The raw commit
 > history is regenerated separately by `tools/generate-changelog.sh` — never
@@ -15,7 +15,14 @@ Storage). Newer versions are listed first.
 
 ---
 
-## [0.6.0-alpha.1] — Milestone M6 — Storage (in progress)
+## [0.7.0-alpha.1] — Milestone M7 — Runtime (in progress)
+
+This version tracks the milestone after M6 Storage was completed. No additions
+yet.
+
+---
+
+## [0.6.0] — Milestone M6 — Storage
 
 ### Added
 
@@ -26,10 +33,22 @@ Storage). Newer versions are listed first.
 * **initfs — shell from a tar initrd:** The UI modules (`ui/*.lua`) are packed
   into a tar, loaded by Limine as an initrd module and read at runtime instead
   of being `@embedFile`'d.
-* **Persistent filesystem (ADR-023):** ext2 read-only chosen as the first
-  persistent backend — used only as an on-disk representation, no POSIX
-  semantics in the API, stable `open/read/close` interface, door left open for
-  FAT32, EROFS, 9P and ext4.
+* **Persistent filesystem (ADR-023):** ext2 read-only as the first persistent
+  backend — used only as an on-disk representation, no POSIX semantics in the
+  API, stable `open/read/close` interface, door left open for FAT32, EROFS, 9P
+  and ext4.
+* **GPT partition discovery:** Partitions become block-device views (a sector
+  of a partition maps to a sector of the disk), independent of any filesystem.
+* **ext2 read-only mount + thin Aster file API:** Superblock/feature validation
+  (unknown bits and `dir_index` rejected), inode lookup, directory traversal,
+  file reads through direct + single-indirect blocks; `open`/`read`/`close`
+  over an opaque backend reference — the caller never sees ext2 metadata.
+* **Storage test infrastructure:** Deterministic test disk
+  (`tools/make-test-disk.sh`, GPT + ext2 from `mke2fs -t ext2 -O ^dir_index`),
+  CI smoke test with a disk, QEMU runtime tests covering mount/lookup/open/
+  read/EOF/invalid path, and a `zig build run -Ddisk=disk.img` option.
+* **Lua `dbg` library:** The Lua debug library is opened as `dbg`
+  (`dbg.traceback()`) because the `debug` name is taken by the KI module.
 * **Boot log as proof of work:** A styled colored boot log (`/-\STER OS`, status
   lines, boot sequence) plus a capture tool that verifies the recorded boot
   never drifts from the code (CI + pre-push hook).
@@ -37,6 +56,8 @@ Storage). Newer versions are listed first.
   to real hardware than TCG, TCG stays the fast path for automated tests.
 * **Changelog dev tool:** `tools/generate-changelog.sh` regenerates the full
   commit history with a single command (see Dev tools below).
+* **Release workflow:** `.github/workflows/release.yml` — on a `v*` tag it runs
+  the full verification and only then publishes `aster.iso` as a release asset.
 
 ### Fixed
 
@@ -45,6 +66,13 @@ Storage). Newer versions are listed first.
   guarded.
 * **Debugging guide:** Rewritten with a verified GDB workflow (ISO boot +
   higher-half breakpoints), what works and what does not for embedded Lua.
+* **Kernel stack overflow:** A 16.9 KiB directory-entry buffer overflowed the
+  16 KiB ISR stack during directory lookup; stack raised to 64 KiB and the
+  buffer reduced.
+* **Page fault in low memory (handoff H3):** The PFA allocated frames below
+  1 MiB that the bootloader's higher-half direct map does not map (memory map
+  reports them usable, but the page table has no entry) — heap blocks placed
+  there faulted on first touch. PFA now never allocates below 1 MiB.
 
 ---
 

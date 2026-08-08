@@ -5,12 +5,19 @@ Veškeré významné změny v tomto projektu budou dokumentovány v tomto soubor
 Formát vychází ze standardu [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 a tento projekt dodržuje [Sémantické verzování](https://semver.org/spec/v2.0.0.html).
 
-Číslo verze odpovídá milníku projektu (0.0.0 = M0 Boot, 0.6.0 = M6 Storage).
+Číslo verze odpovídá milníku projektu (0.0.0 = M0 Boot, 0.7.0 = M7 Runtime).
 Novější verze jsou nahoře.
 
 ---
 
-## [0.6.0-alpha.1] — Milestone M6 — Storage (v běhu)
+## [0.7.0-alpha.1] — Milestone M7 — Runtime (v běhu)
+
+Tato verze sleduje milník navazující na dokončené M6 Storage. Zatím žádné
+přírůstky.
+
+---
+
+## [0.6.0] — Milestone M6 — Storage
 
 ### Added
 
@@ -20,9 +27,21 @@ Novější verze jsou nahoře.
   virtio-blk`, když je připojen disk.
 * **initfs — shell z tar initrd:** Moduly UI (`ui/*.lua`) se balí do taru, Limine
   je načte jako initrd modul a kernel je čte za běhu místo `@embedFile`.
-* **Persistentní filesystem (ADR-023):** Rozhodnuto ext2 read-only jako první
-  persistentní backend — pouze on-disk reprezentace, žádné POSIX sémantiky v API,
-  stabilní rozhraní `open/read/close`, dveře otevřené pro FAT32, EROFS, 9P a ext4.
+* **Persistentní filesystem (ADR-023):** ext2 read-only jako první persistentní
+  backend — pouze on-disk reprezentace, žádné POSIX sémantiky v API, stabilní
+  rozhraní `open/read/close`, dveře otevřené pro FAT32, EROFS, 9P a ext4.
+* **GPT partition discovery:** Oddíly se stávají block-device views (sektor
+  oddílu mapuje na sektor disku), nezávislé na souborovém systému.
+* **ext2 mount read-only + tenké Aster File API:** Validace superblocku/features
+  (neznámé bity i `dir_index` odmítnuty), inode lookup, traversal adresářů,
+  čtení dat přes direct + single-indirect bloky; `open`/`read`/`close` nad opaque
+  backend referencí — volající nikdy nevidí ext2 metadata.
+* **Testovací infrastruktura storage:** Deterministický testovací disk
+  (`tools/make-test-disk.sh`, GPT + ext2 z `mke2fs -t ext2 -O ^dir_index`),
+  CI smoke test s diskem, QEMU runtime testy (mount/lookup/open/read/EOF/invalid
+  path) a volba `zig build run -Ddisk=disk.img`.
+* **Lua knihovna `dbg`:** Lua debug knihovna se otevírá jako `dbg`
+  (`dbg.traceback()`), protože jméno `debug` drží KI modul.
 * **Boot log jako důkaz práce:** Stylizovaný barevný boot log (`/-\STER OS`,
   statusové řádky, boot sekvence) + capture tool, který ověřuje, že zaznamenaný
   boot nikdy nezastarává (CI + pre-push hook).
@@ -30,6 +49,8 @@ Novější verze jsou nahoře.
   blíže reálnému hardwaru než TCG, TCG zůstává rychlá cesta pro automatické testy.
 * **Dev nástroj pro changelog:** `tools/generate-changelog.sh` — jedním příkazem
   vygeneruje celou historii commitů (viz sekce Dev tools níže).
+* **Release workflow:** `.github/workflows/release.yml` — na tag `v*` spustí plnou
+  verifikaci a teprve při zelené publikuje `aster.iso` jako release asset.
 
 ### Fixed
 
@@ -38,6 +59,12 @@ Novější verze jsou nahoře.
   tabulky ve virtio.
 * **Ladění:** Přepsán debugging guide — ověřený GDB workflow (ISO + higher-half
   breakpointy), co funguje a co ne pro embedded Lua.
+* **Přetečení kernel stacku:** Buffer 16,9 KiB pro directory entries přetekl
+  16 KiB ISR stack při lookup adresáře; stack zvětšen na 64 KiB a buffer zmenšen.
+* **Page fault v low memory (handoff H3):** PFA alokoval rámce pod 1 MiB, které
+  bootloaderova hhdm direct map nemapuje (memory map je hlásí usable, ale page
+  table nemá záznam) — heap tam umístěné bloky faultovaly při prvním dotyku.
+  PFA nyní pod 1 MiB nealokuje nikdy.
 
 ---
 
