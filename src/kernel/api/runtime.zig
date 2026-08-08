@@ -29,8 +29,9 @@ pub const RuntimeOp = enum(u64) {
 var next_handle: u64 = 1;
 var reload_requested = false;
 
-pub fn init(allocator: std.mem.Allocator) void {
+pub fn init(allocator: std.mem.Allocator, initrd: ?[]const u8) void {
     lua.init(allocator);
+    lua.setInitrd(initrd);
 }
 
 /// Re-initialize the Lua shell state without restarting the system

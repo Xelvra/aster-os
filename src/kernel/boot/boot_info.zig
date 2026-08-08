@@ -37,4 +37,7 @@ pub const BootInfo = struct {
     hhdm_offset: u64,
     framebuffer: ?Framebuffer,
     memory_entries: []const MemoryEntry,
+    /// The initrd module from the bootloader (a tar archive), mapped into
+    /// the higher half. Null when the bootloader provided none.
+    initrd: ?[]const u8,
 };

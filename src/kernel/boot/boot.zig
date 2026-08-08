@@ -17,12 +17,23 @@ pub fn collect() BootError!boot_info.BootInfo {
     const hhdm_offset = limine.hhdm_offset() orelse return BootError.NoHhdm;
     const framebuffer = translateFramebuffer(limine.framebuffers());
     const memory_entries = try translateMemoryEntries();
+    const initrd = collectInitrd();
 
     return .{
         .hhdm_offset = hhdm_offset,
         .framebuffer = framebuffer,
         .memory_entries = memory_entries,
+        .initrd = initrd,
     };
+}
+
+/// The first bootloader module (the initrd tar). Limine hands its address
+/// already mapped into the higher half, so no hhdm translation is applied.
+fn collectInitrd() ?[]const u8 {
+    const resp = limine.modules() orelse return null;
+    if (resp.module_count == 0) return null;
+    const mod = resp.modules[0] orelse return null;
+    return @as([*]const u8, @ptrFromInt(@as(usize, @intCast(mod.address))))[0..@intCast(mod.size)];
 }
 
 fn translateMemoryEntries() BootError![]const boot_info.MemoryEntry {

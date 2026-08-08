@@ -254,9 +254,10 @@ binding marshallingu zelené.
 
 **Cíl:** načítání souborů za běhu.
 
-- [ ] **initfs** z Limine initrd (RAM disk) — load `.lua` / assetů za běhu.
+- [x] **initfs** z Limine initrd (RAM disk) — load `.lua` / assetů za běhu.
       **Formát: tar** (jednoduchý, streamovatelný, dobře se generuje build-time;
-      rozhodnutí z fáze přípravy — implementuje se zde).
+      rozhodnutí z fáze přípravy — implementuje se zde). Shell moduly (`ui/*.lua`) se
+      načítají z taru místo `@embedFile` (Limine module request + `src/kernel/fs/tar.zig`).
 - [ ] **Block device driver** — **virtio-blk** (standard QEMU), čtení. Bez block device
       neexistuje žádná persistence; driver je samostatný bod (až pak FS).
 - [ ] **Partition table** — **GPT** (standard), čtení; ext2/ext4 i FAT32 na disku potřebují

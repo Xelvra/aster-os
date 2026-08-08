@@ -76,6 +76,39 @@ pub const bootloader_info_request = extern struct {
     response: ?*bootloader_info_response,
 };
 
+pub const file = extern struct {
+    revision: u64,
+    address: u64,
+    size: u64,
+    path: u64,
+    string: u64,
+    media_type: u32,
+    unused: u32,
+    tftp_ipv4: [4]u8,
+    tftp_port: u32,
+    partition_index: u32,
+    mbr_disk_id: u32,
+    gpt_disk_uuid: [16]u8,
+    gpt_part_uuid: [16]u8,
+    part_uuid: [16]u8,
+};
+
+pub const module_response = extern struct {
+    revision: u64,
+    module_count: u64,
+    modules: [*]?*file,
+};
+
+pub const module_request = extern struct {
+    id: [4]u64,
+    revision: u64,
+    response: ?*module_response,
+    // Revision 1 fields: Limine reads internal_module_count at this offset —
+    // they must exist (zeroed) so it does not read past our request.
+    internal_module_count: u64,
+    internal_modules: u64,
+};
+
 export var base_revision: [3]u64 linksection(".limine_requests") = .{ 0xf9562b2d5c95a6c8, 0x6a7b384944536bdc, 6 };
 
 export var hhdm: hhdm_request linksection(".limine_requests") = .{
@@ -100,6 +133,14 @@ export var bootloader_info_req: bootloader_info_request linksection(".limine_req
     .id = .{ 0xc7b1dd30df4c8b88, 0x0a82e883a194f07b, 0xf55038d8e2a1202f, 0x279426fcf5f59740 },
     .revision = 0,
     .response = null,
+};
+
+export var module_req: module_request linksection(".limine_requests") = .{
+    .id = .{ 0xc7b1dd30df4c8b88, 0x0a82e883a194f07b, 0x3e7e279702be32af, 0xca1c4f3bd1280cee },
+    .revision = 0,
+    .response = null,
+    .internal_module_count = 0,
+    .internal_modules = 0,
 };
 
 comptime {
@@ -130,5 +171,10 @@ pub fn framebuffers() ?*const framebuffer_response {
 
 pub fn memmap() ?*const memmap_response {
     const req = @as(*volatile memmap_request, @ptrCast(&memmap_req));
+    return req.response;
+}
+
+pub fn modules() ?*const module_response {
+    const req = @as(*volatile module_request, @ptrCast(&module_req));
     return req.response;
 }

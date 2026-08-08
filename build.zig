@@ -88,6 +88,13 @@ pub fn build(b: *std.Build) void {
     });
     b.installArtifact(kernel);
 
+    // initfs: the shell modules and assets are packed into a tar archive that
+    // Limine loads as a module (initrd); the kernel reads them at runtime
+    // instead of them being @embedFile'd (M6, spec/roadmap.md).
+    const tar_cmd = b.addSystemCommand(&.{ "tar", "-cf" });
+    const initfs_path = tar_cmd.addOutputFileArg("initfs.tar");
+    tar_cmd.addArgs(&.{ "-C", "src/kernel/lua/ui", "." });
+
     const iso_root = b.addWriteFiles();
     _ = iso_root.addCopyFile(kernel.getEmittedBin(), "boot/aster");
     _ = iso_root.addCopyFile(b.path("limine.conf"), "boot/limine.conf");
@@ -96,6 +103,7 @@ pub fn build(b: *std.Build) void {
     _ = iso_root.addCopyFile(b.path("libs/limine/bin/limine-uefi-cd.bin"), "boot/limine-uefi-cd.bin");
     _ = iso_root.addCopyFile(b.path("libs/limine/bin/BOOTX64.EFI"), "EFI/BOOT/BOOTX64.EFI");
     _ = iso_root.addCopyFile(b.path("libs/limine/bin/BOOTIA32.EFI"), "EFI/BOOT/BOOTIA32.EFI");
+    _ = iso_root.addCopyFile(initfs_path, "boot/initfs.tar");
 
     const iso_dir = iso_root.getDirectory();
 

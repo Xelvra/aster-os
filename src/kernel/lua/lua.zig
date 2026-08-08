@@ -3,12 +3,20 @@ const lua_c = @import("cimport.zig").c;
 const libc = @import("libc.zig");
 const serial = @import("../serial.zig");
 const bindings = @import("bindings.zig");
+const tar_mod = @import("../fs/tar.zig");
 
 var lua_state: ?*lua_c.lua_State = null;
 var heap_allocator: std.mem.Allocator = undefined;
+var initrd: ?[]const u8 = null;
 
 pub fn getState() ?*lua_c.lua_State {
     return lua_state;
+}
+
+/// The shell modules are packed into the initrd tar (build.zig) and read at
+/// runtime (M6). Set once at boot from the bootloader module.
+pub fn setInitrd(data: ?[]const u8) void {
+    initrd = data;
 }
 
 fn luaAlloc(ud: ?*anyopaque, ptr: ?*anyopaque, osize: usize, nsize: usize) callconv(.c) ?*anyopaque {
@@ -72,20 +80,35 @@ fn openLibraries(L: *lua_c.lua_State) void {
     bindings.register(L);
 }
 
-/// The shell is split into small modules that are concatenated into one
-/// chunk in dependency order (theme first, entry point last). Keeping it one
-/// chunk means `local` state is shared across the whole shell, and there is
-/// no `require`/filesystem dependency in the kernel.
-const theme_src = @embedFile("ui/theme.lua");
-const wm_src = @embedFile("ui/wm.lua");
-const repl_src = @embedFile("ui/repl.lua");
-const launcher_src = @embedFile("ui/launcher.lua");
-const input_src = @embedFile("ui/input.lua");
-const entry_src = @embedFile("ui/main.lua");
-const shell_src = theme_src ++ wm_src ++ repl_src ++ launcher_src ++ input_src ++ entry_src;
+/// The shell is split into small modules concatenated into one chunk in
+/// dependency order (theme first, entry point last). Keeping it one chunk
+/// means `local` state is shared across the whole shell, and there is no
+/// `require`/filesystem dependency in the kernel.
+const shell_files = [_][]const u8{ "theme.lua", "wm.lua", "repl.lua", "launcher.lua", "input.lua", "main.lua" };
+
+/// Concatenate the shell modules read from the initrd tar into a fresh heap
+/// buffer. The caller frees it after loading.
+fn loadShellSource() ![]const u8 {
+    const tar = initrd orelse return error.NoInitrd;
+    var total: usize = 0;
+    for (shell_files) |f| {
+        total += (try tar_mod.find(tar, f)).len;
+    }
+    const buf = try heap_allocator.alloc(u8, total);
+    errdefer heap_allocator.free(buf);
+    var offset: usize = 0;
+    for (shell_files) |f| {
+        const data = try tar_mod.find(tar, f);
+        @memcpy(buf[offset .. offset + data.len], data);
+        offset += data.len;
+    }
+    return buf[0..offset];
+}
 
 pub fn runMain(entry: []const u8) !void {
     const L = lua_state orelse return error.NotReady;
+    const src = try loadShellSource();
+    defer heap_allocator.free(src);
     var name_buf: [64]u8 = undefined;
     const name = if (entry.len < name_buf.len) blk: {
         @memcpy(name_buf[0..entry.len], entry);
@@ -94,8 +117,8 @@ pub fn runMain(entry: []const u8) !void {
     } else "main.lua";
     const status = lua_c.luaL_loadbufferx(
         L,
-        @ptrCast(@constCast(shell_src.ptr)),
-        shell_src.len,
+        @ptrCast(@constCast(src.ptr)),
+        src.len,
         name.ptr,
         null,
     );

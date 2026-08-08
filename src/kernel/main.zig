@@ -152,7 +152,7 @@ fn kernelMain() !void {
         bootlog.warn("graphics", "no framebuffer, console disabled");
     }
 
-    runtime.init(alloc);
+    runtime.init(alloc, info.initrd);
     const program = runtime.spawn(.{ .kind = .Lua, .entry = "main.lua" }) catch |err| {
         bootlog.fail("runtime", "lua shell failed to start");
         return err;

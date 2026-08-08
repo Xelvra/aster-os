@@ -58,6 +58,10 @@ Full history up to 0.1.0-alpha.1 is archived in
   [cachyos-hypr-noctalia](https://github.com/CachyOS/cachyos-hypr-noctalia) as the
   desktop inspiration (upstream has no license — we reimplement, not copy); sections
   alphabetized and trimmed to what is actually required.
+- **initfs (M6)**: the shell modules (`ui/*.lua`) are packed into a tar and loaded as a
+  Limine initrd module, read at runtime instead of `@embedFile`'d — Limine module
+  request, `src/kernel/fs/tar.zig` parser, and the heap now grows to fit large
+  allocations (a single contiguous block).
 
 ### Changed
 

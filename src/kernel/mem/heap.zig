@@ -75,11 +75,12 @@ pub const HeapAllocator = struct {
     }
 
     fn rawAlloc(self: *HeapAllocator, len: usize, alignment: std.mem.Alignment) ![*]u8 {
-        if (self.free_list == null) try self.grow();
-        var found = self.findBlock(len + @sizeOf(BlockHeader) + @sizeOf(BlockFooter), alignment);
+        const need = len + @sizeOf(BlockHeader) + @sizeOf(BlockFooter);
+        if (self.free_list == null) try self.grow(need);
+        var found = self.findBlock(need, alignment);
         if (found == null) {
-            try self.grow();
-            found = self.findBlock(len + @sizeOf(BlockHeader) + @sizeOf(BlockFooter), alignment) orelse return error.OutOfMemory;
+            try self.grow(need);
+            found = self.findBlock(need, alignment) orelse return error.OutOfMemory;
         }
         const block = found.?;
         self.unlink(block);
@@ -106,12 +107,17 @@ pub const HeapAllocator = struct {
         self.link(merged);
     }
 
-    fn grow(self: *HeapAllocator) !void {
-        const pages = try self.pfa.allocPages(grow_pages, true);
+    /// Grow the heap by enough contiguous pages to hold at least `min_bytes`
+    /// of payload plus block overhead. A single grow block is contiguous, so a
+    /// large allocation (e.g. the shell source buffer) is satisfiable.
+    fn grow(self: *HeapAllocator, min_bytes: usize) !void {
+        const min_pages = (min_bytes + pfa.page_size - 1) / pfa.page_size;
+        const pages_count = @max(grow_pages, min_pages);
+        const pages = try self.pfa.allocPages(pages_count, true);
         const virtual = pages[0] + self.pfa.hhdm_offset;
         const block: *BlockHeader = @ptrFromInt(virtual);
         block.* = .{
-            .size = grow_pages * pfa.page_size,
+            .size = pages_count * pfa.page_size,
             .free = true,
             .prev_free = null,
             .next_free = null,
