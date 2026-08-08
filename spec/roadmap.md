@@ -284,6 +284,7 @@ binding marshallingu zelené.
       nezávisí na konkrétním driveru. *Exit: deterministické čtení bloků z disku.* —
       **hotovo:** `src/kernel/drivers/pci.zig` + `virtio.zig`, čte sektor 0 (verifikováno
       magic bajty), boot log `[ OK ] storage virtio-blk` jen když je disk přítomen.
+      Lokálně se disk připojí přes `zig build run -Ddisk=disk.img`.
 - [ ] **M6.1.2 GPT partition discovery:** oddíly jako block-device views, nezávislé na FS.
       *Exit: nalezení cílového oddílu a čtení jeho sektorů.*
 - [ ] **M6.1.3 ext2 mount (read-only):** superblock, block groups, bitmapy (validace), inode

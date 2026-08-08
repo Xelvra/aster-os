@@ -22,6 +22,7 @@ pub fn build(b: *std.Build) void {
 
     const runtime_tests = b.option(bool, "runtime-tests", "Build kernel with in-QEMU runtime tests") orelse false;
     const use_kvm = b.option(bool, "kvm", "Run QEMU with KVM acceleration (-enable-kvm); auto-detects /dev/kvm when omitted") orelse kvmAvailable();
+    const disk_path = b.option([]const u8, "disk", "Attach a raw disk image to QEMU (enables virtio-blk storage, visible as '[ OK ] storage' in the boot log)");
 
     const kernel_options = b.addOptions();
     kernel_options.addOption(bool, "runtime_tests", runtime_tests);
@@ -160,6 +161,12 @@ pub fn build(b: *std.Build) void {
     run_cmd.addArg("-cdrom");
     run_cmd.addFileArg(iso_path);
     run_cmd.step.dependOn(&bios_install.step);
+    if (disk_path) |path| {
+        run_cmd.addArg("-drive");
+        run_cmd.addArg(b.fmt("file={s},format=raw,if=none,id=hd0", .{path}));
+        run_cmd.addArg("-device");
+        run_cmd.addArg("virtio-blk-pci,drive=hd0,disable-legacy=on");
+    }
     run_cmd.addArg("-display");
     // Scale the 800x600 window to fit the host screen (the kernel draws at
     // its native framebuffer resolution; zoom-to-fit only affects the QEMU
