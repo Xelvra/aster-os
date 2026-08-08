@@ -12,14 +12,14 @@
 
 | # | Dokument | Obsah |
 |---|----------|-------|
-| 1 | [architecture-overview.md](architecture-overview.md) | **Hlavní dokument.** Filozofie, architektura, přehled rozhodnutí, známá rizika, terminologie, struktura repozitáře. |
+| 1 | [architecture.md](architecture.md) | **Hlavní dokument.** Filozofie, architektura, přehled rozhodnutí, známá rizika, terminologie, struktura repozitáře. |
 | 2 | [manifest.md](manifest.md) | Manifest projektu — jednoduchost před izolací, evolvabilní rozhraní. |
 | 3 | [non-goals.md](non-goals.md) | Co systém vědomě nedělá (POSIX, SMP, USB, networking, ...). |
-| 4 | [coding-style.md](coding-style.md) | Filozofie a pravidla kódu — struktura modulů, kontrakty, paměť, review checklist. |
+| 4 | [code-style.md](code-style.md) | Filozofie a pravidla kódu — struktura modulů, kontrakty, paměť, review checklist. |
 | 5 | [adr/](adr/README.md) | Architektonická rozhodnutí (ADR-001..021), každé v samostatném souboru. |
 | 6 | [kernel-interface.md](kernel-interface.md) | **Kernel Interface (KI):** `sys.dispatch`, syscall čísla, moduly rozhraní, pravidla. |
 | 7 | [graphics.md](graphics.md) | Grafická podvrstva: Graphics API → Renderer → Framebuffer. |
-| 8 | [desktop.md](desktop.md) | Desktop UI — atomický port cachyos-hypr-noctalia (bar, launcher, okna, widgety). |
+| 8 | [desktop-ui.md](desktop-ui.md) | Desktop UI — atomický port cachyos-hypr-noctalia (bar, launcher, okna, widgety). |
 | 9 | [input.md](input.md) | Vstupní model: PS/2 klávesnice + myš, fronta událostí, mapování na Lua. |
 | 10 | [runtime.md](runtime.md) | Runtime API: `Runtime.spawn`, `RuntimeKind`, vazba Runtime → Program. |
 | 11 | [timer.md](timer.md) | Čas: tick zdroj (M2), KI `timer`, kooperativní sleep. |
@@ -33,19 +33,19 @@
 
 ## Jak konzultovat návrh
 
-1. **Chceš přehled a proč:** čti `architecture-overview.md` celý.
+1. **Chceš přehled a proč:** čti `architecture.md` celý.
 2. **Chceš důvod konkrétního rozhodnutí:** `adr/` — každé rozhodnutí je samostatný soubor.
 3. **Chceš vědět, co se nedělá:** `non-goals.md`.
-4. **Chceš kontrolní seznam pro review:** `coding-style.md` + `invariants.md`.
+4. **Chceš kontrolní seznam pro review:** `code-style.md` + `invariants.md`.
 5. **Chceš vědět, co se kdy dělá:** `roadmap.md`.
-6. **Chceš vědět, jak má vypadat desktop UI:** `desktop.md`.
+6. **Chceš vědět, jak má vypadat desktop UI:** `desktop-ui.md`.
 
 ## Stav
 
 - **Verze specifikace:** 1.0 (draft)
 - **Schváleno k implementaci:** Milníky M0–M5; M6 (Storage) v plánu
 - **Aktualizace:** nová architektonická rozhodnutí se zapisují do `spec/adr/` (každé
-  samostatný soubor); přehled se udržuje v `architecture-overview.md`. Rozhodnutí se nemění
+  samostatný soubor); přehled se udržuje v `architecture.md`. Rozhodnutí se nemění
   dodatečně — doplňují se nová.
 
 ## Jazykové fáze dokumentace
@@ -70,4 +70,4 @@ a README je vstupní brána pro návštěvníky. Interní specifikace (`spec/*.m
 > specifikace zůstává česky dle výše.
 
 To se týká **dokumentace**. **Kód, komentáře a commit messages zůstávají anglicky vždy**
-(`spec/coding-style.md` §0).
+(`spec/code-style.md` §0).

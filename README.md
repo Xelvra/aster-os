@@ -4,7 +4,7 @@
 [![version](https://img.shields.io/badge/version-0.1.0--alpha.1-orange.svg)](.version)
 [![milestone](https://img.shields.io/badge/milestone-M6%20Storage-informational.svg)](spec/roadmap.md)
 [![Zig](https://img.shields.io/badge/Zig-0.16.0-f7a41d.svg)](.zig-version)
-[![architecture](https://img.shields.io/badge/arch-x86__64-blue.svg)](spec/architecture-overview.md)
+[![architecture](https://img.shields.io/badge/arch-x86__64-blue.svg)](spec/architecture.md)
 [![bootloader](https://img.shields.io/badge/bootloader-Limine-808080.svg)](libs/limine)
 [![Lua](https://img.shields.io/badge/Lua-5.4.8-2C2D72.svg)](libs/lua-5.4)
 [![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -141,12 +141,12 @@ sources are always compiled with `-Os` regardless of the mode.
                   └──────────────────────┘
 ```
 
-Detailed layers, interfaces, and diagram: [`spec/architecture-overview.md`](spec/architecture-overview.md) §3.
+Detailed layers, interfaces, and diagram: [`spec/architecture.md`](spec/architecture.md) §3.
 
 ## Documentation
 
 The complete architecture specification lives in [`spec/`](spec/README.md).
-Start with the [architecture overview](spec/architecture-overview.md).
+Start with the [architecture overview](spec/architecture.md).
 
 The internal specs are written in Czech by design — this is the author's working
 documentation, not marketing; see the language policy in

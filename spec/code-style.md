@@ -19,6 +19,17 @@ Zigu, ale doplňují je o projektovou disciplínu.
   (framebuffer, syscall, Renderer, Runtime, ADR statusy apod.).
 - Komentář v kódu, který vysvětluje "proč", je v angličtině. Český text do kódu nepatří.
 
+### Pojmenování dokumentů (`spec/*.md`, `docs/*`)
+
+- **Lowercase**, jednoslovné, kde to jde (`memory.md`, `input.md`, `timer.md`).
+- **Složeniny kebab-case** (`kernel-interface.md`, `non-goals.md`, `code-style.md`,
+  `desktop-ui.md`).
+- **Deskriptivní**, bez nadbytečných slov („overview", „guide", „document" jen když dávají
+  smysl) a bez marketingových termínů (žádný „whitepaper", „blueprint").
+- **Bez verzí a dat v názvu** — verze patří dovnitř dokumentu / do git historie.
+- Zavedené zkratky a konvence (README.md, CHANGELOG.md, LICENSE, `adr/NNN-nazev.md`,
+  `handoffs/NN-nazev.md`) zůstávají beze změny.
+
 ---
 
 ## 1. Návrhové principy

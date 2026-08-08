@@ -113,7 +113,7 @@ Co přesně považujeme za vyřešení (definice „hotovo" pro tento problém).
 3. **Při vyřešení:** zapsat příčinu a řešení do `troubleshooting.md` (pokud to je
    ne-obvious lekce), handoff označit `Status: closed` a do `§3` doplnit finální řádek.
 4. **Blokující handoff** (podmínka 4) může ospravedlnit dočasné řešení (workaround),
-   ale workaround se píše do kódu **explicitně** — viz `spec/coding-style.md` a
+   ale workaround se píše do kódu **explicitně** — viz `spec/code-style.md` a
    `spec/troubleshooting.md` pravidla, nikdy tiše.
 
 ---

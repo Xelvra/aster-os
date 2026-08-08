@@ -165,7 +165,7 @@ Malý KI modul, který vystavuje reálné metriky jádra shellu (Lua). Nejdřív
 2. **Čísla se nikdy nemění ani nemazají** — jen přidávají na konec.
 3. **KI funkce nesmí alokovat** na kritické cestě kreslení (viz `spec/invariants.md`).
 4. **Žádná KI funkce nesmí nikdy selhat tichým návratem** — vždy vrací `KiStatus`.
-5. **Změna signatury KI = nový ADR v `architecture-overview.md`** + major bump verze KI.
+5. **Změna signatury KI = nový ADR v `architecture.md`** + major bump verze KI.
 6. **Dokumentace KI je ABI-pravda.** Implementace se může měnit; signatury ne.
 
 ---
@@ -217,7 +217,7 @@ modulů do Lua/UI** — Lua nevidí porty, callbacky ani zprávy, jen volání a
 
 1. **Latence.** Volání se zpomalí (ring přechod, IPC, možná jiné CPU). UI operace jsou
    nízkofrekvenční (kreslení, čtení událostí), blokující čekání je přijatelné — viz
-   KPI „0 syscallů" platí pro fázi Ring 0 (`architecture-overview.md`).
+   KPI „0 syscallů" platí pro fázi Ring 0 (`architecture.md`).
 2. **Nová třída selhání.** Dnes chyby: `InvalidArgument`, `NoMemory`... Zítra navíc:
    „server nedostupný" (`Busy`, `NotFound`), případně `Timeout`. KI proto **od prvního
    dne vrací `KiStatus`** — volající už dnes chyby zpracovává, nové kódy ho nepřekvapí.
