@@ -1,7 +1,7 @@
 # Handoff H3: QEMU runtime testy s diskem — page fault v reload testu
 
 **Datum:** 2026-08-09
-**Status:** closed
+**Status:** closed (PFA alokoval low-memory stránky, které hhdm direct map nemapuje; fix `low_memory_end` v PFA, viz C32)
 
 ---
 
