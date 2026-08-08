@@ -167,6 +167,11 @@ Pravidlo: **každý commit musí zanechat systém spustitelný v QEMU.**
 - Rozbitý boot se opravuje okamžitě, nikdy "za pár commitů".
 - Výjimky (dokumentace, čistě host code mimo boot cestu) se označí explicitně.
 
+> **Git hooks:** `./tools/install-hooks.sh` nainstaluje pre-push hook, který před pushem
+> spustí `./tools/capture-boot.sh --check` — boot log v dokumentaci
+> (`docs/boot-log.md`) nesmí zastarat vůči kódu. Instalaci hooků doporučujeme po klonu;
+> CI to ověřuje taky.
+
 ---
 
 ## 5. Nástroje

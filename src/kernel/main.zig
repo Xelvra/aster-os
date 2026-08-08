@@ -117,6 +117,7 @@ fn accelName() []const u8 {
 
 fn kernelMain() !void {
     serial.writeLine("ASTER KERNEL ENTRY");
+    bootlog.blank();
     bootlog.banner();
 
     const info = try boot.collect();
@@ -173,7 +174,7 @@ fn kernelMain() !void {
 
     bootlog.ok("accelerator", accelName());
     bootlog.ok("boot sequence", "complete");
-    bootlog.rule();
+    bootlog.blank();
 
     serial.writeLine("ASTER BOOT OK");
 

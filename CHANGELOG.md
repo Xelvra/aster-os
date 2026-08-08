@@ -47,8 +47,9 @@ Full history up to 0.1.0-alpha.1 is archived in
   `ASTER BOOT OK` / `ASTER FIRST FRAME`) preserved for the tools.
 - **Boot log proof of work**: `tools/capture-boot.sh` boots a real image and regenerates
   `docs/boot-log.md` with metadata (date, host, accelerator, commit); `--check` verifies
-  the documented log never drifts from the code and runs in CI (`.github/workflows/ci.yml`).
-  README shows a short excerpt + link to the full capture.
+  it never drifts from the code and runs in CI (`.github/workflows/ci.yml`) and a
+  pre-push hook (`tools/install-hooks.sh` installs `hooks/pre-push`). README shows an
+  illustrative plain-text excerpt and links to the full capture.
 
 ### Changed
 
