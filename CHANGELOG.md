@@ -26,10 +26,21 @@ Full history up to 0.1.0-alpha.1 is archived in
   desktop), Reboot (`power.reboot()` — i8042 reset). New KI module `api/power.zig`
   (`Power = 7`), `RuntimeOp.reload = 3`, Lua bindings `runtime.reload()` and
   `power.reboot()`.
+- **KVM acceleration**: `zig build run -Dkvm=true` adds `-enable-kvm`;
+  `tools/qemu-smoke.sh`, `tools/qemu-test.sh` and `tools/bench.sh` auto-add
+  `-enable-kvm` via `tools/qemu-accel.sh` when `/dev/kvm` is available (TCG fallback
+  otherwise). QEMU TCG is the quick-capture path; KVM is closer to real hardware.
 
 ### Changed
 
 ### Fixed
+
+- **Boot under KVM / real hardware (C28)**: Zig ReleaseSafe codegen for
+  `asm volatile ("ldmxcsr %[v]")` with a `"m"` operand passed address-of-address,
+  so `ldmxcsr` loaded a pointer instead of the value 0x1F80 → reserved MXCSR bits →
+  #GP → triple fault before serial init. TCG does not validate reserved MXCSR bits,
+  masking the bug. `write_mxcsr` now passes the address in a register and
+  dereferences it explicitly (scratch-register pattern, `spec/troubleshooting.md` C28).
 
 - **Live transformation**: the bar height was captured once at shell load (`bar_height`),
   so changing `theme.bar.height` at runtime desynced mouse hit-testing (launcher position,

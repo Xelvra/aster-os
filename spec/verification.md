@@ -174,9 +174,11 @@ Pravidlo: **každý commit musí zanechat systém spustitelný v QEMU.**
 | Nástroj | Účel |
 |---|---|
 | `zig` | build, test, fmt (verze v `.zig-version`) |
-| `qemu-system-x86_64` | emulace cíle (BIOS + UEFI) |
+| `qemu-system-x86_64` | emulace cíle (BIOS + UEFI); akcelerace KVM, když je k dispozici |
 | `xorriso` / `mtools` | tvorba bootovatelného ISO / FAT image pro Limine |
-| `tools/qemu-smoke.sh` | automatický boot test (serial marker + timeout) |
+| `tools/qemu-accel.sh` | vyecho `-enable-kvm`, pokud je `/dev/kvm` přístupný (jinak TCG) |
+| `tools/qemu-smoke.sh` | automatický boot test (serial marker + timeout; auto KVM) |
+| `tools/qemu-test.sh` | in-QEMU runtime testy (isa-debug-exit; auto KVM) |
 | `tools/bench.sh` | měření metrik z `roadmap.md` |
 
 ---

@@ -149,13 +149,28 @@ Toto ladění stálo nejvíc času v M5 — čti pečlivě, než se dotkneš `dr
 
 ---
 
-## 9. Jak předcházet (meta-lekce)
+## 9. KVM / reálný hardware (KVM infra, 2026-08-08)
+
+KVM se zapojil jako akcelerační cesta (`tools/qemu-accel.sh`, `-Dkvm`). Pod KVM se
+okamžitě obnažily bugy, které TCG maskuje — viz C28 a meta-lekce v §10.
+
+| Záznam | Symptom | Příčina | Řešení | Ověřit |
+|--------|---------|---------|--------|--------|
+| C28 | kernel pod KVM **nenabootuje** (ReleaseSafe), serial němý, Limine zůstává na menu; TCG + Debug fungují | **Zig ReleaseSafe codegen pro `asm volatile ("ldmxcsr %[v]")` s operandem `"m"`**: `%[v]` předává jako *adresu-adresy* (uloží pointer na stack a `ldmxcsr` čte tyto 4 bajty = pointer, ne hodnotu 0x1F80) → MXCSR dostane garbage s rezervovanými bity → **#GP**. TCG MXCSR rezervované bity **nevaliduje** → bug se v emulaci neprojeví; Debug negeneruje tento vzor. Navíc fault je tak brzy (před `serial.init`), že není vidět | `write_mxcsr` předává adresu **v registru** a dereferencuje: `asm volatile ("mov %[addr], %%rax\nldmxcsr (%%rax)" : : [addr] "r" (&v) : .{ .rax = true, .memory = true })` — vzor scratch registru viz C27 | `zig build` + boot pod KVM |
+
+---
+
+## 10. Jak předcházet (meta-lekce)
 
 - **Měň jednu věc a ověřuj** — při M0 se střídaly strip/linker.ld/optimize současně, což
   zamlžilo příčiny. Jeden faktor na krok.
 - **Po ne-obvious fixu zapiš záznam hned** — kontext vyprchá.
 - **Ověřuj na stejném optimize, jako produkce** — Debug boot nepredikuje ReleaseSafe
   (L2, D1). Vždy nakonec `-Doptimize=ReleaseSafe` + smoke.
+- **TCG emulace maskuje chyby reálného hardwaru** — KVM je nevaliduje jemné detaily
+  (např. MXCSR rezervované bity, načasování periferií). Od zapojení KVM se boot ověřuje
+  **jak** v TCG (rychlý záchyt), **tak** pod KVM (bližší HW); `tools/qemu-accel.sh`
+  automaticky přidá `-enable-kvm`, když je k dispozici.
 - **Nový toolchain (Zig major) = revize všech API předpokladů**, ne jen syntaxe.
 - **Struct vracený hodnotou + pointer na jeho pole = dangling pointer.** Když `init()`
   vrací struct a vnitřní alokátor drží `&lokální_proměnná` z init, po return ukazuje na
@@ -177,7 +192,7 @@ Toto ladění stálo nejvíc času v M5 — čti pečlivě, než se dotkneš `dr
 
 ---
 
-## 10. Nevyřešené problémy → handoff
+## 11. Nevyřešené problémy → handoff
 
 Problém, který se nepodaří vyřešit v čase (viz `spec/handoff.md` §1), **se nezapisuje do
 této tabulky** (ta je jen pro vyřešené lekce). Použije se šablona v `spec/handoff.md` a

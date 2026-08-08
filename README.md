@@ -76,10 +76,11 @@ Full tool table and dependency status: [`spec/verification.md`](spec/verificatio
 ## Quick start
 
 ```bash
-zig build run          # boot in QEMU
+zig build run          # boot in QEMU (TCG)
+zig build run -Dkvm=true  # boot in QEMU with KVM acceleration (closer to HW)
 zig build test         # host unit tests
-./tools/qemu-smoke.sh  # automated boot test (serial marker + timeout)
-./tools/qemu-test.sh   # in-QEMU runtime tests (isa-debug-exit)
+./tools/qemu-smoke.sh  # automated boot test (serial marker + timeout; auto KVM)
+./tools/qemu-test.sh   # in-QEMU runtime tests (isa-debug-exit; auto KVM)
 ./tools/verify-reproducible.sh  # deterministic build check (ADR-014)
 ```
 

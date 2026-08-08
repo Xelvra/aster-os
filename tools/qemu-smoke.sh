@@ -19,7 +19,10 @@ echo "smoke: waiting for marker '$MARKER' (timeout ${TIMEOUT}s)"
 tmpdir="$(mktemp -d)"
 mkfifo "$tmpdir/serial.in" "$tmpdir/serial.out"
 
+read -r -a ACCEL <<< "$(./tools/qemu-accel.sh)"
+
 timeout "$TIMEOUT" qemu-system-x86_64 \
+    "${ACCEL[@]}" \
     -M q35 \
     -m 512M \
     -cdrom "$ISO" \

@@ -89,6 +89,10 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 > interpretaci, ne kvůli našemu kódu**. Na reálném HW by se boot vešel do cíle (Lua parser
 > a `lua_newstate` běží nativně → mikrosekundy; alokace nejsou bottleneck, ~1071 allocs /
 > 157 KB). **Až bude OS kompletně hotový, změří se tato metrika na reálném HW.**
+> **KVM cesta (2026-08-08):** pro interaktivní práci a testování WM/myši se používá KVM
+> (`zig build run -Dkvm=true`; nástroje auto-přidají `-enable-kvm` přes `tools/qemu-accel.sh`).
+> KVM je bližší reálnému HW (TCG maskuje chyby, např. C28). TCG zůstává rychlý záchyt pro
+> automatické testy.
 > **Render throughput** (M4): `testRenderThroughput` v runtime testech měří plné Lua
 > rendery za 10 APIC ticků. Baseline po optimalizaci rendereru: **8–9 renders/10 ticks**
 > (před tím 5). **Hodnota je vázaná na zátěž renderu:** 8–9 platí pro M4 shell (REPL

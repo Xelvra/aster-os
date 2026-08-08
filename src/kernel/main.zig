@@ -62,10 +62,16 @@ fn write_cr4(value: u64) void {
 }
 
 fn write_mxcsr(value: u32) void {
-    asm volatile ("ldmxcsr %[v]"
+    // ReleaseSafe passes a "m" operand as address-of-address, so ldmxcsr
+    // would load a pointer instead of the value -> #GP on real HW/KVM
+    // (TCG ignores reserved MXCSR bits, masking the bug). Pass the address
+    // in a register and dereference it explicitly (scratch-register pattern,
+    // see spec/troubleshooting.md C27).
+    var v: u32 = value;
+    asm volatile ("mov %[addr], %%rax\nldmxcsr (%%rax)"
         :
-        : [v] "m" (value),
-        : .{ .memory = true });
+        : [addr] "r" (&v),
+        : .{ .rax = true, .memory = true });
 }
 
 fn kernelMain() !void {

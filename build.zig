@@ -12,6 +12,7 @@ pub fn build(b: *std.Build) void {
         .ReleaseSafe;
 
     const runtime_tests = b.option(bool, "runtime-tests", "Build kernel with in-QEMU runtime tests") orelse false;
+    const use_kvm = b.option(bool, "kvm", "Run QEMU with KVM acceleration (-enable-kvm)") orelse false;
 
     const kernel_options = b.addOptions();
     kernel_options.addOption(bool, "runtime_tests", runtime_tests);
@@ -133,6 +134,7 @@ pub fn build(b: *std.Build) void {
     iso_step.dependOn(&bios_install.step);
 
     const run_cmd = b.addSystemCommand(&.{"qemu-system-x86_64"});
+    if (use_kvm) run_cmd.addArg("-enable-kvm");
     run_cmd.addArg("-M");
     run_cmd.addArg("q35");
     run_cmd.addArg("-m");
@@ -154,6 +156,7 @@ pub fn build(b: *std.Build) void {
     run_step.dependOn(&run_cmd.step);
 
     const rt_run_cmd = b.addSystemCommand(&.{"qemu-system-x86_64"});
+    if (use_kvm) rt_run_cmd.addArg("-enable-kvm");
     rt_run_cmd.addArg("-M");
     rt_run_cmd.addArg("q35");
     rt_run_cmd.addArg("-m");
