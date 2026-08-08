@@ -1,4 +1,5 @@
 const std = @import("std");
+const bytes = @import("bytes.zig");
 
 pub const GptError = error{
     TooShort,
@@ -47,25 +48,25 @@ pub const GptHeader = struct {
 pub fn parseHeader(buf: []const u8) GptError!GptHeader {
     if (buf.len < header_min_size) return GptError.TooShort;
     if (!std.mem.eql(u8, buf[0..8], header_signature)) return GptError.BadSignature;
-    if (readU32(buf, 8) != 0x00010000) return GptError.BadRevision;
-    const header_size = readU32(buf, 12);
+    if (bytes.readU32(buf, 8) != 0x00010000) return GptError.BadRevision;
+    const header_size = bytes.readU32(buf, 12);
     if (header_size < header_min_size or @as(usize, header_size) > buf.len) return GptError.TooShort;
-    const stored_crc = readU32(buf, 16);
+    const stored_crc = bytes.readU32(buf, 16);
     var crc = std.hash.crc.Crc32IsoHdlc.init();
     crc.update(buf[0..16]);
     crc.update(&[4]u8{ 0, 0, 0, 0 });
     crc.update(buf[20..header_size]);
     if (crc.final() != stored_crc) return GptError.BadHeaderCrc;
     return .{
-        .current_lba = readU64(buf, 24),
-        .backup_lba = readU64(buf, 32),
-        .first_usable_lba = readU64(buf, 40),
-        .last_usable_lba = readU64(buf, 48),
+        .current_lba = bytes.readU64(buf, 24),
+        .backup_lba = bytes.readU64(buf, 32),
+        .first_usable_lba = bytes.readU64(buf, 40),
+        .last_usable_lba = bytes.readU64(buf, 48),
         .disk_guid = readGuid(buf, 56),
-        .partition_entry_lba = readU64(buf, 72),
-        .num_entries = readU32(buf, 80),
-        .entry_size = readU32(buf, 84),
-        .entry_array_crc32 = readU32(buf, 88),
+        .partition_entry_lba = bytes.readU64(buf, 72),
+        .num_entries = bytes.readU32(buf, 80),
+        .entry_size = bytes.readU32(buf, 84),
+        .entry_array_crc32 = bytes.readU32(buf, 88),
     };
 }
 
@@ -95,9 +96,9 @@ pub fn parseEntries(buf: []const u8, header: GptHeader, out: []PartitionEntry) G
         out[count] = .{
             .type_guid = type_guid,
             .unique_guid = unique_guid,
-            .first_lba = readU64(entry, 32),
-            .last_lba = readU64(entry, 40),
-            .attributes = readU64(entry, 48),
+            .first_lba = bytes.readU64(entry, 32),
+            .last_lba = bytes.readU64(entry, 40),
+            .attributes = bytes.readU64(entry, 48),
             .name = readName(entry[56..128]),
         };
         count += 1;
@@ -109,41 +110,19 @@ pub fn eqlGuid(a: [16]u8, b: [16]u8) bool {
     return std.mem.eql(u8, &a, &b);
 }
 
-fn readU32(buf: []const u8, off: usize) u32 {
-    return @as(u32, buf[off]) |
-        (@as(u32, buf[off + 1]) << 8) |
-        (@as(u32, buf[off + 2]) << 16) |
-        (@as(u32, buf[off + 3]) << 24);
-}
-
-fn readU64(buf: []const u8, off: usize) u64 {
-    return @as(u64, buf[off]) |
-        (@as(u64, buf[off + 1]) << 8) |
-        (@as(u64, buf[off + 2]) << 16) |
-        (@as(u64, buf[off + 3]) << 24) |
-        (@as(u64, buf[off + 4]) << 32) |
-        (@as(u64, buf[off + 5]) << 40) |
-        (@as(u64, buf[off + 6]) << 48) |
-        (@as(u64, buf[off + 7]) << 56);
-}
-
 fn readGuid(buf: []const u8, off: usize) [16]u8 {
     var out: [16]u8 = undefined;
     for (0..16) |i| out[i] = buf[off + i];
     return out;
 }
 
-fn readName(bytes: []const u8) [36]u16 {
+fn readName(raw: []const u8) [36]u16 {
     var out: [36]u16 = undefined;
-    for (0..36) |i| out[i] = readU16(bytes, i * 2);
+    for (0..36) |i| out[i] = bytes.readU16(raw, i * 2);
     return out;
 }
 
-fn readU16(buf: []const u8, off: usize) u16 {
-    return @as(u16, buf[off]) | (@as(u16, buf[off + 1]) << 8);
-}
-
-fn allZero(bytes: []const u8) bool {
-    for (bytes) |b| if (b != 0) return false;
+fn allZero(slice: []const u8) bool {
+    for (slice) |b| if (b != 0) return false;
     return true;
 }

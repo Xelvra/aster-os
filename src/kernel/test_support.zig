@@ -9,3 +9,4 @@ pub const font = @import("render/font.zig");
 pub const input = @import("input.zig");
 pub const layout = @import("input/layout.zig");
 pub const gpt = @import("fs/gpt.zig");
+pub const ext2 = @import("fs/ext2.zig");

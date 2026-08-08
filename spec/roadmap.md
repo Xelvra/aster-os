@@ -307,7 +307,10 @@ binding marshallingu zelené.
 - [x] **M6.1.7 Host unit testy GPT parseru:** čistá funkce nad `[]u8` (vzor `tests/mem/`). —
       **hotovo:** `src/kernel/fs/gpt.zig` (parseHeader + parseEntries, CRC32 validace, bez
       alokací) + `tests/fs/gpt_test.zig` (10 testů).
-- [ ] **M6.1.8 Host unit testy ext2 parseru:** superblock / features / inode / dir traversal.
+- [x] **M6.1.8 Host unit testy ext2 parseru:** superblock / features / inode / dir traversal. —
+      **hotovo:** `src/kernel/fs/ext2.zig` (read-only reader: superblock validace, feature
+      reject per ADR-023, inode lookup, dir traversal; žádné alokace) + `tests/fs/ext2_test.zig`
+      (14 testů). Data/indirect bloky zůstávají M6.1.3.
 - [ ] **M6.1.9 Rozhodnout Lua `dbg` lib teď:** otevřít `luaopen_debug` jako `dbg`
       (`dbg.traceback()`), vyhnout se kolizi s KI modulem `debug`. Později to rozbije
       skripty.
