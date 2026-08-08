@@ -175,39 +175,49 @@ pub const Ext2 = struct {
         return count;
     }
 
-    /// Read a regular file's data into `out` (direct blocks + the single
-    /// indirect block; double/triple indirect are rejected). Returns the
-    /// number of bytes written, capped by `out.len`.
-    pub fn readFile(self: Ext2, ino: u32, out: []u8) Ext2Error!usize {
+    /// Read a regular file's data from `offset` into `out` (direct blocks +
+    /// the single indirect block; double/triple indirect are rejected).
+    /// Returns the number of bytes written, capped by `out.len` and the file
+    /// size. Offset past the end returns 0.
+    pub fn readAt(self: Ext2, ino: u32, offset: usize, out: []u8) Ext2Error!usize {
         const inode = try self.readInode(ino);
         if (inode.mode & inode_type_reg == 0) return Ext2Error.NotAFile;
         const size: usize = @intCast(inode.size_lo);
+        if (offset >= size) return 0;
+        const to_read = @min(size - offset, out.len);
         var written: usize = 0;
-        var direct: usize = 0;
-        while (direct < inode_direct_blocks and written < size and written < out.len) : (direct += 1) {
-            const blk = inode.block[direct];
-            if (blk == 0) break;
-            const n = try self.readDataBlock(blk, out[written..], size - written);
+        var block_index = offset / self.block_size;
+        var in_block = offset % self.block_size;
+        while (written < to_read) {
+            const blk = try self.blockForIndex(inode, block_index) orelse break;
+            var block_buf: [4096]u8 = undefined;
+            try self.readBlock(blk, block_buf[0..self.block_size]);
+            const n = @min(@min(self.block_size - in_block, to_read - written), out.len - written);
+            @memcpy(out[written .. written + n], block_buf[in_block .. in_block + n]);
             written += n;
-            if (n < self.block_size) break;
-        }
-        if (written < size and written < out.len and direct == inode_direct_blocks) {
-            const indirect = inode.block[inode_direct_blocks];
-            if (indirect != 0) {
-                var ptr_buf: [4096]u8 = undefined;
-                try self.readBlock(indirect, ptr_buf[0..self.block_size]);
-                var i: usize = 0;
-                while (i < self.block_size / 4 and written < size and written < out.len) : (i += 1) {
-                    const blk = bytes.readU32(&ptr_buf, i * 4);
-                    if (blk == 0) break;
-                    const n = try self.readDataBlock(blk, out[written..], size - written);
-                    written += n;
-                }
-                if (written < size and written < out.len)
-                    return Ext2Error.UnsupportedIndirect;
-            }
+            in_block = 0;
+            block_index += 1;
         }
         return written;
+    }
+
+    /// Read a whole regular file into `out`.
+    pub fn readFile(self: Ext2, ino: u32, out: []u8) Ext2Error!usize {
+        return self.readAt(ino, 0, out);
+    }
+
+    /// Resolve logical block `index` of `inode` to a physical block number
+    /// (direct blocks, then the single-indirect table).
+    fn blockForIndex(self: Ext2, inode: Inode, index: usize) Ext2Error!?u32 {
+        if (index < inode_direct_blocks) return inode.block[index];
+        const indirect_index = index - inode_direct_blocks;
+        if (indirect_index >= self.block_size / 4) return Ext2Error.UnsupportedIndirect;
+        if (inode.block[inode_direct_blocks] == 0) return null;
+        var ptr_buf: [4096]u8 = undefined;
+        try self.readBlock(inode.block[inode_direct_blocks], ptr_buf[0..self.block_size]);
+        const blk = bytes.readU32(&ptr_buf, indirect_index * 4);
+        if (blk == 0) return null;
+        return blk;
     }
 
     /// Resolve an absolute path to an inode number (spec/roadmap.md M6.1.3,
@@ -223,21 +233,13 @@ pub const Ext2 = struct {
     }
 
     fn lookupDir(self: Ext2, dir_ino: u32, name: []const u8) Ext2Error!?u32 {
-        var entries: [64]DirEntry = undefined;
+        var entries: [32]DirEntry = undefined;
         const count = try self.readDir(dir_ino, &entries);
         for (entries[0..count]) |e| {
             if (e.name_len == name.len and std.mem.eql(u8, e.name[0..e.name_len], name))
                 return e.inode;
         }
         return null;
-    }
-
-    fn readDataBlock(self: Ext2, blk: u32, out: []u8, remaining: usize) Ext2Error!usize {
-        var block_buf: [4096]u8 = undefined;
-        try self.readBlock(blk, block_buf[0..self.block_size]);
-        const n = @min(@min(self.block_size, remaining), out.len);
-        @memcpy(out[0..n], block_buf[0..n]);
-        return n;
     }
 
     fn groupDescriptor(self: Ext2, group: usize) Ext2Error!BlockGroup {

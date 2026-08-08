@@ -240,6 +240,17 @@ fn probeStorage(alloc: std.mem.Allocator, memory: *mem.Memory) void {
         serial.write(e.name[0..e.name_len]);
         serial.writeLine("");
     }
+    // M6.1.4: read a config file through the thin Aster File API — the caller
+    // never touches ext2 directly (ADR-023). theme.lua may not exist on the
+    // image.
+    const file = @import("fs/file.zig");
+    var fh = file.File.open(&fs, "/theme.lua") catch null;
+    if (fh) |*f| {
+        var fbuf: [128]u8 = undefined;
+        const m = f.read(&fbuf) catch return;
+        serial.write("  file ");
+        serial.writeLine(fbuf[0..m]);
+    }
 }
 
 fn testKiDispatch() bool {

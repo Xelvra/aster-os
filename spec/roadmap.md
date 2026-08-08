@@ -299,9 +299,12 @@ binding marshallingu zelené.
       (`filetype` = incompat 0x2, `dir_index` = compat 0x20 → reject); boot log
       `[ OK ] fs ext2` + výpis kořenového adresáře. Ověřeno na obraze
       `mke2fs -t ext2 -O ^dir_index` + GPT.
-- [ ] **M6.1.4 Tenké Aster File API:** `open` / `read` / `close`, opaque reference. **Ne:**
+- [x] **M6.1.4 Tenké Aster File API:** `open` / `read` / `close`, opaque reference. **Ne:**
       inode čísla, uid/gid, mode bity, ACL, hardlink sémantiku, ext2 metadata. *Exit: runtime
-      čte ext2 soubor, aniž ví, že ext2 existuje.*
+      čte ext2 soubor, aniž ví, že ext2 existuje.* — **hotovo:** `fs/file.zig`
+      (`File.open/read/close`, `fileSize`, `eof`; backend reference opaque), `ext2.readAt`
+      (čtení od offsetu); boot log `  file <obsah>` z `theme.lua` na disku. Fix: kernel stack
+      16 KiB → 64 KiB (16.9 KiB dir-entry buffer přetekl 16 KiB stack).
 - [ ] **M6.1.5 Integrace:** persistentní FS vedle initfs (oddělené backendy); deterministické
       testovací obrazy z host toolingu; QEMU runtime testy (mount, lookup, open, read, EOF,
       invalid path); dokumentace feature subsetu + přesné `mke2fs` flagy. *Exit: viz diagram
