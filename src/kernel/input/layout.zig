@@ -1,216 +1,178 @@
+const std = @import("std");
 const input = @import("../input.zig");
 
-/// Keyboard layout: maps a `KeyCode` (plus shift/ctrl state) to a printable
-/// character, or `null` for control keys. This is the single place that knows
-/// the layout; the kernel, KI bindings, and Lua shell all use it. Adding a
-/// different layout (e.g. a national one) is a new data table here, with no
-/// logic changes downstream.
-///
-/// Layout: US QWERTY, 105+ keys. Covers letters, digits, punctuation,
-/// whitespace; control keys (Enter, Tab, arrows, F-keys) return null.
+/// Keyboard layout registry (ADR-024). A layout is a registered mapping table
+/// `KeyCode × modifiers → char`; the active layout can be switched at runtime
+/// through KI `input.set_layout`. This is the single place that knows the
+/// layout — the kernel, KI bindings, and Lua shell all go through it.
+pub const KeyCode = input.KeyCode;
+
+pub const key_count = @typeInfo(KeyCode).@"enum".fields.len;
+
+pub const KeyMapping = struct {
+    plain: u8 = 0,
+    shift: u8 = 0,
+    altgr: u8 = 0,
+};
+
 pub const Layout = struct {
+    name: []const u8,
+    table: [key_count]KeyMapping,
+};
+
+pub const Modifiers = struct {
     shift: bool = false,
     ctrl: bool = false,
     alt: bool = false,
     alt_gr: bool = false,
+};
 
-    /// Map a key code to a printable character (US layout), or null when the
-    /// key produces no character (Enter, Tab, arrows, modifiers, F-keys, ...).
-    pub fn mapChar(self: Layout, code: input.KeyCode) ?u8 {
-        if (self.ctrl) return ctrlChar(code);
-        if (self.alt_gr) return altGrChar(code);
-        return switch (code) {
-            .a => if (self.shift) 'A' else 'a',
-            .b => if (self.shift) 'B' else 'b',
-            .c => if (self.shift) 'C' else 'c',
-            .d => if (self.shift) 'D' else 'd',
-            .e => if (self.shift) 'E' else 'e',
-            .f => if (self.shift) 'F' else 'f',
-            .g => if (self.shift) 'G' else 'g',
-            .h => if (self.shift) 'H' else 'h',
-            .i => if (self.shift) 'I' else 'i',
-            .j => if (self.shift) 'J' else 'j',
-            .k => if (self.shift) 'K' else 'k',
-            .l => if (self.shift) 'L' else 'l',
-            .m => if (self.shift) 'M' else 'm',
-            .n => if (self.shift) 'N' else 'n',
-            .o => if (self.shift) 'O' else 'o',
-            .p => if (self.shift) 'P' else 'p',
-            .q => if (self.shift) 'Q' else 'q',
-            .r => if (self.shift) 'R' else 'r',
-            .s => if (self.shift) 'S' else 's',
-            .t => if (self.shift) 'T' else 't',
-            .u => if (self.shift) 'U' else 'u',
-            .v => if (self.shift) 'V' else 'v',
-            .w => if (self.shift) 'W' else 'w',
-            .x => if (self.shift) 'X' else 'x',
-            .y => if (self.shift) 'Y' else 'y',
-            .z => if (self.shift) 'Z' else 'z',
+/// Active layout, a configuration state of the input subsystem (ADR-024);
+/// changed only through KI `input.set_layout`.
+pub var active_index: usize = 0;
 
-            .digit_0 => if (self.shift) ')' else '0',
-            .digit_1 => if (self.shift) '!' else '1',
-            .digit_2 => if (self.shift) '@' else '2',
-            .digit_3 => if (self.shift) '#' else '3',
-            .digit_4 => if (self.shift) '$' else '4',
-            .digit_5 => if (self.shift) '%' else '5',
-            .digit_6 => if (self.shift) '^' else '6',
-            .digit_7 => if (self.shift) '&' else '7',
-            .digit_8 => if (self.shift) '*' else '8',
-            .digit_9 => if (self.shift) '(' else '9',
+fn mapping(key: KeyCode, plain: u8, shift: u8) KeyMapping {
+    _ = key;
+    return .{ .plain = plain, .shift = shift };
+}
 
-            .space => ' ',
-            .grave => if (self.shift) '~' else '`',
-            .minus => if (self.shift) '_' else '-',
-            .equal => if (self.shift) '+' else '=',
-            .left_bracket => if (self.shift) '{' else '[',
-            .right_bracket => if (self.shift) '}' else ']',
-            .backslash => if (self.shift) '|' else '\\',
-            .semicolon => if (self.shift) ':' else ';',
-            .apostrophe => if (self.shift) '"' else '\'',
-            .comma => if (self.shift) '<' else ',',
-            .dot => if (self.shift) '>' else '.',
-            .slash => if (self.shift) '?' else '/',
+fn altMapping(key: KeyCode, plain: u8, shift: u8, altgr: u8) KeyMapping {
+    _ = key;
+    return .{ .plain = plain, .shift = shift, .altgr = altgr };
+}
 
-            .numpad_0 => '0',
-            .numpad_1 => '1',
-            .numpad_2 => '2',
-            .numpad_3 => '3',
-            .numpad_4 => '4',
-            .numpad_5 => '5',
-            .numpad_6 => '6',
-            .numpad_7 => '7',
-            .numpad_8 => '8',
-            .numpad_9 => '9',
-            .numpad_add => '+',
-            .numpad_subtract => '-',
-            .numpad_multiply => '*',
-            .numpad_divide => '/',
-            .numpad_decimal => '.',
-            .numpad_enter => '\n',
+pub const us_layout = Layout{
+    .name = "us",
+    .table = blk: {
+        var t = [_]KeyMapping{.{}} ** key_count;
+        t[@intFromEnum(KeyCode.a)] = mapping(.a, 'a', 'A');
+        t[@intFromEnum(KeyCode.b)] = mapping(.b, 'b', 'B');
+        t[@intFromEnum(KeyCode.c)] = mapping(.c, 'c', 'C');
+        t[@intFromEnum(KeyCode.d)] = mapping(.d, 'd', 'D');
+        t[@intFromEnum(KeyCode.e)] = mapping(.e, 'e', 'E');
+        t[@intFromEnum(KeyCode.f)] = mapping(.f, 'f', 'F');
+        t[@intFromEnum(KeyCode.g)] = mapping(.g, 'g', 'G');
+        t[@intFromEnum(KeyCode.h)] = mapping(.h, 'h', 'H');
+        t[@intFromEnum(KeyCode.i)] = mapping(.i, 'i', 'I');
+        t[@intFromEnum(KeyCode.j)] = mapping(.j, 'j', 'J');
+        t[@intFromEnum(KeyCode.k)] = mapping(.k, 'k', 'K');
+        t[@intFromEnum(KeyCode.l)] = mapping(.l, 'l', 'L');
+        t[@intFromEnum(KeyCode.m)] = mapping(.m, 'm', 'M');
+        t[@intFromEnum(KeyCode.n)] = mapping(.n, 'n', 'N');
+        t[@intFromEnum(KeyCode.o)] = mapping(.o, 'o', 'O');
+        t[@intFromEnum(KeyCode.p)] = mapping(.p, 'p', 'P');
+        t[@intFromEnum(KeyCode.q)] = mapping(.q, 'q', 'Q');
+        t[@intFromEnum(KeyCode.r)] = mapping(.r, 'r', 'R');
+        t[@intFromEnum(KeyCode.s)] = mapping(.s, 's', 'S');
+        t[@intFromEnum(KeyCode.t)] = mapping(.t, 't', 'T');
+        t[@intFromEnum(KeyCode.u)] = mapping(.u, 'u', 'U');
+        t[@intFromEnum(KeyCode.v)] = mapping(.v, 'v', 'V');
+        t[@intFromEnum(KeyCode.w)] = mapping(.w, 'w', 'W');
+        t[@intFromEnum(KeyCode.x)] = mapping(.x, 'x', 'X');
+        t[@intFromEnum(KeyCode.y)] = mapping(.y, 'y', 'Y');
+        t[@intFromEnum(KeyCode.z)] = mapping(.z, 'z', 'Z');
 
-            .enter,
-            .escape,
-            .tab,
-            .backspace,
-            .left,
-            .right,
-            .up,
-            .down,
-            .home,
-            .end,
-            .page_up,
-            .page_down,
-            .insert,
-            .delete,
-            .f1,
-            .f2,
-            .f3,
-            .f4,
-            .f5,
-            .f6,
-            .f7,
-            .f8,
-            .f9,
-            .f10,
-            .f11,
-            .f12,
-            .shift_left,
-            .shift_right,
-            .ctrl_left,
-            .ctrl_right,
-            .alt_left,
-            .alt_right,
-            .super_left,
-            .super_right,
-            .caps_lock,
-            .num_lock,
-            .scroll_lock,
-            .print_screen,
-            .pause,
-            .menu,
-            => null,
-        };
-    }
+        t[@intFromEnum(KeyCode.digit_0)] = mapping(.digit_0, '0', ')');
+        t[@intFromEnum(KeyCode.digit_1)] = mapping(.digit_1, '1', '!');
+        t[@intFromEnum(KeyCode.digit_2)] = mapping(.digit_2, '2', '@');
+        t[@intFromEnum(KeyCode.digit_3)] = mapping(.digit_3, '3', '#');
+        t[@intFromEnum(KeyCode.digit_4)] = mapping(.digit_4, '4', '$');
+        t[@intFromEnum(KeyCode.digit_5)] = mapping(.digit_5, '5', '%');
+        t[@intFromEnum(KeyCode.digit_6)] = mapping(.digit_6, '6', '^');
+        t[@intFromEnum(KeyCode.digit_7)] = mapping(.digit_7, '7', '&');
+        t[@intFromEnum(KeyCode.digit_8)] = mapping(.digit_8, '8', '*');
+        t[@intFromEnum(KeyCode.digit_9)] = mapping(.digit_9, '9', '(');
 
-    /// Characters produced with Ctrl held. Reserved for future shell
-    /// shortcuts (e.g. Ctrl+C); today no printable character is produced.
-    fn ctrlChar(code: input.KeyCode) ?u8 {
-        _ = code;
+        t[@intFromEnum(KeyCode.space)] = mapping(.space, ' ', ' ');
+        t[@intFromEnum(KeyCode.grave)] = mapping(.grave, '`', '~');
+        t[@intFromEnum(KeyCode.minus)] = mapping(.minus, '-', '_');
+        t[@intFromEnum(KeyCode.equal)] = mapping(.equal, '=', '+');
+        t[@intFromEnum(KeyCode.left_bracket)] = mapping(.left_bracket, '[', '{');
+        t[@intFromEnum(KeyCode.right_bracket)] = mapping(.right_bracket, ']', '}');
+        t[@intFromEnum(KeyCode.backslash)] = mapping(.backslash, '\\', '|');
+        t[@intFromEnum(KeyCode.semicolon)] = mapping(.semicolon, ';', ':');
+        t[@intFromEnum(KeyCode.apostrophe)] = mapping(.apostrophe, '\'', '"');
+        t[@intFromEnum(KeyCode.comma)] = mapping(.comma, ',', '<');
+        t[@intFromEnum(KeyCode.dot)] = mapping(.dot, '.', '>');
+        t[@intFromEnum(KeyCode.slash)] = mapping(.slash, '/', '?');
+
+        t[@intFromEnum(KeyCode.numpad_0)] = mapping(.numpad_0, '0', '0');
+        t[@intFromEnum(KeyCode.numpad_1)] = mapping(.numpad_1, '1', '1');
+        t[@intFromEnum(KeyCode.numpad_2)] = mapping(.numpad_2, '2', '2');
+        t[@intFromEnum(KeyCode.numpad_3)] = mapping(.numpad_3, '3', '3');
+        t[@intFromEnum(KeyCode.numpad_4)] = mapping(.numpad_4, '4', '4');
+        t[@intFromEnum(KeyCode.numpad_5)] = mapping(.numpad_5, '5', '5');
+        t[@intFromEnum(KeyCode.numpad_6)] = mapping(.numpad_6, '6', '6');
+        t[@intFromEnum(KeyCode.numpad_7)] = mapping(.numpad_7, '7', '7');
+        t[@intFromEnum(KeyCode.numpad_8)] = mapping(.numpad_8, '8', '8');
+        t[@intFromEnum(KeyCode.numpad_9)] = mapping(.numpad_9, '9', '9');
+        t[@intFromEnum(KeyCode.numpad_add)] = mapping(.numpad_add, '+', '+');
+        t[@intFromEnum(KeyCode.numpad_subtract)] = mapping(.numpad_subtract, '-', '-');
+        t[@intFromEnum(KeyCode.numpad_multiply)] = mapping(.numpad_multiply, '*', '*');
+        t[@intFromEnum(KeyCode.numpad_divide)] = mapping(.numpad_divide, '/', '/');
+        t[@intFromEnum(KeyCode.numpad_decimal)] = mapping(.numpad_decimal, '.', '.');
+        t[@intFromEnum(KeyCode.numpad_enter)] = mapping(.numpad_enter, '\n', '\n');
+        break :blk t;
+    },
+};
+
+/// Czech QWERTZ (ADR-024). Letters follow the Czech physical layout (y/z
+/// swapped); digits and symbols are an ASCII fallback because the 8x16 bitmap
+/// font cannot render the Czech diacritics (ě š č ř ž ý á í é) — wider font is
+/// future work. AltGr carries the Czech alternate symbols.
+pub const cz_layout = Layout{
+    .name = "cz",
+    .table = blk: {
+        var t = us_layout.table;
+        // Czech QWERTZ: the Y key produces 'z', the Z key produces 'y'.
+        t[@intFromEnum(KeyCode.y)] = mapping(.y, 'z', 'Z');
+        t[@intFromEnum(KeyCode.z)] = mapping(.z, 'y', 'Y');
+        // Czech AltGr layer (ASCII subset).
+        t[@intFromEnum(KeyCode.q)] = altMapping(.q, 'q', 'Q', '\\');
+        t[@intFromEnum(KeyCode.w)] = altMapping(.w, 'w', 'W', '|');
+        t[@intFromEnum(KeyCode.x)] = altMapping(.x, 'x', 'X', '#');
+        t[@intFromEnum(KeyCode.c)] = altMapping(.c, 'c', 'C', '&');
+        t[@intFromEnum(KeyCode.v)] = altMapping(.v, 'v', 'V', '@');
+        t[@intFromEnum(KeyCode.z)] = altMapping(.z, 'y', 'Y', '%');
+        t[@intFromEnum(KeyCode.b)] = altMapping(.b, 'b', 'B', '{');
+        t[@intFromEnum(KeyCode.n)] = altMapping(.n, 'n', 'N', '}');
+        t[@intFromEnum(KeyCode.m)] = altMapping(.m, 'm', 'M', '$');
+        t[@intFromEnum(KeyCode.digit_1)] = altMapping(.digit_1, '1', '!', '~');
+        break :blk t;
+    },
+};
+
+pub const layouts = [_]Layout{ us_layout, cz_layout };
+
+/// Map a key code to a printable character under the active layout, or null
+/// when the key produces no character (control keys, modifiers, F-keys, ...).
+pub fn mapChar(code: KeyCode, mod: Modifiers) ?u8 {
+    if (mod.ctrl) return null;
+    const mapping_entry = layouts[active_index].table[@intFromEnum(code)];
+    if (mod.alt_gr) {
+        if (mapping_entry.altgr != 0) return mapping_entry.altgr;
+        if (mapping_entry.plain != 0) return mapping_entry.plain;
         return null;
     }
-
-    /// Czech AltGr (right Alt) layer: alternative characters on ASCII keys
-    /// that the bitmap font can render. Keys without an AltGr symbol return
-    /// their plain character.
-    fn altGrChar(code: input.KeyCode) ?u8 {
-        return switch (code) {
-            .q => '\\',
-            .w => '|',
-            .x => '#',
-            .c => '&',
-            .v => '@',
-            .z => '%',
-            .b => '{',
-            .n => '}',
-            .m => '$',
-            .digit_1 => '~',
-            else => mapPlain(code),
-        };
+    if (mod.shift) {
+        if (mapping_entry.shift != 0) return mapping_entry.shift;
+        return null;
     }
+    if (mapping_entry.plain != 0) return mapping_entry.plain;
+    return null;
+}
 
-    /// The plain (unshifted) character for a key, used by the AltGr layer
-    /// when a key has no AltGr symbol of its own.
-    fn mapPlain(code: input.KeyCode) ?u8 {
-        return switch (code) {
-            .a => 'a',
-            .b => 'b',
-            .c => 'c',
-            .d => 'd',
-            .e => 'e',
-            .f => 'f',
-            .g => 'g',
-            .h => 'h',
-            .i => 'i',
-            .j => 'j',
-            .k => 'k',
-            .l => 'l',
-            .m => 'm',
-            .n => 'n',
-            .o => 'o',
-            .p => 'p',
-            .q => 'q',
-            .r => 'r',
-            .s => 's',
-            .t => 't',
-            .u => 'u',
-            .v => 'v',
-            .w => 'w',
-            .x => 'x',
-            .y => 'y',
-            .z => 'z',
-            .digit_0 => '0',
-            .digit_1 => '1',
-            .digit_2 => '2',
-            .digit_3 => '3',
-            .digit_4 => '4',
-            .digit_5 => '5',
-            .digit_6 => '6',
-            .digit_7 => '7',
-            .digit_8 => '8',
-            .digit_9 => '9',
-            .space => ' ',
-            .minus => '-',
-            .equal => '=',
-            .left_bracket => '[',
-            .right_bracket => ']',
-            .backslash => '\\',
-            .semicolon => ';',
-            .apostrophe => '\'',
-            .comma => ',',
-            .dot => '.',
-            .slash => '/',
-            .grave => '`',
-            else => null,
-        };
+pub fn layoutName() []const u8 {
+    return layouts[active_index].name;
+}
+
+/// Switch the active layout by name; returns false when unknown.
+pub fn setLayout(name: []const u8) bool {
+    for (layouts, 0..) |layout, i| {
+        if (std.mem.eql(u8, layout.name, name)) {
+            active_index = i;
+            return true;
+        }
     }
-};
+    return false;
+}

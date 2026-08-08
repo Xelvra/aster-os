@@ -2,7 +2,7 @@
 
 [![status](https://img.shields.io/badge/status-alpha-orange.svg)](spec/roadmap.md)
 [![version](https://img.shields.io/badge/version-0.7.0--alpha.1-orange.svg)](.version)
-[![milestone](https://img.shields.io/badge/milestone-M6%20Storage-informational.svg)](spec/roadmap.md)
+[![milestone](https://img.shields.io/badge/milestone-M7%20Runtime-informational.svg)](spec/roadmap.md)
 [![Zig](https://img.shields.io/badge/Zig-0.16.0-f7a41d.svg)](.zig-version)
 [![architecture](https://img.shields.io/badge/arch-x86__64-blue.svg)](spec/architecture.md)
 [![bootloader](https://img.shields.io/badge/bootloader-Limine-808080.svg)](libs/limine)
@@ -27,10 +27,12 @@ This project requires the Zig version listed in [`.zig-version`](.zig-version).
 
 ## Status
 
-- **M6 (Storage) — in progress:** persistence foundation — virtio-blk block device
-  (sector reads, `[ OK ] storage virtio-blk` when a disk is attached) and initfs loading
-  the shell from a Limine initrd (tar). Next: GPT partition discovery and a read-only
-  ext2 backend (ADR-023).
+- **M7 (Runtime) — in progress:** wasm apps, multitasking, app isolation. Phase 2
+  first: multi-layout keyboard (KL registry, US/CZ switchable at runtime).
+- **M6 (Storage) — complete:** virtio-blk sector reads, GPT partition discovery, a
+  read-only ext2 backend with the thin file API (`open`/`read`/`close`), and a
+  deterministic test disk with CI/runtime tests. With a disk attached the boot log
+  gains `[ OK ] storage virtio-blk` → `[ OK ] gpt N partition(s)` → `[ OK ] fs ext2`.
 - **M0–M5 complete:** boot → memory → CPU → graphics → Lua runtime → desktop shell in
   Lua (tiling WM, launcher, mouse, error containment).
 - **Bootable-commit rule:** every commit must leave the system runnable in QEMU
@@ -185,8 +187,9 @@ If the system crashes or hangs: [`spec/debugging.md`](spec/debugging.md)
 | M3 ✅ | Graphics: framebuffer, renderer, text on screen |
 | M4 ✅ | Lua: interactive REPL in kernel, hot reload |
 | M5 ✅ | UI: desktop shell in Lua — tiling WM, bar, launcher, workspace, mouse, error containment, live transformation |
-| M6 🔄 | Storage: initfs, virtio-blk, GPT, filesystem, cooperative reads |
-| M7 ⏳ | Runtime: wasm apps, multitasking, app isolation |
+
+| M6 ✅ | Storage: initfs, virtio-blk, GPT, filesystem, cooperative reads |
+| M7 🔄 | Runtime: wasm apps, multitasking, app isolation |
 | M8 ⏳ | Stabilization: invariant audit, metrics, Ring 3 decision |
 | M9 ⏳ | Ecosystem: network, audio, browser, WASI |
 | M10 ⏳ | Adoption: real hardware, installable image, docs, contributors |

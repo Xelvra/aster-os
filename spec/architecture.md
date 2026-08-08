@@ -136,6 +136,7 @@ aby pozdější konsultace návrhu měla k dispozici *proč*, ne jen *co*.
 | [021](adr/021-extended-rendering-primitives.md) | Rozšířená renderovací primitiva pro UI (roundRect, border, gradient) | Accepted |
 | [022](adr/022-network.md) | Síť jako KI modul `net.*` — minimální stack (virtio-net, ARP/IPv4/ICMP/UDP), M9 | Accepted |
 | [023](adr/023-filesystem-ext2-non-posix.md) | Persistence: ext2 backend (read-only), non-POSIX sémantika, tenké rozhraní | Accepted |
+| [024](adr/024-keyboard-layout-registry.md) | Multi-layout klávesnice: KL registry + přepínání za běhu (`input.set_layout`) | Accepted |
 
 **Pravidla ADR:** rozhodnutí se nemění dodatečně — změna názoru = nový ADR odkazující na
 starý. Čísla se nepřehazují a nemazají.

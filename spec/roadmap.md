@@ -355,12 +355,14 @@ GPT disk image → GPT → ext2 partition → Aster FS backend → open/read/clo
 Rozhodnutí a přesuny mezi M6.1 a M7 (zapsáno 2026-08-08). Cíl: design a přesuny, které
 se musí vyřešit **před** spuštěním dalších features, ne až na konci stabilizace (M8).
 
-- [ ] **Multi-layout klávesnice (design teď):** `input/layout.zig` přestane být hardcode
+- [x] **Multi-layout klávesnice (design teď):** `input/layout.zig` přestane být hardcode
       US 105+; zavedou se **KL registry** — layout jako registrovaná mapovací tabulka
       (`KeyCode` × modifikátory → `char`/akce), přepínatelná za běhu. Design se dělá
       teď, než přibude cokoliv dalšího (Wasm aplikace, další runtimes). Rozšíření KI
       (`input.set_layout`) = nový ADR.
-      *Exit: přepnutí layoutu za běhu (US ↔ CZ) na stejném řetězci scancodes, bez restartu.*
+      *Exit: přepnutí layoutu za běhu (US ↔ CZ) na stejném řetězci scancodes, bez restartu.* —
+      **hotovo:** ADR-024, `layout.zig` = KL registry (US default + CZ QWERTZ, ASCII
+      fallback), KI `input.set_layout` / `layout_name` (InputOp 8/9), host testy přepnutí.
 - [ ] **Sdílené buffery + present přesunuté z M7 dopředu (render quality):** tearing/flicker
       se řeší **před stabilizací (M8)**, ne na jejím konci. Render do vlastní offscreen
       surface + `present` do framebufferu (původní M7 položka, přesun viz M7 níže).

@@ -322,8 +322,12 @@ fn buildEventTable(L: ?*lua_c.lua_State, event: api_input.Event) void {
             lua_c.lua_pushboolean(L, if (alt_gr_pressed) 1 else 0);
             lua_c.lua_setfield(L, -2, "alt_gr");
             const eff_shift = effectiveShift();
-            const l = api_input.Layout{ .shift = eff_shift, .ctrl = ctrl_pressed, .alt = alt_pressed, .alt_gr = alt_gr_pressed };
-            const mapped = l.mapChar(key.code);
+            const mapped = api_input.mapChar(key.code, .{
+                .shift = eff_shift,
+                .ctrl = ctrl_pressed,
+                .alt = alt_pressed,
+                .alt_gr = alt_gr_pressed,
+            });
             if (mapped) |ch| {
                 var ch_buf: [1]u8 = .{ch};
                 const ch_ptr: [*c]const u8 = @ptrCast(&ch_buf);
