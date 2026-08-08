@@ -1,7 +1,8 @@
 # Aster OS
 
 [![status](https://img.shields.io/badge/status-pre--alpha-red.svg)](spec/roadmap.md)
-[![milestone](https://img.shields.io/badge/milestone-M4%20Lua-informational.svg)](spec/roadmap.md)
+[![version](https://img.shields.io/badge/version-0.1.0--alpha.1-orange.svg)](.version)
+[![milestone](https://img.shields.io/badge/milestone-M5%20UI-informational.svg)](spec/roadmap.md)
 [![Zig](https://img.shields.io/badge/Zig-0.16.0-f7a41d.svg)](.zig-version)
 [![architecture](https://img.shields.io/badge/arch-x86__64-blue.svg)](spec/architecture-overview.md)
 [![bootloader](https://img.shields.io/badge/bootloader-Limine-808080.svg)](libs/limine)
@@ -34,6 +35,14 @@ This project requires the Zig version listed in [`.zig-version`](.zig-version).
   an interactive **Lua REPL** starts (banner + `> ` prompt, type code, Enter runs it,
   `print()` writes to the screen); GC step budget per frame; runtime tests for Lua
   bindings in QEMU. Kernel image 343 KiB (< 512 KB target).
+- **Milestone M5 (UI) in progress:** desktop shell in Lua split into `ui/` modules
+  (theme, wm, repl, launcher, input, main) concatenated into one chunk by `lua.zig`.
+  Tiling window manager (60/40 split, focus ring via gradient border, float + drag,
+  fullscreen, togglesplit), Noctalia-style 35px bar (launcher, clock, workspace
+  capsules, volume/session), working launcher with search, PS/2 mouse with kernel
+  cursor overlay, Super key + Hyprland-standard keybindings, error containment
+  (a script error hot-reloads the shell instead of crashing the kernel), sysmon
+  KI module exposing live RAM usage.
 - **Milestone M3 (Graphics) complete:** Limine GOP framebuffer wrapped in `Framebuffer`;
   renderer (`drawRect`, `blit`, `fillScreen`, `drawGlyph`, `drawText`) with clipping;
   embedded VGA 8×16 bitmap font; Graphics API module (`api/graphics.zig`) in KI dispatch;
@@ -155,7 +164,8 @@ If the system crashes or hangs: [`spec/debugging.md`](spec/debugging.md)
 | M2 ✅ | CPU: IDT, APIC timer, IOAPIC, PS/2 keyboard |
 | M3 ✅ | Graphics: framebuffer, renderer, text on screen |
 | M4 ✅ | Lua: interactive REPL in kernel, hot reload |
-| M5–M8 | UI (shell in Lua), storage, runtime (wasm), stabilization |
+| M5 🔄 | UI: desktop shell in Lua — tiling WM, bar, launcher, workspace, mouse, error containment |
+| M6–M8 | Storage, runtime (wasm), stabilization |
 
 Details in [`spec/roadmap.md`](spec/roadmap.md).
 
