@@ -72,9 +72,20 @@ fn openLibraries(L: *lua_c.lua_State) void {
     bindings.register(L);
 }
 
+/// The shell is split into small modules that are concatenated into one
+/// chunk in dependency order (theme first, entry point last). Keeping it one
+/// chunk means `local` state is shared across the whole shell, and there is
+/// no `require`/filesystem dependency in the kernel.
+const theme_src = @embedFile("ui/theme.lua");
+const wm_src = @embedFile("ui/wm.lua");
+const repl_src = @embedFile("ui/repl.lua");
+const launcher_src = @embedFile("ui/launcher.lua");
+const input_src = @embedFile("ui/input.lua");
+const entry_src = @embedFile("ui/main.lua");
+const shell_src = theme_src ++ wm_src ++ repl_src ++ launcher_src ++ input_src ++ entry_src;
+
 pub fn runMain(entry: []const u8) !void {
     const L = lua_state orelse return error.NotReady;
-    const chunk = @embedFile("main.lua");
     var name_buf: [64]u8 = undefined;
     const name = if (entry.len < name_buf.len) blk: {
         @memcpy(name_buf[0..entry.len], entry);
@@ -83,8 +94,8 @@ pub fn runMain(entry: []const u8) !void {
     } else "main.lua";
     const status = lua_c.luaL_loadbufferx(
         L,
-        @ptrCast(@constCast(chunk.ptr)),
-        chunk.len,
+        @ptrCast(@constCast(shell_src.ptr)),
+        shell_src.len,
         name.ptr,
         null,
     );
