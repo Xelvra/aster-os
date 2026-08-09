@@ -94,6 +94,12 @@ only inside `spec/*.md`, the author's internal documentation. Writing an issue
 or a PR in English is appreciated; the project is small and the maintainer can
 help with phrasing.
 
+> **Language stats:** the GitHub language bar reflects only the author's
+> application code (Zig + Lua + kernel C/ASM). Build/test scripts
+> (`tools/`, `hooks/`), vendored dependencies (`libs/`) and documentation are
+> excluded via `.gitattributes` — please don't add code there that would
+> belong to those categories.
+
 ## Getting help
 
 - Stuck on a crash or hang? [`spec/debugging.md`](spec/debugging.md) and

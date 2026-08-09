@@ -83,10 +83,6 @@ pub fn build(b: *std.Build) void {
         .files = &lua_sources,
         .flags = &.{ "-std=c99", "-ffreestanding", "-Os" },
     });
-    kernel.root_module.addCSourceFile(.{
-        .file = b.path("src/kernel/lua/vsnprintf.c"),
-        .flags = &.{ "-std=c99", "-ffreestanding", "-Os" },
-    });
     b.installArtifact(kernel);
 
     // initfs: the shell modules and assets are packed into a tar archive that
