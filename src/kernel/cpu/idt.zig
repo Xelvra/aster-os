@@ -55,6 +55,10 @@ fn load() void {
 }
 
 fn handleIsrImpl(frame: *InterruptFrame) callconv(.c) void {
+    // Guards the ISR stubs: the vector is pushed with `push imm8` and masked
+    // to 8 bits in isr_common, so a value > 0xFF means the stub changed
+    // (regression guard for C35 — cheap, fires on any vector, not timing).
+    std.debug.assert(frame.vector <= 0xFF);
     const vector = frame.vector;
     switch (vector) {
         0x20 => {
