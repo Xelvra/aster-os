@@ -166,6 +166,9 @@ Pravidlo: **každý commit musí zanechat systém spustitelný v QEMU.**
 - Před každým commitem se spustí `./tools/qemu-smoke.sh` — minimálně na hlavní sestavě.
 - Rozbitý boot se opravuje okamžitě, nikdy "za pár commitů".
 - Výjimky (dokumentace, čistě host code mimo boot cestu) se označí explicitně.
+- **Nikdy `git reset --hard` (ani destruktivní `--force`/`checkout`) bez výslovného
+  svolení vývojáře.** Vrací se vždy jen jeden soubor přes `git checkout -- <soubor>`;
+  destruktivní příkaz smaže nepokomentované změny i commity.
 
 > **Git hooks:** `./tools/install-hooks.sh` nainstaluje pre-push hook, který před pushem
 > spustí `./tools/capture-boot.sh --check` — boot log v dokumentaci

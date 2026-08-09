@@ -2,63 +2,115 @@
 layout: home
 title: Home
 nav_order: 1
-source: README.md, spec/roadmap.md
+source: README.md
 synced: 2026-08-09
 ---
 
 # Aster OS
 
 > **Aster is an experimental desktop operating system written in Zig.**
+>
+> Aster currently targets **x86_64** (QEMU `q35`) — the only implemented architecture for
+> now. A future port (e.g. ARM, RISC-V) is not excluded by design, but it is not a goal
+> today and would need its own scope change (see [`spec/non-goals.md`](spec/non-goals.md)).
+> The first implementation deliberately favors **simplicity over isolation**: the desktop,
+> scripting engine, and runtime share a single address space to minimize complexity and
+> maximize iteration speed. The public interfaces are designed as **stable abstractions**,
+> so individual subsystems can later be moved into isolated processes **without changing
+> application APIs**.
 
-Aster currently targets **x86_64** (QEMU `q35`) — the only implemented
-architecture for now. The first implementation deliberately favors
-**simplicity over isolation**: the desktop, scripting engine, and runtime share
-a single address space to minimize complexity and maximize iteration speed. The
-public interfaces are designed as **stable abstractions**, so individual
-subsystems can later be moved into isolated processes **without changing
-application APIs**.
+> Full manifesto (including what Aster is NOT and accepted trade-offs):
+> [`spec/manifest.md`](spec/manifest.md).
 
-This is an alpha prototype — the goal is a working, measurable system, not
-yet a usable OS. Milestones **M0–M6 are complete** (boot, memory, CPU,
-graphics, Lua, UI, disk storage); milestone **M7 (Runtime)** is in progress.
+## Status
 
-## What it does today
+- **M7 (Runtime) — in progress:** wasm apps, multitasking, app isolation.
+  Multi-layout keyboard is done (ADR-024, US/CZ switchable at runtime).
+- **M0–M6 complete:** boot → memory → CPU → graphics → Lua runtime → desktop shell in
+  Lua → disk storage (virtio-blk, GPT, read-only ext2).
+- **Bootable-commit rule:** every commit must leave the system runnable in QEMU
+  ([`spec/verification.md`](spec/verification.md)).
+- **Feature history:** per-milestone details (Added/Fixed) in
+  [`CHANGELOG.md`](CHANGELOG.md); metrics in [`spec/roadmap.md`](spec/roadmap.md).
+- This is an alpha prototype, not a usable OS yet.
 
-Boots deterministically in QEMU (via Limine) and brings up, in order:
+### Milestone metrics
+
+| M | Milestone | Kernel | First Frame |
+|---|-----------|-------:|------------:|
+| M0 | Boot      | 12 KB  | ≈ 0.3 s |
+| M1 | Memory    | 17 KB  | ≈ 0.4 s |
+| M2 | CPU       | 29 KB  | ≈ 0.5 s |
+| M3 | Graphics  | 34 KB  | ≈ 0.6 s |
+| M4 | Lua       | 336 KiB | ≈ 60 ms |
+| M5 | UI        | 371 KiB | ≈ 24 ms |
+| M6 | Storage   | 362 KiB | ≈ 26 ms |
+
+Boot times from `tools/bench.sh` — M0–M3 wall-clock incl. the bootloader,
+M4+ kernel-only on KVM.
+
+## Quick start
+
+```bash
+zig build run          # boot in QEMU (auto KVM when /dev/kvm is available)
+zig build run -Dkvm=false  # force TCG emulation
+zig build test         # host unit tests
+```
+
+Verification tools (see [`spec/verification.md`](spec/verification.md)):
+
+```bash
+./tools/qemu-smoke.sh  # automated boot test (serial marker + timeout; auto KVM)
+./tools/qemu-test.sh   # in-QEMU runtime tests (isa-debug-exit; auto KVM)
+./tools/verify-reproducible.sh  # deterministic build check (ADR-014)
+```
+
+Build modes (default is `ReleaseSafe`, the verified production mode):
+`zig build -Doptimize=ReleaseFast` trades safety checks for ~20 % smaller
+image and faster execution; `-Doptimize=Debug` for debugging. The Lua C
+sources are always compiled with `-Os` regardless of the mode.
+
+## Prerequisites
+
+- **Zig** — exact version in [`.zig-version`](.zig-version) (0.16.0), not a distro package.
+- **QEMU** (`qemu-system-x86_64`) — target emulation.
+- **Build tools:** xorriso / mtools; Limine and Lua 5.4.8 are vendored in `libs/`.
+
+Full tool table and dependency status: [`spec/verification.md`](spec/verification.md) §6.
+
+## Architecture at a glance
 
 ```
-/-\STER OS  0.7.0-alpha.1
-[ OK ] bootloader       limine handoff
-[ OK ] interrupts       idt · pic
-[ OK ] cpu              page tables · apic timer
-[ OK ] input            ps/2 keyboard + mouse
-[ OK ] storage          virtio-blk
-[ OK ] gpt              1 partition(s)
-[ OK ] fs               ext2
-  lost+found
-  README
-  apps
-  theme.lua           bg=0x0f1117
-[ OK ] graphics         800x600 framebuffer · wc
-[ OK ] renderer         primitives + bitmap font
-[ OK ] runtime          lua 5.4.8 shell
-[ OK ] memory           509 MiB usable · 2 MiB used
-[ OK ] kernel interface dispatch ready
-[ OK ] accelerator      kvm
-[ OK ] boot sequence    complete
-
-ASTER BOOT OK
-ASTER FIRST FRAME
+BIOS/UEFI → Limine → Zig kernel (Ring 0) → KI (api/*) → Lua shell / Wasm apps
 ```
 
-- A Lua 5.4.8 shell with an interactive REPL and hot reload (F5).
-- A desktop shell in Lua — tiling window manager, taskbar, launcher,
-  workspaces, mouse cursor, live theme changes, switchable keyboard layouts.
-- PS/2 keyboard + mouse, an 800x600 framebuffer with a software renderer.
-- A page frame allocator, a first-fit heap allocator, IDT/APIC timer/IOAPIC.
-- **M6 (Storage) complete:** virtio-blk sector reads, GPT partitions, a
-  read-only ext2 with the thin file API.
-- **M7 (Runtime) in progress:** wasm apps, multitasking, app isolation.
+The kernel, KI, runtimes, and the full diagram live on this
+[website](architecture.html) and in [`spec/architecture.md`](spec/architecture.md) §3.
+
+## Boot proof of work
+
+Booting is the work, the log is the proof. The always-current boot log (with
+date, host, accelerator and commit metadata) lives in
+[`boot-log.md`](boot-log.md), regenerated by `tools/capture-boot.sh`; a
+pre-push hook and CI verify it never drifts from the code
+(`./tools/capture-boot.sh --check`).
+
+## Documentation
+
+- **Public website:** this English documentation site — a translation layer over the
+  internal spec (see the two-layer strategy in [`spec/README.md`](spec/README.md)).
+- **Internal specification:** the complete architecture spec lives in
+  [`spec/`](spec/README.md). Start with the [architecture overview](spec/architecture.md).
+
+The internal specs are written in Czech by design — this is the author's working
+documentation, not marketing; see the language policy in
+[`spec/README.md`](spec/README.md). The English website pages are **machine
+translations** of the Czech sources, reviewed by the author when synced — for any
+nuance, the Czech spec is canonical.
+
+If the system crashes or hangs: [`spec/debugging.md`](spec/debugging.md)
+(Debugging Survival Guide) and [`spec/troubleshooting.md`](spec/troubleshooting.md)
+(known pitfalls).
 
 ## Explore
 
@@ -68,6 +120,28 @@ ASTER FIRST FRAME
 - [Development](development.html) — build, test, and verification.
 - [Source code](https://github.com/Xelvra/aster-os) on GitHub.
 
+## Roadmap
+
+| Milestone | Goal |
+|-----------|------|
+| M0 ✅ | Boot: deterministic build, boots in QEMU, serial marker |
+| M1 ✅ | Memory: PFA + heap allocator |
+| M2 ✅ | CPU: IDT, APIC timer, IOAPIC, PS/2 keyboard |
+| M3 ✅ | Graphics: framebuffer, renderer, text on screen |
+| M4 ✅ | Lua: interactive REPL in kernel, hot reload |
+| M5 ✅ | UI: desktop shell in Lua — tiling WM, bar, launcher, workspace, mouse, error containment, live transformation |
+| M6 ✅ | Storage: initfs, virtio-blk, GPT, filesystem, cooperative reads |
+| M7 🔄 | Runtime: wasm apps, multitasking, app isolation |
+| M8 ⏳ | Stabilization: invariant audit, metrics, Ring 3 decision |
+| M9 ⏳ | Ecosystem: network, audio, browser, WASI |
+| M10 ⏳ | Adoption: real hardware, installable image, docs, contributors |
+
+Details in [`spec/roadmap.md`](spec/roadmap.md).
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
 ---
 
-Last synced from [`README.md`](https://github.com/Xelvra/aster-os/blob/main/README.md) and [`spec/roadmap.md`](https://github.com/Xelvra/aster-os/blob/main/spec/roadmap.md) on 2026-08-09.
+Last synced from [`README.md`](https://github.com/Xelvra/aster-os/blob/main/README.md) on **2026-08-09**.

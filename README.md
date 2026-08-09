@@ -109,7 +109,9 @@ pre-push hook and CI verify it never drifts from the code
 
 The internal specs are written in Czech by design — this is the author's working
 documentation, not marketing; see the language policy in
-[`spec/README.md`](spec/README.md).
+[`spec/README.md`](spec/README.md). The English website pages are **machine
+translations** of the Czech sources, reviewed by the author when synced — for any
+nuance, the Czech spec is canonical.
 
 If the system crashes or hangs: [`spec/debugging.md`](spec/debugging.md)
 (Debugging Survival Guide) and [`spec/troubleshooting.md`](spec/troubleshooting.md)

@@ -12,6 +12,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history: sync-docs.sh needs git log per file
 
       - name: Install Zig 0.16.0 (pinned by .zig-version)
         run: |

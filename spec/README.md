@@ -75,39 +75,51 @@ To se týká **dokumentace**. **Kód, komentáře a commit messages zůstávají
 
 ## Strategie dvou vrstev (web)
 
-Veřejný web (`docs/`, GitHub Pages) je **kurátorská vrstva** nad interní specifikací.
+Veřejný web (`docs/`, GitHub Pages) je **překladová vrstva** nad interní specifikací.
 Princip: **čeština = mozek, angličtina = tvář.** Jeden směr toku, žádná duplicita.
 
 - `spec/` (česky) = **kanonický zdroj pravdy** — upravuje se volně, vždy aktuální.
-- `docs/` (anglicky) = **kurátorská veřejná vrstva** — publikuje se z `main` přes
+- `docs/` (anglicky) = **překlad veřejné vrstvy** — publikuje se z `main` přes
   GitHub Pages (native Jekyll, theme just-the-docs; konfigurace `docs/_config.yml`).
+  Každá anglická stránka je **věrný překlad** svého českého zdroje (stejné sekce, stejná
+  fakta, stejná struktura) — ne zkratka.
+- **Překlady jsou strojové** — anglické stránky vznikají strojovým překladem českých
+  zdrojů a procházejí lidskou kontrolou autora při synchronizaci (`synced:`). Nejedná se
+  o ručně psaný marketingový text; případné nuance originálu je nutné ověřit v českém
+  zdroji (který je vždy kanonický).
 - **Jednosměrný tok:** spec → docs. Nikdy zpětně (anglická stránka se nepromítá
   do českého spec).
 - Nové věci se píší česky do `spec/`, anglicky na web ve volných chvílích.
 - `CHANGELOG.md` a `README.md` zůstávají anglicky (veřejné rozhraní projektu).
 
-### Metadata a pravidlo 14 dnů
+### Pravidlo synchronizace (gitové, ne datové)
 
-Každá anglická stránka v `docs/*.md` nese v **YAML front matter**:
+Každá anglická stránka v `docs/*.md` nese v **YAML front matter** `source:`:
 
 ```yaml
 ---
 layout: default
 title: Status
 nav_order: 2
-source: spec/roadmap.md, CHANGELOG.md
-synced: 2026-08-09
+source: README.md, CHANGELOG.md
 ---
 ```
 
 - `source:` — relativní cesta ke zdroji (zdrojům, čárkami) v repu, ze kterého se
-  stránka synchronizuje. U `index.md` je to `README.md` (+ případně `spec/roadmap.md`).
+  stránka překládá. U `index.md` je to `README.md`; u `milestones.md` `spec/roadmap.md`;
+  u `development.md` `spec/verification.md, spec/code-style.md`.
 - `synced:` — datum poslední synchronizace. Stránka na konci ukazuje viditelnou
-  patičku „Last synced from … on …".
+  patičku „Last synced from … on …", aby čtenář webu vždy viděl, od kdy stránka
+  odráží zdroj.
+- **Kontrola je založená na git historii, ne na datovém tagu.** Stránka je v sync, když
+  je její anglický překlad commitnut **v době posledního commitu českého zdroje nebo
+  později**. Ruční změna `synced:` data v souboru nemá váhu pro hlavní (gitový) check —
+  ten čte jen `git log`, takže check nejde ošidit. `synced:` datum je sekundární
+  konzistence pro čtenáře (patička).
 - **Pravidlo 14 dnů:** po změně `spec/<soubor>.md` se anglický ekvivalent v `docs/`
-  zsynchronizuje (obsah + `synced:`) **do 14 dnů**. Vynucuje `tools/sync-docs.sh --check`
-  v CI a v pre-push hooku — stránka, jejíž zdroj se změnil před více než 14 dny bez
-  aktualizace `synced:`, neprojde. Drift kratší než 14 dnů je design (tvář se
-  synchronizuje s časovým odstupem), déle je chyba.
-- **Nesynchronizovaný stav stránky se nehlásí jako „current"** — `synced:` datum je
-  pravdivé tvrzení o tom, kdy byla stránka naposledy zarovnána se zdrojem.
+  zsynchronizuje a commitne **do 14 dnů**. Do té doby skript **varuje**; po 14 dnech
+  **failuje** a blokuje push (pre-push hook) a CI. Stránka, jejíž zdroj se změnil bez
+  odpovídajícího commitu překladu, neprojde.
+- **Patička nelže:** `tools/sync-docs.sh --check` kontroluje i to, že `synced:` datum
+  není starší než poslední změna zdroje (stejné 14denní okno) — pokud vývojář zapomene
+  syncnout, čtenář vidí zastaralé datum a CI po 14 dnech push zablokuje.

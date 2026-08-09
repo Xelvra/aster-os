@@ -2,44 +2,42 @@
 layout: default
 title: Status
 nav_order: 2
-source: spec/roadmap.md, CHANGELOG.md
+source: README.md, CHANGELOG.md
 synced: 2026-08-09
 ---
 
 # Status
 
-Aster is at milestone **M7 (Runtime), in progress**. Milestones M0–M6 are
-complete. Current focus: wasm apps, multitasking and app isolation — wasm3
-vendored, `Runtime.spawn(.Wasm, ...)`, a preemptive round-robin scheduler
-(ADR-017) and per-program `lua_State`s. Multi-layout keyboard is already done
-(ADR-024, US/CZ switchable at runtime).
+- **M7 (Runtime) — in progress:** wasm apps, multitasking, app isolation.
+  Multi-layout keyboard is done (ADR-024, US/CZ switchable at runtime).
+- **M0–M6 complete:** boot → memory → CPU → graphics → Lua runtime → desktop shell in
+  Lua → disk storage (virtio-blk, GPT, read-only ext2).
+- **Bootable-commit rule:** every commit must leave the system runnable in QEMU
+  ([`spec/verification.md`](spec/verification.md)).
+- **Feature history:** per-milestone details (Added/Fixed) in
+  [`CHANGELOG.md`](CHANGELOG.md); metrics in [`spec/roadmap.md`](spec/roadmap.md).
+- This is an alpha prototype, not a usable OS yet.
 
-## Milestones completed
+## Milestone metrics
 
-| M | Milestone | What it delivered |
-|---|---|---|
-| M0 | Boot | Deterministic, reproducible build; boots in QEMU via Limine; serial marker `ASTER BOOT OK`. |
-| M1 | Memory | Limine memory map parsed into `BootInfo`; bitmap page frame allocator; first-fit heap allocator implementing `std.mem.Allocator`; host unit tests; framebuffer verified as write-combining. |
-| M2 | CPU | GDT/IDT (256 ISR stubs) with fault policy and freestanding backtrace; Local APIC timer (1 kHz) + IOAPIC routing for IRQ1; PS/2 keyboard with hardware-neutral `KeyCode`/`KeyEvent` input subsystem; Kernel Interface dispatch layer; in-QEMU runtime tests. |
-| M3 | Graphics | Limine GOP framebuffer; renderer (`drawRect`, `blit`, `fillScreen`, `drawGlyph`, `drawText`) with clipping; embedded VGA 8×16 bitmap font; Graphics API module; event loop `poll → update → render`. |
-| M4 | Lua | Lua 5.4.8 runtime embedded in the kernel (freestanding libc shim + custom openlibs); `RuntimeKind.Lua` with hot reload (F5); bindings `gfx.*`, `input.next_event`, `time.ticks` with strict type validation; interactive Lua REPL. |
-| M5 | UI | Desktop shell in Lua split into `ui/` modules; tiling window manager; Noctalia-style bar; launcher with search; PS/2 mouse with kernel cursor overlay; Super key + keybindings; error containment (a script error hot-reloads the shell instead of crashing the kernel); sysmon module exposing live RAM usage. |
-| M6 | Storage | initfs from a Limine initrd (tar), virtio-blk block device (sector reads, modern transport), GPT partition discovery, read-only ext2 with the thin Aster file API, deterministic test-disk infrastructure and a CI job with a disk. |
-| M7 | Runtime | In progress: wasm apps, multitasking, app isolation. |
+| M | Milestone | Kernel | First Frame |
+|---|-----------|-------:|------------:|
+| M0 | Boot      | 12 KB  | ≈ 0.3 s |
+| M1 | Memory    | 17 KB  | ≈ 0.4 s |
+| M2 | CPU       | 29 KB  | ≈ 0.5 s |
+| M3 | Graphics  | 34 KB  | ≈ 0.6 s |
+| M4 | Lua       | 336 KiB | ≈ 60 ms |
+| M5 | UI        | 371 KiB | ≈ 24 ms |
+| M6 | Storage   | 362 KiB | ≈ 26 ms |
 
-## Verified properties
+Boot times from `tools/bench.sh` — M0–M3 wall-clock incl. the bootloader,
+M4+ kernel-only on KVM.
 
-- **Bootable-commit rule:** every commit must leave the system runnable in
-  QEMU (ADR-016).
-- **Deterministic build:** same commit + same Zig version = same binary hash
-  (ADR-014).
-- **Metrics recorded per milestone:** kernel image size, RAM usage, and
-  Kernel Entry → First Frame timing in [`spec/roadmap.md`](https://github.com/Xelvra/aster-os/blob/main/spec/roadmap.md).
-
-The complete feature history is in the
+The complete per-milestone feature history is in
 [`CHANGELOG.md`](https://github.com/Xelvra/aster-os/blob/main/CHANGELOG.md)
-(one version per milestone, e.g. `0.6.0` = M6 Storage).
+(one version per milestone, e.g. `0.6.0` = M6 Storage). Full detail for each
+milestone: [`spec/roadmap.md`](https://github.com/Xelvra/aster-os/blob/main/spec/roadmap.md).
 
 ---
 
-Last synced from [`spec/roadmap.md`](https://github.com/Xelvra/aster-os/blob/main/spec/roadmap.md) and [`CHANGELOG.md`](https://github.com/Xelvra/aster-os/blob/main/CHANGELOG.md) on 2026-08-09.
+Last synced from [`README.md`](https://github.com/Xelvra/aster-os/blob/main/README.md) and [`CHANGELOG.md`](https://github.com/Xelvra/aster-os/blob/main/CHANGELOG.md) on **2026-08-09**.
