@@ -117,15 +117,7 @@ Co přesně považujeme za vyřešení (definice „hotovo" pro tento problém).
 
 ---
 
-## 5. Kde najít handoffy
-
-Handoffy se zapisují v `spec/handoffs/` — **jeden soubor na jeden problém**, pojmenovaný
-`<id>-<kratky-nazev>.md` (viz šablona v §3). Aktuální stav každého handoffu je v hlavičce
-jeho souboru (`Status: open / in_progress / closed`).
-
----
-
-## 6. Jak handoff nepoužívat
+## 5. Jak handoff nepoužívat
 
 - **Ne pro běžné ladění** — to je `debugging.md`.
 - **Ne pro vyřešené lekce** — to je `troubleshooting.md`.
