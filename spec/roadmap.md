@@ -370,10 +370,14 @@ se musí vyřešit **před** spuštěním dalších features, ne až na konci st
       *Exit: přepnutí layoutu za běhu (US ↔ CZ) na stejném řetězci scancodes, bez restartu.* —
       **hotovo:** ADR-024, `layout.zig` = KL registry (US default + CZ QWERTZ, ASCII
       fallback), KI `input.set_layout` / `layout_name` (InputOp 8/9), host testy přepnutí.
-- [ ] **Sdílené buffery + present přesunuté z M7 dopředu (render quality):** tearing/flicker
+- [x] **Sdílené buffery + present přesunuté z M7 dopředu (render quality):** tearing/flicker
       se řeší **před stabilizací (M8)**, ne na jejím konci. Render do vlastní offscreen
       surface + `present` do framebufferu (původní M7 položka, přesun viz M7 níže).
-      *Exit: dvoubufferový present bez tearingu; zapíše se frame latency p99 (§2).*
+      *Exit: dvoubufferový present bez tearingu; zapíše se frame latency p99 (§2).* —
+      **hotovo (2026-08-09):** back buffer z PFA (pitch×height, ~469 stránek), renderer
+      + Lua scéna + kurzor myši kreslí do back bufferu, `present` (memcpy back→front) na
+      konci každého renderu; ověřeno v QEMU (myš hladká, bez tearingu). Frame latency p99
+      zůstává TBD — měřicí mechanismus zatím neexistuje (§2 pozn.).
 - [x] **USB HID — ROZHODNUTO (2026-08-09): USB BUDE.** Bez USB není reálný hardware
       (PS/2 je mrtvé), takže USB HID stack je závazek — otázka není „zda", ale „kdy".
       Otevřené zůstává jen **umístění**: (a) USB HID stack dřív (~M6.3/M7.x), nebo

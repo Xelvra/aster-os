@@ -197,23 +197,56 @@ fn kernelMain() !void {
 }
 
 var fb_storage: ?framebuffer.Framebuffer = null;
+var back_fb: ?framebuffer.Framebuffer = null;
 var renderer: renderer_mod.Renderer = undefined;
 var mouse_cursor: mouse_cursor_mod.MouseCursor = .{};
 
 fn initGraphics(info: *const boot_info.BootInfo, memory: *mem.Memory) bool {
     const fb_info = info.framebuffer orelse return false;
     fb_storage = framebuffer.Framebuffer.init(fb_info);
-    _ = memory;
 
-    renderer = renderer_mod.Renderer.init(&fb_storage.?);
+    // Phase 2 double buffering: render into an offscreen back buffer and
+    // present it to the visible framebuffer in one copy, so the viewer never
+    // sees a half-drawn frame. The back buffer is plain RAM (not GOP MMIO),
+    // one page per 4 KiB of pitch*height. A large contiguous run is fine: the
+    // heap grow, initfs and this buffer are the only big PFA allocations.
+    const bytes: usize = @intCast(fb_info.pitch * fb_info.height);
+    const pages_needed = (bytes + pfa.page_size - 1) / pfa.page_size;
+    if (memory.pfa.allocPages(pages_needed, true) catch null) |pages| {
+        var back = fb_storage.?;
+        back.base = @ptrFromInt(pages[0] + memory.pfa.hhdm_offset);
+        back_fb = back;
+    }
+
+    renderer = renderer_mod.Renderer.init(renderTarget());
     graphics.init(renderer);
     renderer.fillScreen(0x000000);
-    mouse_cursor.init(&fb_storage.?, @intCast(fb_info.width / 2), @intCast(fb_info.height / 2));
+    mouse_cursor.init(renderTarget(), @intCast(fb_info.width / 2), @intCast(fb_info.height / 2));
     input_service.setMouseState(.{
         .x = @divTrunc(@as(i32, @intCast(fb_info.width)), 2),
         .y = @divTrunc(@as(i32, @intCast(fb_info.height)), 2),
     });
     return true;
+}
+
+/// The framebuffer the renderer draws into: the back buffer when double
+/// buffering is active, the visible framebuffer otherwise.
+fn renderTarget() *framebuffer.Framebuffer {
+    if (back_fb) |*back| return back;
+    return &fb_storage.?;
+}
+
+/// Copy the finished back buffer to the visible framebuffer in one pass
+/// (Phase 2 present). Without double buffering this is a no-op.
+fn present() void {
+    const back = back_fb orelse return;
+    const front = &fb_storage.?;
+    const bytes: usize = @intCast(front.pitch * front.height);
+    const src: [*]const u8 = @ptrCast(@volatileCast(back.base));
+    const dst: [*]volatile u8 = front.base;
+    for (0..bytes) |i| {
+        dst[i] = src[i];
+    }
 }
 
 fn probeStorage(alloc: std.mem.Allocator, memory: *mem.Memory) void {
@@ -362,7 +395,7 @@ fn poll() void {
             .timer_tick, .key => unreachable, // not valid in the mouse queue
             .mouse => |m| {
                 _ = input_service.popMouseEvent();
-                mouse_cursor.move(&fb_storage.?, m.dx, m.dy);
+                mouse_cursor.move(renderTarget(), m.dx, m.dy);
                 input_service.setMouseState(.{
                     .x = mouse_cursor.x,
                     .y = mouse_cursor.y,
@@ -370,6 +403,9 @@ fn poll() void {
                     .right = m.right,
                     .middle = m.middle,
                 });
+                // The cursor moved in the back buffer; show it without
+                // re-rendering the Lua scene.
+                present();
                 mouse_processed += 1;
             },
         }
@@ -389,7 +425,8 @@ fn render() void {
         serial.writeLine("shell: render error, hot reload");
         runtime.requestReload();
     }
-    if (fb_storage) |*fb| mouse_cursor.redraw(fb);
+    mouse_cursor.redraw(renderTarget());
+    present();
 }
 
 fn ramUsedMiB(memory: *mem.Memory) u64 {

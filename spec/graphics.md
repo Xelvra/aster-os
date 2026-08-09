@@ -48,7 +48,7 @@ Veřejná operace (čísla sub-op jsou rozšiřitelná, zmrazená):
 | 2 | `drawGlyph` | `(codepoint, x, y, color)` | z embedded bitmap fontu |
 | 3 | `drawText` | `(str, x, y, color)` | n-tice glyphů |
 | 4 | `fillScreen` | `(color)` | |
-| 5 | `present` | `()` | výhledově: commit bufferu; dnes no-op/okamžitý |
+| 5 | `present` | `()` | commit back bufferu do framebufferu (Phase 2; v event loopu, ne z Lua) |
 | 6 | `invalidate` | `()` | shell žádá re-render bez klávesy (živá transformace, M5) |
 | 7 | `roundRect` | `(x, y, w, h, radius, color)` | zaoblené rohy (M5, kaple v taskbaru) |
 | 8 | `rectBorder` | `(x, y, w, h, thickness, color)` | ohraničení obdélníku (M5) |
@@ -102,7 +102,10 @@ renderer.zig
 - Formát pixelu: závisí na GOP; pro první verzi fixní RGBA/BGRA dle Limine info.
 - Cache atribut (UC vs WC): viz `spec/memory.md` §6 — v M1 se ověří, v M3 případný
   přepis PAT na WC jen pro tento region.
-- Žádné double buffering v M3–M4. Prezentace je přímý zápis (viz `present` no-op).
+- Prezentace (Phase 2, hotovo): render do offscreen back bufferu (PFA stránky),
+  `present` kopíruje celý back buffer do framebufferu najednou — žádný tearing
+  uprostřed snímku. Renderer, Lua scéna i kurzor myši kreslí do back bufferu;
+  `present` volá event loop po každém renderu (viz `graphics.md` §7 a handoff H4).
 
 ### Primitiva (povolená minimální sada)
 

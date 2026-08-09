@@ -7,13 +7,14 @@ pub const page_size: u64 = 4096;
 /// (handoff H3). 1 MiB is the conventional boundary for "low memory".
 pub const low_memory_end: u64 = 0x100000;
 /// Maximum contiguous frame run allocPages can hand out. The heap grows in
-/// multi-page chunks (grow_pages=4) and the largest single allocation is the
-/// initfs image (~40 KiB), so a 64-page run (256 KiB) leaves ample headroom.
-const max_pages_per_run: usize = 64;
+/// multi-page chunks (grow_pages=4), the initfs image (~40 KiB) and the
+/// graphics back buffer (~470 pages at 800x600x32bpp) are the largest single
+/// allocations, so a 1024-page run (4 MiB) covers all of them.
+const max_pages_per_run: usize = 1024;
 
 /// Scratch output buffer for allocPages. It lives outside the PageFrameAllocator
 /// struct so the struct stays small on the (bootloader-provided) stack — a
-/// [64]u64 member would overflow it. There is a single PFA instance, and
+/// [1024]u64 member would overflow it. There is a single PFA instance, and
 /// allocations never run from an IRQ, so a single shared buffer is safe.
 var pages_storage_global: [max_pages_per_run]u64 = undefined;
 

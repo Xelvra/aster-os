@@ -114,5 +114,6 @@ Pro symbolizaci: `zig build -Doptimize=Debug -Druntime-tests=true` →
 
 > **Splněno 2026-08-09:** root cause = ISR klaunoval XMM registry (viz §3#9); qemu-test
 > s diskem vrací exit 99 (Debug i ReleaseSafe, 3× deterministicky), CI krok s diskem
-> vrácen, lekce v `troubleshooting.md` (C33). Back buffer (Phase 2) zůstává záměrně
-> vypnutý jako samostatný pending úkol (nevrací se tímto commitem).
+> vrácen, lekce v `troubleshooting.md` (C33). **Back buffer (Phase 2) hotový 2026-08-09:**
+> renderer + kurzor myši kreslí do PFA back bufferu, `present` kopíruje back→front po
+> každém renderu (viz `spec/graphics.md` §7, `spec/roadmap.md` Fáze 2), myš hladká v QEMU.
