@@ -1,19 +1,27 @@
+---
+layout: default
+title: README
+nav_order: 2
+source: README.md
+synced: 2026-08-09
+---
+
 # Aster OS
 
-[![status](https://img.shields.io/badge/status-alpha-orange.svg)](spec/roadmap.md)
-[![version](https://img.shields.io/badge/version-0.7.0--alpha.1-orange.svg)](.version)
-[![milestone](https://img.shields.io/badge/milestone-M7%20Runtime-informational.svg)](spec/roadmap.md)
-[![Zig](https://img.shields.io/badge/Zig-0.16.0-f7a41d.svg)](.zig-version)
-[![architecture](https://img.shields.io/badge/arch-x86__64-blue.svg)](spec/architecture.md)
-[![bootloader](https://img.shields.io/badge/bootloader-Limine-808080.svg)](libs/limine)
-[![Lua](https://img.shields.io/badge/Lua-5.4.8-2C2D72.svg)](libs/lua-5.4)
-[![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![status](https://img.shields.io/badge/status-alpha-orange.svg)](https://github.com/Xelvra/aster-os/blob/main/spec/roadmap.md)
+[![version](https://img.shields.io/badge/version-0.7.0--alpha.1-orange.svg)](https://github.com/Xelvra/aster-os/blob/main/.version)
+[![milestone](https://img.shields.io/badge/milestone-M7%20Runtime-informational.svg)](https://github.com/Xelvra/aster-os/blob/main/spec/roadmap.md)
+[![Zig](https://img.shields.io/badge/Zig-0.16.0-f7a41d.svg)](https://github.com/Xelvra/aster-os/blob/main/.zig-version)
+[![architecture](https://img.shields.io/badge/arch-x86__64-blue.svg)](https://github.com/Xelvra/aster-os/blob/main/spec/architecture.md)
+[![bootloader](https://img.shields.io/badge/bootloader-Limine-808080.svg)](https://github.com/Xelvra/aster-os/tree/main/libs/limine)
+[![Lua](https://img.shields.io/badge/Lua-5.4.8-2C2D72.svg)](https://github.com/Xelvra/aster-os/tree/main/libs/lua-5.4)
+[![license](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/Xelvra/aster-os/blob/main/LICENSE)
 
 > **Aster is an experimental desktop operating system written in Zig.**
 >
 > Aster currently targets **x86_64** (QEMU `q35`) — the only implemented architecture for
 > now. A future port (e.g. ARM, RISC-V) is not excluded by design, but it is not a goal
-> today and would need its own scope change (see [`spec/non-goals.md`](spec/non-goals.md)).
+> today and would need its own scope change (see [`spec/non-goals.md`](https://github.com/Xelvra/aster-os/blob/main/spec/non-goals.md)).
 > The first implementation deliberately favors **simplicity over isolation**: the desktop,
 > scripting engine, and runtime share a single address space to minimize complexity and
 > maximize iteration speed. The public interfaces are designed as **stable abstractions**,
@@ -21,7 +29,7 @@
 > application APIs**.
 
 > Full manifesto (including what Aster is NOT and accepted trade-offs):
-> [`spec/manifest.md`](spec/manifest.md).
+> [`spec/manifest.md`](https://github.com/Xelvra/aster-os/blob/main/spec/manifest.md).
 
 ## Status
 
@@ -30,9 +38,9 @@
 - **M0–M6 complete:** boot → memory → CPU → graphics → Lua runtime → desktop shell in
   Lua → disk storage (virtio-blk, GPT, read-only ext2).
 - **Bootable-commit rule:** every commit must leave the system runnable in QEMU
-  ([`spec/verification.md`](spec/verification.md)).
+  ([`spec/verification.md`](https://github.com/Xelvra/aster-os/blob/main/spec/verification.md)).
 - **Feature history:** per-milestone details (Added/Fixed) in
-  [`CHANGELOG.md`](CHANGELOG.md); metrics in [`spec/roadmap.md`](spec/roadmap.md).
+  [`CHANGELOG.md`](https://github.com/Xelvra/aster-os/blob/main/CHANGELOG.md); metrics in [`spec/roadmap.md`](https://github.com/Xelvra/aster-os/blob/main/spec/roadmap.md).
 - This is an alpha prototype, not a usable OS yet.
 
 ### Milestone metrics
@@ -58,7 +66,7 @@ zig build run -Dkvm=false  # force TCG emulation
 zig build test         # host unit tests
 ```
 
-Verification tools (see [`spec/verification.md`](spec/verification.md)):
+Verification tools (see [`spec/verification.md`](https://github.com/Xelvra/aster-os/blob/main/spec/verification.md)):
 
 ```bash
 ./tools/qemu-smoke.sh  # automated boot test (serial marker + timeout; auto KVM)
@@ -73,11 +81,11 @@ sources are always compiled with `-Os` regardless of the mode.
 
 ## Prerequisites
 
-- **Zig** — exact version in [`.zig-version`](.zig-version) (0.16.0), not a distro package.
+- **Zig** — exact version in [`.zig-version`](https://github.com/Xelvra/aster-os/blob/main/.zig-version) (0.16.0), not a distro package.
 - **QEMU** (`qemu-system-x86_64`) — target emulation.
 - **Build tools:** xorriso / mtools; Limine and Lua 5.4.8 are vendored in `libs/`.
 
-Full tool table and dependency status: [`spec/verification.md`](spec/verification.md) §6.
+Full tool table and dependency status: [`spec/verification.md`](https://github.com/Xelvra/aster-os/blob/main/spec/verification.md) §6.
 
 ## Architecture at a glance
 
@@ -86,29 +94,29 @@ BIOS/UEFI → Limine → Zig kernel (Ring 0) → KI (api/*) → Lua shell / Wasm
 ```
 
 The kernel, KI, runtimes, and the full diagram live in
-[`spec/architecture.md`](spec/architecture.md) §3.
+[`spec/architecture.md`](https://github.com/Xelvra/aster-os/blob/main/spec/architecture.md) §3.
 
 ## Boot proof of work
 
 Booting is the work, the log is the proof. The always-current boot log (with
 date, host, accelerator and commit metadata) lives in
-[`boot-log.md`](boot-log.md), regenerated by `tools/capture-boot.sh`; a
+[`boot-log.md`](https://github.com/Xelvra/aster-os/blob/main/boot-log.md), regenerated by `tools/capture-boot.sh`; a
 pre-push hook and CI verify it never drifts from the code
 (`./tools/capture-boot.sh --check`).
 
 ## Documentation
 
 - **Internal specification:** the complete architecture spec lives in
-  [`spec/`](spec/README.md). Start with the [architecture overview](spec/architecture.md).
+  [`spec/`](https://github.com/Xelvra/aster-os/blob/main/spec/README.md). Start with the [architecture overview](https://github.com/Xelvra/aster-os/blob/main/spec/architecture.md).
 - The English website (published from `docs/`) is a machine translation of these
-  Czech sources; see the two-layer strategy in [`spec/README.md`](spec/README.md).
+  Czech sources; see the two-layer strategy in [`spec/README.md`](https://github.com/Xelvra/aster-os/blob/main/spec/README.md).
 
 The internal specs are written in Czech by design — this is the author's working
 documentation, not marketing; see the language policy in
-[`spec/README.md`](spec/README.md). For any nuance, the Czech spec is canonical.
+[`spec/README.md`](https://github.com/Xelvra/aster-os/blob/main/spec/README.md). For any nuance, the Czech spec is canonical.
 
-If the system crashes or hangs: [`spec/debugging.md`](spec/debugging.md)
-(Debugging Survival Guide) and [`spec/troubleshooting.md`](spec/troubleshooting.md)
+If the system crashes or hangs: [`spec/debugging.md`](https://github.com/Xelvra/aster-os/blob/main/spec/debugging.md)
+(Debugging Survival Guide) and [`spec/troubleshooting.md`](https://github.com/Xelvra/aster-os/blob/main/spec/troubleshooting.md)
 (known pitfalls).
 
 ## Roadmap
@@ -127,8 +135,12 @@ If the system crashes or hangs: [`spec/debugging.md`](spec/debugging.md)
 | M9 ⏳ | Ecosystem: network, audio, browser, WASI |
 | M10 ⏳ | Adoption: real hardware, installable image, docs, contributors |
 
-Details in [`spec/roadmap.md`](spec/roadmap.md).
+Details in [`spec/roadmap.md`](https://github.com/Xelvra/aster-os/blob/main/spec/roadmap.md).
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](https://github.com/Xelvra/aster-os/blob/main/LICENSE).
+
+---
+
+Last synced from [`README.md`](https://github.com/Xelvra/aster-os/blob/main/README.md) on **2026-08-09**.

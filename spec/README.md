@@ -89,6 +89,11 @@ Princip: **čeština = mozek, angličtina = tvář.** Jeden směr toku, žádná
   zdroji (který je vždy kanonický).
 - **Jednosměrný tok:** spec → docs. Nikdy zpětně (anglická stránka se nepromítá
   do českého spec).
+- **Odkazy jdou jen jedním směrem:** web (`docs/`) odkazuje na repo (`spec/`, README,
+  ...) — nikdy naopak. Repo dokumenty (README, CONTRIBUTING, `spec/*`) **neodkazují**
+  na `docs/` ani na webové stránky (`xelvra.github.io/...`); jediný zdroj pravdy žije
+  v repu. Zpětný odkaz by vytvořil druhou, rovnocennou „tvář" a rozbil by jednozdrojový
+  princip.
 - Nové věci se píší česky do `spec/`, anglicky na web ve volných chvílích.
 - `CHANGELOG.md` a `README.md` zůstávají anglicky (veřejné rozhraní projektu).
 
@@ -101,13 +106,17 @@ Každá anglická stránka v `docs/*.md` nese v **YAML front matter** `source:`:
 layout: default
 title: Status
 nav_order: 2
-source: README.md, CHANGELOG.md
+source: spec/roadmap.md
 ---
 ```
 
 - `source:` — relativní cesta ke zdroji (zdrojům, čárkami) v repu, ze kterého se
-  stránka překládá. U `index.md` je to `README.md`; u `milestones.md` `spec/roadmap.md`;
-  u `development.md` `spec/verification.md, spec/code-style.md`.
+  stránka překládá. U `milestones.md` `spec/roadmap.md`; u `development.md`
+  `spec/verification.md, spec/code-style.md`.
+- **Výjimka — `docs/index.md`:** úvodní stránka, která vysvětluje anglickému čtenáři
+  strategii dvou vrstev a zrcadlí `README.md`. **Nemá `source:`** — není překladem
+  českého zdroje, a proto ji `tools/sync-docs.sh` nekontroluje (jediný odchylkový
+  dokument).
 - `synced:` — datum poslední synchronizace. Stránka na konci ukazuje viditelnou
   patičku „Last synced from … on …", aby čtenář webu vždy viděl, od kdy stránka
   odráží zdroj.

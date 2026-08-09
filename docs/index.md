@@ -2,8 +2,6 @@
 layout: home
 title: Home
 nav_order: 1
-source: README.md
-synced: 2026-08-09
 ---
 
 # Aster OS
@@ -19,129 +17,41 @@ synced: 2026-08-09
 > so individual subsystems can later be moved into isolated processes **without changing
 > application APIs**.
 
-> Full manifesto (including what Aster is NOT and accepted trade-offs):
-> [`spec/manifest.md`](spec/manifest.md).
+## How to read this documentation
 
-## Status
+**All documentation is in the navigation on the left** — every page there is an English
+translation of a Czech source. This home page is the only exception: it is the
+introduction, not a translation.
 
-- **M7 (Runtime) — in progress:** wasm apps, multitasking, app isolation.
-  Multi-layout keyboard is done (ADR-024, US/CZ switchable at runtime).
-- **M0–M6 complete:** boot → memory → CPU → graphics → Lua runtime → desktop shell in
-  Lua → disk storage (virtio-blk, GPT, read-only ext2).
-- **Bootable-commit rule:** every commit must leave the system runnable in QEMU
-  ([`spec/verification.md`](spec/verification.md)).
-- **Feature history:** per-milestone details (Added/Fixed) in
-  [`CHANGELOG.md`](CHANGELOG.md); metrics in [`spec/roadmap.md`](spec/roadmap.md).
-- This is an alpha prototype, not a usable OS yet.
+Aster's documentation is split into two layers on purpose, so there is exactly **one
+source of truth** for every fact:
 
-### Milestone metrics
+| Layer | Language | Role |
+|---|---|---|
+| [`spec/`](spec/README.md) | **Czech** | **Canonical source of truth.** The complete internal specification — written for the author, always current, edited freely. |
+| `docs/` (this site) | **English** | **Translation layer.** A public, English reflection of the spec, published to GitHub Pages. |
 
-| M | Milestone | Kernel | First Frame |
-|---|-----------|-------:|------------:|
-| M0 | Boot      | 12 KB  | ≈ 0.3 s |
-| M1 | Memory    | 17 KB  | ≈ 0.4 s |
-| M2 | CPU       | 29 KB  | ≈ 0.5 s |
-| M3 | Graphics  | 34 KB  | ≈ 0.6 s |
-| M4 | Lua       | 336 KiB | ≈ 60 ms |
-| M5 | UI        | 371 KiB | ≈ 24 ms |
-| M6 | Storage   | 362 KiB | ≈ 26 ms |
+Rules that keep this honest:
 
-Boot times from `tools/bench.sh` — M0–M3 wall-clock incl. the bootloader,
-M4+ kernel-only on KVM.
+- **`spec/` is canonical.** Every page here is a faithful translation of a Czech spec
+  file — same sections, same facts, same structure — not a marketing summary. When the
+  two disagree, the Czech spec wins.
+- **Translations are machine-made**, reviewed by the author when synced (`synced:`
+  footer on each page). For any nuance, check the linked Czech source.
+- **Links go one way only:** the website (`docs/`) links to the repository
+  (`spec/`, `README.md`, ...) — never the reverse. The single source of truth lives in
+  the repo.
+- **Sync is enforced by git, not by hand-edited dates.** Each translated page carries
+  `source:` + `synced:` front matter; `tools/sync-docs.sh --check` (CI + pre-push hook)
+  fails when a page's source changed more than 14 days ago without the translation being
+  updated. A page cannot fake being current by editing a date.
 
-## Quick start
+## Where to start
 
-```bash
-zig build run          # boot in QEMU (auto KVM when /dev/kvm is available)
-zig build run -Dkvm=false  # force TCG emulation
-zig build test         # host unit tests
-```
+- **README** — the project intro (status, quick start, metrics); see the README page.
+- **Architecture** — the design overview.
+- **Milestones** — the M0–M10 roadmap.
+- **Status** — what works right now.
+- **Development** — build, test, and verification.
 
-Verification tools (see [`spec/verification.md`](spec/verification.md)):
-
-```bash
-./tools/qemu-smoke.sh  # automated boot test (serial marker + timeout; auto KVM)
-./tools/qemu-test.sh   # in-QEMU runtime tests (isa-debug-exit; auto KVM)
-./tools/verify-reproducible.sh  # deterministic build check (ADR-014)
-```
-
-Build modes (default is `ReleaseSafe`, the verified production mode):
-`zig build -Doptimize=ReleaseFast` trades safety checks for ~20 % smaller
-image and faster execution; `-Doptimize=Debug` for debugging. The Lua C
-sources are always compiled with `-Os` regardless of the mode.
-
-## Prerequisites
-
-- **Zig** — exact version in [`.zig-version`](.zig-version) (0.16.0), not a distro package.
-- **QEMU** (`qemu-system-x86_64`) — target emulation.
-- **Build tools:** xorriso / mtools; Limine and Lua 5.4.8 are vendored in `libs/`.
-
-Full tool table and dependency status: [`spec/verification.md`](spec/verification.md) §6.
-
-## Architecture at a glance
-
-```
-BIOS/UEFI → Limine → Zig kernel (Ring 0) → KI (api/*) → Lua shell / Wasm apps
-```
-
-The kernel, KI, runtimes, and the full diagram live on this
-[website](architecture.html) and in [`spec/architecture.md`](spec/architecture.md) §3.
-
-## Boot proof of work
-
-Booting is the work, the log is the proof. The always-current boot log (with
-date, host, accelerator and commit metadata) lives in
-[`boot-log.md`](boot-log.md), regenerated by `tools/capture-boot.sh`; a
-pre-push hook and CI verify it never drifts from the code
-(`./tools/capture-boot.sh --check`).
-
-## Documentation
-
-- **Public website:** this English documentation site — a translation layer over the
-  internal spec (see the two-layer strategy in [`spec/README.md`](spec/README.md)).
-- **Internal specification:** the complete architecture spec lives in
-  [`spec/`](spec/README.md). Start with the [architecture overview](spec/architecture.md).
-
-The internal specs are written in Czech by design — this is the author's working
-documentation, not marketing; see the language policy in
-[`spec/README.md`](spec/README.md). The English website pages are **machine
-translations** of the Czech sources, reviewed by the author when synced — for any
-nuance, the Czech spec is canonical.
-
-If the system crashes or hangs: [`spec/debugging.md`](spec/debugging.md)
-(Debugging Survival Guide) and [`spec/troubleshooting.md`](spec/troubleshooting.md)
-(known pitfalls).
-
-## Explore
-
-- [Status](status.html) — what works right now.
-- [Milestones](milestones.html) — M0–M10 roadmap.
-- [Architecture](architecture.html) — design overview.
-- [Development](development.html) — build, test, and verification.
-- [Source code](https://github.com/Xelvra/aster-os) on GitHub.
-
-## Roadmap
-
-| Milestone | Goal |
-|-----------|------|
-| M0 ✅ | Boot: deterministic build, boots in QEMU, serial marker |
-| M1 ✅ | Memory: PFA + heap allocator |
-| M2 ✅ | CPU: IDT, APIC timer, IOAPIC, PS/2 keyboard |
-| M3 ✅ | Graphics: framebuffer, renderer, text on screen |
-| M4 ✅ | Lua: interactive REPL in kernel, hot reload |
-| M5 ✅ | UI: desktop shell in Lua — tiling WM, bar, launcher, workspace, mouse, error containment, live transformation |
-| M6 ✅ | Storage: initfs, virtio-blk, GPT, filesystem, cooperative reads |
-| M7 🔄 | Runtime: wasm apps, multitasking, app isolation |
-| M8 ⏳ | Stabilization: invariant audit, metrics, Ring 3 decision |
-| M9 ⏳ | Ecosystem: network, audio, browser, WASI |
-| M10 ⏳ | Adoption: real hardware, installable image, docs, contributors |
-
-Details in [`spec/roadmap.md`](spec/roadmap.md).
-
-## License
-
-MIT — see [LICENSE](LICENSE).
-
----
-
-Last synced from [`README.md`](https://github.com/Xelvra/aster-os/blob/main/README.md) on **2026-08-09**.
+All of these are faithful English translations of the corresponding Czech specs.

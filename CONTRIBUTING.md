@@ -21,8 +21,7 @@ edges everywhere.
 
 ## Setting up
 
-See [Development](docs/development.md) on the website or
-[`spec/verification.md`](spec/verification.md):
+See [`spec/verification.md`](spec/verification.md):
 
 - Zig pinned in `.zig-version` (official tarball, not a distro package).
 - QEMU (`qemu-system-x86_64`), xorriso, mtools.

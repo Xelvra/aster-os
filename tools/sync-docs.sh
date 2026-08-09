@@ -9,6 +9,10 @@
 #   source: spec/roadmap.md, CHANGELOG.md
 #   ---
 #
+# Exception: a page without `source:` (docs/index.md, the intro page
+# explaining the two-layer strategy) is exempt from the sync check — it is
+# not a translation of a Czech source.
+#
 # The check is GIT-BASED, not date-tag-based: a page is in sync when its
 # English translation was committed at or after the last commit that touched
 # its Czech source. Editing a `synced:` date cannot fool it — git history is
@@ -34,12 +38,13 @@ warned=0
 
 for page in docs/*.md; do
     src="$(sed -n 's/^source: //p' "$page" | head -1)"
-    synced="$(sed -n 's/^synced: //p' "$page" | head -1)"
     if [[ -z "$src" ]]; then
-        echo "sync-docs: $page is missing 'source:' front matter" >&2
-        fail=1
+        # Pages without source: are not translations of a Czech spec —
+        # e.g. docs/index.md, the intro page explaining the two-layer
+        # strategy. They are exempt from the sync check by design.
         continue
     fi
+    synced="$(sed -n 's/^synced: //p' "$page" | head -1)"
     if [[ -z "$synced" ]]; then
         echo "sync-docs: $page is missing 'synced:' front matter (shown in the footer)" >&2
         fail=1
