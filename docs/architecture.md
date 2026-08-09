@@ -30,6 +30,60 @@ The architecture spec is the **canonical source**:
 
 ## Layers
 
+The full boot-to-app flow:
+
+```
+┌──────────────────┐
+│    BIOS / UEFI   │
+│       BOOT       │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│      LIMINE      │
+│    BOOTLOADER    │
+└────────┬─────────┘
+         │
+         ▼
+╔════════════════════════════╗
+║         ZIG KERNEL         ║
+║           RING 0           ║
+║                            ║
+║       # M0/M1/M2/M3/M4     ║
+║                            ║
+║  CPU / MEMORY / IRQ        ║
+║  DRIVERS / SCHEDULER (M7+) ║
+║  / IPC (M8+) / CORE SRVS   ║
+╚═══════════╤════════════════╝
+            │
+            ▼
+┌──────────────────┐
+│    KI (API/*)    │
+│       # M2       │
+└─────────┬────────┘
+          │
+  ┌───────┼───────┐
+  │               │
+  ▼               ▼
+┌──────────────┐  ┌──────────────────────┐
+│ LUA RUNTIME  │  │     WASM RUNTIME     │
+│     # M4     │  │       # M7/M9        │
+└──────┬───────┘  │                      │
+       │ ▲        │ ┌──────────────────┐ │
+       │ └──────┐ │ │    ASTER APPS    │ │
+       ▼        │ │ │      # M7        │ │
+┌────────────┐  │ │ └──────────────────┘ │
+│  SHELL/UI  │──┘ │                      │
+│    # M5    │    │ ┌──────────────────┐ │
+└────────────┘    │ │       WASI       │ │
+                  │ │   FOREIGN APPS   │ │
+                  │ │      # M9        │ │
+                  │ └──────────────────┘ │
+                  └──────────────────────┘
+```
+
+The internal layer diagram:
+
 ```
 APPLICATIONS (in-process)
   Shell / UI (Lua)         Apps (Wasm, native)

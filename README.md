@@ -23,18 +23,12 @@
 > Full manifesto (including what Aster is NOT and accepted trade-offs):
 > [`spec/manifest.md`](spec/manifest.md).
 
-This project requires the Zig version listed in [`.zig-version`](.zig-version).
-
 ## Status
 
-- **M7 (Runtime) — in progress:** wasm apps, multitasking, app isolation. Phase 2
-  first: multi-layout keyboard (KL registry, US/CZ switchable at runtime).
-- **M6 (Storage) — complete:** virtio-blk sector reads, GPT partition discovery, a
-  read-only ext2 backend with the thin file API (`open`/`read`/`close`), and a
-  deterministic test disk with CI/runtime tests. With a disk attached the boot log
-  gains `[ OK ] storage virtio-blk` → `[ OK ] gpt N partition(s)` → `[ OK ] fs ext2`.
-- **M0–M5 complete:** boot → memory → CPU → graphics → Lua runtime → desktop shell in
-  Lua (tiling WM, launcher, mouse, error containment).
+- **M7 (Runtime) — in progress:** wasm apps, multitasking, app isolation.
+  Multi-layout keyboard is done (ADR-024, US/CZ switchable at runtime).
+- **M0–M6 complete:** boot → memory → CPU → graphics → Lua runtime → desktop shell in
+  Lua → disk storage (virtio-blk, GPT, read-only ext2).
 - **Bootable-commit rule:** every commit must leave the system runnable in QEMU
   ([`spec/verification.md`](spec/verification.md)).
 - **Feature history:** per-milestone details (Added/Fixed) in
@@ -61,8 +55,12 @@ M4+ kernel-only on KVM.
 ```bash
 zig build run          # boot in QEMU (auto KVM when /dev/kvm is available)
 zig build run -Dkvm=false  # force TCG emulation
-zig build run -Ddisk=disk.img  # boot with a raw disk attached (shows '[ OK ] storage virtio-blk')
 zig build test         # host unit tests
+```
+
+Verification tools (see [`spec/verification.md`](spec/verification.md)):
+
+```bash
 ./tools/qemu-smoke.sh  # automated boot test (serial marker + timeout; auto KVM)
 ./tools/qemu-test.sh   # in-QEMU runtime tests (isa-debug-exit; auto KVM)
 ./tools/verify-reproducible.sh  # deterministic build check (ADR-014)
@@ -75,105 +73,30 @@ sources are always compiled with `-Os` regardless of the mode.
 
 ## Prerequisites
 
-- **Zig** — exact version in [`.zig-version`](.zig-version) (0.16.0), not a distro package
-  (see [`spec/verification.md`](spec/verification.md) §3).
+- **Zig** — exact version in [`.zig-version`](.zig-version) (0.16.0), not a distro package.
 - **QEMU** (`qemu-system-x86_64`) — target emulation.
-- **Limine** — vendored in `libs/limine/` (ADR-012), no system packages.
-- **xorriso / mtools** — building the bootable ISO / disk image.
-- **Lua 5.4.8** — vendored in `libs/lua-5.4/` (ADR-007).
+- **Build tools:** xorriso / mtools; Limine and Lua 5.4.8 are vendored in `libs/`.
 
 Full tool table and dependency status: [`spec/verification.md`](spec/verification.md) §6.
 
 ## Architecture at a glance
 
 ```
-┌──────────────────┐
-│    BIOS / UEFI   │
-│       BOOT       │
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│      LIMINE      │
-│    BOOTLOADER    │
-└────────┬─────────┘
-         │
-         ▼
-╔════════════════════════════╗
-║         ZIG KERNEL         ║
-║           RING 0           ║
-║                            ║
-║       # M0/M1/M2/M3/M4     ║
-║                            ║
-║  CPU / MEMORY / IRQ        ║
-║  DRIVERS / SCHEDULER (M7+) ║
-║  / IPC (M8+) / CORE SRVS   ║
-╚═══════════╤════════════════╝
-            │
-            ▼
-┌──────────────────┐
-│    KI (API/*)    │
-│       # M2       │
-└─────────┬────────┘
-          │
-  ┌───────┼───────┐
-  │               │
-  ▼               ▼
-┌──────────────┐  ┌──────────────────────┐
-│ LUA RUNTIME  │  │     WASM RUNTIME     │
-│     # M4     │  │       # M7/M9        │
-└──────┬───────┘  │                      │
-       │ ▲        │ ┌──────────────────┐ │
-       │ └──────┐ │ │    ASTER APPS    │ │
-       ▼        │ │ │      # M7        │ │
-┌────────────┐  │ │ └──────────────────┘ │
-│  SHELL/UI  │──┘ │                      │
-│    # M5    │    │ ┌──────────────────┐ │
-└────────────┘    │ │       WASI       │ │
-                  │ │   FOREIGN APPS   │ │
-                  │ │      # M9        │ │
-                  │ └──────────────────┘ │
-                  └──────────────────────┘
+BIOS/UEFI → Limine → Zig kernel (Ring 0) → KI (api/*) → Lua shell / Wasm apps
 ```
 
-Detailed layers, interfaces, and diagram: [`spec/architecture.md`](spec/architecture.md) §3.
+The kernel, KI, runtimes, and the full diagram live on the
+[website](https://xelvra.github.io/aster-os/architecture.html) and in
+[`spec/architecture.md`](spec/architecture.md) §3.
 
-### Boot proof of work
+## Boot proof of work
 
-Booting is the work, the log is the proof. The kernel boot log from `zig build run`
-(the terminal shows it in color; here it is plain text, maintained by hand):
-
-```
-ASTER KERNEL ENTRY
-
-/-STER OS  0.7.0-alpha.1
-[ OK ] bootloader       limine handoff
-[ OK ] interrupts       idt · pic
-[ OK ] cpu              page tables · apic timer
-[ OK ] input            ps/2 keyboard + mouse
-[ OK ] storage          virtio-blk
-[ OK ] gpt              1 partition(s)
-[ OK ] fs               ext2
-  lost+found
-  README
-  apps
-  theme.lua           bg=0x0f1117
-[ OK ] graphics         800x600 framebuffer · wc
-[ OK ] renderer         primitives + bitmap font
-[ OK ] runtime          lua 5.4.8 shell
-[ OK ] memory           509 MiB usable · 2 MiB used
-[ OK ] kernel interface dispatch ready
-[ OK ] accelerator      kvm
-[ OK ] boot sequence    complete
-
-ASTER BOOT OK
-ASTER FIRST FRAME
-```
-
-The always-current capture (with date, host, accelerator and commit metadata) is in
+Booting is the work, the log is the proof. The always-current boot log (with
+date, host, accelerator and commit metadata) lives in
 [`boot-log.md`](boot-log.md), regenerated by `tools/capture-boot.sh`; a
 pre-push hook and CI verify it never drifts from the code
-(`./tools/capture-boot.sh --check`).
+(`./tools/capture-boot.sh --check`). A sample is shown on the
+[website](https://xelvra.github.io/aster-os/).
 
 ## Documentation
 

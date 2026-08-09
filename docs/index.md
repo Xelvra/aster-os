@@ -25,11 +25,18 @@ building on M0–M5 (boot, memory, CPU, graphics, Lua, UI).
 Boots deterministically in QEMU (via Limine) and brings up, in order:
 
 ```
-/-\STER OS  0.6.0-alpha.1
+/-\STER OS  0.7.0-alpha.1
 [ OK ] bootloader       limine handoff
 [ OK ] interrupts       idt · pic
 [ OK ] cpu              page tables · apic timer
 [ OK ] input            ps/2 keyboard + mouse
+[ OK ] storage          virtio-blk
+[ OK ] gpt              1 partition(s)
+[ OK ] fs               ext2
+  lost+found
+  README
+  apps
+  theme.lua           bg=0x0f1117
 [ OK ] graphics         800x600 framebuffer · wc
 [ OK ] renderer         primitives + bitmap font
 [ OK ] runtime          lua 5.4.8 shell
@@ -47,9 +54,9 @@ ASTER FIRST FRAME
   workspaces, mouse cursor, live theme changes.
 - PS/2 keyboard + mouse, an 800x600 framebuffer with a software renderer.
 - A page frame allocator, a first-fit heap allocator, IDT/APIC timer/IOAPIC.
-- **M6 (Storage) in progress:** a virtio-blk driver with sector reads
-  (`[ OK ] storage virtio-blk` when a disk is attached), plus GPT discovery and
-  a read-only ext2 backend planned next.
+- **M6 (Storage) complete:** virtio-blk sector reads, GPT partitions, a
+  read-only ext2 with the thin file API.
+- **M7 (Runtime) in progress:** wasm apps, multitasking, app isolation.
 
 ## Explore
 
