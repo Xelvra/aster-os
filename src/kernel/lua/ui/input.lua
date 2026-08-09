@@ -10,6 +10,7 @@ local function is_in_header(w)
 end
 
 local function is_in_window(w)
+    if w.ws ~= current_ws then return false end
     local mx = input.mouse_x()
     local my = input.mouse_y()
     return mx >= w.x and mx <= w.x + w.w and my >= w.y and my <= w.y + w.h
@@ -76,12 +77,19 @@ local function handle_mouse()
                     break
                 end
             end
-            -- Clicking a workspace capsule switches workspace.
+            -- Clicking a workspace capsule switches workspace and focuses its
+            -- topmost window, so typing works right away.
             local x = 8 + 20 + 8 + 5 * 8 + 12 + 4
             for i, name in ipairs(theme.ws) do
                 local ww = 4 + name:len() * 8 + 8
                 if mx >= x and mx <= x + ww and my >= 0 and my <= theme.bar.height then
                     current_ws = i
+                    for j = #windows, 1, -1 do
+                        if windows[j].ws == i then
+                            set_focus(windows[j].title)
+                            break
+                        end
+                    end
                     layout_pass()
                     gfx.invalidate()
                 end

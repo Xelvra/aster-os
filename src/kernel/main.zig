@@ -403,12 +403,15 @@ fn poll() void {
                     .right = m.right,
                     .middle = m.middle,
                 });
-                // The cursor moved in the back buffer; show it without
-                // re-rendering the Lua scene.
-                present();
                 mouse_processed += 1;
             },
         }
+    }
+    if (mouse_processed > 0) {
+        // The cursor moved in the back buffer; show it without re-rendering
+        // the Lua scene. Present once for the whole batch — a per-packet
+        // copy (full-screen memcpy) starves the keyboard/Lua update.
+        present();
     }
 }
 

@@ -74,6 +74,10 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 - **RAM (idle):** rezidentní paměť systému bez spuštěných aplikací.
   > ⁴ M5: **≈ 2 MiB** (PFA-managed: kernel image + heap + bitmap + stacky; framebuffer je
   > MMIO, ne RAM). Kernel reportuje v boot logu (řádek `[ OK ] memory`); ADR-015 splněno.
+  > **Phase 2 (2026-08-09):** RAM idle roste o back buffer — `pitch × height` (800×600×32bpp
+  > ≈ **1.83 MiB**, 469 PFA stránek) = druhá celoobrazovková surface pro double buffering.
+  > Boot log hlásí „509 MiB usable · 4 MiB used" (truncace MiB, reálně ≈ 3.8 MiB). Nárůst
+  > je minimum, ne chyba: dvojitý buffer potřebuje druhou kopii celého snímku.
 
 > ¹ M0–M3 měřily `tools/bench.sh` **wall-clock** od spuštění QEMU po serial marker — zahrnují
 > firmware/BIOS/Limine init, který je mimo kontrolu kernelu (≈ 3 s prodleva bootloaderu).

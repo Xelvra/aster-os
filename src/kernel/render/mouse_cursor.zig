@@ -33,10 +33,12 @@ pub const MouseCursor = struct {
         self.saveAndDraw(fb);
     }
 
-    /// The Lua render loop has redrawn the whole screen, so re-capture the
-    /// pixels under the cursor and redraw it on top.
+    /// The Lua render loop has redrawn the whole screen, so capture the
+    /// pixels under the cursor and draw it on top. The scene already erased
+    /// the old cursor, so there is nothing to restore — restore() would
+    /// write the stale saved pixels (captured before the redraw) over the
+    /// fresh scene and leave a dark rectangle artifact.
     pub fn redraw(self: *MouseCursor, fb: *fb_mod.Framebuffer) void {
-        if (self.valid) self.restore(fb);
         self.saveAndDraw(fb);
     }
 

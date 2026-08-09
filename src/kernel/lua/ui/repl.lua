@@ -47,16 +47,17 @@ local function repl_render()
     local ty = w.y + theme.wm.border + theme.wm.title_h + 6
     local row_h = 18
     local max_lines = math.floor((w.h - theme.wm.title_h - 12) / row_h)
+    local max_chars = math.max(math.floor((w.w - 2 * theme.wm.border - 12) / glyph_w), 1)
     local col = tx
     local i = math.max(1, #lines - max_lines + 1)
     while i <= #lines do
-        gfx.draw_text(lines[i], col, ty, theme.text)
+        gfx.draw_text(string.sub(lines[i], 1, max_chars), col, ty, theme.text)
         ty = ty + row_h
         i = i + 1
     end
     local prompt = "> " .. current
-    gfx.draw_text(prompt, col, ty, theme.text)
-    local cx = col + (2 + cursor) * glyph_w
+    gfx.draw_text(string.sub(prompt, 1, max_chars), col, ty, theme.text)
+    local cx = col + math.min(2 + cursor, max_chars) * glyph_w
     gfx.draw_rect(cx, ty, glyph_w, glyph_h, theme.accent)
 end
 
