@@ -85,8 +85,7 @@ Full tool table and dependency status: [`spec/verification.md`](spec/verificatio
 BIOS/UEFI → Limine → Zig kernel (Ring 0) → KI (api/*) → Lua shell / Wasm apps
 ```
 
-The kernel, KI, runtimes, and the full diagram live on the
-[website](https://xelvra.github.io/aster-os/architecture.html) and in
+The kernel, KI, runtimes, and the full diagram live in
 [`spec/architecture.md`](spec/architecture.md) §3.
 
 ## Boot proof of work
