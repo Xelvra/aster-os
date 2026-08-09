@@ -58,7 +58,7 @@ One direction of flow. No duplication.
 
 | Layer                     | Language                 | Role                                                                                                                                       |
 | ------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| [`spec/`](spec/README.md) | **Developer's language** | **Canonical source of truth.** The complete internal specification, written for the author. It is always current and can be edited freely. |
+| [`spec/`](https://github.com/Xelvra/aster-os/tree/main/spec/) | **Developer's language** | **Canonical source of truth.** The complete internal specification, written for the author. It is always current and can be edited freely. |
 | `docs/` (this site)       | **English**              | **Curated public layer.** An English reflection of the specification, published to GitHub Pages.                                           |
 
 ### Rules that keep this honest
@@ -100,8 +100,7 @@ translation of a single spec file.
 
 For a natural starting point, follow the order of the left navigation:
 
-* **README** — project introduction, current status, milestone metrics, quick start, and
-  prerequisites.
+* **code-style** — Code Philosophy and Rules
 
 Each translated page contains a footer showing which source it was synced from and when.
 
