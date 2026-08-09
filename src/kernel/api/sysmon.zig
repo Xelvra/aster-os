@@ -1,6 +1,5 @@
 const sys = @import("sys.zig");
 const mem = @import("../mem/mem.zig");
-const pfa = @import("../mem/pfa.zig");
 /// System metrics for the shell (RAM, CPU, ...). The shell reads them via
 /// bindings; the kernel never pulls data from Lua in the other direction.
 pub const SysmonOp = enum(u64) {
@@ -24,10 +23,10 @@ pub fn dispatch(args: sys.SyscallArgs) u64 {
 
 fn ramTotalMb() u64 {
     const m = memory orelse return 0;
-    return m.pfa.total_pages * pfa.page_size / (1024 * 1024);
+    return m.stats().total_bytes / (1024 * 1024);
 }
 
 fn ramFreeMb() u64 {
     const m = memory orelse return 0;
-    return m.pfa.totalFreePages() * pfa.page_size / (1024 * 1024);
+    return m.stats().free_bytes / (1024 * 1024);
 }

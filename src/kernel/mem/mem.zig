@@ -25,6 +25,20 @@ pub const Memory = struct {
     pub fn allocator(self: *Memory) std.mem.Allocator {
         return self.heap_allocator.allocator();
     }
+
+    /// Physical memory snapshot for the Sysmon KI module. The PFA stays
+    /// encapsulated behind Memory so api/* never imports it directly.
+    pub fn stats(self: *const Memory) MemStats {
+        return .{
+            .total_bytes = self.pfa.total_pages * pfa.page_size,
+            .free_bytes = self.pfa.totalFreePages() * pfa.page_size,
+        };
+    }
+};
+
+pub const MemStats = struct {
+    total_bytes: u64,
+    free_bytes: u64,
 };
 
 fn highestPage(entries: []const boot_info.MemoryEntry) u64 {

@@ -64,7 +64,9 @@ fn handleIsrImpl(frame: *InterruptFrame) callconv(.c) void {
         0x20 => {
             const apic = @import("apic.zig");
             const queue = @import("../input_queue.zig");
-            const t = tick_counter.fetchAdd(1, .monotonic);
+            const time = @import("../time.zig");
+            time.tick();
+            const t = time.ticks();
             queue.global.push(.{ .timer_tick = t });
             apic.sendEoi();
         },
@@ -84,8 +86,6 @@ fn handleIsrImpl(frame: *InterruptFrame) callconv(.c) void {
         else => handleFault(vector, frame),
     }
 }
-
-pub var tick_counter = std.atomic.Value(u64).init(0);
 
 comptime {
     @export(&handleIsrImpl, .{ .name = "handle_isr" });

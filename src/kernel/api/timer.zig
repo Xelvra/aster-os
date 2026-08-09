@@ -1,5 +1,5 @@
 const sys = @import("sys.zig");
-const idt = @import("../cpu/idt.zig");
+const time = @import("../time.zig");
 
 pub const TimerOp = enum(u64) {
     ticks = 0,
@@ -9,7 +9,7 @@ pub const TimerOp = enum(u64) {
 pub fn dispatch(args: sys.SyscallArgs) u64 {
     const op: TimerOp = @enumFromInt(args.a);
     return switch (op) {
-        .ticks => idt.tick_counter.load(.monotonic),
+        .ticks => time.ticks(),
         // Cooperative sleep (spec/timer.md §3) lands with the M7 task model.
         // The sub-op is frozen today so the number never changes.
         .sleep_ms => @intFromEnum(sys.KiStatus.NotSupported),

@@ -247,14 +247,14 @@ fn testLuaTriggeredReload() void {
 }
 
 fn testRenderThroughput() void {
-    const idt = @import("cpu/idt.zig");
+    const time = @import("time.zig");
     const lua = @import("lua/lua.zig");
     // Measure how many full REPL renders Lua can do over a fixed window of
     // APIC ticks. Higher is better; regressions show up after render changes.
     const window_ticks: u64 = 10;
-    const start_tick = idt.tick_counter.load(.monotonic);
+    const start_tick = time.ticks();
     var count: u32 = 0;
-    while (idt.tick_counter.load(.monotonic) < start_tick + window_ticks) {
+    while (time.ticks() < start_tick + window_ticks) {
         _ = lua.callRender();
         count +%= 1;
         if (count > 1000000) break;
