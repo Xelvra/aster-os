@@ -1,2 +1,15 @@
-libs/limine/** linguist-vendored=true
-libs/lua-5.4/** linguist-vendored=true
+# GitHub language stats: exclude everything that is not the author's
+# application logic, so the language bar reflects the real Zig + Lua core.
+#
+# Build/test infrastructure (Shell scripts) - not application code.
+tools/** linguist-vendored
+hooks/** linguist-vendored
+
+# Vendored third-party code (Limine bootloader, Lua 5.4 C sources) - not
+# the author's code.
+libs/** linguist-vendored
+
+# Documentation (repo docs, internal spec, public website) - not application
+# logic.
+*.md linguist-documentation
+docs/** linguist-documentation

@@ -13,6 +13,11 @@ const BlockHeader = struct {
     free: bool,
     prev_free: ?*BlockHeader,
     next_free: ?*BlockHeader,
+    /// End (exclusive) of the grow region this block belongs to. Coalescing
+    /// must never merge across this boundary — grow can allocate more than
+    /// `grow_pages` (e.g. 5 pages), so a fixed window would over-read into
+    /// whatever follows the region (a framebuffer back buffer caused a #GP).
+    grow_end: usize,
 };
 
 const BlockFooter = struct {
@@ -115,12 +120,14 @@ pub const HeapAllocator = struct {
         const pages_count = @max(grow_pages, min_pages);
         const pages = try self.pfa.allocPages(pages_count, true);
         const virtual = pages[0] + self.pfa.hhdm_offset;
+        const grow_end = virtual + pages_count * pfa.page_size;
         const block: *BlockHeader = @ptrFromInt(virtual);
         block.* = .{
             .size = pages_count * pfa.page_size,
             .free = true,
             .prev_free = null,
             .next_free = null,
+            .grow_end = grow_end,
         };
         self.writeFooter(block);
         self.link(block);
@@ -145,6 +152,7 @@ pub const HeapAllocator = struct {
             .free = true,
             .prev_free = null,
             .next_free = null,
+            .grow_end = block.grow_end,
         };
         self.writeFooter(remainder);
         block.size = aligned_size;
@@ -155,7 +163,6 @@ pub const HeapAllocator = struct {
     fn coalesce(self: *HeapAllocator, block_in: *BlockHeader) *BlockHeader {
         var block = block_in;
         const page_start = @intFromPtr(block) & ~(pfa.page_size - 1);
-        const page_end = page_start + grow_pages * pfa.page_size;
 
         // backward merge — read the footer of the PREVIOUS block, not the
         // size of the current one (a boundary tag gives the true previous size)
@@ -170,9 +177,9 @@ pub const HeapAllocator = struct {
             }
         }
 
-        // forward merge
+        // forward merge, bounded by the grow region this block belongs to
         const next_addr = @intFromPtr(block) + block.size;
-        if (next_addr < page_end) {
+        if (next_addr < block.grow_end) {
             const next: *BlockHeader = @ptrFromInt(next_addr);
             if (next.free) {
                 self.unlink(next);
@@ -191,7 +198,6 @@ pub const HeapAllocator = struct {
         if (self.free_list) |head| head.prev_free = block;
         self.free_list = block;
     }
-
     fn unlink(self: *HeapAllocator, block: *BlockHeader) void {
         if (block.prev_free) |prev| {
             prev.next_free = block.next_free;
@@ -202,7 +208,6 @@ pub const HeapAllocator = struct {
         block.prev_free = null;
         block.next_free = null;
     }
-
     fn dataPtr(self: *HeapAllocator, block: *BlockHeader) [*]u8 {
         _ = self;
         return @ptrFromInt(@intFromPtr(block) + @sizeOf(BlockHeader));

@@ -123,7 +123,8 @@ Co přesně považujeme za vyřešení (definice „hotovo" pro tento problém).
 |----|-------|-------|--------|
 | H1 | `zig build` hlásí falešné `failed command: xorriso` při prvním buildu | 2026-08-07 | closed |
 | H2 | Debug build — `invalid memory operand` u `lidtq`/`invlpg` (Zig 0.16) | 2026-08-08 | closed |
-| H3 | QEMU runtime testy s diskem — page fault v reload testu (M6.1.5) | 2026-08-09 | open |
+| H3 | QEMU runtime testy s diskem — page fault v reload testu (M6.1.5) | 2026-08-09 | closed |
+| H4 | Phase 2 double buffering — heap corruption s diskem v runtime testech | 2026-08-09 | open |
 
 ---
 

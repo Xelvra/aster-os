@@ -22,7 +22,17 @@ const runtime_test = @import("runtime_test.zig");
 const lua = @import("lua/lua.zig");
 const bootlog = @import("bootlog.zig");
 
+/// Main kernel stack. The bootloader hands the kernel a small stack; switch
+/// to a large one before kernelMain — deep call chains (Lua) and large stack
+/// frames overflow a small bootloader stack.
+var kernel_stack: [65536]u8 align(16) = undefined;
+
 export fn _start() callconv(.c) noreturn {
+    const top: [*]u8 = @ptrCast(&kernel_stack);
+    asm volatile ("mov %[stack], %%rsp"
+        :
+        : [stack] "r" (top + kernel_stack.len),
+    );
     enable_sse();
     serial.init();
     kernelMain() catch {
@@ -146,7 +156,7 @@ fn kernelMain() !void {
     bootlog.ok("input", "ps/2 keyboard + mouse");
     probeStorage(alloc, &memory);
 
-    if (initGraphics(&info)) {
+    if (initGraphics(&info, &memory)) {
         var gfx_buf: [96]u8 = undefined;
         bootlog.ok("graphics", graphicsDetail(&info, &gfx_buf));
         bootlog.ok("renderer", "primitives + bitmap font");
@@ -191,9 +201,11 @@ var fb_storage: ?framebuffer.Framebuffer = null;
 var renderer: renderer_mod.Renderer = undefined;
 var mouse_cursor: mouse_cursor_mod.MouseCursor = .{};
 
-fn initGraphics(info: *const boot_info.BootInfo) bool {
+fn initGraphics(info: *const boot_info.BootInfo, memory: *mem.Memory) bool {
     const fb_info = info.framebuffer orelse return false;
     fb_storage = framebuffer.Framebuffer.init(fb_info);
+    _ = memory;
+
     renderer = renderer_mod.Renderer.init(&fb_storage.?);
     graphics.init(renderer);
     renderer.fillScreen(0x000000);
@@ -203,6 +215,8 @@ fn initGraphics(info: *const boot_info.BootInfo) bool {
     return true;
 }
 
+/// Copy the whole back buffer to the visible framebuffer in one piece
+/// (Phase 2, render quality — no mid-frame tearing).
 fn probeStorage(alloc: std.mem.Allocator, memory: *mem.Memory) void {
     const virtio = @import("drivers/virtio.zig");
     const gpt = @import("fs/gpt.zig");
