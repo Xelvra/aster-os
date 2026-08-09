@@ -41,6 +41,21 @@ This project requires the Zig version listed in [`.zig-version`](.zig-version).
   [`CHANGELOG.md`](CHANGELOG.md); metrics in [`spec/roadmap.md`](spec/roadmap.md).
 - This is an alpha prototype, not a usable OS yet.
 
+### Milestone metrics
+
+| M | Milestone | Kernel | First Frame |
+|---|-----------|-------:|------------:|
+| M0 | Boot      | 12 KB  | ≈ 0.3 s |
+| M1 | Memory    | 17 KB  | ≈ 0.4 s |
+| M2 | CPU       | 29 KB  | ≈ 0.5 s |
+| M3 | Graphics  | 34 KB  | ≈ 0.6 s |
+| M4 | Lua       | 336 KiB | ≈ 60 ms |
+| M5 | UI        | 371 KiB | ≈ 24 ms |
+| M6 | Storage   | 362 KiB | ≈ 26 ms |
+
+Boot times from `tools/bench.sh` — M0–M3 wall-clock incl. the bootloader,
+M4+ kernel-only on KVM.
+
 ## Quick start
 
 ```bash
