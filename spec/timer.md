@@ -56,6 +56,11 @@ pub const TimerApi = struct {
 - `ticks` je **monotónní** (nikdy se nevrací) a sdílí ji kernel, timer a Lua.
 - Žádný real-time / wall clock před M6 (perzistence není; viz `non-goals.md`).
 
+> **Tick zdroj:** monotónní čítač vlastní `src/kernel/time.zig` (middle layer,
+> `time.tick()` / `time.ticks()`). APIC timer IRQ volá `time.tick()`; `api/timer`
+> a runtime testy čtou `time.ticks()`. `cpu/idt.zig` tick čítač nevlastní ani
+> nevystavuje (viz `kernel-interface.md` §4.7 — API nesmí importovat nízké internals).
+
 ---
 
 ## 3. Kooperativní sleep (M0–M6)

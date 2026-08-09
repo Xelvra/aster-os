@@ -36,6 +36,12 @@ Všechna veřejná rozhraní žijí v `src/kernel/api/`:
 | `sysmon.zig` | Systémové metriky: RAM usage pro shell | tento soubor |
 | `power.zig` | Napájení: reboot (i8042 reset) | session menu, M5 |
 
+> **Střední vrstvy:** API moduly volají existující middle-layer moduly, ne nízké
+> kernel internals přímo — `graphics → renderer`, `runtime → lua`, `timer → time`
+> (`src/kernel/time.zig`, monotónní tick zdroj; APIC IRQ volá `time.tick()`,
+> čtenáři `time.ticks()`), `sysmon → mem.Memory.stats()` (`MemStats`). API modul
+> **nesmí** importovat `pfa`, `idt`, `heap`, `fb` apod. (viz §4.7).
+
 > **Výjimka z pravidla:** `Yield` (vzdání se kvanta) je **triviální/interní** — nespravuje
 > ho modul v `api/`, volá přímo `scheduler.yield()`. Nespadá pod plné pravidlo „KI je
 > jediný veřejný povrch“ ve smyslu rozhraní pro Lua/UI; je to vnitřní kooperace se
@@ -167,6 +173,11 @@ Malý KI modul, který vystavuje reálné metriky jádra shellu (Lua). Nejdřív
 4. **Žádná KI funkce nesmí nikdy selhat tichým návratem** — vždy vrací `KiStatus`.
 5. **Změna signatury KI = nový ADR v `architecture.md`** + major bump verze KI.
 6. **Dokumentace KI je ABI-pravda.** Implementace se může měnit; signatury ne.
+7. **API moduly importují jen middle vrstvy, nikdy nízké internals.** `api/*` smí
+   importovat middle-layer moduly (`renderer`, `lua`, `time`, `mem`) a volat jejich
+   veřejné funkce, ale **nesmí** importovat nízké internals (`pfa`, `idt`, `heap`,
+   `fb`, `input_queue`, ...) ani číst jejich pole napřímo. Hranice je logická
+   (Zig import graf + review), ne MMU — SASOS ji neruší (invarianty Architecture).
 
 ---
 

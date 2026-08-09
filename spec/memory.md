@@ -9,6 +9,10 @@
 
 - Paměť je spravovaná **dvěma vrstvami**: PFA (stránky) → obecný alokátor (bloky).
   PFA je fyzický správce stránek; obecný alokátor dělí stránky na libovolně velké bloky.
+- **`mem.Memory` je zapouzdřující střední vrstva** — vlastní `pfa`, heap alokátor
+  a bitmapu. Veřejná rozhraní navenek: `allocator()` (Zig `Allocator`) a `stats()`
+  → `MemStats{total_bytes, free_bytes}` (pro Sysmon KI). PFA zůstává schovaná za
+  `Memory`; `api/*` nikdy neimportuje `pfa` napřímo (`kernel-interface.md` §4.7).
 - Žádný skrytý ani globální alokátor. Každá alokace má **jasného vlastníka a právě jedno
   místo uvolnění**; alokátor se předává explicitně (`spec/code-style.md` §3).
 - **Žádná alokace na kritických cestách** (IRQ, render, event loop render) — invariant

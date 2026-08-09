@@ -204,7 +204,8 @@ aster-os/
 ├── src/
 │   ├── kernel/                   # boot, mem/pfa+heap, cpu/idt+timer, drivers/ps2,
 │   │   │                         # fb/framebuffer, render/renderer+font+text, api/,
-│   │   │                         # lua/ (Lua 5.4 binding + ui/ shell moduly), sys/
+│   │   │                         # time.zig (monotónní tick), lua/ (Lua 5.4 binding +
+│   │   │                         # ui/ shell moduly), sys/
 │   └── kernel/lua/ui/            # desktop shell v Luay: theme, wm, repl, launcher,
 │                                 # input, main (concatenované do jednoho chunku)
 ├── libs/
