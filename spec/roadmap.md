@@ -56,7 +56,8 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 | M4 (cíl) | < 512 KB (s Lua) | ≤ 12 MB | < 40 ms | < 16 ms | TBD |
 | **M5 (měřeno)** | **371 KiB** | **2 MiB**⁴ | **≈ 90 ms**² (TCG) / **≈ 24 ms**⁵ (KVM) | TBD | TBD |
 | M5 (cíl) | < 512 KB | ≤ 16 MB | < 40 ms | < 16 ms | TBD |
-| M6 | < 768 KB | ≤ 24 MB | < 50 ms | < 16 ms | TBD |
+| **M6 (měřeno)** | **362 KiB** | **2 MiB**⁴ | **≈ 26 ms**⁶ (KVM) | TBD | TBD |
+| M6 (cíl) | < 768 KB | ≤ 24 MB | < 50 ms | < 16 ms | TBD |
 | M7 | < 1 MB | ≤ 32 MB | < 50 ms | < 16 ms | TBD |
 | M8 | TBD | TBD | TBD | TBD | TBD |
 | M9 | TBD | TBD | TBD | TBD | TBD |
@@ -109,6 +110,12 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 > regrese render pipeline. **Pod KVM (pozn. ⁵) M5 full-shell měří ≈ 32 renders/10 ticks.**
 > Při změně render pipeline se číslo nesmí zhoršit **při stejné
 > zátěži** bez zdůvodnění.
+> ⁶ **M6 měření (2026-08-09, `tools/bench.sh`, KVM):** Kernel Entry → First Frame
+> **≈ 26 ms** (cíl < 50 ms ✓), kernel image **362 KiB** (370 840 B, cíl < 768 KB ✓),
+> RAM idle ≈ 2 MiB (pozn. ⁴, cíl ≤ 24 MB ✓). **Optimalizační průchod M6 (pravidlo 5):**
+> metriky drží cíle beze změn (image 371 → 362 KiB poklesem z dead code), žádná
+> optimalizace nebyla nutná; frame latency p99 stále bez měřicího mechanismu (TBD).
+> Firmware → First Frame ≈ 3,3 s (BIOS + Limine, mimo náš kód).
 
 ---
 
