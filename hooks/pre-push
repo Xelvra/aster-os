@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# pre-push hook: refuse to push if the documented boot log (docs/boot-log.md
+# pre-push hook: refuse to push if the documented boot log (boot-log.md
 # and the README terminal block) does not match the current kernel boot output.
 set -euo pipefail
 

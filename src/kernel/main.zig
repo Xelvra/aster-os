@@ -215,8 +215,6 @@ fn initGraphics(info: *const boot_info.BootInfo, memory: *mem.Memory) bool {
     return true;
 }
 
-/// Copy the whole back buffer to the visible framebuffer in one piece
-/// (Phase 2, render quality — no mid-frame tearing).
 fn probeStorage(alloc: std.mem.Allocator, memory: *mem.Memory) void {
     const virtio = @import("drivers/virtio.zig");
     const gpt = @import("fs/gpt.zig");

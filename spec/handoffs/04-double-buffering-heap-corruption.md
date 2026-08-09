@@ -1,7 +1,7 @@
 # Handoff H4: double buffering (Phase 2) — heap corruption with a disk in QEMU runtime tests
 
 **Datum:** 2026-08-09
-**Status:** open
+**Status:** closed (ISR stub `isr_common` ukládal jen GPR, ne XMM registry — `handleIsrImpl` klaunuje XMM0 přes `movdqu`, takže timer IRQ mezi `movdqu` load/store alloc v kernelMain zničil XMM0 a do arg slotu runAll se zapsala poškozená data; fix XMM save/restore v `isr.s`, viz C33)
 
 ---
 
@@ -64,6 +64,8 @@ Lua `reload()` (close_state/createState).
 | 6 | `max_pages_per_run` zpět na 64 (bez back bufferu) | s diskem **stále fault** | bug 3 není z `max_pages`/`pages_storage` |
 | 7 | `kernel_stack` (vlastní 64 KiB stack přes RSP switch v `_start`) | fault přetrvává | není stack overflow (tentokrát) |
 | 8 | Markery v `lua.reload` | `RELOAD: created` se vypíše (reload projde), fault až v dalším testu | **bug je v heapu poškozeném PŘED `testFilesystem`**, ne přímo v reload kódu |
+| 9 | **FIX:** ISR stub `isr_common` ukládal jen GPR (rax..rdi), ne XMM. Kernel běží se SSE povoleným a Zig generuje `movdqu` pro kopie structů (`handleIsrImpl` sám používá `movdqu` pro Event do input_queue). Když APIC timer IRQ dorazí mezi `movdqu 0x270(%rsp),%xmm0` (load alloc) a `movdqu %xmm0,(%rsp)` (store do arg slotu runAll) v kernelMain, ISR klaunuje XMM0, `iretq` obnoví jen GPR → arg slot dostane poškozená data (alloc.ptr=0) → #GP. Potvrzeno GDB+QEMU (watchpoint, single-step, layout-sensitive markery). **Fix:** XMM0–XMM15 save/restore v `isr_common` (256 B pod InterruptFrame, rdi zachycen před subq). S diskem Debug i ReleaseSafe **PASS 3× deterministicky** | bug v ISR, ne v heapu |
+| 10 | **FIX (latentní):** ISR stuby pushují vektor přes `push imm8`, který sign-extenduje vektory ≥ 0x80 (spurious 0xFF → `0xFFFFFFFFFFFFFFFF`). Ověřeno, že `jmp isr_common` relaxation nenastala (všech 256 stubů = 9 B). Fix: `frame.vector & 0xFF` v `handleIsrImpl` | sign-extension latentní bug odstraněn |
 
 ## 4. Hypotézy
 
@@ -109,3 +111,8 @@ Pro symbolizaci: `zig build -Doptimize=Debug -Druntime-tests=true` →
 - **Vrátit back buffer** (Phase 2): renderer do PFA back bufferu + `present` (memcpy back→front), s ověřením, že fault zmizí.
 - Vrátit CI krok „In-QEMU runtime tests with a test disk" v `.github/workflows/ci.yml` (dočasně odebrán 2026-08-09, aby CI nebylo červené).
 - Lekci (příčina) zapsat do `spec/troubleshooting.md`, handoff uzavřít.
+
+> **Splněno 2026-08-09:** root cause = ISR klaunoval XMM registry (viz §3#9); qemu-test
+> s diskem vrací exit 99 (Debug i ReleaseSafe, 3× deterministicky), CI krok s diskem
+> vrácen, lekce v `troubleshooting.md` (C33). Back buffer (Phase 2) zůstává záměrně
+> vypnutý jako samostatný pending úkol (nevrací se tímto commitem).

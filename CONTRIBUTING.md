@@ -86,6 +86,9 @@ boot log (`boot-log.md`) still matches the code via
 - Follow the module structure, contracts, and memory rules in
   [`spec/code-style.md`](spec/code-style.md) and the invariants in
   [`spec/invariants.md`](spec/invariants.md).
+- **Allowed author-written languages: Zig, Lua and Assembly only.** Any other
+  language (C, Rust, ...) needs explicit approval — C in `libs/` is vendored,
+  not the author's.
 
 ## Language
 

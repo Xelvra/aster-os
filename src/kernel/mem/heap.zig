@@ -8,7 +8,13 @@ const grow_pages: usize = 4;
 
 const min_block_size: usize = @sizeOf(BlockHeader) * 2 + @sizeOf(BlockFooter);
 
+/// Canary written into every block header. If memory corruption ever turns a
+/// foreign buffer into a "block", checkBlock() fires while it is still being
+/// used — pinpointing the corrupter instead of failing three tests later.
+const block_magic: u64 = 0x41535445424C4B31; // "ASTEBLK1"
+
 const BlockHeader = struct {
+    magic: u64,
     size: usize,
     free: bool,
     prev_free: ?*BlockHeader,
@@ -19,6 +25,18 @@ const BlockHeader = struct {
     /// whatever follows the region (a framebuffer back buffer caused a #GP).
     grow_end: usize,
 };
+
+/// Stop with a clear marker when a block header does not carry the canary —
+/// the heap has been corrupted (use-after-free, overflow, or a foreign buffer
+/// misread as a block). Halt, do not continue on corrupt state.
+fn checkBlock(block: *BlockHeader) void {
+    if (block.magic == block_magic) return;
+    const serial = @import("../serial.zig");
+    var cb: [128]u8 = undefined;
+    const line = std.fmt.bufPrint(&cb, "HEAP CORRUPTION at block {x:0>12}", .{@intFromPtr(block)}) catch "HEAP CORRUPTION";
+    serial.writeLine(line);
+    while (true) asm volatile ("hlt" ::: .{ .memory = true });
+}
 
 const BlockFooter = struct {
     size: usize,
@@ -88,6 +106,7 @@ pub const HeapAllocator = struct {
             found = self.findBlock(need, alignment) orelse return error.OutOfMemory;
         }
         const block = found.?;
+        checkBlock(block);
         self.unlink(block);
         block.free = false;
         block.prev_free = null;
@@ -105,6 +124,7 @@ pub const HeapAllocator = struct {
     fn rawFree(self: *HeapAllocator, ptr: [*]u8, len: usize) void {
         _ = len;
         const block: *BlockHeader = @ptrFromInt(@intFromPtr(ptr) - @sizeOf(BlockHeader));
+        checkBlock(block);
         block.free = true;
         block.prev_free = null;
         block.next_free = null;
@@ -123,6 +143,7 @@ pub const HeapAllocator = struct {
         const grow_end = virtual + pages_count * pfa.page_size;
         const block: *BlockHeader = @ptrFromInt(virtual);
         block.* = .{
+            .magic = block_magic,
             .size = pages_count * pfa.page_size,
             .free = true,
             .prev_free = null,
@@ -148,6 +169,7 @@ pub const HeapAllocator = struct {
         const aligned_size = std.mem.alignForward(usize, size, 16);
         const remainder: *BlockHeader = @ptrFromInt(@intFromPtr(block) + aligned_size);
         remainder.* = .{
+            .magic = block_magic,
             .size = block.size - aligned_size,
             .free = true,
             .prev_free = null,
@@ -162,6 +184,7 @@ pub const HeapAllocator = struct {
 
     fn coalesce(self: *HeapAllocator, block_in: *BlockHeader) *BlockHeader {
         var block = block_in;
+        checkBlock(block);
         const page_start = @intFromPtr(block) & ~(pfa.page_size - 1);
 
         // backward merge — read the footer of the PREVIOUS block, not the
@@ -170,6 +193,7 @@ pub const HeapAllocator = struct {
             const prev_footer: *BlockFooter = @ptrFromInt(@intFromPtr(block) - @sizeOf(BlockFooter));
             const prev: *BlockHeader = @ptrFromInt(@intFromPtr(block) - prev_footer.size);
             if (@intFromPtr(prev) >= page_start and prev.free) {
+                checkBlock(prev);
                 self.unlink(prev);
                 prev.size += block.size;
                 self.writeFooter(prev);
@@ -182,6 +206,7 @@ pub const HeapAllocator = struct {
         if (next_addr < block.grow_end) {
             const next: *BlockHeader = @ptrFromInt(next_addr);
             if (next.free) {
+                checkBlock(next);
                 self.unlink(next);
                 block.size += next.size;
                 self.writeFooter(block);
@@ -192,6 +217,7 @@ pub const HeapAllocator = struct {
     }
 
     fn link(self: *HeapAllocator, block: *BlockHeader) void {
+        checkBlock(block);
         block.free = true;
         block.next_free = self.free_list;
         block.prev_free = null;
@@ -199,6 +225,7 @@ pub const HeapAllocator = struct {
         self.free_list = block;
     }
     fn unlink(self: *HeapAllocator, block: *BlockHeader) void {
+        checkBlock(block);
         if (block.prev_free) |prev| {
             prev.next_free = block.next_free;
         } else {

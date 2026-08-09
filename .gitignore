@@ -1,7 +1,7 @@
+# Zig build artifacts (Zig 0.16 uses the dot-prefixed cache dirs)
 zig-out/
 .zig-cache/
 .zig-cache-*/
-zig-cache/
 images/*.iso
 images/*.img
 images/*.bin

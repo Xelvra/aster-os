@@ -2,12 +2,7 @@ const std = @import("std");
 const serial = @import("../serial.zig");
 
 const idt_size = 256;
-/// ISR stack for interrupts/faults. 16 KiB proved too small once the
-/// filesystem layer started walking directories with large stack buffers
-/// (M6.1.4); 64 KiB leaves headroom for the block/FI paths.
-const stack_size = 65536;
 var idt_entries: [idt_size]IdtEntry align(16) = undefined;
-var isr_stack: [stack_size]u8 align(16) = undefined;
 
 const IdtEntry = packed struct {
     offset_low: u16,
@@ -60,7 +55,10 @@ fn load() void {
 }
 
 fn handleIsrImpl(frame: *InterruptFrame) callconv(.c) void {
-    const vector = frame.vector;
+    // The ISR stubs push the vector with `push imm8`, which sign-extends
+    // vectors >= 0x80 (e.g. spurious 0xFF arrives as 0xFFFFFFFFFFFFFFFF).
+    // Mask to the real 8-bit vector so the switch below matches.
+    const vector = frame.vector & 0xFF;
     switch (vector) {
         0x20 => {
             const apic = @import("apic.zig");

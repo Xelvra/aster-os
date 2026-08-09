@@ -65,8 +65,46 @@ isr_common:
   pushq %rcx
   pushq %rsi
   pushq %rdi
+  /* Save the full SSE state below the InterruptFrame. Interrupts can fire
+     between instructions that copy structs through XMM registers (movdqu),
+     so the ISR must not clobber them. Keep the frame pointer (rdi) before
+     the subq so the XMM area does not shift the InterruptFrame layout. */
   movq %rsp, %rdi
+  subq $256, %rsp
+  movdqu %xmm0, 0x00(%rsp)
+  movdqu %xmm1, 0x10(%rsp)
+  movdqu %xmm2, 0x20(%rsp)
+  movdqu %xmm3, 0x30(%rsp)
+  movdqu %xmm4, 0x40(%rsp)
+  movdqu %xmm5, 0x50(%rsp)
+  movdqu %xmm6, 0x60(%rsp)
+  movdqu %xmm7, 0x70(%rsp)
+  movdqu %xmm8, 0x80(%rsp)
+  movdqu %xmm9, 0x90(%rsp)
+  movdqu %xmm10, 0xa0(%rsp)
+  movdqu %xmm11, 0xb0(%rsp)
+  movdqu %xmm12, 0xc0(%rsp)
+  movdqu %xmm13, 0xd0(%rsp)
+  movdqu %xmm14, 0xe0(%rsp)
+  movdqu %xmm15, 0xf0(%rsp)
   callq handle_isr
+  movdqu 0xf0(%rsp), %xmm15
+  movdqu 0xe0(%rsp), %xmm14
+  movdqu 0xd0(%rsp), %xmm13
+  movdqu 0xc0(%rsp), %xmm12
+  movdqu 0xb0(%rsp), %xmm11
+  movdqu 0xa0(%rsp), %xmm10
+  movdqu 0x90(%rsp), %xmm9
+  movdqu 0x80(%rsp), %xmm8
+  movdqu 0x70(%rsp), %xmm7
+  movdqu 0x60(%rsp), %xmm6
+  movdqu 0x50(%rsp), %xmm5
+  movdqu 0x40(%rsp), %xmm4
+  movdqu 0x30(%rsp), %xmm3
+  movdqu 0x20(%rsp), %xmm2
+  movdqu 0x10(%rsp), %xmm1
+  movdqu 0x00(%rsp), %xmm0
+  addq $256, %rsp
   popq %rdi
   popq %rsi
   popq %rcx
