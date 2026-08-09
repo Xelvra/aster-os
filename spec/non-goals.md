@@ -15,7 +15,7 @@ na tento dokument.
 |---|---|---|
 | **POSIX kompatibilita** | ❌ Ne | Žádná POSIX API v kernelu; KI je vlastní (ADR-004). **Výjimka:** runtime vrstva může hostit **WASI** pro cizí Wasm aplikace (viz `runtime.md` §7.1) — WASI je klient KI, ne součást kernelu. |
 | **SMP / vícejádro** | ❌ Ne | Single-core v prvních milnících; SMP je zásadní zásah do scheduleru a paměti. |
-| **USB** | ❌ Ne | Jen PS/2 klávesnice (M2). |
+| **USB** | ⚠️ Budoucí (rozhodnuto 2026-08-09) | USB HID stack je potvrzený cíl (bez USB není reálný hardware); umístění se vybere v Fázi 2/M7–M10 (viz `roadmap.md`). Do té doby PS/2 (M2). |
 | **Networking / TCP-IP** | ⚠️ M9 (ADR-022) | Síť je plánovaná jako KI modul `net.*` (virtio-net, ARP/IPv4/ICMP/UDP) — viz ADR-022. Bezpečnostní brzda: parser bez faultu na cizím vstupu, síť defaultně vypnutá, fuzz testy; residuální riziko DoS v Ring 0 je přijato pro hobby rozsah (dlouhodobě Ring 3, ADR-018). |
 | **GPU akcelerace** | ❌ Ne | Framebuffer přes GOP (Limine); renderer je softwarový. |
 | **Bezpečnostní certifikace** | ❌ Ne | Neformální systém; izolace je managed runtime úroveň (ADR-002). |

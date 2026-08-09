@@ -116,7 +116,7 @@ while (true) {
   `input.next_event()` posílá Lua **připravený `char`** — Lua nic nemapuje. Přidání
   jiného layoutu (národní znaková sada) = nová datová tabulka v `layout.zig`, bez
   změny logiky. Host testy: `tests/input/layout_test.zig`.
-- **Odloženo:** USB HID (mapuje usage → stejný `KeyCode`).
+- **Budoucí:** USB HID (mapuje usage → stejný `KeyCode`) — potvrzený cíl (rozhodnutí 2026-08-09, viz `roadmap.md` Fáze 2), zatím PS/2.
 
 ---
 

@@ -374,10 +374,12 @@ se musí vyřešit **před** spuštěním dalších features, ne až na konci st
       se řeší **před stabilizací (M8)**, ne na jejím konci. Render do vlastní offscreen
       surface + `present` do framebufferu (původní M7 položka, přesun viz M7 níže).
       *Exit: dvoubufferový present bez tearingu; zapíše se frame latency p99 (§2).*
-- [ ] **USB HID — rozhodnout jako podmínku M10:** bez USB není reálný hardware (PS/2 je
-      mrtvé). Rozhodnutí na hranici Fáze 2: (a) USB HID stack přesunout dřív
-      (~M6.3/M7.x), nebo (b) M10 = „QEMU + legacy HW (PS/2)".
-      *Exit: zapsané rozhodnutí s dopadem na M10.*
+- [x] **USB HID — ROZHODNUTO (2026-08-09): USB BUDE.** Bez USB není reálný hardware
+      (PS/2 je mrtvé), takže USB HID stack je závazek — otázka není „zda", ale „kdy".
+      Otevřené zůstává jen **umístění**: (a) USB HID stack dřív (~M6.3/M7.x), nebo
+      (b) M10 = „QEMU + legacy HW (PS/2)" a USB HID jako samostatný milník.
+      *Exit: zapsané rozhodnutí s dopadem na M10.* —
+      **hotovo:** USB je potvrzený cíl; umístění se vybere při plánování M7/M10.
 
 ### M7 — Runtime (Wasm)
 

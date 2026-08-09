@@ -55,10 +55,7 @@ fn load() void {
 }
 
 fn handleIsrImpl(frame: *InterruptFrame) callconv(.c) void {
-    // The ISR stubs push the vector with `push imm8`, which sign-extends
-    // vectors >= 0x80 (e.g. spurious 0xFF arrives as 0xFFFFFFFFFFFFFFFF).
-    // Mask to the real 8-bit vector so the switch below matches.
-    const vector = frame.vector & 0xFF;
+    const vector = frame.vector;
     switch (vector) {
         0x20 => {
             const apic = @import("apic.zig");

@@ -50,6 +50,10 @@ isr_stubs:
   .endr
 .globl isr_common
 isr_common:
+  /* The stubs push the vector with `push imm8`, which sign-extends vectors
+     >= 0x80 (e.g. spurious 0xFF arrives as 0xFFFFFFFFFFFFFFFF). Fix it in
+     place so InterruptFrame.vector is always the real 8-bit vector. */
+  andq $0xFF, (%rsp)
   pushq %rax
   pushq %rbp
   pushq %rbx
