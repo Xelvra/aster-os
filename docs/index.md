@@ -4,54 +4,109 @@ title: Home
 nav_order: 1
 ---
 
-# Aster OS
+# Aster OS — Web
 
-> **Aster is an experimental desktop operating system written in Zig.**
->
-> Aster currently targets **x86_64** (QEMU `q35`) — the only implemented architecture for
-> now. A future port (e.g. ARM, RISC-V) is not excluded by design, but it is not a goal
-> today and would need its own scope change (see [`spec/non-goals.md`](spec/non-goals.md)).
-> The first implementation deliberately favors **simplicity over isolation**: the desktop,
-> scripting engine, and runtime share a single address space to minimize complexity and
-> maximize iteration speed. The public interfaces are designed as **stable abstractions**,
-> so individual subsystems can later be moved into isolated processes **without changing
-> application APIs**.
+**Aster** is an experimental desktop operating system written in Zig. This site is the
+introduction to the project's complete English documentation.
 
-## How to read this documentation
+## Documentation language
 
-**All documentation is in the navigation on the left** — every page there is an English
-translation of a Czech source. This home page is the only exception: it is the
-introduction, not a translation.
+The documentation has two different audiences, and therefore two different layers.
 
-Aster's documentation is split into two layers on purpose, so there is exactly **one
-source of truth** for every fact:
+The **public documentation** (`README.md`) is **English**. The repository has been public
+since M0, and the README is the main entry point for visitors.
 
-| Layer | Language | Role |
-|---|---|---|
-| [`spec/`](spec/README.md) | **Czech** | **Canonical source of truth.** The complete internal specification — written for the author, always current, edited freely. |
-| `docs/` (this site) | **English** | **Translation layer.** A public, English reflection of the spec, published to GitHub Pages. |
+The internal specification (`spec/*.md`) deliberately remains in **the developer's
+language**. It is the author's **"second brain"**, not a marketing surface.
 
-Rules that keep this honest:
+This separation is intentional.
 
-- **`spec/` is canonical.** Every page here is a faithful translation of a Czech spec
-  file — same sections, same facts, same structure — not a marketing summary. When the
-  two disagree, the Czech spec wins.
-- **Translations are machine-made**, reviewed by the author when synced (`synced:`
-  footer on each page). For any nuance, check the linked Czech source.
-- **Links go one way only:** the website (`docs/`) links to the repository
-  (`spec/`, `README.md`, ...) — never the reverse. The single source of truth lives in
-  the repo.
-- **Sync is enforced by git, not by hand-edited dates.** Each translated page carries
-  `source:` + `synced:` front matter; `tools/sync-docs.sh --check` (CI + pre-push hook)
-  fails when a page's source changed more than 14 days ago without the translation being
-  updated. A page cannot fake being current by editing a date.
+* Before milestone M0, writing English documentation would have meant doing community
+  marketing. That would slow iteration, distract from the
+  code, and shift attention toward an audience.
+* Writing in the developer's fastest language keeps the internal specification fast,
+  consistent, and precise. The goal of `spec/` is to help the author think and build,
+  not to present the project to outsiders.
+* The English version of the specification is **not produced as one bulk translation**.
+  It is created gradually as the English layer in `docs/` evolves. `spec/*.md` remains
+  the source of truth, while the English equivalent is produced continuously during
+  development.
+* The original plan called for a bulk translation in M8. That plan was replaced on
+  **2026-08-08**. English translation is therefore an ongoing process, not a milestone
+  requirement.
 
-## Where to start
+> **Deviation from the original plan (recorded at M0):** the original plan called for
+> English documentation from M4 onward, including the README. Because the repository has
+> been public since M0, the README was translated immediately. The internal specification
+> remains in the developer's language as described above.
 
-- **README** — the project intro (status, quick start, metrics); see the README page.
-- **Architecture** — the design overview.
-- **Milestones** — the M0–M10 roadmap.
-- **Status** — what works right now.
-- **Development** — build, test, and verification.
+This language split applies to **documentation only**.
 
-All of these are faithful English translations of the corresponding Czech specs.
+**Code, comments, and commit messages are always English**
+(`spec/code-style.md` §0).
+
+## The two-layer strategy
+
+The public web (`docs/`, GitHub Pages) is a **curated layer** over the internal
+specification.
+
+The principle is simple:
+
+> **The developer's language = the brain. Translations = the face.**
+
+One direction of flow. No duplication.
+
+| Layer                     | Language                 | Role                                                                                                                                       |
+| ------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`spec/`](spec/README.md) | **Developer's language** | **Canonical source of truth.** The complete internal specification, written for the author. It is always current and can be edited freely. |
+| `docs/` (this site)       | **English**              | **Curated public layer.** An English reflection of the specification, published to GitHub Pages.                                           |
+
+### Rules that keep this honest
+
+* **`spec/` is canonical.** Every page on this site is a faithful translation of a
+  corresponding spec file: same sections, same facts, same structure. It is not a
+  marketing summary. When the two disagree, **the spec wins**.
+
+* **Translations are machine-made.** The author reviews them when they are synced.
+  Each page records this with a `synced:` footer. If a nuance matters, follow the linked
+  source in `spec/`.
+
+* **One-way flow:** `spec → docs`. Never the reverse. A translation page is never
+  projected back into the specification. Links follow the same direction: the website
+  links to the repository; the repository does not depend on the website.
+
+* **Sync is enforced by git, not by hand-edited dates.** Every translated page contains
+  `source:` and `synced:` front matter. `tools/sync-docs.sh --check`, used by CI and the
+  pre-push hook, fails when the source has changed by more than 14 days without its
+  translation being updated. Editing a date cannot make a stale page look current.
+
+* **Drift is design, not a bug.** The web may lag behind the specification. The public
+  face is intentionally more stable; the brain is allowed to move fast.
+
+* New things are written into `spec/` first. Translations move to the web when there is
+  time to sync them.
+
+* `CHANGELOG.md` and `README.md` remain English because they are part of the project's
+  public interface.
+
+## How to navigate this site
+
+**All documentation is available through the navigation on the left.**
+
+Every page there is an English translation of a corresponding source in `spec/`.
+
+This home page is the only exception. It is an introduction to the documentation, not a
+translation of a single spec file.
+
+For a natural starting point, follow the order of the left navigation:
+
+* **README** — project introduction, current status, milestone metrics, quick start, and
+  prerequisites.
+
+Each translated page contains a footer showing which source it was synced from and when.
+
+When a nuance matters, the linked source in `spec/` is the authoritative answer.
+
+---
+
+Last audited on **2026-08-09**.

@@ -44,91 +44,49 @@
 ## Stav
 
 - **Verze specifikace:** 1.0 (draft)
-- **Schváleno k implementaci:** Milníky M0–M5; M6 (Storage) v plánu
+- **Schváleno k implementaci:** Milníky M0–M6; M7 (Runtime) v plánu
 - **Aktualizace:** nová architektonická rozhodnutí se zapisují do `spec/adr/` (každé
   samostatný soubor); přehled se udržuje v `architecture.md`. Rozhodnutí se nemění
   dodatečně — doplňují se nová.
 
 ## Jazykové fáze dokumentace
 
-Dokumentace pro **veřejné publikum** (README.md) je **anglicky** — repo je public od M0
-a README je vstupní brána pro návštěvníky. Interní specifikace (`spec/*.md`) zůstává
-**záměrně česky** — je to „druhý mozek" autora, ne marketing. Důvody:
+Dokumentace pro **veřejné publikum** (README.md) je **anglicky** — repo je public od M0 a
+README je vstupní brána pro návštěvníky. Interní specifikace (`spec/*.md`) a jeho jazyk
+**záměrně** zůstává, je to „druhý mozek" autora, ne marketing.
+
+Důvody:
 
 - Před milníkem M0 by anglická dokumentace byla komunitní marketing, který hobby projekty
-  nejčastěji zabíjí: zpomalí iteraci, odvede od kódu a soustředí se na publikum, které
-  zatím neexistuje.
-- Psát pro sebe = rychlost, konzistence a soustředění na kód; čeština je pro autora
+  nejčastěji zabíjí: zpomalí iteraci, odvede od kódu a soustředí se na publikum, které neexistuje.
+- Psát pro sebe = rychlost, konzistence a soustředění na kód; jazyk je pro autora
   nejrychlejší médium přesného vyjádření.
 - **Anglická verze specifikace nevzniká hromadným překladem, ale postupně** — jako
-  anglická vrstva v `docs/` (web, viz „Strategie dvou vrstev" níže). `spec/*.md` zůstává
-  český zdroj pravdy; anglický ekvivalent se vytváří průběžně při práci, ne jako
-  jednorázový krok (původní plán „hromadný překlad v M8" nahrazen 2026-08-08). Nejde
+  anglická vrstva v `docs/` (web, viz „Strategie dvou vrstev" níže). `spec/*.md`
+  zůstává zdroj pravdy; anglický ekvivalent se vytváří průběžně při práci, ne jako
+  jednorázový skok (původní plán „hromadný překlad v M8" nahrazen 2026-08-08). Nejde
   tedy o podmínku žádného milníku.
 
 > **Odchylka od původního plánu (zapsáno při M0):** původní záměr byl anglické dokumentace
 > od M4+ včetně README. Protože je repo public už od M0, README se přeložilo hned;
-> specifikace zůstává česky dle výše.
+> specifikace zůstává viz výše.
 
-To se týká **dokumentace**. **Kód, komentáře a commit messages zůstávají anglicky vždy**
+To se týká **dokumentace**. **Kód, komentáře a commit messages jsou anglicky vždy**
 (`spec/code-style.md` §0).
 
 ## Strategie dvou vrstev (web)
 
-Veřejný web (`docs/`, GitHub Pages) je **překladová vrstva** nad interní specifikací.
-Princip: **čeština = mozek, angličtina = tvář.** Jeden směr toku, žádná duplicita.
+Veřejný web (`docs/`, GitHub Pages) je **kurátorská vrstva** nad interní specifikací.
+Princip: **jazyk autora = mozek, překlady = tvář.** Jeden směr toku, žádná duplicita.
 
 - `spec/` (česky) = **kanonický zdroj pravdy** — upravuje se volně, vždy aktuální.
-- `docs/` (anglicky) = **překlad veřejné vrstvy** — publikuje se z `main` přes
+- `docs/` (anglicky) = **kurátorská veřejná vrstva** — publikuje se z `main` přes
   GitHub Pages (native Jekyll, theme just-the-docs; konfigurace `docs/_config.yml`).
-  Každá anglická stránka je **věrný překlad** svého českého zdroje (stejné sekce, stejná
-  fakta, stejná struktura) — ne zkratka.
-- **Překlady jsou strojové** — anglické stránky vznikají strojovým překladem českých
-  zdrojů a procházejí lidskou kontrolou autora při synchronizaci (`synced:`). Nejedná se
-  o ručně psaný marketingový text; případné nuance originálu je nutné ověřit v českém
-  zdroji (který je vždy kanonický).
-- **Jednosměrný tok:** spec → docs. Nikdy zpětně (anglická stránka se nepromítá
-  do českého spec).
-- **Odkazy jdou jen jedním směrem:** web (`docs/`) odkazuje na repo (`spec/`, README,
-  ...) — nikdy naopak. Repo dokumenty (README, CONTRIBUTING, `spec/*`) **neodkazují**
-  na `docs/` ani na webové stránky (`xelvra.github.io/...`); jediný zdroj pravdy žije
-  v repu. Zpětný odkaz by vytvořil druhou, rovnocennou „tvář" a rozbil by jednozdrojový
-  princip.
-- Nové věci se píší česky do `spec/`, anglicky na web ve volných chvílích.
+- Každá anglická stránka nese `source: spec/<soubor>.md` + datum poslední
+  synchronizace (`synced:`).
+- **Jednosměrný tok:** spec → docs. Nikdy zpětně (překladová stránka se nepromítá
+  do spec).
+- **Drift je design, ne bug:** web může zaostávat za spec — veřejná tvář je stabilní,
+  mozek je rychlý.
+- Nové věci se píší do `spec/`, překlady až na web ve volných chvílích.
 - `CHANGELOG.md` a `README.md` zůstávají anglicky (veřejné rozhraní projektu).
-
-### Pravidlo synchronizace (gitové, ne datové)
-
-Každá anglická stránka v `docs/*.md` nese v **YAML front matter** `source:`:
-
-```yaml
----
-layout: default
-title: Status
-nav_order: 2
-source: spec/roadmap.md
----
-```
-
-- `source:` — relativní cesta ke zdroji (zdrojům, čárkami) v repu, ze kterého se
-  stránka překládá. U `milestones.md` `spec/roadmap.md`; u `development.md`
-  `spec/verification.md, spec/code-style.md`.
-- **Výjimka — `docs/index.md`:** úvodní stránka, která vysvětluje anglickému čtenáři
-  strategii dvou vrstev a zrcadlí `README.md`. **Nemá `source:`** — není překladem
-  českého zdroje, a proto ji `tools/sync-docs.sh` nekontroluje (jediný odchylkový
-  dokument).
-- `synced:` — datum poslední synchronizace. Stránka na konci ukazuje viditelnou
-  patičku „Last synced from … on …", aby čtenář webu vždy viděl, od kdy stránka
-  odráží zdroj.
-- **Kontrola je založená na git historii, ne na datovém tagu.** Stránka je v sync, když
-  je její anglický překlad commitnut **v době posledního commitu českého zdroje nebo
-  později**. Ruční změna `synced:` data v souboru nemá váhu pro hlavní (gitový) check —
-  ten čte jen `git log`, takže check nejde ošidit. `synced:` datum je sekundární
-  konzistence pro čtenáře (patička).
-- **Pravidlo 14 dnů:** po změně `spec/<soubor>.md` se anglický ekvivalent v `docs/`
-  zsynchronizuje a commitne **do 14 dnů**. Do té doby skript **varuje**; po 14 dnech
-  **failuje** a blokuje push (pre-push hook) a CI. Stránka, jejíž zdroj se změnil bez
-  odpovídajícího commitu překladu, neprojde.
-- **Patička nelže:** `tools/sync-docs.sh --check` kontroluje i to, že `synced:` datum
-  není starší než poslední změna zdroje (stejné 14denní okno) — pokud vývojář zapomene
-  syncnout, čtenář vidí zastaralé datum a CI po 14 dnech push zablokuje.
