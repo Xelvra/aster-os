@@ -117,14 +117,11 @@ Co přesně považujeme za vyřešení (definice „hotovo" pro tento problém).
 
 ---
 
-## 5. Seznam otevřených handoffů
+## 5. Kde najít handoffy
 
-| ID | Název | Datum | Status |
-|----|-------|-------|--------|
-| H1 | `zig build` hlásí falešné `failed command: xorriso` při prvním buildu | 2026-08-07 | closed |
-| H2 | Debug build — `invalid memory operand` u `lidtq`/`invlpg` (Zig 0.16) | 2026-08-08 | closed |
-| H3 | QEMU runtime testy s diskem — page fault v reload testu (M6.1.5) | 2026-08-09 | closed |
-| H4 | Phase 2 double buffering — heap corruption s diskem v runtime testech | 2026-08-09 | open |
+Handoffy se zapisují v `spec/handoffs/` — **jeden soubor na jeden problém**, pojmenovaný
+`<id>-<kratky-nazev>.md` (viz šablona v §3). Aktuální stav každého handoffu je v hlavičce
+jeho souboru (`Status: open / in_progress / closed`).
 
 ---
 
