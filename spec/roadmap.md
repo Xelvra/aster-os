@@ -173,7 +173,7 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 - [x] **Fault policy:** defaultní IDT handlers pro double fault / GPF / page fault —
       výpis stavu na serial a halt (ne reset, ne tiché pokračování). Detail
       `spec/invariants.md` §1 (Safety).
-- [x] **PS/2 klávesnice** — IRQ1, scancode → KeyEvent (subsystem `input.zig`).
+- [x] **PS/2 klávesnice** — IRQ1, scancode → KeyEvent (subsystem `input/service.zig`).
 - [x] Začátek **dispatch vrstvy** (`api/sys.zig`), KI enumerace.
 - [x] Atomická fronta událostí (spec `input.md`), `dropped` čítač.
 - [x] **Runtime testy v QEMU** (`isa-debug-exit`, exit kód) — první běžící runtime

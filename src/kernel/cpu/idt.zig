@@ -63,11 +63,11 @@ fn handleIsrImpl(frame: *InterruptFrame) callconv(.c) void {
     switch (vector) {
         0x20 => {
             const apic = @import("apic.zig");
-            const queue = @import("../input_queue.zig");
+            const input_service = @import("../input/service.zig");
             const time = @import("../time.zig");
             time.tick();
             const t = time.ticks();
-            queue.global.push(.{ .timer_tick = t });
+            input_service.pushTimerTick(t);
             apic.sendEoi();
         },
         0x21 => {

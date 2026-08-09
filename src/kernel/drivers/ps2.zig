@@ -1,6 +1,6 @@
 const io = @import("../cpu/io.zig");
-const input = @import("../input.zig");
-const input_queue = @import("../input_queue.zig");
+const input = @import("../input/input.zig");
+const input_service = @import("../input/service.zig");
 
 const ps2_data: u16 = 0x60;
 const ps2_status: u16 = 0x64;
@@ -234,7 +234,7 @@ pub fn handleIrq1() void {
         const scancode = io.in8(ps2_data);
         if (scancode == 0x00 or scancode == 0xFF or scancode == ps2_ack) return;
         const event = mapScancode(scancode) orelse return;
-        input_queue.global.push(.{ .key = event });
+        input_service.pushKeyEvent(event);
     }
 }
 
@@ -348,5 +348,5 @@ fn keypadOrNav(code: input.KeyCode) ?input.KeyCode {
 /// Decode a standard 3-byte PS/2 mouse packet (relative movement, buttons).
 fn pushMousePacket() void {
     const event = input.decodeMousePacket(&mouse_packet) orelse return;
-    input_queue.mouse.push(.{ .mouse = event });
+    input_service.pushMouseEvent(event);
 }

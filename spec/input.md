@@ -26,7 +26,7 @@ Tři oddělené vrstvy (viz také `spec/adr/020-future-extensibility.md`):
 | Vrstva | Odpovědnost | Příklad |
 |---|---|---|
 | **Driver** | "Jak mluvím s hardwarem" | `drivers/ps2.zig` — IRQ1, i8042, scancode set-1 → `KeyCode` |
-| **Subsystem** | "Jak z různých hardware udělám jednotné zařízení" | `input.zig` — `KeyCode`/`KeyEvent`, fronta `input_queue.zig` |
+| **Subsystem** | "Jak z různých hardware udělám jednotné zařízení" | `input/service.zig` — jediná hranice subsystemu: fronta, mouse state, layout, mapování |
 | **KI** | "Jak to zařízení zpřístupním zbytku systému" | `api/input.zig` (dispatch vrstva, M2+) |
 
 **Hraniční invariant:** za hranicí driveru nikdo nevidí konkrétní hardware. PS/2 i budoucí
@@ -34,9 +34,17 @@ USB HID produkují **stejný** `KeyEvent` — aplikace nikdy nezjistí, jaké za
 
 ```
 PS/2  ── scancode set-1 ──┐
-                         ├─→ input.zig (KeyEvent) → fronta → KI
+                         ├─→ service.zig (KeyEvent) → fronta → KI
 USB HID ── HID usage ────┘
 ```
+
+> **Hranice subsystemu:** `input_queue.zig` je **interní implementační detail** Input
+> subsystemu. Kernel event loop (main) i KI (`api/input`) k frontě, mouse stavu i layoutu
+> přistupují **výhradně přes `input/service.zig`**. Producenti v IRQ kontextu (PS/2, APIC
+> timer) pushují přes `service.pushKeyEvent/pushMouseEvent/pushTimerTick`. Service neurčuje
+> grafické chování mouse eventů — předává je event loopu, který je aplikuje na cursor
+> overlay (cursor žije v graphics vrstvě, ne v input subsystemu). Porušení tohoto pravidla
+> je regrese architektonické hranice (`kernel-interface.md` §4.7).
 
 ---
 
@@ -47,7 +55,7 @@ USB HID ── HID usage ────┘
 pub const KeyCode = enum(u8) {
     a, b, c, enter, escape, space,
     left, right, up, down, shift_left, shift_right, ctrl_left, alt_left,
-    // ... viz src/kernel/input.zig
+    // ... viz src/kernel/input/input.zig
 };
 
 pub const KeyEvent = struct {
@@ -70,18 +78,27 @@ pub const Event = union(enum) {
 > left+right), ne flagy — odpovídá M3 cíli (modifikátory → codepoint).
 
 Sub-op čísla pro `Input` v KI: `0=next_event`, `1=peek_event`, `2=flush`, `3=mouse_x`,
-`4=mouse_y`, `5=mouse_left`, `6=mouse_right`, `7=mouse_middle` (myš se čte jako stav,
-ne event — §6). Implementace: `api/input.zig` (`sys.dispatch(.Input, ...)`).
+`4=mouse_y`, `5=mouse_left`, `6=mouse_right`, `7=mouse_middle`, `8=set_layout`,
+`9=layout_name` (myš se čte jako stav, ne event — §6; layout viz §5, ADR-024).
+Implementace: `api/input.zig` (`sys.dispatch(.Input, ...)`).
 
 ---
 
 ## 3. Fronta
+
+Fronta je interní detail subsystemu, přístupná jen přes `service.zig` (§2).
 
 - **Typ:** kruhový buffer (ring buffer) fixní velikosti.
 - **Velikost:** dostatečná (např. 256 záznamů), aby se nikdy nezaplnila za normálních
   podmínek; při přetečení se události zahazují (nejstarší) a inkrementuje čítač `dropped`.
 - **Vláknová bezpečnost:** IRQ kontext vs. event loop — atomické indexy (`read`/`write`
   posuny). Žádné locky v IRQ (deadlock riziko, invariant Safety).
+- **Producenti i konzumenti jdou přes service:** IRQ pushuje
+  (`pushKeyEvent`/`pushMouseEvent`/`pushTimerTick`), event loop čte kernel eventy
+  (`peekKernelEvent`/`popKernelEvent` + mouse `peek`/`pop`), KI čte aplikáční eventy
+  (`nextEvent`/`peekEvent`/`flush`). Dva konzumující mechanismy (kernel orchestrace
+  v `main`, KI `next_event`) sdílejí jeden execution context (event loop) — žádný
+  paralelní konzument.
 
 ---
 
@@ -116,6 +133,12 @@ while (true) {
   `input.next_event()` posílá Lua **připravený `char`** — Lua nic nemapuje. Přidání
   jiného layoutu (národní znaková sada) = nová datová tabulka v `layout.zig`, bez
   změny logiky. Host testy: `tests/input/layout_test.zig`.
+- **Multi-layout (ADR-024, M6):** aktivní layout se přepíná za běhu přes KI
+  `input.set_layout(name)` / `input.layout_name()`; Lua bindingy `input.set_layout()`
+  a `input.layout_name()` existují (ověřeno runtime testem přes celou cestu
+  Lua → binding → KI → service → registry). CZ je QWERTZ (Y↔Z prohozené) s ASCII
+  fallbackem (8x16 font neumí diakritiku). Layout registry čte/píše jen
+  `service.zig` — nikdo jiný.
 - **Budoucí:** USB HID (mapuje usage → stejný `KeyCode`) — potvrzený cíl (rozhodnutí 2026-08-09, viz `roadmap.md` Fáze 2), zatím PS/2.
 
 ---
@@ -139,16 +162,19 @@ kvůli hladkosti kurzoru), ale dotazuje se sdíleného stavu přes bindings:
 - `input.mouse_x()` / `input.mouse_y()` — pozice kurzoru ve framebuffer pixelech
 - `input.mouse_left()` / `input.mouse_right()` / `input.mouse_middle()` — stav tlačítek
 
-Kernel (`main.zig` `poll()`) aktualizuje `input.mouse_state` z každého paketu; overlay
-a shell čtou stejné hodnoty, takže kliknutí a drag souhlasí s vykresleným kurzorem.
+Kernel (`main.zig` `poll()`) čte myš z event loopu přes `service.popMouseEvent()`,
+aplikuje paket na cursor overlay (`mouse_cursor.move`) a výslednou pozici/tlačítka
+uloží do `service.setMouseState(...)`; overlay i shell čtou stejné hodnoty (přes
+`service`), takže kliknutí a drag souhlasí s vykresleným kurzorem.
 
 ---
 
 ## 7. Myš (PS/2, M5)
 
 PS/2 myš (IRQ12, druhý port i8042) — hotovo v M5. Model odpovídá klávesnici:
-IRQ → atomický push do vlastní fronty (`input_queue.mouse`, nezávislá na klávesnici,
-aby aktivní myš nevyhladověla klávesy/Lua) → event loop.
+IRQ → atomický push do vlastní fronty (nezávislá na klávesnici, aby aktivní myš
+nevyhladověla klávesy/Lua) → event loop. Producenti i konzumenti jdou přes
+`service.zig` (§2), nikdo nepíše do myší fronty napřímo.
 
 - **Paket:** standardní 3-byte PS/2 (b0 = tlačítka + sign/overflow flagy, b1/b2 = delta).
 - **Decode:** `input.decodeMousePacket` — čistá funkce, host-testovaná
@@ -158,7 +184,9 @@ aby aktivní myš nevyhladověla klávesy/Lua) → event loop.
   konzumuje jen bajty, které status bit 5 označí jako jeho zařízení. Detailní ladění
   viz `spec/troubleshooting.md` sekce 8 (C18–C26).
 - **Kurzor:** kernel overlay (`render/mouse_cursor.zig`) — ukládá/obnovuje pixely pod
-  kurzorem, pohyb vykreslí jen 12×19 px místo celé obrazovky.
+  kurzorem, pohyb vykreslí jen 12×19 px místo celé obrazovky. Kurzor je privilegovaná
+  graphics overlay vrstva (mimo Renderer), ne součást input subsystemu — `service.zig`
+  o framebufferu neví (`spec/graphics.md` §7).
 - **Absolutní souřadnice:** počítá kernel (clamp na framebuffer); shell čte přes §6.
 
 ---
@@ -178,4 +206,11 @@ z kernel fronty. Do M7 platí model z §1–§5 beze změny.
 - **Žádná alokace v IRQ** (Safety).
 - **Žádné volání Lua z IRQ** (Safety, Architecture).
 - **Fronta se nikdy nepřeteče při běžné práci**; `dropped` je sledovaná metrika.
-- **Event loop je jediný konzument** (Architecture).
+- **Event loop je jediný execution context, který frontu konzumuje** (Architecture).
+  Spotřeba je rozdělená mezi kernel orchestraci (`main.poll`) a KI (`input.next_event`),
+  oba přes `service.zig` — nikdy paralelně.
+- **Přístup k frontě, mouse stavu a layoutu jen přes `input/service.zig`** (Architecture).
+  `api/input`, `main`, IRQ producenti ani testy neimportují `queue.zig`/`layout.zig`
+  napřímo (regresní ochrana hranice, `kernel-interface.md` §4.7).
+- **Service neví nic o framebufferu ani cursoru** (Architecture) — mouse events předává
+  event loopu, který je aplikuje na cursor overlay (graphics vrstva).

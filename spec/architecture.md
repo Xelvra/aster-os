@@ -1,7 +1,7 @@
 # Aster OS — Architektonický přehled
 
-**Verze:** 1.0 (draft)
-**Status:** Current design — Schváleno k implementaci (Milníky M0–M5)
+**Verze:** 1.1 (draft)
+**Status:** Current design — Schváleno k implementaci (Milníky M0–M6)
 
 > Tento dokument je **hlavním architektonickým přehledem** projektu. Zachycuje aktuální
 > návrh a jeho rozhodnutí. Slouží jako referenční bod pro konzultaci návrhu architektury a
@@ -10,6 +10,11 @@
 > Jednotlivá rozhodnutí žijí jako samostatné záznamy v `spec/adr/`. Podrobné dílčí
 > specifikace v `spec/*.md` (viz index níže). Tento dokument je **přehledový**: čte se
 > celý, dílčí dokumenty až na vyžádání.
+>
+> **Dvě roviny:** §3 popisuje **Current architecture** (co je implementované v M0–M6,
+> `src/`). §4 popisuje **Target architecture** (M7+: Wasm runtime, per-program státy,
+> oddělení do Ring 3). Dokument neprezentuje target jako hotový — kde se Current a Target
+> liší, je to výslovně řečeno.
 
 ---
 
@@ -63,36 +68,63 @@ důsledek manifestu.
 
 ## 3. Architektonický přehled
 
-### 3.1 Vrstvy
+### 3.1 Current architecture (M0–M6, implementováno)
 
-```
-┌────────────────────────────────────────────────────────────┐
-│  APPLIKACE (userspace-in-process)                          │
-│  ┌──────────────────────┐    ┌──────────────────────────┐  │
-│  │  Shell / UI (Lua)    │    │  Aplikace (Wasm, nativ)  │  │
-│  └──────────┬───────────┘    └────────────┬─────────────┘  │
-│             │   Runtime API               │                │
-│             └──────────────┬──────────────┘                │
-├────────────────────────────┼───────────────────────────────┤
-│  KERNEL ROZHRANÍ (KI)      ▼                               │
-│  ┌───────────────────────────────────────────────────────┐ │
-│  │ Graphics API │ Input API │ Runtime API │ Sys.Dispatch │ │
-│  └─────────┬───────────┬────────────┬──────────┬─────────┘ │
-│            ▼           ▼            ▼          ▼           │
-│  ┌─────────────┐ ┌────────────┐ ┌────────────┐ ┌─────────┐ │
-│  │  Renderer   │ │ Event loop │ │  Runtime   │ │   Sys   │ │
-│  └──────┬──────┘ └─────┬──────┘ └─────┬──────┘ └────┬────┘ │
-│         ▼              ▼              ▼             ▼      │
-│   Framebuffer      Input (PS/2)   Lua / Wasm VM   Core     │
-│  ┌─────────────┐  ┌────────────┐  ┌────────────┐ ┌───────┐ │
-│  │  GOP / FB   │  │  Keyboard  │  │ Lua 5.4    │ │ Mem,  │ │
-│  │  (Limine)   │  │  IRQ       │  │ (vendored) │ │ CPU,  │ │
-│  └─────────────┘  └────────────┘  └────────────┘ │ Timer │ │
-│                                                  └───────┘ │
-└────────────────────────────────────────────────────────────┘
+```text
+Lua shell (desktop, vendored Lua 5.4)
+   │  KI bindings → sys.dispatch()
+   ▼
+KERNEL ROZHRANÍ (KI) — api/* (dispatch vrstva)
+   │
+   ├── graphics API ──→ renderer ──→ framebuffer (GOP/Limine)
+   ├── input API ─────→ input/service ──→ fronta ← PS/2 IRQ, APIC timer
+   ├── runtime API ───→ lua (jediný vestavěný program)
+   ├── timer API ─────→ time.zig (monotónní tick)
+   ├── sysmon API ────→ mem.Memory.stats()
+   ├── debug API ─────→ serial (privilegovaný diagnostický sink)
+   └── power API ─────→ i8042 reset
+
+kernel/main.zig = jediný privileged composition root
+   │  (sestavuje mem, cpu/idt+apic, drivery, fs, renderer, cursor, lua)
+   ▼
+subsystémy: mem/pfa+heap, cpu/idt+apic+time, drivers (ps2, virtio-blk),
+            fs (gpt, ext2, file), render (renderer, font, mouse_cursor)
 ```
 
-### 3.2 Čtyři pilíře
+**Kurzor myši je privilegovaný graphics overlay**, ne součást Rendereru ani Input
+subsystemu: `render/mouse_cursor.zig` ukládá/obnovuje pixely a kreslí sprite přímo do
+framebufferu (12×19 px). Event loop aplikuje mouse events na overlay a píše výsledný
+stav do `input/service`; service o framebufferu neví. Framebuffer je interní zdroj
+graphics subsystemu — běžné kreslení jde výhradně přes Renderer, privilegovaný overlay
+přes `mouse_cursor` (viz `spec/graphics.md` §7).
+
+**M6 storage:** `virtio-blk → Block Device API → GPT → ext2 → File API`. File API je
+**ext2-specific adapter** (ADR-023 — backend abstraction až s druhým backendem).
+
+### 3.2 Target architecture (M7+, oddělení)
+
+Výše popsané rozhraní zůstává; mění se obsah vrstev:
+
+```text
+Shell / UI (Lua)    Aplikace (Wasm — wasm3, M7)
+   │                 │
+   └───── KI ────────┘  (aplikace psané pro Aster volají Aster bindings)
+   ▼
+Runtime (generický): per-program lua_State/Wasm → scheduler (ADR-017)
+   ▼
+Program lifecycle: spawn / kill / status (M7)
+```
+
+- **M7:** Runtime přestává být "jeden vestavěný Lua program" — `spawn()` vytváří
+  per-program státy, scheduler preemptuje, `Program` je schedulable execution context
+  (do M6 je to logický placeholder, `spec/runtime.md` §2).
+- **M8+ (oddělení):** subsystémy se stěhují za stabilní KI do Ring 3 (ADR-018); KI
+  volání se z přímých stávají IPC — **bez změny volajícího kódu**. Přibudou
+  memory protection, syscalls a MMU (žádné MMU v M0–M6).
+- **Wasm je hostován za generickým Runtime API** (ADR-011): kernel nepřijme žádný
+  Wasm-specifický kód, vše za `Runtime.spawn`.
+
+### 3.3 Čtyři pilíře
 
 1. **Evoluční SASOS** — jeden adresní prostor, Ring 0, žádné MMU/syscall/IPC režie.
    Lua, Wasm, UI = obyčejná volání funkcí.
@@ -186,7 +218,7 @@ aster-os/
 │   ├── manifest.md
 │   ├── non-goals.md              # co systém vědomě nedělá
 │   ├── code-style.md             # filozofie a pravidla kódu
-│   ├── adr/                      # architektonická rozhodnutí (ADR-001..023)
+│   ├── adr/                      # architektonická rozhodnutí (ADR-001..024)
 │   ├── kernel-interface.md       # KI: sys.dispatch + interface moduly
 │   ├── graphics.md               # Graphics API → Renderer → Framebuffer
 │   ├── desktop-ui.md            # desktop UI port (bar, launcher, okna, widgety)

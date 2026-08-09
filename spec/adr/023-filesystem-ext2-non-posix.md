@@ -8,8 +8,15 @@
 M6 adoptuje **ext2 jako první persistentní filesystem backend**, zpočátku **read-only**.
 ext2 je pouze **on-disk reprezentace** — nedefinuje sémantiku souborů, identitu, namespace,
 permissions ani bezpečnostní model Asteru. Rozhraní mezi Aster File API a backendem je tenké
-a stabilní (`open` / `read` / `close` + opaque backend reference); **nikdy vlastní on-disk
-formát** (navazuje na ADR-010).
+(`open` / `read` / `close`); **nikdy vlastní on-disk formát** (navazuje na ADR-010).
+
+> **M6 status: ext2-specific adapter.** Veřejný File API je dnes typovaný na
+> `*const ext2.Ext2` (`src/kernel/fs/file.zig`) — backend reference **není** zatím opaque.
+> Toto je vědomé: s jediným backendem by backend-neutral interface byl předčasná
+> abstrakce. **Backend abstraction je budoucí práce, ne součást M6 veřejného kontraktu.**
+> Až přibude druhý filesystem backend (TAR pro initfs, 9P, ...), zavedou se skutečné
+> společné operace (`open`/`read`/`close`) jako backend interface — podle toho, co ten
+> druhý backend reálně vyžaduje, ne podle spekulace (viz „Budoucí triggery“).
 
 ## Odůvodnění
 
@@ -80,10 +87,7 @@ Aster file API
     └── close(handle)
              │
              ▼
-      backend reference (opaque)
-             │
-             ▼
-      filesystem backend (ext2 / tar / ...)
+      ext2 backend (M6: specifický adapter, ne opaque interface)
              │
              ▼
         Block Device API
@@ -91,10 +95,11 @@ Aster file API
         virtio-blk
 ```
 
-Backend reference je pro volající opaque; backend je nahraditelný bez změny Block Device API
-a vyšších vrstev. V M6 **nevzniká** generický VFS subsystém (mount tabulky, cross-fs cesty)
-ani bohatý File object model (identity/capabilities) — tenký povrch `open/read/close` vychází
-z reálných konzumentů (KI File API, Lua shell), ne ze spekulace.
+V M6 **nevzniká** generický VFS subsystém (mount tabulky, cross-fs cesty) ani bohatý File
+object model (identity/capabilities) — tenký povrch `open/read/close` vychází
+z reálných konzumentů (KI File API, Lua shell), ne ze spekulace. Stejně tak nevzniká
+backend-neutral interface: M6 má jeden backend, takže File API je ext2-specific adapter
+(rozhodnutí výše).
 
 ## Důsledky
 

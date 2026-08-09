@@ -11,8 +11,7 @@ const apic = @import("cpu/apic.zig");
 const page_map = @import("mem/page_map.zig");
 const ps2 = @import("drivers/ps2.zig");
 const block = @import("drivers/block.zig");
-const input = @import("input.zig");
-const input_queue = @import("input_queue.zig");
+const input_service = @import("input/service.zig");
 const framebuffer = @import("fb/framebuffer.zig");
 const renderer_mod = @import("render/renderer.zig");
 const mouse_cursor_mod = @import("render/mouse_cursor.zig");
@@ -210,8 +209,10 @@ fn initGraphics(info: *const boot_info.BootInfo, memory: *mem.Memory) bool {
     graphics.init(renderer);
     renderer.fillScreen(0x000000);
     mouse_cursor.init(&fb_storage.?, @intCast(fb_info.width / 2), @intCast(fb_info.height / 2));
-    input.mouse_state.x = @divTrunc(@as(i32, @intCast(fb_info.width)), 2);
-    input.mouse_state.y = @divTrunc(@as(i32, @intCast(fb_info.height)), 2);
+    input_service.setMouseState(.{
+        .x = @divTrunc(@as(i32, @intCast(fb_info.width)), 2),
+        .y = @divTrunc(@as(i32, @intCast(fb_info.height)), 2),
+    });
     return true;
 }
 
@@ -335,14 +336,14 @@ fn poll() void {
     //  - mouse: packets are consumed here to move the cursor overlay, bounded
     //    so a busy mouse cannot starve the keyboard/Lua update.
     while (true) {
-        const event = input_queue.global.peek() orelse break;
+        const event = input_service.peekKernelEvent() orelse break;
         switch (event) {
             .timer_tick => {
-                _ = input_queue.global.pop();
+                _ = input_service.popKernelEvent();
             },
             .key => |key| {
                 if (key.code == .f5 and key.pressed) {
-                    _ = input_queue.global.pop();
+                    _ = input_service.popKernelEvent();
                     serial.writeLine("shell: hot reload (F5)");
                     runtime.requestReload();
                     needs_render = true;
@@ -356,17 +357,19 @@ fn poll() void {
 
     var mouse_processed: usize = 0;
     while (mouse_processed < max_mouse_per_poll) {
-        const event = input_queue.mouse.peek() orelse break;
+        const event = input_service.peekMouseEvent() orelse break;
         switch (event) {
             .timer_tick, .key => unreachable, // not valid in the mouse queue
             .mouse => |m| {
-                _ = input_queue.mouse.pop();
+                _ = input_service.popMouseEvent();
                 mouse_cursor.move(&fb_storage.?, m.dx, m.dy);
-                input.mouse_state.x = mouse_cursor.x;
-                input.mouse_state.y = mouse_cursor.y;
-                input.mouse_state.left = m.left;
-                input.mouse_state.right = m.right;
-                input.mouse_state.middle = m.middle;
+                input_service.setMouseState(.{
+                    .x = mouse_cursor.x,
+                    .y = mouse_cursor.y,
+                    .left = m.left,
+                    .right = m.right,
+                    .middle = m.middle,
+                });
                 mouse_processed += 1;
             },
         }

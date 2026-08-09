@@ -1,5 +1,5 @@
 const std = @import("std");
-const input = @import("../input.zig");
+const input = @import("input.zig");
 
 /// Keyboard layout registry (ADR-024). A layout is a registered mapping table
 /// `KeyCode × modifiers → char`; the active layout can be switched at runtime

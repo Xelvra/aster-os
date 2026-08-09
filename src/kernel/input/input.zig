@@ -110,9 +110,10 @@ pub const KeyEvent = struct {
     pressed: bool,
 };
 
-/// Current mouse state, shared between the kernel cursor overlay (main.zig
-/// poll()) and the Lua shell (input bindings). x/y are in framebuffer
-/// pixels; the buttons are the pressed state from the latest packet.
+/// Mouse state representation: absolute cursor position in framebuffer
+/// pixels and the pressed buttons. The single live instance is owned by
+/// `input/service.zig` (the subsystem boundary); the event loop writes it
+/// via `service.setMouseState`, the KI reads it via `service.mouseX`/...
 pub const MouseState = struct {
     x: i32 = 0,
     y: i32 = 0,
@@ -120,7 +121,6 @@ pub const MouseState = struct {
     right: bool = false,
     middle: bool = false,
 };
-pub var mouse_state: MouseState = .{};
 
 /// PS/2 mouse event: relative movement since the last packet plus the
 /// current button state.

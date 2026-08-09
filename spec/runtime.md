@@ -27,7 +27,7 @@ Runtime se nesmí rozlézat po kernelu.
 
 ```zig
 pub const RuntimeKind = enum(u8) {
-    Lua = 0,     // jediný reálný kind v M0–M4
+    Lua = 0,     // jediný reálný kind v M0–M6
     Wasm = 1,    // M7, wasm3
     Native = 2,  // výhledově: nativní Zig modul
 };
@@ -45,11 +45,18 @@ pub const Program = struct {
 };
 ```
 
+> **M0–M6: `Program` je logický placeholder, ne nezávislý lifecycle model.** V M6
+> existuje **jeden globální `lua_State`** (shell) a `spawn(.Lua, ...)` nevytváří nový
+> program — jen spustí `main.lua` na sdíleném státu a vrátí identifikátor provedení.
+> `kill`/`status` jsou `NotSupported`. **M7:** `Program` se stává schedulable execution
+> context — per-program `lua_State`/Wasm modul, preemptivní scheduler (ADR-017). Do M7
+> se `Program.handle` nesmí interpretovat jako handle na izolovaný program.
+
 Sub-op čísla pro `Runtime` v KI: `0=spawn`, `1=kill`, `2=status` (rozšiřitelné).
 
 ---
 
-## 3. Životní cyklus (M0–M4 zjednodušený)
+## 3. Životní cyklus (M0–M6 zjednodušený)
 
 Pro jediný Lua runtime platí:
 
@@ -59,8 +66,8 @@ boot → runtime.init()          // vytvoří globální lua_State
      → event loop běží uvnitř shellu
 ```
 
-- Zjednodušení: v M4 je Lua **vestavěný a jediný** program (shell). `spawn` je připravené,
-  ale reálně běží jen "main".
+- Zjednodušení: v M6 je Lua **vestavěný a jediný** program (shell). `spawn` je připravené,
+  ale reálně běží jen "main" a nevytváří nezávislý program (§2).
 - Kill/restart shellu (hot reload) = re-inicializace Lua státu bez restartu systému.
 
 ---
@@ -72,7 +79,7 @@ Veškerý přístup z Lua jde přes KI, nikdy přímo do kernel struktur.
 | KI modul | Lua funkce |
 |---|---|
 | `graphics` | `gfx.draw_rect(x, y, w, h, color)`, `gfx.round_rect(x, y, w, h, radius, color)`, `gfx.rect_border(x, y, w, h, thickness, color)`, `gfx.gradient_border(x, y, w, h, thickness, color_a, color_b)`, `gfx.draw_text(str, x, y, color)`, `gfx.fill_screen(color)`, `gfx.invalidate()`, `gfx.present()`, `gfx.width()`, `gfx.height()` |
-| `input` | `input.next_event()`, `input.mouse_x()`, `input.mouse_y()`, `input.mouse_left()`, `input.mouse_right()`, `input.mouse_middle()` |
+| `input` | `input.next_event()`, `input.mouse_x()`, `input.mouse_y()`, `input.mouse_left()`, `input.mouse_right()`, `input.mouse_middle()`, `input.set_layout(name)`, `input.layout_name()` |
 | `timer` | `time.ticks()` |
 | `runtime` | `runtime.reload()` (restart shellu, M5; `spawn` se neexponuje do M7) |
 | `power` | `power.reboot()` (i8042 reset, M5) |
@@ -116,11 +123,10 @@ local function render()
     gfx.fill_screen(0x000000)            -- černé pozadí
     gfx.draw_text("hello aster", 10, 10, 0xFFFFFF)
 end
-
--- registrace do event loopu: render se volá každý frame
--- (mechanismus registrace je součást M4/M5)
-register_render(render)
 ```
+
+Event loop volá globální `render()` každý frame (M4/M5 model — žádná registrace; Lua
+definuje konvenční funkci `update()`/`render()`, viz `spec/input.md` §4).
 
 Pravidla, která skript splňuje: žádná alokace v `render()` (jen Graphics API →
 Renderer, invariant Performance), žádný přímý přístup k framebufferu.

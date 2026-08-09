@@ -287,6 +287,35 @@ fn inputMouseMiddle(L: ?*lua_c.lua_State) callconv(.c) c_int {
     return 1;
 }
 
+fn inputSetLayout(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    // Copy the name into a fixed buffer so the KI handler sees a
+    // NUL-terminated string; the active layout is registry state owned by
+    // the input subsystem (ADR-024).
+    const name = checkString(L, 1, "name") orelse return 2;
+    var buf: [32]u8 = undefined;
+    const copy_len = @min(name.len, buf.len - 1);
+    @memcpy(buf[0..copy_len], name[0..copy_len]);
+    buf[copy_len] = 0;
+    const status = sys.dispatch(.Input, .{
+        .a = @intFromEnum(api_input.InputOp.set_layout),
+        .b = @intFromPtr(&buf),
+    });
+    const ok = status == @intFromEnum(sys.KiStatus.Success);
+    lua_c.lua_pushboolean(L, if (ok) 1 else 0);
+    return 1;
+}
+
+fn inputLayoutName(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    var buf: [32]u8 = undefined;
+    const len = sys.dispatch(.Input, .{
+        .a = @intFromEnum(api_input.InputOp.layout_name),
+        .b = @intFromPtr(&buf),
+    });
+    const name: [*c]const u8 = @ptrCast(&buf);
+    _ = lua_c.lua_pushlstring(L, name, @intCast(len));
+    return 1;
+}
+
 fn buildEventTable(L: ?*lua_c.lua_State, event: api_input.Event) void {
     lua_c.lua_createtable(L, 0, 5);
     switch (event) {
@@ -415,6 +444,8 @@ const InputFuncs = [_]lua_c.luaL_Reg{
     .{ .name = "mouse_left", .func = inputMouseLeft },
     .{ .name = "mouse_right", .func = inputMouseRight },
     .{ .name = "mouse_middle", .func = inputMouseMiddle },
+    .{ .name = "set_layout", .func = inputSetLayout },
+    .{ .name = "layout_name", .func = inputLayoutName },
     .{ .name = null, .func = null },
 };
 

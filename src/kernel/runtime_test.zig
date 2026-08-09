@@ -1,6 +1,6 @@
 const std = @import("std");
 const serial = @import("serial.zig");
-const input_queue = @import("input_queue.zig");
+const input_service = @import("input/service.zig");
 const graphics = @import("api/graphics.zig");
 const mem = @import("mem/mem.zig");
 const build_options = @import("build_options");
@@ -22,7 +22,7 @@ fn testTimerTicks() void {
     var ticks_seen: u64 = 0;
     var spins: usize = 0;
     while (ticks_seen < 5 and spins < 100000) : (spins += 1) {
-        while (input_queue.global.pop()) |event| {
+        while (input_service.popKernelEvent()) |event| {
             switch (event) {
                 .timer_tick => ticks_seen += 1,
                 .key => {},
@@ -36,16 +36,16 @@ fn testTimerTicks() void {
 
 fn testMouseEvent() void {
     // Mouse packets live in their own queue, separate from keys/timers.
-    while (input_queue.mouse.pop()) |_| {}
+    while (input_service.popMouseEvent()) |_| {}
 
-    input_queue.mouse.push(.{ .mouse = .{
+    input_service.pushMouseEvent(.{
         .dx = 3,
         .dy = -2,
         .left = true,
         .right = false,
         .middle = false,
-    } });
-    const event = input_queue.mouse.pop() orelse {
+    });
+    const event = input_service.popMouseEvent() orelse {
         expect(false, "mouse event popped from queue");
         return;
     };
@@ -61,18 +61,18 @@ fn testMouseEvent() void {
 
 fn testMouseFloodDoesNotStarveKeys() void {
     // Drain whatever IRQs already queued.
-    while (input_queue.global.pop()) |_| {}
-    while (input_queue.mouse.pop()) |_| {}
+    while (input_service.popKernelEvent()) |_| {}
+    while (input_service.popMouseEvent()) |_| {}
 
     // Fill the mouse queue to its capacity, then push a key into the
     // global queue. A flood of mouse packets must not hide or delay keys.
     var i: usize = 0;
     while (i < 200) : (i += 1) {
-        input_queue.mouse.push(.{ .mouse = .{ .dx = 1, .dy = 0, .left = false, .right = false, .middle = false } });
+        input_service.pushMouseEvent(.{ .dx = 1, .dy = 0, .left = false, .right = false, .middle = false });
     }
-    input_queue.global.push(.{ .key = .{ .code = .a, .pressed = true } });
+    input_service.pushKeyEvent(.{ .code = .a, .pressed = true });
 
-    const ev = input_queue.global.pop() orelse {
+    const ev = input_service.popKernelEvent() orelse {
         expect(false, "key reachable despite mouse flood");
         return;
     };
@@ -162,6 +162,50 @@ fn testDbgLib() void {
     expect(L.lua_isnil(lua_state, -1), "Lua debug library did not leak into 'debug'");
     _ = L.lua_pop(lua_state, 1);
     _ = L.lua_pop(lua_state, 1);
+}
+
+fn testLayoutSwitchFromLua() void {
+    // Full chain Lua -> binding -> KI dispatch -> input/service -> layout
+    // registry (ADR-024). set_layout + layout_name must round-trip, and an
+    // unknown layout must be rejected without changing the active one.
+    const lua = @import("lua/lua.zig");
+    const L = @import("lua/cimport.zig").c;
+    const lua_state = lua.getState() orelse {
+        expect(false, "lua state exists");
+        return;
+    };
+    const script =
+        \\if not input.set_layout("cz") then error("set_layout('cz') failed") end
+        \\if input.layout_name() ~= "cz" then error("layout_name ~= 'cz'") end
+        \\if input.set_layout("nope") then error("set_layout('nope') should fail") end
+        \\if input.layout_name() ~= "cz" then error("layout changed after failed set") end
+        \\if not input.set_layout("us") then error("set_layout('us') failed") end
+        \\if input.layout_name() ~= "us" then error("layout_name ~= 'us'") end
+    ;
+    const load_status = L.luaL_loadstring(lua_state, script);
+    expect(load_status == L.LUA_OK, "layout switch script compiles");
+    if (load_status == L.LUA_OK) {
+        const run_status = L.lua_pcallk(lua_state, 0, 0, 0, 0, null);
+        expect(run_status == L.LUA_OK, "layout switch script runs");
+    }
+    _ = lua.callRender();
+    expect(true, "shell healthy after layout switch");
+}
+
+fn testLayoutMappingBehaviour() void {
+    // Behaviour check: switching the active layout changes how a physical
+    // key maps to a character (CZ: Y->z, Z->y). Goes through the service
+    // boundary, the same one the KI and the Lua shell use — the layout
+    // registry itself stays internal.
+    const lua = @import("lua/lua.zig");
+    expect(input_service.setLayout("cz"), "service setLayout cz");
+    expect(std.mem.eql(u8, input_service.layoutName(), "cz"), "service layoutName cz");
+    expect(input_service.mapChar(.y, .{}) == 'z', "CZ: physical Y maps to z");
+    expect(input_service.mapChar(.z, .{}) == 'y', "CZ: physical Z maps to y");
+    expect(input_service.setLayout("us"), "service setLayout us");
+    expect(input_service.mapChar(.y, .{}) == 'y', "US: physical Y maps to y");
+    _ = lua.callRender();
+    expect(true, "shell healthy after mapping behaviour check");
 }
 
 fn testErrorContainment() void {
@@ -273,6 +317,8 @@ const tests = [_]Test{
     .{ .name = "framebuffer write + drawText", .func = testFramebufferWrites },
     .{ .name = "lua bindings + render", .func = testLuaBindings },
     .{ .name = "lua dbg lib (M6.1.9)", .func = testDbgLib },
+    .{ .name = "layout switch via Lua binding (ADR-024)", .func = testLayoutSwitchFromLua },
+    .{ .name = "layout mapping behaviour via service", .func = testLayoutMappingBehaviour },
     .{ .name = "live theme change (render stays healthy)", .func = testLiveThemeChange },
     .{ .name = "reload from Lua is deferred, state survives", .func = testLuaTriggeredReload },
     .{ .name = "error containment (lua error)", .func = testErrorContainment },

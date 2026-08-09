@@ -30,7 +30,7 @@ Všechna veřejná rozhraní žijí v `src/kernel/api/`:
 | `sys.zig` | `dispatch(num, args)` — jediný vstupní bod operací | viz §3 |
 | `debug.zig` | Ladící/konzolový výstup (výpis na serial) | viz §3.5 |
 | `graphics.zig` | Kreslení: `drawRect`, `blit`, `drawGlyph`, border/round/gradient | `spec/graphics.md` |
-| `input.zig` | Vstupní události: `pollEvent`, `nextEvent` | `spec/input.md` |
+| `input.zig` | Vstupní události: `pollEvent`, `nextEvent`, layout | `spec/input.md` |
 | `timer.zig` | Čas: `ticks`, `sleepMs`, tick zdroj | `spec/timer.md` |
 | `runtime.zig` | Spouštění programů: `spawn`, `RuntimeKind` | `spec/runtime.md` |
 | `sysmon.zig` | Systémové metriky: RAM usage pro shell | tento soubor |
@@ -173,11 +173,18 @@ Malý KI modul, který vystavuje reálné metriky jádra shellu (Lua). Nejdřív
 4. **Žádná KI funkce nesmí nikdy selhat tichým návratem** — vždy vrací `KiStatus`.
 5. **Změna signatury KI = nový ADR v `architecture.md`** + major bump verze KI.
 6. **Dokumentace KI je ABI-pravda.** Implementace se může měnit; signatury ne.
-7. **API moduly importují jen middle vrstvy, nikdy nízké internals.** `api/*` smí
-   importovat middle-layer moduly (`renderer`, `lua`, `time`, `mem`) a volat jejich
-   veřejné funkce, ale **nesmí** importovat nízké internals (`pfa`, `idt`, `heap`,
-   `fb`, `input_queue`, ...) ani číst jejich pole napřímo. Hranice je logická
-   (Zig import graf + review), ne MMU — SASOS ji neruší (invarianty Architecture).
+7. **API moduly importují middle vrstvy; nízké internals obcházejí jen výjimečně.**
+   `api/*` smí importovat middle-layer moduly (`renderer`, `lua`, `time`, `mem`,
+   `input/service`) a volat jejich veřejné funkce, ale **nesmí** obcházet middle-layer
+   subsystém, který danou doménu vlastní (např. `input_queue`/`layout` jdou výhradně
+   přes `input/service`). Hranice je logická (Zig import graf + review), ne MMU — SASOS
+   ji neruší (invarianty Architecture).
+   **Privilegovaná diagnostická výjimka:** `debug.write` (KI Debug) smí volat `serial`
+   napřímo, protože serial je výhradně debug/boot sink (kernel log), ne aplikační I/O —
+   `api/debug` *je* rozhraní pro debug výstup. Stejnou výjimku používá `api/runtime`, ale
+   **jen** pro diagnostický error log („reload failed“), nikdy jako součást běžného
+   protokolu. To neotevírá cestu aplikačním modulům; jakýkoli jiný modul, který by serial
+   použil jako součást normálního protokolu, musí jít přes `debug`/log vrstvu.
 
 ---
 

@@ -19,6 +19,22 @@ Framebuffer       ← přímý zápis do GOP paměti (Limine)
 **Zásada:** Lua nikdy nevidí níž než Graphics API. Renderer nesmí znát Lua VM.
 Framebuffer nesmí uniknout za Renderer.
 
+**Kurzor myši je privilegovaný overlay (výjimka z hranice):** `render/mouse_cursor.zig`
+ukládá/obnovuje pixely a kreslí sprite přímo do framebufferu (12×19 px), protože pohyb
+myši nesmí čekat na Lua render loop. Je to kernelová overlay vrstva — součást graphics
+subsystemu (vedle Rendereru), ne aplikační cesta:
+
+```text
+                  ┌── Renderer ──────────────→ Framebuffer
+Event loop ───────┤
+                  └── MouseCursor (overlay) ─→ Framebuffer
+```
+
+Renderer zůstává jediným framebuffer writerem pro **běžné GUI kreslení**; overlay má
+omezený, výhradně kernelový přístup (save/restore + sprite). Input subsystem o
+framebufferu neví — mouse events předává event loopu, který je aplikuje na overlay
+(`spec/input.md` §9). Compositor (M8+) nahradí overlay konceptem vrstev.
+
 ---
 
 ## 2. Graphics API (KI)
@@ -120,8 +136,9 @@ Oříznutí (clipping) na hranice framebufferu je **povinné** ve všech primiti
 
 ## 6. Výkonnostní invarianty (viz `spec/invariants.md`)
 
-- Žádná kopie celého framebufferu (výjimka: save/restore kurzoru myši 12×19 px, viz
-  `spec/invariants.md` Performance).
+- Žádná kopie celého framebufferu (výjimka: kurzor overlay ukládá/obnovuje 12×19 px pod
+  kurzorem a kreslí 12×19 px sprite — `mouse_cursor.zig`, viz `spec/invariants.md`
+  Performance).
 - Žádný heap allocation při renderingu.
 - Žádná dynamická alokace v běžném frame.
 - Frame latency (p99) je sledovaná metrika (viz `spec/roadmap.md`).
