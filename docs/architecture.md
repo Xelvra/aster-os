@@ -2,6 +2,8 @@
 layout: default
 title: Architecture
 nav_order: 4
+source: spec/architecture.md
+synced: 2026-08-09
 ---
 
 # Architecture
@@ -15,7 +17,9 @@ later, Wasm managed runtimes) plus a no-preemption discipline for shared state.
 
 The architecture spec is the **canonical source**:
 [`spec/architecture.md`](https://github.com/Xelvra/aster-os/blob/main/spec/architecture.md)
-(Czech). This page is a curated, English public overview.
+(Czech). This page is a curated, English public overview. The spec splits the
+design into a **current** layer (M0–M6, what is implemented) and a **target**
+layer (M7+); this page mirrors that split.
 
 ## Four pillars
 
@@ -82,25 +86,35 @@ The full boot-to-app flow:
                   └──────────────────────┘
 ```
 
-The internal layer diagram:
+The internal layer diagram (current, M0–M6):
 
 ```
-APPLICATIONS (in-process)
-  Shell / UI (Lua)         Apps (Wasm, native)
-        |                       |
-        +---- Runtime API ------+
-        ▼
-KERNEL INTERFACE (KI)
-  Graphics API | Input API | Runtime API | Sys.Dispatch
-        ▼           ▼            ▼            ▼
-  Renderer     Event loop     Runtime        Sys
-   (FB)        (PS/2)      (Lua / Wasm)     Core
+Lua shell (vendored Lua 5.4)
+   │  KI bindings → sys.dispatch()
+   ▼
+KERNEL INTERFACE (KI) — api/* (dispatch layer)
+   ├── graphics API → renderer → framebuffer
+   ├── input API → input/service → queue ← PS/2 IRQ, APIC timer
+   ├── runtime API → lua (single embedded program)
+   ├── timer API → time.zig
+   ├── sysmon API → mem.Memory.stats()
+   └── debug API → serial (privileged diagnostic sink)
+
+kernel/main.zig = privileged composition root
+   ▼
+subsystems: mem/pfa+heap, cpu/idt+apic+time, drivers, fs, render, lua
 ```
 
 - **Renderer** — layer between the Graphics API and the framebuffer; today
-  `fillRect` / `blit` / glyph rendering, tomorrow GPU or IPC.
+  `fillRect` / `blit` / glyph rendering, tomorrow GPU or IPC. The mouse cursor
+  is a **privileged kernel overlay** (`mouse_cursor.zig`) that draws directly
+  to the framebuffer — the input subsystem knows nothing about graphics.
+- **Input** — `input/service.zig` is the single boundary of the input
+  subsystem: the event queue, mouse state and layout registry live behind it.
+  Both the event loop and the KI go through it; IRQ producers push via service.
 - **Runtime** — responsible for spawning programs (`Runtime.spawn`),
-  abstracting Lua / Wasm / Native.
+  abstracting Lua / Wasm / Native. Today it runs the single embedded Lua shell;
+  per-program states arrive with M7.
 - **Event loop** — `poll() → update() → render()`.
 - **KI (Kernel Interface)** — the stable boundary between the kernel and the
   rest of the system; the future basis of an ABI.
@@ -129,13 +143,12 @@ Key performance targets (per-milestone values in
 
 All architectural decisions are recorded as ADRs — one file per decision in
 [`spec/adr/`](https://github.com/Xelvra/aster-os/tree/main/spec/adr)
-(23 accepted so far, including: SASOS evolution, single address space, stable
+(24 accepted so far, including: SASOS evolution, single address space, stable
 interfaces, KI not ABI, vendored Lua 5.4, Limine bootloader, deterministic
-build, bootable commit, and the ext2 read-only filesystem backend). Decisions
-are never edited after the fact — a change of mind is a new ADR.
+build, bootable commit, the ext2 read-only filesystem backend, and the
+keyboard layout registry). Decisions are never edited after the fact — a
+change of mind is a new ADR.
 
 ---
 
-Source: [`spec/architecture.md`](https://github.com/Xelvra/aster-os/blob/main/spec/architecture.md)
-(Czech original).
-Synced: 2026-08-08.
+Last synced from [`spec/architecture.md`](https://github.com/Xelvra/aster-os/blob/main/spec/architecture.md) on 2026-08-09.

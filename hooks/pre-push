@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # pre-push hook: refuse to push if the documented boot log (boot-log.md
-# and the README terminal block) does not match the current kernel boot output.
+# and the README terminal block) does not match the current kernel boot
+# output, or if the English website pages have drifted from their spec
+# sources for more than 14 days.
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
@@ -13,3 +15,6 @@ fi
 
 echo "pre-push: checking boot log is current (tools/capture-boot.sh --check)..."
 ./tools/capture-boot.sh --check
+
+echo "pre-push: checking docs are synced (tools/sync-docs.sh --check)..."
+./tools/sync-docs.sh --check

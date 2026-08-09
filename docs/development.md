@@ -2,6 +2,8 @@
 layout: default
 title: Development
 nav_order: 5
+source: spec/verification.md, spec/code-style.md
+synced: 2026-08-09
 ---
 
 # Development
@@ -27,6 +29,14 @@ zig build test         # host unit tests
 ./tools/qemu-smoke.sh  # automated boot test (serial marker + timeout; auto KVM)
 ./tools/qemu-test.sh   # in-QEMU runtime tests (isa-debug-exit; auto KVM)
 ./tools/verify-reproducible.sh  # deterministic build check (ADR-014)
+```
+
+Storage runtime tests run inside QEMU with a deterministic test disk:
+
+```bash
+zig build iso -Druntime-tests=true         # kernel with in-QEMU runtime tests
+./tools/make-test-disk.sh /tmp/test-disk.img  # deterministic GPT + ext2 image
+QEMU_TEST_DISK=/tmp/test-disk.img ./tools/qemu-test.sh
 ```
 
 Build modes: default is `ReleaseSafe` (the verified production mode);
@@ -56,9 +66,9 @@ real command output. Full Definition of Done:
 - **Bootable commit (ADR-016):** every commit must leave the system runnable
   in QEMU. A broken boot is fixed immediately.
 - **Git hooks:** `./tools/install-hooks.sh` installs a pre-push hook that runs
-  `./tools/capture-boot.sh --check` — the boot log
-  ([`boot-log.md`](https://github.com/Xelvra/aster-os/blob/main/boot-log.md))
-  must never drift from the code.
+  `./tools/capture-boot.sh --check` and `./tools/sync-docs.sh --check` — the
+  boot log ([`boot-log.md`](https://github.com/Xelvra/aster-os/blob/main/boot-log.md))
+  and the English website pages must never drift from the code/spec.
 - **Deterministic build (ADR-014):** no timestamps, no generated data,
   vendored dependencies.
 
@@ -75,7 +85,4 @@ for the contribution workflow.
 
 ---
 
-Source: [`spec/verification.md`](https://github.com/Xelvra/aster-os/blob/main/spec/verification.md)
-and [`spec/code-style.md`](https://github.com/Xelvra/aster-os/blob/main/spec/code-style.md)
-(Czech originals).
-Synced: 2026-08-08.
+Last synced from [`spec/verification.md`](https://github.com/Xelvra/aster-os/blob/main/spec/verification.md) and [`spec/code-style.md`](https://github.com/Xelvra/aster-os/blob/main/spec/code-style.md) on 2026-08-09.

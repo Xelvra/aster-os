@@ -2,6 +2,8 @@
 layout: default
 title: Milestones
 nav_order: 3
+source: spec/roadmap.md
+synced: 2026-08-09
 ---
 
 # Milestones
@@ -19,24 +21,26 @@ before the next one starts; the exact per-milestone targets live in
 | M3 ✅ | Graphics: framebuffer, renderer, text on screen |
 | M4 ✅ | Lua: interactive REPL in kernel, hot reload |
 | M5 ✅ | UI: desktop shell in Lua — tiling WM, bar, launcher, workspace, mouse, error containment |
-| M6 🔄 | Storage: initfs, virtio-blk, GPT, filesystem, cooperative reads |
-| M7 ⏳ | Runtime: wasm apps, multitasking, app isolation |
+| M6 ✅ | Storage: initfs, virtio-blk, GPT, read-only ext2, thin file API |
+| M7 🔄 | Runtime: wasm apps, multitasking, app isolation |
 | M8 ⏳ | Stabilization: invariant audit, metrics, Ring 3 decision |
 | M9 ⏳ | Ecosystem: network, audio, browser, WASI |
 | M10 ⏳ | Adoption: real hardware, installable image, docs, contributors |
 
-## M6 (Storage) in detail
+## M6 (Storage) — done
 
-The current milestone: loading files at runtime. Persistence foundation
+Loading files at runtime is complete. The persistence foundation
 (sub-milestone M6.1, per ADR-023):
 
 | Item | Status |
 |------|--------|
 | M6.1.1 Block device API + virtio-blk (sector reads) | ✅ done |
-| M6.1.2 GPT partition discovery | planned next |
-| M6.1.3 ext2 mount (read-only, validated feature flags) | planned |
-| M6.1.4 Thin Aster file API (`open` / `read` / `close`) | planned |
-| M6.1.5 Integration (initfs + persistent FS, QEMU runtime tests) | planned |
+| M6.1.2 GPT partition discovery | ✅ done |
+| M6.1.3 ext2 mount (read-only, validated feature flags) | ✅ done |
+| M6.1.4 Thin Aster file API (`open` / `read` / `close`) | ✅ done |
+| M6.1.5 Integration (initfs + persistent FS, QEMU runtime tests) | ✅ done |
+| M6.1.6 CI job with a disk | ✅ done |
+| M6.1.7–M6.1.11 Host tests, Lua `dbg`, README, release workflow | ✅ done |
 
 Design constraints:
 
@@ -58,6 +62,4 @@ Design constraints:
 
 ---
 
-Source: [`spec/roadmap.md`](https://github.com/Xelvra/aster-os/blob/main/spec/roadmap.md)
-(Czech original).
-Synced: 2026-08-08.
+Last synced from [`spec/roadmap.md`](https://github.com/Xelvra/aster-os/blob/main/spec/roadmap.md) on 2026-08-09.

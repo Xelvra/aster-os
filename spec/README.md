@@ -30,7 +30,7 @@
 | 16 | [debugging.md](debugging.md) | Debugging Survival Guide — GDB+QEMU, čtení serial dumpu, pravidla pro IRQ. |
 | 17 | [troubleshooting.md](troubleshooting.md) | Známé pasti a lekce — build API, protokoly, determinismus, tooling. |
 | 18 | [handoff.md](handoff.md) | Formální postup pro nevyřešené problémy — šablona, kdy ji spustit, jak ji zavřít. |
-| 19 | [changelog.md](changelog.md) | Česká verze changelogu — agregovaný přehled co systém umí (anglický originál v `CHANGELOG.md`). |
+| 19 | [`CHANGELOG.md`](../CHANGELOG.md) | Agregovaný changelog (anglicky) — co systém umí, jedna verze na milník. |
 
 ## Jak konzultovat návrh
 
@@ -81,11 +81,33 @@ Princip: **čeština = mozek, angličtina = tvář.** Jeden směr toku, žádná
 - `spec/` (česky) = **kanonický zdroj pravdy** — upravuje se volně, vždy aktuální.
 - `docs/` (anglicky) = **kurátorská veřejná vrstva** — publikuje se z `main` přes
   GitHub Pages (native Jekyll, theme just-the-docs; konfigurace `docs/_config.yml`).
-- Každá anglická stránka nese `source: spec/<soubor>.md` + datum poslední
-  synchronizace (`synced:`).
 - **Jednosměrný tok:** spec → docs. Nikdy zpětně (anglická stránka se nepromítá
   do českého spec).
-- **Drift je design, ne bug:** web může zaostávat za spec — veřejná tvář je stabilní,
-  mozek je rychlý.
 - Nové věci se píší česky do `spec/`, anglicky na web ve volných chvílích.
 - `CHANGELOG.md` a `README.md` zůstávají anglicky (veřejné rozhraní projektu).
+
+### Metadata a pravidlo 14 dnů
+
+Každá anglická stránka v `docs/*.md` nese v **YAML front matter**:
+
+```yaml
+---
+layout: default
+title: Status
+nav_order: 2
+source: spec/roadmap.md, CHANGELOG.md
+synced: 2026-08-09
+---
+```
+
+- `source:` — relativní cesta ke zdroji (zdrojům, čárkami) v repu, ze kterého se
+  stránka synchronizuje. U `index.md` je to `README.md` (+ případně `spec/roadmap.md`).
+- `synced:` — datum poslední synchronizace. Stránka na konci ukazuje viditelnou
+  patičku „Last synced from … on …".
+- **Pravidlo 14 dnů:** po změně `spec/<soubor>.md` se anglický ekvivalent v `docs/`
+  zsynchronizuje (obsah + `synced:`) **do 14 dnů**. Vynucuje `tools/sync-docs.sh --check`
+  v CI a v pre-push hooku — stránka, jejíž zdroj se změnil před více než 14 dny bez
+  aktualizace `synced:`, neprojde. Drift kratší než 14 dnů je design (tvář se
+  synchronizuje s časovým odstupem), déle je chyba.
+- **Nesynchronizovaný stav stránky se nehlásí jako „current"** — `synced:` datum je
+  pravdivé tvrzení o tom, kdy byla stránka naposledy zarovnána se zdrojem.

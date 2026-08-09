@@ -6,6 +6,9 @@ images/*.iso
 images/*.img
 images/*.bin
 
+# Generated raw commit log (tools/generate-changelog.sh)
+CHANGELOG-commits.md
+
 # Lua build artifacts (M4)
 libs/lua-5.4/src/*.o
 libs/lua-5.4/src/*.a

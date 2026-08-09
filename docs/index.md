@@ -2,6 +2,8 @@
 layout: home
 title: Home
 nav_order: 1
+source: README.md, spec/roadmap.md
+synced: 2026-08-09
 ---
 
 # Aster OS
@@ -17,8 +19,8 @@ subsystems can later be moved into isolated processes **without changing
 application APIs**.
 
 This is an alpha prototype — the goal is a working, measurable system, not
-yet a usable OS. Milestone **M6 (Storage)** is in progress; the project is
-building on M0–M5 (boot, memory, CPU, graphics, Lua, UI).
+yet a usable OS. Milestones **M0–M6 are complete** (boot, memory, CPU,
+graphics, Lua, UI, disk storage); milestone **M7 (Runtime)** is in progress.
 
 ## What it does today
 
@@ -51,7 +53,7 @@ ASTER FIRST FRAME
 
 - A Lua 5.4.8 shell with an interactive REPL and hot reload (F5).
 - A desktop shell in Lua — tiling window manager, taskbar, launcher,
-  workspaces, mouse cursor, live theme changes.
+  workspaces, mouse cursor, live theme changes, switchable keyboard layouts.
 - PS/2 keyboard + mouse, an 800x600 framebuffer with a software renderer.
 - A page frame allocator, a first-fit heap allocator, IDT/APIC timer/IOAPIC.
 - **M6 (Storage) complete:** virtio-blk sector reads, GPT partitions, a
@@ -68,7 +70,4 @@ ASTER FIRST FRAME
 
 ---
 
-Source: [`README.md`](https://github.com/Xelvra/aster-os/blob/main/README.md)
-(Czech original lives in the spec, see
-[`spec/`](https://github.com/Xelvra/aster-os/tree/main/spec)).
-Synced: 2026-08-08.
+Last synced from [`README.md`](https://github.com/Xelvra/aster-os/blob/main/README.md) and [`spec/roadmap.md`](https://github.com/Xelvra/aster-os/blob/main/spec/roadmap.md) on 2026-08-09.

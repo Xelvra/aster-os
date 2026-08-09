@@ -49,3 +49,6 @@ jobs:
 
       - name: Boot log must match the code (proof of work stays current)
         run: ./tools/capture-boot.sh --check
+
+      - name: Docs must be synced with their spec sources (14 days)
+        run: ./tools/sync-docs.sh --check
