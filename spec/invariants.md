@@ -31,6 +31,14 @@ Invarianty proti UB, memory chybám a nedefinovanému chování.
 - [ ] **Žádná alokace v IRQ kontextu.** IRQ handler jen atomicky manipuluje s předem
       alokovanými strukturami (fronta událostí). Žádný `allocator.alloc` v přerušení,
       žádné locky v přerušení (deadlock riziko).
+- [ ] **ISR zachovává kompletní stav CPU vč. XMM.** Kernel běží se SSE povoleným a
+      kompilátor generuje `movdqu`/`movups` pro kopie structů i v nefloatovacím kódu.
+      Přerušení může dorazit mezi load a store takového páru, takže ISR musí uložit a
+      obnovit **všechny** scratch registry (GPR i XMM0–XMM15, `isr.s`) — zapomenutí
+      kteréhokoli vede k poškození hodnoty v přerušeném kódu (C35, handoff H4). Pokud
+      se `isr_common` mění, save/restore se musí rozšířit o totéž. Vektory v `frame`
+      jsou maskované na 8 bitů v `isr_common` (C35; hlídá `assert(frame.vector <= 0xFF)`
+      na vstupu `handleIsrImpl`).
 - [ ] **Žádná rekurze v kritických cestách** (kernel, IRQ, rendering).
 - [ ] **Žádné tiché selhání.** Každá funkce, která může selhat, vrací `KiStatus` /
       explicitní chybovou hodnotu. Žádný prázdný `catch {}` bez zdůvodnění.
