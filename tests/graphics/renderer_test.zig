@@ -86,7 +86,8 @@ test "roundRect fills interior and rounds corners" {
     initCtx(&ctx);
     ctx.renderer.roundRect(2, 2, 10, 10, 4, 0xFF0000);
     try std.testing.expectEqual(@as(u32, 0xFF0000), ctx.fb.getPixel(6, 6)); // center
-    try std.testing.expectEqual(@as(u32, 0x000000), ctx.fb.getPixel(5, 5)); // corner cut (dx²+dy² > r²)
+    try std.testing.expectEqual(@as(u32, 0x000000), ctx.fb.getPixel(3, 3)); // corner cut (inside the arc)
+    try std.testing.expectEqual(@as(u32, 0xFF0000), ctx.fb.getPixel(5, 5)); // inside the rounded corner
     try std.testing.expectEqual(@as(u32, 0xFF0000), ctx.fb.getPixel(6, 2)); // top edge
 }
 
@@ -99,13 +100,25 @@ test "rectBorder draws outline only, leaves interior empty" {
     try std.testing.expectEqual(@as(u32, 0x000000), ctx.fb.getPixel(6, 6)); // interior
 }
 
-test "gradientBorder interpolates colors around the perimeter" {
+test "gradientBorder interpolates colors along the diagonal" {
     var ctx: Context = undefined;
     initCtx(&ctx);
     ctx.renderer.gradientBorder(0, 0, 8, 8, 1, 0x000000, 0xFFFFFF);
-    try std.testing.expectEqual(@as(u32, 0x000000), ctx.fb.getPixel(0, 0)); // start
+    try std.testing.expectEqual(@as(u32, 0x000000), ctx.fb.getPixel(0, 0)); // start (top-left)
     const top_right = ctx.fb.getPixel(7, 0);
     try std.testing.expect(top_right > 0x000000); // interpolated towards white
     const bottom_right = ctx.fb.getPixel(7, 7);
-    try std.testing.expect(bottom_right >= top_right); // monotonic along perimeter
+    try std.testing.expect(bottom_right >= top_right); // monotonic to the bottom-right
+}
+
+test "gradientBorder is a uniform ring on all edges" {
+    var ctx: Context = undefined;
+    initCtx(&ctx);
+    ctx.renderer.gradientBorder(0, 0, 10, 10, 2, 0xFFFFFF, 0xFFFFFF);
+    try std.testing.expectEqual(@as(u32, 0xFFFFFF), ctx.fb.getPixel(5, 0)); // top edge, 2px
+    try std.testing.expectEqual(@as(u32, 0xFFFFFF), ctx.fb.getPixel(5, 1));
+    try std.testing.expectEqual(@as(u32, 0xFFFFFF), ctx.fb.getPixel(0, 5)); // left edge, 2px
+    try std.testing.expectEqual(@as(u32, 0xFFFFFF), ctx.fb.getPixel(1, 5));
+    try std.testing.expectEqual(@as(u32, 0xFFFFFF), ctx.fb.getPixel(9, 5)); // right edge, 2px
+    try std.testing.expectEqual(@as(u32, 0x000000), ctx.fb.getPixel(5, 5)); // interior empty
 }

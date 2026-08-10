@@ -26,31 +26,7 @@ end
 windows[#windows + 1] = window("repl", 1)
 windows[#windows + 1] = window("sysmon", 1)
 windows[#windows + 1] = window("files", 2)
-focused = windows[1].title
 local repl_visible = true
-
--- Session menu (bar "Lock" button): lock overlay, logout (shell reload),
--- reboot (i8042 reset). "Lock" has no auth yet — any key unlocks.
-local session_items = {
-    { title = "Lock",   id = "lock" },
-    { title = "Logout", id = "logout" },
-    { title = "Reboot", id = "reboot" },
-}
-local session_open = false
-local session_sel = 1
-local session_btn = { x = 0, w = 0 }
-local locked = false
-
-local function session_run(id)
-    if id == "lock" then
-        locked = true
-    elseif id == "logout" then
-        runtime.reload()
-    elseif id == "reboot" then
-        power.reboot()
-    end
-    gfx.invalidate()
-end
 
 local function find_win(title)
     for _, w in ipairs(windows) do
@@ -134,11 +110,14 @@ local function layout_pass()
         if n == 1 then
             w.x, w.y, w.w, w.h = area_x, area_y, area_w, area_h
         elseif layout_mode == "splith" then
-            local gap = inner + border
+            local gap = inner
             local w1, w2 = math.floor(area_w * 0.6), math.floor(area_w * 0.4)
             if n == 2 then
                 -- Side by side; the focused window gets the wider split (60/40)
-                -- and the positions stay stable (first window left).
+                -- and the positions stay stable (first window left). The rects
+                -- overlap by the border width so the active window (drawn last)
+                -- shows its own 2px border at the shared edge, never a gap or a
+                -- double border.
                 local f = (focused == w.title)
                 if i == 1 then
                     w.x = area_x
@@ -146,43 +125,52 @@ local function layout_pass()
                     w.w = (f and w1 or w2) - gap
                     w.h = area_h
                 else
-                    w.x = area_x + (f and w2 or w1)
+                    w.x = area_x + (f and w2 or w1) - gap - border
                     w.y = area_y
-                    w.w = (f and w1 or w2) - gap
+                    w.w = area_x + area_w - w.x
                     w.h = area_h
                 end
             else
                 -- Master-stack: the first window is the master (left, wider),
                 -- the rest stack in the right column (spec/lua-wm.md §6.3).
+                -- Neighbouring rects overlap by the border width as above.
                 local stack_n = n - 1
-                local row_h = math.floor((area_h - (stack_n - 1) * gap) / stack_n)
+                local row_h = math.floor((area_h + (stack_n - 1) * border) / stack_n)
                 if i == 1 then
                     w.x = area_x
                     w.y = area_y
                     w.w = w1 - gap
                     w.h = area_h
                 else
-                    w.x = area_x + w1
-                    w.y = area_y + (i - 2) * (row_h + gap)
-                    w.w = w2 - gap
-                    w.h = row_h
+                    w.x = area_x + w1 - gap - border
+                    w.w = area_x + area_w - w.x
+                    w.y = area_y + (i - 2) * (row_h - border)
+                    if i == n then
+                        w.h = area_y + area_h - w.y
+                    else
+                        w.h = row_h
+                    end
                 end
             end
         else
-            -- splitv: stack vertically.
-            local gap = inner + border
-            local row_h = math.floor((area_h - (n - 1) * gap) / n)
+            -- splitv: stack vertically, rows overlapping by the border width.
+            local gap = inner
+            local row_h = math.floor((area_h + (n - 1) * border) / n)
             w.x = area_x
             w.w = area_w
-            w.y = area_y + (i - 1) * (row_h + gap)
-            w.h = row_h
+            w.y = area_y + (i - 1) * (row_h - border)
+            if i == n then
+                w.h = area_y + area_h - w.y
+            else
+                w.h = row_h
+            end
         end
     end
 end
 
 -- ---------------------------------------------------------------------------
 -- Bar (Noctalia-style): launcher + clock + workspace capsules left,
--- volume / session right.
+-- volume right.
 -- ---------------------------------------------------------------------------
 -- ---------------------------------------------------------------------------
 -- Shared workspace-capsule geometry: the bar draws them and handle_mouse
@@ -205,10 +193,11 @@ local function bar_render()
     gfx.draw_rect(0, 0, SW, bar_h, theme.surface)
 
     local x = 8
-    -- Launcher (a square rounded button).
-    gfx.round_rect(x, (bar_h - 20) // 2, 20, 20, 6, theme.launcher)
+    -- Launcher button (a square with a double chevron, evokes "open menu").
+    local bx = x
+    gfx.draw_rect(bx, (bar_h - 20) // 2, 20, 20, theme.accent)
+    gfx.draw_text(">>", bx + 2, (bar_h - 16) // 2 + 1, theme.background)
     x = x + 20 + 8
-    gfx.draw_text(">", x - 20 + 6, (bar_h - 16) // 2 + 1, theme.background)
     x = x + 4
 
     -- Clock.
@@ -225,36 +214,18 @@ local function bar_render()
         local active = (c.i == current_ws)
         local color = active and theme.accent or theme.surface_alt
         local text_color = active and theme.background or theme.text_dim
-        gfx.round_rect(c.x, (bar_h - 20) // 2, c.w, 20, 10, color)
+        gfx.draw_rect(c.x, (bar_h - 20) // 2, c.w, 20, color)
         gfx.draw_text(theme.ws[c.i], c.x + 4, (bar_h - 16) // 2 + 1, text_color)
     end
 
-    -- Right side: volume placeholder and the session button (opens the menu).
+    -- Active window title (bar center, the Noctalia active_window widget).
+    local win_label = focused or ""
+    gfx.draw_text(win_label, math.floor((SW - win_label:len() * 8) / 2), (bar_h - 16) // 2 + 1, theme.text_dim)
+
+    -- Right side: volume placeholder.
     local right = SW - 8
     local vol = "Vol 100%"
     gfx.draw_text(vol, right - vol:len() * 8, (bar_h - 16) // 2 + 1, theme.text)
-    right = right - vol:len() * 8 - 16
-    local sess = "Lock"
-    local sess_x = right - sess:len() * 8
-    gfx.draw_text(sess, sess_x, (bar_h - 16) // 2 + 1, theme.text_dim)
-    session_btn.x = sess_x
-    session_btn.w = sess:len() * 8
-end
-
-local function session_menu_render()
-    local row_h = 20
-    local w = 140
-    local h = 8 + #session_items * row_h
-    local x = session_btn.x
-    local y = theme.bar.height + 2
-    gfx.round_rect(x, y, w, h, 8, theme.surface)
-    gfx.rect_border(x, y, w, h, 1, theme.accent)
-    local ty = y + 4
-    for i, it in ipairs(session_items) do
-        local sel = (i == session_sel)
-        gfx.draw_text(it.title, x + 8, ty, sel and theme.accent or theme.text_dim)
-        ty = ty + row_h
-    end
 end
 
 -- ---------------------------------------------------------------------------
@@ -279,6 +250,9 @@ local function win_render(w)
     local border_c = active and theme.accent or theme.inactive
     local title_bg = active and theme.surface_alt or theme.surface
     local opacity = active and theme.wm.opacity_active or theme.wm.opacity_inactive
+    -- Fullscreen covers everything and is fully opaque (decorations.lua
+    -- fullscreen_opacity = 1).
+    if fullscreen_win == w.title then opacity = 1 end
 
     -- Border.
     if active then
@@ -305,3 +279,10 @@ local function win_render(w)
     end
     gfx.draw_text(label, tx + 6, ty + (th - 16) // 2 + 1, active and theme.text or theme.text_dim)
 end
+
+-- The initially focused window must also be the topmost (highest z), so its
+-- active border covers the shared edge with its neighbour. set_focus() bumps
+-- z; a plain `focused = windows[1].title` above would leave the first window
+-- at the bottom of the z-order and the shared border would show the inactive
+-- neighbour after an F5 reload.
+set_focus(windows[1].title)

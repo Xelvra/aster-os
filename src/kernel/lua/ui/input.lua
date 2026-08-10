@@ -1,7 +1,5 @@
 -- input.lua - mouse and keyboard handling for the shell.
 
-local session_was_down = false
-
 local function is_in_header(w)
     local mx = input.mouse_x()
     local my = input.mouse_y()
@@ -22,25 +20,6 @@ local function handle_mouse()
     local mx = input.mouse_x()
     local my = input.mouse_y()
     local left = input.mouse_left()
-
-    if session_open then
-        if left and not session_was_down then
-            -- Clicking an item runs it; click outside closes.
-            local row_h = 20
-            local w, h = 140, 8 + #session_items * row_h
-            local x, y = session_btn.x, theme.bar.height + 2
-            if mx >= x and mx <= x + w and my >= y and my <= y + h then
-                local idx = math.floor((my - y - 4) / row_h) + 1
-                session_open = false
-                if session_items[idx] then session_run(session_items[idx].id) end
-            else
-                session_open = false
-            end
-            gfx.invalidate()
-        end
-        session_was_down = left
-        return
-    end
 
     if launcher_open then
         if left and not mouse_was_down then
@@ -91,10 +70,13 @@ local function handle_mouse()
                     gfx.invalidate()
                 end
             end
-            -- Clicking the session button opens the session menu.
-            if mx >= session_btn.x and mx <= session_btn.x + session_btn.w and my >= 0 and my <= theme.bar.height then
-                session_open = true
-                session_sel = 1
+            -- Clicking the launcher button (the ">" chevron) opens the launcher.
+            if mx >= 8 and mx <= 28 and my >= 0 and my <= theme.bar.height then
+                launcher_open = not launcher_open
+                if launcher_open then
+                    launcher_input = ""
+                    launcher_sel = 1
+                end
                 gfx.invalidate()
             end
         end
@@ -117,23 +99,6 @@ end
 
 local function handle_key(ev)
     local code = ev.code
-    if session_open then
-        if code == "escape" then
-            session_open = false
-        elseif code == "enter" then
-            session_open = false
-            session_run(session_items[session_sel].id)
-        elseif code == "up" then
-            session_sel = math.max(session_sel - 1, 1)
-        elseif code == "down" then
-            session_sel = math.min(session_sel + 1, #session_items)
-        else
-            session_open = false
-        end
-        gfx.invalidate()
-        return
-    end
-
     if launcher_open then
         local items = launcher_filtered()
         -- Keep the selection valid after filtering changed the list size.
@@ -182,8 +147,13 @@ local function handle_key(ev)
             focus_topmost(3)
         elseif code == "enter" then
             -- Terminal: show the REPL on the current workspace and focus it.
+            -- The window is recreated if it was closed (Super+Q).
             local w = find_win("repl")
-            if w then w.ws = current_ws end
+            if not w then
+                windows[#windows + 1] = window("repl", current_ws)
+            else
+                w.ws = current_ws
+            end
             repl_visible = true
             set_focus("repl")
         elseif code == "q" then

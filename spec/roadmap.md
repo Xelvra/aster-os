@@ -261,10 +261,16 @@ binding marshallingu zelené.
 > < 512 KiB. Zbývá frame latency p99 (měřicí mechanismus zatím není) a měření na reálném
 > HW po M8 stabilizaci (pozn. ³).
 
+**M5 — UI doplňky (backlog):**
+
+- [ ] **Launcher ikona — pořádná bitmapová ikona aster:** textový glyf `>>` je
+      provizorní; v pozdější fázi přijde skutečná bitmapová ikona květiny (hlávka
+      asteru, jméno projektu). Zdroj ikony se rozhodne při návrhu asset pipeline
+      (M6+): bitmapový sprite z `draw_rect` vs. image asset (PNG) s dekodérem.
+
 ### M6 — Storage
 
 **Cíl:** načítání souborů za běhu.
-
 - [x] **initfs** z Limine initrd (RAM disk) — load `.lua` / assetů za běhu.
       **Formát: tar** (jednoduchý, streamovatelný, dobře se generuje build-time;
       rozhodnutí z fáze přípravy — implementuje se zde). Shell moduly (`ui/*.lua`) se

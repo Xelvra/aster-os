@@ -32,8 +32,16 @@ Veškeré kreslení jde přes **KI bindings** (`gfx.*`, `input.*`, ...) → `sys
 
 WM implementuje: tiling layout (splith/splitv), workspaces 1–3, floating okna s
 dragem, fullscreen, scratchpad, taskbar s hodinami a workspace kaplemi, aplikaci
-launcher (Super+Space), REPL/terminál jako okno, systémový monitor a session menu
-(Lock/Logout/Reboot). Vzhled je **data** v `theme.lua`, měnitelná za běhu (F5).
+launcher (Super+Space), REPL/terminál jako okno a systémový monitor. Vzhled je
+**data** v `theme.lua`, měnitelná za běhu (F5).
+
+> **Always-live design:** shell je **věčně živý proces** — v UI neexistuje logout,
+> reboot ani shutdown; UI power management nikdy nevystavuje. Vypnutí/restart stroje
+> je **kernel-level** operace (i8042 reset dnes, ACPI v budoucnu — jako Unix
+> `shutdown -r`), kterou kernel provádí sám, mimo prostředí. Změna prostředí = hot
+> reload (F5, nebo automaticky po chybě), bez restartu systému. To je jádro filozofie
+> „živého systému" (viz `spec/manifest.md`, Smalltalk/Lisp lineage): prostředí běží
+> nonstop a o vypnutí se stará kernel, ne UI (detail §5.2, `spec/runtime.md` §5).
 
 ---
 
@@ -138,7 +146,7 @@ runtime.spawn(.{ .kind = .Lua, .entry = "main.lua" })  // lua.runMain
 | Pořadí | Modul | Definuje pro pozdější moduly |
 |---|---|---|
 | 1 | `theme.lua` | globální `theme` tabulku |
-| 2 | `wm.lua` | `windows`, `focused`, `layout_pass`, `bar_render`, `win_render`, `find_win`, `set_focus`, `ws_capsules`, `window()`, session stav |
+| 2 | `wm.lua` | `windows`, `focused`, `layout_pass`, `bar_render`, `win_render`, `find_win`, `set_focus`, `ws_capsules`, `window()` |
 | 3 | `repl.lua` | `print`, `repl_render`, `sysmon_render`, REPL editovací stav |
 | 4 | `launcher.lua` | `launcher_*` stav a funkce |
 | 5 | `input.lua` | `handle_mouse`, `handle_key` |
@@ -173,7 +181,7 @@ Role jednotlivých souborů:
 | Soubor | Odpovědnost | Veřejný povrch pro shell |
 |---|---|---|
 | `theme.lua` | deklarativní vzhled | globální `theme` |
-| `wm.lua` | stav WM + tiling + bar + dekorace | `layout_pass`, `bar_render`, `win_render`, `set_focus`, `find_win`, `focus_topmost`, `ws_capsules`, `window`, session funkce |
+| `wm.lua` | stav WM + tiling + bar + dekorace | `layout_pass`, `bar_render`, `win_render`, `set_focus`, `find_win`, `focus_topmost`, `ws_capsules`, `window` |
 | `repl.lua` | REPL stav/editing/eval + render | `repl_render`, `sysmon_render`, `print`, REPL stav |
 | `launcher.lua` | launcher popup + akce | `launcher_open`, `launcher_render`, `launcher_run`, `launcher_filtered` |
 | `input.lua` | vstupní obsluha | `handle_mouse`, `handle_key` |
@@ -192,7 +200,7 @@ theme = {
     background, surface, surface_alt,          -- pozadí plochy / okna / titulku
     text, text_dim,                            -- texty
     accent, accent_b, accent_dark,             -- tyrkysová řada (aktivní dekorace)
-    inactive, launcher,                        -- neaktivní border / tlačítko
+    inactive,                                 -- neaktivní border
     wm   = { gap_out, gap_in, border, radius, title_h,
              opacity_active, opacity_inactive },
     bar  = { height, radius },
@@ -220,8 +228,10 @@ případná budoucí změna dala vysledovat vůči originálu:
 Jediná barva starší než M5 je **akcent `0x82DCCC`** (tyrkys) — existuje už od M4.
 Kompletní paleta (zavedená v `ecf60d8`, beze změny dodnes): `background 0x111826`,
 `surface 0x182545`, `surface_alt 0x223454`, `text 0xDDDDDD`, `text_dim 0x798BB2`,
-`inactive 0x798BB2`, `accent 0x82DCCC`, `accent_b 0x00AA84`, `accent_dark 0x007D6F`,
-`launcher 0x01CCFF`. Geometrie (`wm`/`bar`/`ws`) se rovněž od M5 nezměnila.
+`inactive 0x798BB2`, `accent 0x82DCCC`, `accent_b 0x00AA84`, `accent_dark 0x007D6F`.
+Launcher tlačítko v baru používá `accent` (2026-08-10 sjednoceno s aktivní dekorací;
+dříve vlastní `launcher 0x01CCFF` = CACHYLBLUE, odstraněno jako nekonzistentní).
+Geometrie (`wm`/`bar`/`ws`) se rovněž od M5 nezměnila.
 
 ### 5.2 `wm.lua` — jádro okenního manažeru
 
@@ -236,7 +246,6 @@ Kompletní paleta (zavedená v `ecf60d8`, beze změny dodnes): `background 0x111
 | `layout_mode` | `"splih"`/`"splitv"` | mód tiling layoutu |
 | `fullscreen_win` | `string?` | title fullscreen okna |
 | `z_counter` | `u64` | monotónní zdroj z-řazení |
-| `session_*`, `locked` | — | session menu stav + zámek |
 
 **Struktura okna** (`window()`, `wm.lua:20`):
 
@@ -256,13 +265,18 @@ Kompletní paleta (zavedená v `ecf60d8`, beze změny dodnes): `background 0x111
 - `ws_capsules()` (`wm.lua:173`) — **jediný zdroj pravdy** pro geometrii workspace
   kapslí; render (bar_render) i hit-testing (input.lua) ji sdílí, takže se nemohou
   rozejít.
-- `bar_render()` (`wm.lua:184`) — taskbar; `session_menu_render()` — session popup.
+- `bar_render()` (`wm.lua:184`) — taskbar (launcher, hodiny, ws kapsle, active_window
+  uprostřed, volume vpravo).
 - `win_render(w)` (`wm.lua:259`) — dekorace okna; `blend()` (`wm.lua:245`) — opacity
   směrem k barvě pozadí.
 
-**Session menu** (Lock/Logout/Reboot): `session_run(id)` (`wm.lua:44`) —
-Lock = overlay (zatím bez auth, libovolná klávesa odemkne), Logout = `runtime.reload()`
-(restart UI vrstvy), Reboot = `power.reboot()` (i8042 reset, `api/power.zig:17`).
+**Always-live (žádné session/lock/reboot v UI):** WM **záměrně nemá session menu,
+logout, reboot, shutdown ani zámek**. Shell je věčně živý proces: obnova stavu se
+dělá hot reloadem (`runtime.reload()`, F5, nebo automaticky po chybě
+`update()`/`render()`; `spec/runtime.md` §5), nikdy restartem systému z UI. Restart
+i vypnutí jsou **kernel-level** operace (`power.reboot()` — i8042 reset; budoucí
+ACPI `shutdown`) — kernel je smí provést, UI ho nikdy nevystavuje. `power` a
+`runtime` tak zůstávají jen jako KI capability (kernel úroveň), v UI se nevystavují.
 
 ### 5.3 `repl.lua` — REPL/terminál a sysmon jako okna
 
@@ -296,14 +310,13 @@ stavu neví.
 Dvě velké funkce:
 
 - `handle_mouse()` (`input.lua:21`) — prioritizovaná hit-testovací sekvence:
-  1. otevřené session menu → klik na položku / mimo;
-  2. otevřený launcher → klik na položku / mimo;
-  3. klik: topmost okno pod kurzorem (od konce seznamu) → `set_focus`; drag jen
-     floating oken (`is_in_header`); workspace kaple; session tlačítko;
-  4. drag update s clampem na obrazovku.
-- `handle_key(ev)` (`input.lua:118`) — session menu, launcher (psaní, backspace,
-  šipky, Enter), **Super zkratky** (tabulka §7), Alt+Tab, a konečně REPL editace
-  (všechny pohybové/editační klávesy, UTF-8 aware).
+  1. otevřený launcher → klik na položku / mimo;
+  2. klik: topmost okno pod kurzorem (od konce seznamu) → `set_focus`; drag jen
+     floating oken (`is_in_header`); workspace kaple;
+  3. drag update s clampem na obrazovku.
+- `handle_key(ev)` (`input.lua:118`) — launcher (psaní, backspace, šipky, Enter),
+  **Super zkratky** (tabulka §7), Alt+Tab, a konečně REPL editace (všechny
+  pohybové/editační klávesy, UTF-8 aware).
 
 Modifikátorový stav (shift/ctrl/alt/super/alt_gr/caps) **nedrží Lua** — udržuje ho
 `bindings.zig` (§11) a každý key event ho nese v tabulce.
@@ -312,14 +325,12 @@ Modifikátorový stav (shift/ctrl/alt/super/alt_gr/caps) **nedrží Lua** — ud
 
 ```lua
 function update()   -- main.lua:4  — mutace stavu
-    if locked then ... any key unlocks; return end
     layout_pass()
     handle_mouse()
     ev = input.next_event() → if key+pressed → handle_key(ev)
 end
 
 function render()   -- main.lua:24 — čisté kreslení, žádná alokace
-    if locked then ... end
     gfx.fill_screen(theme.background)
     layout_pass()          -- znovu (geometrie může být zastaralá)
     bar_render()
@@ -329,7 +340,6 @@ function render()   -- main.lua:24 — čisté kreslení, žádná alokace
     for _, w in floating do win_render(w) end
     repl_render(); sysmon_render()
     if launcher_open then launcher_render() end
-    if session_open  then session_menu_render() end
 end
 ```
 
@@ -357,46 +367,49 @@ area_h = SH - bar.height - 2*gap_out
 
 Pokud je `fullscreen_win` na `current_ws` → okno pokryje celý framebuffer
 `(0,0,SW,SH)`, bar se nekreslí (guard v `bar_render`), žádné jiné okno se nekreslí
-(guard v `render`). Pokud fullscreen okno zmizí/přesune se jinam → `fullscreen_win = nil`.
+(guard v `render`) — ale **obsah fullscreen okna se kreslí** (REPL prompt, sysmon),
+jen dekorace + obsah daného okna. Pokud fullscreen okno zmizí/přesune se jinam →
+`fullscreen_win = nil`.
 
 ### 6.3 Tiling: splith (60/40)
 
-Splith řeší dva případy (`wm.lua:136`):
+Splith řeší dva případy (`wm.lua:136`). `gap = gap_in` (vnitřní mezera, dnes 0).
+Sousední rects oken se **překrývají přesně o `border` px** — aktivní okno (kreslené
+poslední díky z-order) tak na společném okraji ukáže **jen svůj 2px border** a
+překryje border neaktivního okna. Nikdy nevznikne mezera ani dvojitý border.
 
 **Přesně 2 okna** — side-by-side, pozice stabilní (první v tiling pořadí vlevo),
 **fokusované okno dostane širší split:**
 
 ```
 w1 = floor(area_w * 0.6)     w2 = floor(area_w * 0.4)
-gap = gap_in + border
-left:   w = (focused? w1 : w2) - gap          x = area_x
-right:  w = (focused? w1 : w2) - gap          x = area_x + (left šířka)
+gap = gap_in
+left:   w = (focused? w1 : w2) - gap              x = area_x
+right:  w = area_w - (left_šířka - gap - border)  x = area_x + left_šířka - gap - border
 ```
 
-Pravé okno navazuje přesně na levé (offset = šířka levého), takže nedochází
-k překryvu ani mezeře. Fokus širšího split == Hyprland konvence.
+Pravé okno **překrývá levé o `border` px** (offset o border posunutý doleva) —
+aktivní okno, ať je vlevo nebo vpravo, pak svým 2px borderem zakryje společný okraj.
 
 **3 a více oken** — **master-stack**: první okno v tiling pořadí je master
 (vlevo, širší `w1` na plnou výšku), zbylá okna se skládají **svisle v pravém
-sloupci** (šířka `w2`, řádky rovnoměrně):
+sloupci** (šířka `w2`, řádky se rovněž překrývají o `border`):
 
 ```
 stack_n = n - 1
-row_h = floor((area_h - (stack_n-1)*gap) / stack_n)
-master:  x=area_x          w=w1-gap   h=area_h
-stack:   x=area_x+w1       w=w2-gap   y=area_y+(i-2)*(row_h+gap)   h=row_h
+row_h = floor((area_h + (stack_n-1)*border) / stack_n)
+master:  x=area_x          w=w1-gap              h=area_h
+stack:   x=area_x+w1-gap-border  w=area_w-(w1-gap-border)
+         y=area_y+(i-2)*(row_h-border)  h=row_h  (poslední řádek dorazí ke dnu)
 ```
-
-Master-stack zajišťuje, že se `n` oken nikdy nepřekrývá (master má 60 %, stack
-40 % šířky a svislé řádky vyplní zbytek výšky).
 
 ### 6.4 Tiling: splitv (stack)
 
-N oken svisle, rovnoměrně:
+N oken svisle, řádky se překrývají o `border` (aktivní řádek zakryje společný okraj):
 
 ```
-row_h = floor((area_h - (n-1)*gap) / n)
-w.y = area_y + (i-1) * (row_h + gap)
+row_h = floor((area_h + (n-1)*border) / n)
+w.y = area_y + (i-1) * (row_h - border)   (poslední řádek dorazí ke dnu)
 ```
 
 ### 6.5 Floating okna
@@ -449,6 +462,64 @@ Vše v `handle_key` (`input.lua:118`). Super = `ev.super` (Hyprland konvence).
 
 ---
 
+## 7a. Rezervované / plánované položky (placeholdery)
+
+Tyto položky z upstreamu (cachyos-hypr-noctalia) **záměrně nejsou v kódu** — WM je
+minimalistický a nic nepředstírá. Jsou zde zapsané jako **designové závazky**: až
+architektura dodá backend, přidají se přesně na tato místa (žádné inventování nových
+prvků). Platí „přidá se, až to jde" — ne „placeholder v UI".
+
+### 7a.1 Klávesové zkratky (rezervované, `binds.lua`)
+
+| Kombinace | Upstream akce | Backend, který to odblokuje |
+|---|---|---|
+| Super+E | file manager | app systém (files okno) |
+| Super+T | editor | app systém |
+| Super+C | calculator | app systém |
+| Super+W | browser | app systém (net, M9) |
+| Super+Z | settings | app systém |
+| Super+X | control center | panel systém |
+| Super+V | clipboard | clipboard služba |
+| Super+A | notifications | notification služba |
+| Super+P | color picker | picker služba |
+| Print | screenshot | capture backend |
+| Super+period | emoji launcher | app systém |
+| Super+`-`/`=` | cursor zoom | compositor feature |
+| XF86 audio/media/brightness | media/volume | audio + brightness drivery |
+
+> **Super+L (lock), Super+Alt+C (session panel) a session akce nejsou v tabulce
+> záměrně** — power management je kernel-level (§5.2): UI nevystavuje logout/reboot/
+> shutdown/lock, hot reload řeší obnovu stavu prostředí.
+
+### 7a.2 Bar widgety (`noctalia/config.toml`)
+
+Neimplementované widgety se do baru **nepřidávají** (minimalismus). Až bude data:
+
+| Widget | Umístění (upstream) | Backend |
+|---|---|---|
+| media | `end` | audio driver |
+| tray | `end` | notification/app syst. |
+| notifications | `end` | notification služba |
+| network | `end` | net (M9, ADR-022) |
+| temp | `start` group `g1` | senzor driver |
+| gpu-usage | `start` group `g1` | GPU driver |
+| datum/den v hodinách | `clock` format | RTC driver |
+
+### 7a.3 Session akce (`shell.session.actions`)
+
+**Neimplementováno záměrně** (§5.2): lock, logout, suspend, reboot i shutdown se
+v UI nevystavují. Vypnutí/restart je kernel-level (ACPI) záležitost; prostředí je
+věčně živé a obnova stavu jde hot reloadem.
+
+### 7a.4 Aplikace (editor, calculator, browser, files)
+
+Upstream spouští cizí aplikace (kitty, dolphin, gnome-calc, ...). U nás jsou to
+budoucí **Lua app okna** (`Program` za `Runtime.spawn`, M7): okno + `render`
+funkce, spouštěné z launcheru. Files je dnes okno bez obsahu; editor/calculator/
+browser se přidají s app systémem.
+
+---
+
 ## 8. Grafická část (Technical Architecture — rendering)
 
 ### 8.1 Render pipeline (celý řetězec)
@@ -479,7 +550,7 @@ fb/framebuffer.zig — přímý zápis do GOP paměti (volatile, clipping, WC wi
 | `gfx.draw_rect` | `draw_rect` | `fillRect` — plný obdélník; 64-bit wide-write páry na zarovnaných řádcích, jinak 32-bit (WC buffer, `framebuffer.zig:68`) |
 | `gfx.round_rect` | `round_rect` | střed + pásy `fillRect`, 4 rohy po `r×r` čtverci uvnitř oblouku (`framebuffer.zig:121`) |
 | `gfx.rect_border` | `rect_border` | 4 `fillRect` pruhy (top/bottom/left/right), tloušťka clampnutá na `min(w/2,h/2)` |
-| `gfx.gradient_border` | `gradient_border` | perimetr 2w+2h−4 px, po obvodu lineární interpolace colorA→colorB, barva se razítkuje jako `t×t` blok (`framebuffer.zig:164`) |
+| `gfx.gradient_border` | `gradient_border` | rovnoměrný ring tloušťky `t` (všechny hrany plné); per-pixel diagonální gradient colorA→colorB (top-left → bottom-right). Sousední tiled okna se dotýkají a border je plný i ve styku (`framebuffer.zig:168`) |
 | `gfx.draw_text` | `draw_text` | iterace bytů → `font.glyph(c)` → `drawGlyphRow` (kreslí jen nastavené bity, zbytek nechá) |
 | `gfx.fill_screen` | `fill_screen` | `fillRect(0,0,W,H)` |
 | `gfx.present` | `present` | no-op v api (commit dělá event loop, §8.4) |
@@ -499,6 +570,11 @@ fallback na replacement znak. Text v Lua používá `glyph_w = 8`, `glyph_h = 16
 2. **Title bar** — `draw_rect` s `blend(title_bg, opacity)`.
 3. **Body** — `draw_rect` s `blend(theme.surface, opacity)`.
 4. **Titulek** — text, aktivní barva vs dim.
+
+Okna jsou **hranatá** (bez zaoblení) — designové rozhodnutí pro malé displeje,
+zaoblení by ukouslo plochu obsahu. `theme.wm.radius` se nepoužívá (vše je hranaté:
+okna, kapsle, launcher). Fullscreen okno je **plně neprůhledné** (`opacity = 1`,
+odpovídá `fullscreen_opacity = 1` v upstream `decorations.lua`).
 
 `blend(color, factor)` (`wm.lua:245`) interpoluje barvu k `theme.background`
 (neaktivní okno se „potopí" do pozadí): `out = color*factor + background*(1-factor)`
@@ -527,7 +603,6 @@ v celočíselné aritmetice (žádné FP v kernelu/renderingu).
 5. repl_render()   — REPL scrollback (okno "repl")
 6. sysmon_render() — RAM/ticks (okno "sysmon")
 7. launcher_render()   (pokud otevřen)
-8. session_menu_render() (pokud otevřen)
 ```
 
 ### 8.6 Re-render model (invalidate / needs_render)
@@ -657,7 +732,7 @@ update(): layout_pass → handle_mouse → next_event → handle_key  (+gcStep)
 reloadRequested? → performReload (lua_close + createState + runMain)
 needs_render? → render():
     callRender → fill_screen, layout_pass, bar_render, win_render*,
-                 repl/sysmon/launcher/session overlay
+                 repl/sysmon/launcher overlay
     mouse_cursor.redraw (save+draw pod kurzorem)
     present() (back → front memcpy)
 hlt
@@ -675,8 +750,8 @@ event loop: invalidate_requested → needs_render → render() kreslí repl okno
 
 ```
 poll() F5 → runtime.requestReload() (jen flag)
-nebo update() vrátí err → requestReload() (zotavení z polorozkresleného stavu)
-nebo session menu "Logout" → runtime.reload() → requestReload()
+nebo update()/render() vrátí err → requestReload() (automatické zotavení
+     z polorozkresleného stavu — always-live, §5.2)
 → event loop: reloadRequested → performReload()
    → lua.reload(): lua_close(old) + createState() + runMain("main.lua")
    → needs_render = true (nový shell se nakreslí)

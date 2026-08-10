@@ -126,12 +126,16 @@ pub const Framebuffer = struct {
         self.fillRect(x + r_i, y, w - r * 2, h, color);
         // Top/bottom strips between the corners.
         self.fillRect(x, y + r_i, w, h - r * 2, color);
-        // Corners: iterate the r x r box and keep pixels inside the arc.
+        // Corners: iterate the r x r box and keep pixels inside the
+        // quarter-circle arc centred at the inner corner point (x+r, y+r) —
+        // the standard rounded-rect geometry.
         var cy: i32 = 0;
         while (cy < r_i) : (cy += 1) {
             var cx: i32 = 0;
             while (cx < r_i) : (cx += 1) {
-                if (cx * cx + cy * cy > r_i * r_i) continue;
+                const dx = r_i - cx;
+                const dy = r_i - cy;
+                if (dx * dx + dy * dy > r_i * r_i) continue;
                 const px = x + cx;
                 const py = y + cy;
                 const corners = [_][2]i32{
@@ -160,58 +164,50 @@ pub const Framebuffer = struct {
 
     /// Draw a rectangle border whose color interpolates linearly from
     /// `color_a` (top-left) to `color_b` (bottom-right), matching the
-    /// active window look. Colors are 0xRRGGBB.
+    /// active window look. Colors are 0xRRGGBB. The border is a uniform
+    /// `thickness`-pixel ring (no asymmetric edge thinning), which keeps the
+    /// shared edge between two adjacent tiled windows looking clean.
     pub fn gradientBorder(self: *Framebuffer, x: i32, y: i32, w: u32, h: u32, thickness: u32, color_a: u32, color_b: u32) void {
         if (w == 0 or h == 0 or thickness == 0) return;
         const t_u: u32 = @min(thickness, @min(w / 2, h / 2));
         const t: i32 = @intCast(t_u);
-        const half: i32 = @divTrunc(t, 2);
         const w_i: i32 = @intCast(w);
         const h_i: i32 = @intCast(h);
-        // Perimeter of a w x h rectangle = 2w + 2h - 4 pixels.
-        const total: i32 = 2 * w_i + 2 * h_i - 4;
-        if (total <= 0) return;
+        const total: i32 = w_i + h_i; // diagonal scale (top-left -> bottom-right)
         const ar: i32 = @intCast((color_a >> 16) & 0xFF);
         const ag: i32 = @intCast((color_a >> 8) & 0xFF);
         const ab: i32 = @intCast(color_a & 0xFF);
         const br: i32 = @intCast((color_b >> 16) & 0xFF);
         const bg: i32 = @intCast((color_b >> 8) & 0xFF);
         const bb: i32 = @intCast(color_b & 0xFF);
-        var i: i32 = 0;
-        while (i < total) : (i += 1) {
-            // Walk the perimeter clockwise: top, right, bottom, left.
-            var px: i32 = undefined;
-            var py: i32 = undefined;
-            if (i < w_i) {
-                px = x + i;
-                py = y;
-            } else if (i < w_i + h_i - 1) {
-                px = x + w_i - 1;
-                py = y + (i - w_i);
-            } else if (i < w_i + h_i - 1 + w_i - 1) {
-                px = x + (w_i - 1) - (i - w_i - h_i + 1);
-                py = y + h_i - 1;
+
+        var py: i32 = y;
+        while (py < y + h_i) : (py += 1) {
+            if (py < 0 or py >= self.height) continue;
+            const in_top = py < y + t;
+            const in_bot = py >= y + h_i - t;
+            if (in_top or in_bot) {
+                // Top/bottom edge: the whole row is border.
+                self.gradRow(x, @min(x + w_i, @as(i32, @intCast(self.width))), py, x, y, total, ar, ag, ab, br, bg, bb);
             } else {
-                px = x;
-                py = y + (h_i - 1) - (i - 2 * w_i - h_i + 2);
+                // Left and right edge columns only.
+                self.gradRow(@max(x, 0), @min(x + t, @as(i32, @intCast(self.width))), py, x, y, total, ar, ag, ab, br, bg, bb);
+                self.gradRow(@max(x + w_i - t, 0), @min(x + w_i, @as(i32, @intCast(self.width))), py, x, y, total, ar, ag, ab, br, bg, bb);
             }
-            const t_frac = @divTrunc(i * 1000, total);
-            const rr = ar + @divTrunc((br - ar) * t_frac, 1000);
-            const gg = ag + @divTrunc((bg - ag) * t_frac, 1000);
-            const bbb = ab + @divTrunc((bb - ab) * t_frac, 1000);
-            const color: u32 = (@as(u32, @intCast(rr)) << 16) | (@as(u32, @intCast(gg)) << 8) | @as(u32, @intCast(bbb));
-            // Stamp the color as a t x t block at each perimeter pixel so a
-            // 2px border does not leave gaps.
-            for (0..@intCast(t)) |oy| {
-                for (0..@intCast(t)) |ox| {
-                    const ox_i: i32 = @intCast(ox);
-                    const oy_i: i32 = @intCast(oy);
-                    const dx = px + ox_i - half;
-                    const dy = py + oy_i - half;
-                    if (dx < x or dx >= x + w_i or dy < y or dy >= y + h_i) continue;
-                    self.setPixel(@intCast(dx), @intCast(dy), color);
-                }
-            }
+        }
+    }
+
+    /// Fill a horizontal run of the gradient border with per-pixel colours
+    /// interpolated along the top-left -> bottom-right diagonal.
+    fn gradRow(self: *Framebuffer, x0: i32, x1: i32, py: i32, rect_x: i32, rect_y: i32, total: i32, ar: i32, ag: i32, ab: i32, br: i32, bg: i32, bb: i32) void {
+        if (x0 >= x1) return;
+        var px = x0;
+        while (px < x1) : (px += 1) {
+            const t_frac = @divTrunc((px - rect_x + (py - rect_y)) * 1000, total);
+            const rr: u32 = @intCast(ar + @divTrunc((br - ar) * t_frac, 1000));
+            const gg: u32 = @intCast(ag + @divTrunc((bg - ag) * t_frac, 1000));
+            const bbb: u32 = @intCast(ab + @divTrunc((bb - ab) * t_frac, 1000));
+            self.setPixel(@intCast(px), @intCast(py), self.pixelColor((rr << 16) | (gg << 8) | bbb));
         }
     }
 };

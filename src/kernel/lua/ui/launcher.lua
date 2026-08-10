@@ -35,7 +35,7 @@ local function launcher_render()
     local lw, lh = 320, 40 + math.max(#items, 1) * row_h
     local lx = math.floor((SW - lw) / 2)
     local ly = theme.bar.height + 8 + math.max(math.floor((SH - theme.bar.height - 8 - lh) / 2), 0)
-    gfx.round_rect(lx, ly, lw, lh, 10, theme.surface)
+    gfx.draw_rect(lx, ly, lw, lh, theme.surface)
     gfx.rect_border(lx, ly, lw, lh, 1, theme.accent)
     -- Search box.
     gfx.draw_text("run: " .. launcher_input, lx + 8, ly + 8, theme.text)
@@ -57,7 +57,11 @@ end
 local function launcher_run(id)
     if id == "repl" then
         local w = find_win("repl")
-        if w then w.ws = current_ws end
+        if not w then
+            windows[#windows + 1] = window("repl", current_ws)
+        else
+            w.ws = current_ws
+        end
         repl_visible = true
         set_focus("repl")
     elseif id == "sysmon" then

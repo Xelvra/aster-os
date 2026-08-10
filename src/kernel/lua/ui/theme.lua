@@ -11,13 +11,11 @@ theme = {
     accent_b   = 0x00AA84,
     accent_dark = 0x007D6F,
     inactive   = 0x798BB2,
-    launcher   = 0x01CCFF,
 
     wm = {
-        gap_out = 8,
-        gap_in  = 3,
+        gap_out = 0,
+        gap_in  = 0,
         border  = 2,
-        radius  = 10,
         title_h = 24,
         opacity_active = 0.95,
         opacity_inactive = 0.85,

@@ -2,15 +2,6 @@
 -- after the other ui modules, so all their local state is in scope.
 
 function update()
-    if locked then
-        -- Locked: ignore the mouse, any key unlocks (no auth yet).
-        local ev = input.next_event()
-        if ev and ev.type == "key" and ev.pressed then
-            locked = false
-            gfx.invalidate()
-        end
-        return
-    end
     layout_pass()
     handle_mouse()
     local ev = input.next_event()
@@ -22,20 +13,21 @@ function update()
 end
 
 function render()
-    if locked then
-        gfx.fill_screen(0x000000)
-        gfx.draw_text("press any key to unlock", math.floor((SW - 23 * 8) / 2), math.floor(SH / 2), theme.text_dim)
-        return
-    end
     gfx.fill_screen(theme.background)
     layout_pass()
     bar_render()
     -- Fullscreen: only the fullscreen window is drawn (it covers everything);
-    -- the bar is skipped by bar_render, and no other window is rendered.
+    -- the bar is skipped by bar_render, and no other window is rendered. The
+    -- window's content (REPL prompt, sysmon) is still drawn.
     if fullscreen_win then
         local fs = find_win(fullscreen_win)
         if fs and fs.ws == current_ws then
             win_render(fs)
+            if fs.title == "repl" and repl_visible then
+                repl_render()
+            elseif fs.title == "sysmon" then
+                sysmon_render()
+            end
             return
         else
             fullscreen_win = nil
@@ -55,5 +47,4 @@ function render()
     if repl_visible then repl_render() end
     sysmon_render()
     if launcher_open then launcher_render() end
-    if session_open then session_menu_render() end
 end
