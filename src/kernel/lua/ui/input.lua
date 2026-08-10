@@ -5,8 +5,10 @@ local session_was_down = false
 local function is_in_header(w)
     local mx = input.mouse_x()
     local my = input.mouse_y()
+    -- The title bar starts below the border and spans title_h rows; the
+    -- border itself is not part of the draggable header.
     return mx >= w.x and mx <= w.x + w.w and
-           my >= w.y and my <= w.y + theme.wm.border + theme.wm.title_h
+           my >= w.y + theme.wm.border and my <= w.y + theme.wm.border + theme.wm.title_h
 end
 
 local function is_in_window(w)
@@ -41,7 +43,7 @@ local function handle_mouse()
     end
 
     if launcher_open then
-        if left and not launcher_was_down then
+        if left and not mouse_was_down then
             -- Clicking an item runs it; click outside closes.
             local items = launcher_filtered()
             local row_h = 20
@@ -60,18 +62,20 @@ local function handle_mouse()
                 gfx.invalidate()
             end
         end
-        launcher_was_down = left
+        mouse_was_down = left
         return
     end
 
     if left then
-        if not launcher_was_down then
+        if not mouse_was_down then
             -- Find window under the cursor (topmost first).
             for i = #windows, 1, -1 do
                 local w = windows[i]
                 if is_in_window(w) then
                     set_focus(w.title)
-                    if is_in_header(w) then
+                    -- Only floating windows can be dragged; a click on a
+                    -- tiled window's header only focuses it.
+                    if is_in_header(w) and w.floating then
                         drag = { title = w.title, dx = mx - w.x, dy = my - w.y }
                     end
                     break
@@ -79,21 +83,13 @@ local function handle_mouse()
             end
             -- Clicking a workspace capsule switches workspace and focuses its
             -- topmost window, so typing works right away.
-            local x = 8 + 20 + 8 + 5 * 8 + 12 + 4
-            for i, name in ipairs(theme.ws) do
-                local ww = 4 + name:len() * 8 + 8
-                if mx >= x and mx <= x + ww and my >= 0 and my <= theme.bar.height then
-                    current_ws = i
-                    for j = #windows, 1, -1 do
-                        if windows[j].ws == i then
-                            set_focus(windows[j].title)
-                            break
-                        end
-                    end
+            for _, c in ipairs(ws_capsules()) do
+                if mx >= c.x and mx <= c.x + c.w and my >= 0 and my <= theme.bar.height then
+                    current_ws = c.i
+                    focus_topmost(c.i)
                     layout_pass()
                     gfx.invalidate()
                 end
-                x = x + ww + 6
             end
             -- Clicking the session button opens the session menu.
             if mx >= session_btn.x and mx <= session_btn.x + session_btn.w and my >= 0 and my <= theme.bar.height then
@@ -116,7 +112,7 @@ local function handle_mouse()
     else
         drag = nil
     end
-    launcher_was_down = left
+    mouse_was_down = left
 end
 
 local function handle_key(ev)
@@ -140,6 +136,8 @@ local function handle_key(ev)
 
     if launcher_open then
         local items = launcher_filtered()
+        -- Keep the selection valid after filtering changed the list size.
+        launcher_sel = math.max(1, math.min(launcher_sel, math.max(#items, 1)))
         if code == "escape" then
             launcher_open = false
         elseif code == "enter" then
@@ -175,12 +173,17 @@ local function handle_key(ev)
     if ev.super and ev.pressed then
         if code == "digit_1" then
             current_ws = 1
+            focus_topmost(1)
         elseif code == "digit_2" then
             current_ws = 2
+            focus_topmost(2)
         elseif code == "digit_3" then
             current_ws = 3
+            focus_topmost(3)
         elseif code == "enter" then
-            -- Terminal: show the REPL and focus it.
+            -- Terminal: show the REPL on the current workspace and focus it.
+            local w = find_win("repl")
+            if w then w.ws = current_ws end
             repl_visible = true
             set_focus("repl")
         elseif code == "q" then
@@ -188,7 +191,8 @@ local function handle_key(ev)
                 for i, w in ipairs(windows) do
                     if w.title == focused then table.remove(windows, i) break end
                 end
-                if #windows > 0 then set_focus(windows[#windows].title) end
+                if fullscreen_win == focused then fullscreen_win = nil end
+                focus_topmost(current_ws)
             end
         elseif code == "space" then
             if ev.alt then
@@ -238,40 +242,53 @@ local function handle_key(ev)
                 end
             end
         elseif ev.shift then
-            -- Super+Shift+arrows: move the focused window in the layout or to
-            -- another workspace. Super+Shift+1/2/3 moves it to that workspace.
+            -- Super+Shift+1/2/3 moves the focused window to that workspace;
+            -- Super+Shift+arrows swaps it with its neighbour in the layout.
             local w = find_win(focused)
             if w then
-                if code == "digit_1" then
-                    w.ws = 1
-                elseif code == "digit_2" then
-                    w.ws = 2
-                elseif code == "digit_3" then
-                    w.ws = 3
-                elseif code == "right" then
-                    w.ws = math.min(w.ws + 1, #theme.ws)
-                elseif code == "left" then
-                    w.ws = math.max(w.ws - 1, 1)
-                elseif code == "down" then
-                    w.ws = math.min(w.ws + 1, #theme.ws)
-                elseif code == "up" then
-                    w.ws = math.max(w.ws - 1, 1)
+                if code == "digit_1" or code == "digit_2" or code == "digit_3" then
+                    w.ws = tonumber(code:sub(-1))
+                    w.floating = false
+                    w.x, w.y, w.w, w.h = 0, 0, 0, 0
+                    current_ws = w.ws
+                    set_focus(w.title)
+                elseif code == "right" or code == "left" or code == "down" or code == "up" then
+                    -- Swap the focused window with its neighbour in tiling
+                    -- order on this workspace (left/up = toward the start,
+                    -- right/down = toward the end).
+                    local list = {}
+                    for _, x in ipairs(windows) do
+                        if x.ws == current_ws and not x.floating then list[#list + 1] = x end
+                    end
+                    local idx = nil
+                    for i, x in ipairs(list) do if x.title == focused then idx = i break end end
+                    if idx then
+                        local nxt = idx + ((code == "right" or code == "down") and 1 or -1)
+                        if nxt >= 1 and nxt <= #list then
+                            local a, b = list[idx], list[nxt]
+                            local ia, ib = nil, nil
+                            for i, x in ipairs(windows) do
+                                if x == a then ia = i elseif x == b then ib = i end
+                            end
+                            if ia and ib then
+                                windows[ia], windows[ib] = windows[ib], windows[ia]
+                            end
+                        end
+                    end
                 end
-                w.floating = false
-                w.x, w.y, w.w, w.h = 0, 0, 0, 0
-                current_ws = w.ws
+                layout_pass()
             end
         elseif code == "left" or code == "right" or code == "up" or code == "down" then
-            -- Focus in a direction among windows on this workspace.
-            local ws_wins = {}
-            for _, w in ipairs(windows) do
-                if w.ws == current_ws then ws_wins[#ws_wins + 1] = w end
+            -- Focus in a direction among tiled windows on this workspace.
+            local tiled = {}
+            for _, w in ipairs(ws_windows(current_ws)) do
+                if not w.floating then tiled[#tiled + 1] = w end
             end
-            if #ws_wins > 0 then
+            if #tiled > 0 then
                 local idx = 1
-                for i, w in ipairs(ws_wins) do if w.title == focused then idx = i break end end
+                for i, w in ipairs(tiled) do if w.title == focused then idx = i break end end
                 local dir = (code == "right" or code == "down") and 1 or -1
-                local nxt = ws_wins[((idx - 1 + dir) % #ws_wins) + 1]
+                local nxt = tiled[((idx - 1 + dir) % #tiled) + 1]
                 if nxt then set_focus(nxt.title) end
             end
         end
@@ -281,14 +298,11 @@ local function handle_key(ev)
     end
 
     if ev.alt and ev.pressed and code == "tab" then
-        local ws_wins = {}
-        for _, w in ipairs(windows) do
-            if w.ws == current_ws then ws_wins[#ws_wins + 1] = w end
-        end
-        if #ws_wins > 0 then
+        local list = ws_windows(current_ws)
+        if #list > 0 then
             local idx = 1
-            for i, w in ipairs(ws_wins) do if w.title == focused then idx = i break end end
-            local nxt = ws_wins[(idx % #ws_wins) + 1]
+            for i, w in ipairs(list) do if w.title == focused then idx = i break end end
+            local nxt = list[(idx % #list) + 1]
             if nxt then set_focus(nxt.title) end
         end
         return
@@ -302,26 +316,36 @@ local function handle_key(ev)
             run(current)
             current = ""
             cursor = 0
+            hist_idx = 0
         elseif code == "backspace" then
-            current = string.sub(current, 1, cursor - 1) .. string.sub(current, cursor + 1)
-            cursor = cursor - 1
+            if cursor > 0 then
+                local start = prev_cp(current, cursor)
+                current = string.sub(current, 1, start) .. string.sub(current, cursor + 1)
+                cursor = start
+            end
         elseif code == "left" then
-            if cursor > 0 then cursor = cursor - 1 end
+            cursor = prev_cp(current, cursor)
         elseif code == "right" then
-            if cursor < #current then cursor = cursor + 1 end
+            cursor = next_cp(current, cursor)
         elseif code == "up" then
             if #history > 0 then
+                -- First Up shows the newest command (the one just entered);
+                -- subsequent Ups walk further back.
                 if hist_idx == 0 then hist_idx = #history end
-                hist_idx = hist_idx - 1
-                if hist_idx == 0 then hist_idx = #history end
+                if hist_idx > 1 then hist_idx = hist_idx - 1 end
                 current = history[hist_idx]
                 cursor = #current
             end
         elseif code == "down" then
             if #history > 0 then
-                hist_idx = hist_idx + 1
-                if hist_idx > #history then hist_idx = 1 end
-                current = history[hist_idx]
+                if hist_idx == #history then
+                    -- Down at the newest entry returns to the draft line.
+                    hist_idx = 0
+                    current = ""
+                else
+                    hist_idx = hist_idx + 1
+                    current = history[hist_idx]
+                end
                 cursor = #current
             end
         elseif code == "home" then
@@ -330,11 +354,12 @@ local function handle_key(ev)
             cursor = #current
         elseif code == "delete" then
             if cursor < #current then
-                current = string.sub(current, 1, cursor) .. string.sub(current, cursor + 2)
+                local after = next_cp(current, cursor)
+                current = string.sub(current, 1, cursor) .. string.sub(current, after + 1)
             end
         elseif ev.char then
             current = string.sub(current, 1, cursor) .. ev.char .. string.sub(current, cursor + 1)
-            cursor = cursor + 1
+            cursor = cursor + #ev.char
         end
         gfx.invalidate()
     end

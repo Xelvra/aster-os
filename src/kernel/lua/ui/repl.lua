@@ -8,6 +8,47 @@ hist_idx = hist_idx or 0
 cursor = cursor or 0
 glyph_w = 8
 glyph_h = 16
+
+-- UTF-8 helpers for cursor movement and editing: the cursor is a byte
+-- offset into `current`, and code points are 1..4 bytes (continuation
+-- bytes are 0x80..0xBF). Stepping over bytes alone would split a multi-byte
+-- character (e.g. žluťoučký) when editing.
+
+local function is_cont(b)
+    return b ~= nil and b >= 0x80 and b < 0xC0
+end
+
+-- Byte offset of the code point start that contains `pos` (1-based) or just
+-- before it. Returns the first byte of the code point ending at pos.
+local function cp_start(s, pos)
+    while pos > 1 and is_cont(string.byte(s, pos)) do
+        pos = pos - 1
+    end
+    return pos
+end
+
+-- Byte offset just after the code point that starts at `pos` (1-based).
+local function cp_end(s, pos)
+    pos = pos + 1
+    while pos <= #s and is_cont(string.byte(s, pos)) do
+        pos = pos + 1
+    end
+    return pos
+end
+
+local function prev_cp(s, pos)
+    -- pos is a byte offset (0..len); return the offset of the previous code
+    -- point's start.
+    if pos <= 0 then return 0 end
+    return cp_start(s, pos) - 1
+end
+
+local function next_cp(s, pos)
+    -- pos is a byte offset (0..len); return the offset just after the code
+    -- point that starts at pos+1.
+    if pos >= #s then return pos end
+    return cp_end(s, pos + 1)
+end
 local function add_line(s)
     table.insert(lines, s)
     if #lines > 200 then table.remove(lines, 1) end
@@ -49,16 +90,57 @@ local function repl_render()
     local max_lines = math.floor((w.h - theme.wm.title_h - 12) / row_h)
     local max_chars = math.max(math.floor((w.w - 2 * theme.wm.border - 12) / glyph_w), 1)
     local col = tx
-    local i = math.max(1, #lines - max_lines + 1)
-    while i <= #lines do
-        gfx.draw_text(string.sub(lines[i], 1, max_chars), col, ty, theme.text)
-        ty = ty + row_h
-        i = i + 1
+
+    -- Word-wrap a line into rows of at most max_chars code points, never
+    -- splitting a multi-byte UTF-8 character.
+    local function wrap(s)
+        local rows = {}
+        local i = 1
+        while i <= #s do
+            local row = 0
+            local j = i
+            while j <= #s and row < max_chars do
+                j = cp_end(s, j)
+                row = row + 1
+            end
+            rows[#rows + 1] = string.sub(s, i, j - 1)
+            i = j
+        end
+        if #rows == 0 then rows[#rows + 1] = "" end
+        return rows
+    end
+
+    -- Visible scrollback: wrap all history lines plus the prompt, then show
+    -- the last max_lines rows (the prompt is always the last of them).
+    local scroll = {}
+    for _, line in ipairs(lines) do
+        for _, row in ipairs(wrap(line)) do scroll[#scroll + 1] = row end
     end
     local prompt = "> " .. current
-    gfx.draw_text(string.sub(prompt, 1, max_chars), col, ty, theme.text)
-    local cx = col + math.min(2 + cursor, max_chars) * glyph_w
-    gfx.draw_rect(cx, ty, glyph_w, glyph_h, theme.accent)
+    local prompt_rows = wrap(prompt)
+    for _, row in ipairs(prompt_rows) do scroll[#scroll + 1] = row end
+
+    local first = math.max(1, #scroll - max_lines + 1)
+    for i = first, #scroll do
+        gfx.draw_text(scroll[i], col, ty, theme.text)
+        ty = ty + row_h
+    end
+
+    -- Cursor position within the prompt: code points before the cursor,
+    -- counting the "> " prompt prefix (2 code points) so the block lines up
+    -- with the drawn text (the prompt is wrapped as a whole).
+    local cursor_cp = 0
+    local pos = 3 -- "> " ends at byte 2; current starts at byte 3
+    while pos <= 2 + cursor do
+        pos = cp_end(prompt, pos)
+        cursor_cp = cursor_cp + 1
+    end
+    local cursor_at = 2 + cursor_cp
+    local cursor_row = math.floor(cursor_at / max_chars)
+    local cursor_col = cursor_at % max_chars
+    local prompt_ty = w.y + theme.wm.border + theme.wm.title_h + 6 +
+        (#scroll - first) * row_h - (#prompt_rows - 1 - cursor_row) * row_h
+    gfx.draw_rect(col + cursor_col * glyph_w, prompt_ty, glyph_w, glyph_h, theme.accent)
 end
 
 local function sysmon_render()

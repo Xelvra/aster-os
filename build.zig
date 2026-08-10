@@ -85,12 +85,26 @@ pub fn build(b: *std.Build) void {
     });
     b.installArtifact(kernel);
 
+    // The shell modules, concatenated by the kernel in this order (the kernel
+    // keeps the same list in lua.zig — keep them in sync).
+    const shell_files = [_][]const u8{ "theme.lua", "wm.lua", "repl.lua", "launcher.lua", "input.lua", "main.lua" };
+
     // initfs: the shell modules and assets are packed into a tar archive that
     // Limine loads as a module (initrd); the kernel reads them at runtime
     // instead of them being @embedFile'd (M6, spec/roadmap.md).
+    // Each .lua file is passed with addFileArg so Zig tracks it: editing any
+    // shell file invalidates the archive and the ISO is rebuilt with the new
+    // shell. (addDirectoryArg does NOT track file contents in Zig 0.16, so
+    // the archive would stay stale forever.)
     const tar_cmd = b.addSystemCommand(&.{ "tar", "-cf" });
     const initfs_path = tar_cmd.addOutputFileArg("initfs.tar");
-    tar_cmd.addArgs(&.{ "-C", "src/kernel/lua/ui", "." });
+    // The kernel looks files up by their flat name (no directory prefix), so
+    // strip the absolute source path from the archive entries.
+    tar_cmd.addArg("--transform");
+    tar_cmd.addArg("s|^.*/||");
+    for (shell_files) |f| {
+        tar_cmd.addFileArg(b.path(b.fmt("src/kernel/lua/ui/{s}", .{f})));
+    }
 
     const iso_root = b.addWriteFiles();
     _ = iso_root.addCopyFile(kernel.getEmittedBin(), "boot/aster");
@@ -167,7 +181,10 @@ pub fn build(b: *std.Build) void {
     // Scale the 800x600 window to fit the host screen (the kernel draws at
     // its native framebuffer resolution; zoom-to-fit only affects the QEMU
     // window, not the framebuffer or the mouse coordinate space).
-    run_cmd.addArg("gtk,zoom-to-fit=on");
+    // grab-on-hover: as soon as the pointer is over the window QEMU captures
+    // keyboard and mouse, so Alt+Tab reaches the guest (not the host WM) and
+    // the cursor cannot escape the window. Ctrl+Alt+G still toggles the grab.
+    run_cmd.addArg("gtk,zoom-to-fit=on,grab-on-hover=on");
     run_cmd.addArg("-serial");
     run_cmd.addArg("stdio");
     run_cmd.addArg("-boot");

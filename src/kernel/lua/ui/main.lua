@@ -30,17 +30,28 @@ function render()
     gfx.fill_screen(theme.background)
     layout_pass()
     bar_render()
-    -- Tiled windows first, then floating windows on top.
-    for _, w in ipairs(windows) do
-        if w.ws == current_ws and not w.floating then
-            win_render(w)
+    -- Fullscreen: only the fullscreen window is drawn (it covers everything);
+    -- the bar is skipped by bar_render, and no other window is rendered.
+    if fullscreen_win then
+        local fs = find_win(fullscreen_win)
+        if fs and fs.ws == current_ws then
+            win_render(fs)
+            return
+        else
+            fullscreen_win = nil
         end
     end
+    -- Draw windows bottom-to-top by z (tiling order first, floating on top).
+    local tiled, floating = {}, {}
     for _, w in ipairs(windows) do
-        if w.ws == current_ws and w.floating then
-            win_render(w)
+        if w.ws == current_ws then
+            if w.floating then floating[#floating + 1] = w else tiled[#tiled + 1] = w end
         end
     end
+    table.sort(tiled, function(a, b) return a.z < b.z end)
+    table.sort(floating, function(a, b) return a.z < b.z end)
+    for _, w in ipairs(tiled) do win_render(w) end
+    for _, w in ipairs(floating) do win_render(w) end
     if repl_visible then repl_render() end
     sysmon_render()
     if launcher_open then launcher_render() end

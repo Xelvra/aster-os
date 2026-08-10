@@ -15,7 +15,7 @@ local apps = {
 local launcher_open = false
 local launcher_input = ""
 local launcher_sel = 1
-local launcher_was_down = false
+local mouse_was_down = false
 
 local function launcher_filtered()
     local q = launcher_input:lower()
@@ -56,6 +56,8 @@ end
 -- ---------------------------------------------------------------------------
 local function launcher_run(id)
     if id == "repl" then
+        local w = find_win("repl")
+        if w then w.ws = current_ws end
         repl_visible = true
         set_focus("repl")
     elseif id == "sysmon" then
@@ -85,7 +87,8 @@ local function launcher_run(id)
             for i, w in ipairs(windows) do
                 if w.title == focused then table.remove(windows, i) break end
             end
-            if #windows > 0 then set_focus(windows[#windows].title) end
+            if fullscreen_win == focused then fullscreen_win = nil end
+            focus_topmost(current_ws)
         end
     end
     layout_pass()

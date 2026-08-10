@@ -5,16 +5,21 @@
 local SW = gfx.width()
 local SH = gfx.height()
 
--- Window list. Each entry: { title, ws, x, y, w, h, floating }.
+-- Window list. Each entry: { title, ws, x, y, w, h, floating, z }.
+-- The list order is the tiling order; `z` is the focus/z-order (higher is
+-- drawn on top). set_focus() bumps z but never reorders the list, so
+-- changing focus cannot shuffle the tiled layout.
 local windows = {}
 local focused = nil -- title of the focused window
 local current_ws = 1
 local drag = nil     -- { title, dx, dy } while dragging a window header
 local layout_mode = "splith" -- "splith" (side by side) or "splitv" (stacked)
 local fullscreen_win = nil    -- title of a fullscreen window, if any
+local z_counter = 0
 
 local function window(title, ws)
-    return { title = title, ws = ws, x = 0, y = 0, w = 0, h = 0, floating = false }
+    z_counter = z_counter + 1
+    return { title = title, ws = ws, x = 0, y = 0, w = 0, h = 0, floating = false, z = z_counter }
 end
 
 -- The REPL console lives as a window so it survives focus switches.
@@ -58,15 +63,39 @@ local function set_focus(title)
     local w = find_win(title)
     if not w then return end
     focused = title
-    -- Raise to top (z-order: end of list = topmost).
-    for i, win in ipairs(windows) do
-        if win.title == title then
-            table.remove(windows, i)
-            table.insert(windows, win)
-            break
-        end
-    end
+    -- Raise to top (z-order) without reordering `windows`: the list order
+    -- is the tiling order, so focus must never shuffle the layout.
+    z_counter = z_counter + 1
+    w.z = z_counter
     gfx.invalidate()
+end
+
+local function ws_windows(ws)
+    local out = {}
+    for _, w in ipairs(windows) do
+        if w.ws == ws then out[#out + 1] = w end
+    end
+    return out
+end
+
+-- Topmost (highest z) window on a workspace, or nil.
+local function topmost_of(ws)
+    local best = nil
+    for _, w in ipairs(ws_windows(ws)) do
+        if best == nil or w.z > best.z then best = w end
+    end
+    return best
+end
+
+-- Focus the topmost window on a workspace so typing works right away
+-- (workspace switches via key or capsule, and after closing a window).
+local function focus_topmost(ws)
+    local t = topmost_of(ws)
+    if t then
+        set_focus(t.title)
+    elseif ws == current_ws then
+        focused = nil
+    end
 end
 
 -- ---------------------------------------------------------------------------
@@ -94,30 +123,50 @@ local function layout_pass()
         end
     end
 
-    local ws_wins = {}
-    for _, w in ipairs(windows) do
-        if w.ws == current_ws and not w.floating then ws_wins[#ws_wins + 1] = w end
+    -- Tiling only positions non-floating windows; floating windows keep
+    -- their manual x/y (dragged or the float-toggle defaults).
+    local tiled = {}
+    for _, w in ipairs(ws_windows(current_ws)) do
+        if not w.floating then tiled[#tiled + 1] = w end
     end
-    local n = #ws_wins
-    for i, w in ipairs(ws_wins) do
+    local n = #tiled
+    for i, w in ipairs(tiled) do
         if n == 1 then
             w.x, w.y, w.w, w.h = area_x, area_y, area_w, area_h
         elseif layout_mode == "splith" then
-            -- Side by side; focused window gets the wider split (60/40).
-            local f = (focused == w.title)
-            local left = (i == 1)
             local gap = inner + border
             local w1, w2 = math.floor(area_w * 0.6), math.floor(area_w * 0.4)
-            if left then
-                w.x = area_x
-                w.y = area_y
-                w.w = (f and w1 or w2) - gap
-                w.h = area_h
+            if n == 2 then
+                -- Side by side; the focused window gets the wider split (60/40)
+                -- and the positions stay stable (first window left).
+                local f = (focused == w.title)
+                if i == 1 then
+                    w.x = area_x
+                    w.y = area_y
+                    w.w = (f and w1 or w2) - gap
+                    w.h = area_h
+                else
+                    w.x = area_x + (f and w2 or w1)
+                    w.y = area_y
+                    w.w = (f and w1 or w2) - gap
+                    w.h = area_h
+                end
             else
-                w.x = area_x + (f and w1 or w2)
-                w.y = area_y
-                w.w = (f and w2 or w1) - gap
-                w.h = area_h
+                -- Master-stack: the first window is the master (left, wider),
+                -- the rest stack in the right column (spec/lua-wm.md §6.3).
+                local stack_n = n - 1
+                local row_h = math.floor((area_h - (stack_n - 1) * gap) / stack_n)
+                if i == 1 then
+                    w.x = area_x
+                    w.y = area_y
+                    w.w = w1 - gap
+                    w.h = area_h
+                else
+                    w.x = area_x + w1
+                    w.y = area_y + (i - 2) * (row_h + gap)
+                    w.w = w2 - gap
+                    w.h = row_h
+                end
             end
         else
             -- splitv: stack vertically.
@@ -135,6 +184,21 @@ end
 -- Bar (Noctalia-style): launcher + clock + workspace capsules left,
 -- volume / session right.
 -- ---------------------------------------------------------------------------
+-- ---------------------------------------------------------------------------
+-- Shared workspace-capsule geometry: the bar draws them and handle_mouse
+-- hit-tests them; one source of truth so the two can never drift apart.
+-- Returns { { i = <ws index>, x = <left>, w = <width> }, ... }.
+local function ws_capsules()
+    local list = {}
+    local x = 8 + 20 + 8 + 4 + 5 * 8 + 12
+    for i, name in ipairs(theme.ws) do
+        local w = 4 + name:len() * 8 + 8
+        list[#list + 1] = { i = i, x = x, w = w }
+        x = x + w + 6
+    end
+    return list
+end
+
 local function bar_render()
     if fullscreen_win then return end
     local bar_h = theme.bar.height
@@ -157,14 +221,12 @@ local function bar_render()
     x = x + 5 * 8 + 12
 
     -- Workspace capsules.
-    for i, name in ipairs(theme.ws) do
-        local w = 4 + name:len() * 8 + 8
-        local active = (i == current_ws)
+    for _, c in ipairs(ws_capsules()) do
+        local active = (c.i == current_ws)
         local color = active and theme.accent or theme.surface_alt
         local text_color = active and theme.background or theme.text_dim
-        gfx.round_rect(x, (bar_h - 20) // 2, w, 20, 10, color)
-        gfx.draw_text(name, x + 4, (bar_h - 16) // 2 + 1, text_color)
-        x = x + w + 6
+        gfx.round_rect(c.x, (bar_h - 20) // 2, c.w, 20, 10, color)
+        gfx.draw_text(theme.ws[c.i], c.x + 4, (bar_h - 16) // 2 + 1, text_color)
     end
 
     -- Right side: volume placeholder and the session button (opens the menu).
