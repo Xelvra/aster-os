@@ -33,6 +33,12 @@ const RsdpV2 = extern struct {
     reserved: [3]u8,
 };
 
+/// ACPI tables are parsed through `*align(1)` pointers: the spec suggests
+/// 4-byte alignment, but real firmware (e.g. QEMU 8.2 SeaBIOS) can hand out
+/// RSDT/XSDT addresses that are not even 4-aligned. `@alignCast` to the
+/// struct's natural alignment would trap in ReleaseSafe on such firmware; the
+/// x86-64 kernel handles the resulting unaligned loads natively instead.
+///
 /// Locate the I/O APIC address from the MADT. The RSDP pointer handed by the
 /// bootloader is already HHDM-mapped (base revision >= 4); the table addresses
 /// inside RSDT/XSDT are physical and must be translated by `hhdm_offset`
@@ -44,33 +50,33 @@ pub fn findIoApic(rsdp_address: u64, hhdm_offset: u64) ?u64 {
     return ioApicAddress(madt);
 }
 
-fn readRsdp(address: u64) ?*const RsdpV1 {
+fn readRsdp(address: u64) ?*align(1) const RsdpV1 {
     const ptr: [*]const u8 = @ptrFromInt(@as(usize, @intCast(address)));
     if (!std.mem.eql(u8, ptr[0..8], rsdp_signature)) return null;
-    const v1: *align(4) const RsdpV1 = @ptrCast(@alignCast(ptr));
+    const v1: *align(1) const RsdpV1 = @ptrCast(ptr);
     if (checksumOk(ptr[0..@sizeOf(RsdpV1)])) {
         // Revision 0/1 carries only the 32-bit RSDT address.
         return v1;
     }
     if (v1.revision >= 2) {
-        const v2: *align(8) const RsdpV2 = @ptrCast(@alignCast(ptr));
-        if (checksumOk(ptr[0..@sizeOf(RsdpV2)])) return &v2.v1;
+        const v2: *align(1) const RsdpV2 = @ptrCast(ptr);
+        if (checksumOk(ptr[0..@sizeOf(RsdpV2)])) return @ptrCast(v2);
     }
     return null;
 }
 
-fn findMadt(rsdp: *const RsdpV1, hhdm_offset: u64) ?*const AcpiHeader {
+fn findMadt(rsdp: *align(1) const RsdpV1, hhdm_offset: u64) ?*align(1) const AcpiHeader {
     if (rsdp.revision >= 2) {
-        const v2: *align(8) const RsdpV2 = @ptrCast(@alignCast(rsdp));
+        const v2: *align(1) const RsdpV2 = @ptrCast(rsdp);
         const xsdt_ptr: [*]const u8 = @ptrFromInt(@as(usize, @intCast(v2.xsdt_address + hhdm_offset)));
-        const header: *align(4) const AcpiHeader = @ptrCast(@alignCast(xsdt_ptr));
+        const header: *align(1) const AcpiHeader = @ptrCast(xsdt_ptr);
         if (checksumOk(@as([*]const u8, @ptrCast(header))[0..header.length])) {
             const entries = @as([*]const u8, @ptrCast(header))[acpi_header_size..header.length];
             const table_count = (header.length - acpi_header_size) / @sizeOf(u64);
             for (0..table_count) |i| {
                 const entry_addr = std.mem.readInt(u64, entries[i * 8 ..][0..8], .little);
                 const table_ptr: [*]const u8 = @ptrFromInt(@as(usize, @intCast(entry_addr + hhdm_offset)));
-                const table: *align(4) const AcpiHeader = @ptrCast(@alignCast(table_ptr));
+                const table: *align(1) const AcpiHeader = @ptrCast(table_ptr);
                 if (std.mem.eql(u8, &table.signature, "APIC")) return table;
             }
         }
@@ -78,21 +84,21 @@ fn findMadt(rsdp: *const RsdpV1, hhdm_offset: u64) ?*const AcpiHeader {
     }
 
     const rsdt_ptr: [*]const u8 = @ptrFromInt(@as(usize, @intCast(rsdp.rsdt_address + hhdm_offset)));
-    const header: *align(4) const AcpiHeader = @ptrCast(@alignCast(rsdt_ptr));
+    const header: *align(1) const AcpiHeader = @ptrCast(rsdt_ptr);
     if (checksumOk(@as([*]const u8, @ptrCast(header))[0..header.length])) {
         const entries = @as([*]const u8, @ptrCast(header))[acpi_header_size..header.length];
         const table_count = (header.length - acpi_header_size) / @sizeOf(u32);
         for (0..table_count) |i| {
             const entry_addr = std.mem.readInt(u32, entries[i * 4 ..][0..4], .little);
             const table_ptr: [*]const u8 = @ptrFromInt(@as(usize, @intCast(entry_addr + hhdm_offset)));
-            const table: *align(4) const AcpiHeader = @ptrCast(@alignCast(table_ptr));
+            const table: *align(1) const AcpiHeader = @ptrCast(table_ptr);
             if (std.mem.eql(u8, &table.signature, "APIC")) return table;
         }
     }
     return null;
 }
 
-fn ioApicAddress(madt: *const AcpiHeader) ?u64 {
+fn ioApicAddress(madt: *align(1) const AcpiHeader) ?u64 {
     if (checksumOk(@as([*]const u8, @ptrCast(madt))[0..madt.length])) {
         const entries = @as([*]const u8, @ptrCast(madt))[acpi_header_size + madt_local_apic_and_flags_size .. madt.length];
         var offset: usize = 0;
