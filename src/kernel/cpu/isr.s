@@ -159,3 +159,58 @@ sched_switch:
   cli
   movq %rax, %rsp
   ret
+
+  /* Blocking sleep switch (spec/timer.md §5, task.zig sleepMs). A voluntary
+     context switch from normal context, entered as a normal `callq` from the
+     Zig wrapper: %rsp points at the return slot (the instruction after the
+     call in sleepMs) and %rdi carries the wake deadline. The save area below
+     it holds RFLAGS (captured before `cli`), the callee-saved registers, the
+     resume address and the wrapper's pre-call stack pointer. Resuming a slept
+     task is `sched_sleep_restore`, a register-restore path distinct from the
+     ISR frame restore: a slept task carries only this save area, no interrupt
+     frame. Layout from the saved_sp slot upward: code address, restore %rsp,
+     resume address, r15 r14 r13 r12 rbp rbx, RFLAGS. */
+  .globl sched_sleep_switch
+sched_sleep_switch:
+  pushfq                    /* RFLAGS with IF still set (entry context) */
+  cli                       /* mask interrupts: the TCB pick below is a critical section */
+  pushq %rbx
+  pushq %rbp
+  pushq %r12
+  pushq %r13
+  pushq %r14
+  pushq %r15
+  movq 56(%rsp), %rax       /* 56(%rsp) = [S], the resume address of the callq */
+  pushq %rax                /* resume address (copy) */
+  leaq 72(%rsp), %rax       /* = S + 8 = the wrapper's pre-call %rsp */
+  pushq %rax                /* restore stack pointer */
+  lea sched_sleep_restore(%rip), %rax
+  pushq %rax                /* resume code address (the saved_sp slot) */
+  /* Hand off like the timer bridge: current_rsp = %rsp (the saved_sp slot),
+     wake deadline = %rdi (still live; no register was clobbered). */
+  movq %rdi, %rsi
+  movq %rsp, %rdi
+  andq $-16, %rsp
+  callq sched_sleep_pick_next
+  cli
+  movq %rax, %rsp
+  ret
+
+  /* Resume path for a slept task. On entry %rsp = saved_sp + 8 (the resume
+     `ret` already popped the code address): restore the callee-saved
+     registers, the stack pointer and RFLAGS, then jump back into sleepMs's
+     loop. */
+  .globl sched_sleep_restore
+sched_sleep_restore:
+  movq 16(%rsp), %r15
+  movq 24(%rsp), %r14
+  movq 32(%rsp), %r13
+  movq 40(%rsp), %r12
+  movq 48(%rsp), %rbp
+  movq 56(%rsp), %rbx
+  movq 8(%rsp), %rax        /* resume address */
+  movq 64(%rsp), %r11       /* saved RFLAGS */
+  movq 0(%rsp), %rsp        /* wrapper pre-call %rsp */
+  pushq %r11
+  popfq
+  jmpq *%rax

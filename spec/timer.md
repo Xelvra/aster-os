@@ -114,9 +114,15 @@ wait by zastavil celý systém (klávesnice, rendering). Proto:
   frame a `iretq` popne všech 5; viz `spec/troubleshooting.md` C38).
 - **Ověření:** `testPreemptiveScheduler` v runtime testech — dva tasky na sdíleném adresním
   prostoru cyklí preempcí a oba inkrementují atomické počítadlo (`RUNTIME TESTS PASS`).
+- **Blokující `sleepMs` úkolu** (spec §5): `sched.sleepMs(ms)` — task si v TCB označí
+  `.blocked` s wake deadline a dobrovolně předá řízení přes `sched_sleep_switch`/`sched_sleep_restore`
+  v `cpu/isr.s` (save area s callee-saved regs + RFLAGS + resume adresou; žádný fake
+  InterruptFrame — sleep nemá interrupt frame). Probouzení: `pickNext` na každém switchi
+  probudí prošlé deadline; když není jiný úkol ready, `sleepMs` se self-switchuje a
+  re-checkuje deadline. Ověřeno `testBlockingTaskSleep` v runtime testech — úkol se
+  nespouští během spánku a probudí se po deadline.
 
-**Zbývá do plné M7:** blokující `sleepMs` úkolu (viz §5 výše) a napojení na `Runtime.spawn`
-(wasm3 / per-program instance).
+**Zbývá do plné M7:** napojení na `Runtime.spawn` (wasm3 / per-program instance).
 
 ---
 

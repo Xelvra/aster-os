@@ -376,6 +376,58 @@ fn testPreemptiveScheduler() void {
     expect(task_a_parked.load(.monotonic) and task_b_parked.load(.monotonic), "both tasks parked cleanly");
 }
 
+var sleeper_blocked = std.atomic.Value(bool).init(false);
+var sleeper_resumed = std.atomic.Value(bool).init(false);
+
+fn sleepingTask() callconv(.c) noreturn {
+    const sched = @import("sched/task.zig");
+    sleeper_blocked.store(true, .monotonic);
+    sched.sleepMs(100);
+    sleeper_resumed.store(true, .monotonic);
+    while (true) {
+        asm volatile ("hlt" ::: .{ .memory = true });
+    }
+}
+
+fn testBlockingTaskSleep() void {
+    // A spawned task that calls sched.sleepMs must be descheduled until its
+    // deadline: the main context keeps running (ticks advance) while the
+    // sleeper stays blocked, and the sleeper resumes only after the sleep.
+    const sched = @import("sched/task.zig");
+    const time = @import("time.zig");
+
+    sleeper_blocked.store(false, .monotonic);
+    sleeper_resumed.store(false, .monotonic);
+    _ = sched.spawnTask(sleepingTask) catch {
+        expect(false, "scheduler spawns sleeping task");
+        return;
+    };
+
+    var spins: usize = 0;
+    while (!sleeper_blocked.load(.monotonic) and time.ticks() < 200 and spins < 1000000) : (spins += 1) {
+        asm volatile ("hlt" ::: .{ .memory = true });
+    }
+    expect(sleeper_blocked.load(.monotonic), "sleeping task starts and blocks");
+
+    // The sleeper asked for 100 ticks; within the first 20 the main context
+    // must keep running while the sleeper stays blocked.
+    const block_start = time.ticks();
+    spins = 0;
+    while (time.ticks() < block_start + 20 and spins < 1000000) : (spins += 1) {
+        asm volatile ("hlt" ::: .{ .memory = true });
+    }
+    expect(!sleeper_resumed.load(.monotonic), "blocked task does not run during its sleep");
+
+    // The sleeper must resume shortly after its deadline (safety margin for
+    // scheduling jitter).
+    const deadline = time.ticks() + 200;
+    spins = 0;
+    while (!sleeper_resumed.load(.monotonic) and time.ticks() < deadline and spins < 1000000) : (spins += 1) {
+        asm volatile ("hlt" ::: .{ .memory = true });
+    }
+    expect(sleeper_resumed.load(.monotonic), "task resumes after its sleep deadline");
+}
+
 const tests = [_]Test{
     .{ .name = "timer tick + event queue", .func = testTimerTicks },
     .{ .name = "mouse event queue", .func = testMouseEvent },
@@ -391,6 +443,7 @@ const tests = [_]Test{
     .{ .name = "error containment (lua error)", .func = testErrorContainment },
     .{ .name = "render throughput", .func = testRenderThroughput },
     .{ .name = "preemptive RR scheduler (two kernel tasks)", .func = testPreemptiveScheduler },
+    .{ .name = "blocking sleep deschedules a task (M7)", .func = testBlockingTaskSleep },
 };
 
 fn testFilesystem(alloc: std.mem.Allocator, memory: *mem.Memory) void {

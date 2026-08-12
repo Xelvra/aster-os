@@ -1,12 +1,15 @@
 const std = @import("std");
 const idt = @import("../cpu/idt.zig");
+const time = @import("../time.zig");
 
 /// Minimum preemptive round-robin scheduler (ADR-017, audit §3.5, brief Task 7).
 ///
-/// Single-core: the only switch point is the APIC timer IRQ (vector 0x20).
-/// The IDT uses interrupt gates, so the ISR runs with IF masked — the TCB
-/// manipulation in `schedPickNext` is therefore a natural critical section
-/// (no lock, no CAS; spec/invariants.md Architecture). Task 0 is the kernel
+/// Single-core: the switch points are the APIC timer IRQ (vector 0x20) for
+/// preemption and the voluntary `sleepMs` bridge (spec/timer.md §5) for
+/// blocking sleeps. The IDT uses interrupt gates, so the timer ISR runs with
+/// IF masked — the TCB manipulation in `schedPickNext` is therefore a natural
+/// critical section (no lock, no CAS; spec/invariants.md Architecture); the
+/// sleep bridge masks interrupts for the same reason. Task 0 is the kernel
 /// main context (event loop / runtime tests); `spawnTask` adds up to three
 /// native kernel tasks, each resumed through a hand-assembled initial
 /// interrupt frame.
@@ -31,11 +34,12 @@ var task_stacks: [max_tasks][task_stack_size]u8 align(16) = undefined;
 const return_slot_bytes = 8;
 const xmm_area_bytes = 256;
 
-const TaskState = enum { unused, ready, running };
+const TaskState = enum { unused, ready, running, blocked };
 
 const Task = struct {
     state: TaskState = .unused,
     saved_sp: u64 = 0,
+    wake_at: u64 = 0,
 };
 
 var tasks: [max_tasks]Task = undefined;
@@ -75,20 +79,54 @@ const kernel_rflags: u64 = 0x202;
 pub fn schedPickNext(current_rsp: u64) callconv(.c) u64 {
     tasks[running].state = .ready;
     tasks[running].saved_sp = current_rsp;
+    return pickNext();
+}
+
+/// Voluntary blocking switch for `sleepMs`: the current task is marked
+/// `.blocked` with its wake deadline and the next runnable task is picked.
+/// Called from the asm bridge `sched_sleep_switch` in normal context (with
+/// interrupts masked by that bridge), so the TCB table is still the natural
+/// critical section.
+pub fn schedSleepPickNext(current_rsp: u64, wake_at: u64) callconv(.c) u64 {
+    tasks[running].state = .blocked;
+    tasks[running].wake_at = wake_at;
+    tasks[running].saved_sp = current_rsp;
+    return pickNext();
+}
+
+/// Shared round-robin pick. First wakes every blocked task whose deadline
+/// has passed (a blocked task is resumed only from here, so the wake check
+/// cannot be missed), then picks the next ready task. When nothing is ready —
+/// only possible on the voluntary path, because the ISR path always marks the
+/// preempted task ready — the current task's state is left untouched and its
+/// own saved_sp is returned: `sleepMs` re-checks its deadline and re-enters.
+fn pickNext() u64 {
+    const now = time.ticks();
+    for (tasks[0..task_count]) |*t| {
+        if (t.state == .blocked and t.wake_at <= now) t.state = .ready;
+    }
 
     var next = running;
+    var found = false;
     var scanned: usize = 0;
     while (scanned < task_count) : (scanned += 1) {
         next = (next + 1) % task_count;
-        if (tasks[next].state == .ready) break;
+        if (tasks[next].state == .ready) {
+            found = true;
+            break;
+        }
     }
-    tasks[next].state = .running;
-    running = next;
-    return tasks[next].saved_sp;
+    if (found) {
+        tasks[next].state = .running;
+        running = next;
+        return tasks[next].saved_sp;
+    }
+    return tasks[running].saved_sp;
 }
 
 comptime {
     @export(&schedPickNext, .{ .name = "sched_pick_next" });
+    @export(&schedSleepPickNext, .{ .name = "sched_sleep_pick_next" });
 }
 
 pub const SpawnError = error{TaskTableFull};
@@ -150,4 +188,22 @@ fn buildFakeFrame(id: TaskId, entry: *const fn () callconv(.c) noreturn) u64 {
         .ss = kernel_ss,
     };
     return saved_sp;
+}
+
+/// Blocking sleep of the current native kernel task (spec/timer.md §5): the
+/// task blocks until `ticks() + ms` and the scheduler runs something else.
+/// `sched_sleep_switch` (cpu/isr.s) is an asm bridge that saves the task's
+/// callee-saved registers and its resume point into a small save area, hands
+/// the wake deadline to `schedSleepPickNext` and switches away; resuming later
+/// is the register-restore path `sched_sleep_restore`. The loop re-checks the
+/// deadline because the fallback self-switch (no other runnable task) resumes
+/// immediately without the deadline having passed.
+extern fn sched_sleep_switch(wake: u64) void;
+
+pub fn sleepMs(ms: u64) void {
+    const wake = time.ticks() + ms;
+    while (true) {
+        if (time.ticks() >= wake) return;
+        sched_sleep_switch(wake);
+    }
 }

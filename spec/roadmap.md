@@ -407,7 +407,10 @@ se musí vyřešit **před** spuštěním dalších features, ne až na konci st
       kritická sekce bez locku: interrupt gate maskuje IRQ v ISR, takže manipulace s TCB
       v schedulingu běží v nepřerušitelném kontextu. Ověřeno runtime testem: dva kernel
       tasky na sdíleném adresním prostoru cyklí preempcí, oba inkrementují atomické
-      počítadlo. Zbývá: blokující `sleepMs` úkolu (`spec/timer.md` §5).
+      počítadlo. **Blokující `sleepMs` úkolu** (`sched.sleepMs`, spec `timer.md` §5) — task
+      se v TCB označí `.blocked` s wake deadline, dobrovolný switch přes
+      `sched_sleep_switch`/`sched_sleep_restore`; probouzení na deadline v `pickNext`.
+      Ověřeno runtime testem `testBlockingTaskSleep` (úkol se nespouští během spánku).
 - [ ] **Per-program `lua_State` / instance** po `spawn` — zamrzlý program (nekonečná
       smyčka) už nezamrzne prostředí; preempce + error handler úkolu (spec `runtime.md` §5).
 - [ ] **Blokující synchronizační primitiva** (ADR-017): semafor, mutex, event group,
