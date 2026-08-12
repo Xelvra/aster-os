@@ -15,15 +15,16 @@
   vektor 0xFF); spurious se ignoruje bez EOI (`src/kernel/cpu/idt.zig`).
 - **Vstup (klávesnice):** IRQ1 (PS/2). V APIC režimu jdou ISA IRQ přes **I/O APIC
   redirection table**, ne přes PIC — `apic.init` programuje entry IRQ1 → vektor 0x21
-  (BSP, edge, unmasked). I/O APIC adresa (0xFEC00000) je hardcoded pro QEMU.
+  (BSP, edge, unmasked). Adresa I/O APIC se čte z **MADT** (`src/kernel/cpu/acpi.zig`),
+  `0xFEC00000` je fallback default.
 - **Legacy PIC:** remapuje se (nové vektory 0x20–0x2F) a plně maskuje jako fallback,
   aby nevznikaly spurious IRQ na špatných vektorech — standardní 8259 remap
   (`ICW1..ICW4`), ještě před prvním tickem.
 - **EOI:** jde do **LAPIC** (offset 0xB0), ne do PIC — IRQ se doručuje přes IOAPIC→LAPIC.
 
-> **Dluh do M7 (SMP):** MADT parsování (RSDP → RSDT/XSDT → MADT) — pro skutečné
-> LAPIC ID, ISA IRQ→GSI overrides a detekci NMI. Pro M2/M3 (QEMU) je hardcode
-> adresy dostatečný. Viz `roadmap.md` M2 a `non-goals.md`.
+> **Dluh do M7 (SMP):** MADT se už parsuje (RSDP → RSDT/XSDT → MADT, viz `acpi.zig`),
+> ale chybí využití skutečného LAPIC ID, ISA IRQ→GSI overrides a detekce NMI. Viz
+> `roadmap.md` M2 a `non-goals.md`.
 
 ### 1.2 Tick frekvence
 

@@ -134,8 +134,8 @@ If the system crashes or hangs: [`spec/debugging.md`](spec/debugging.md)
 | M9 ⏳ | Ecosystem: network, audio, browser, WASI |
 | M10 ⏳ | Adoption: real hardware, installable image, docs, contributors |
 
-† I/O APIC address is currently hardcoded for QEMU's fixed layout; ACPI/MADT-based
-discovery is tracked as future work (see [`spec/non-goals.md`](spec/non-goals.md)).
+† I/O APIC address is discovered from ACPI/MADT (`src/kernel/cpu/acpi.zig`); the
+fixed `0xFEC00000` stays only as a fallback (see [`spec/non-goals.md`](spec/non-goals.md)).
 
 Details in [`spec/roadmap.md`](spec/roadmap.md).
 
