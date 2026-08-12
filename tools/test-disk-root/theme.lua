@@ -1,1 +1,1 @@
-bg=0x0f1117
+theme.background = 0x0f1117

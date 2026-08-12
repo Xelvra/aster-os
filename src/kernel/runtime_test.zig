@@ -482,7 +482,7 @@ fn testFilesystem(alloc: std.mem.Allocator, memory: *mem.Memory) void {
         return;
     };
     expect(n > 0, "read /theme.lua returns data");
-    expect(std.mem.eql(u8, buf[0..n], "bg=0x0f1117"), "read returns the config content");
+    expect(std.mem.eql(u8, buf[0..n], "theme.background = 0x0f1117"), "read returns the config content");
     expect(f.eof(), "read reaches EOF");
 
     if (file.File.open(&fs, "/missing.lua")) |_| {
@@ -743,6 +743,42 @@ fn testFileDir() void {
     _ = L.lua_pop(lua_state, 1);
 }
 
+fn testAutoReload() void {
+    // M7.1.6: saving /theme.lua applies it live — writing a Lua config chunk
+    // and calling apply_disk_theme must change the theme table.
+    const lua = @import("lua/lua.zig");
+    const storage = @import("api/storage.zig");
+    if (!storage.isMounted()) {
+        expect(true, "auto-reload test skipped (no disk attached)");
+        return;
+    }
+    const L = @import("lua/cimport.zig").c;
+    const lua_state = lua.getState() orelse {
+        expect(false, "lua state exists");
+        return;
+    };
+    const script =
+        \\local h = file.open("/theme.lua")
+        \\file.truncate(h, 0)
+        \\file.write(h, "theme.background = 0x112233")
+        \\file.close(h)
+        \\apply_disk_theme()
+        \\return theme.background == 0x112233
+    ;
+    const load_status = L.luaL_loadstring(lua_state, script);
+    expect(load_status == L.LUA_OK, "auto-reload script compiles");
+    if (load_status != L.LUA_OK) return;
+    const run_status = L.lua_pcallk(lua_state, 0, 1, 0, 0, null);
+    expect(run_status == L.LUA_OK, "auto-reload script runs");
+    if (run_status != L.LUA_OK) {
+        L.lua_pop(lua_state, 1);
+        return;
+    }
+    const ok = L.lua_toboolean(lua_state, -1) == 1;
+    expect(ok, "saving the theme config applies it live");
+    _ = L.lua_pop(lua_state, 1);
+}
+
 pub fn runAll(alloc: std.mem.Allocator, memory: *mem.Memory) noreturn {
     if (!comptime enabled) @compileError("runtime tests are not enabled");
     serial.writeLine("RUNTIME TESTS START");
@@ -759,6 +795,8 @@ pub fn runAll(alloc: std.mem.Allocator, memory: *mem.Memory) noreturn {
     testEditorApp();
     serial.writeLine("file.dir listing (M7.1.5)");
     testFileDir();
+    serial.writeLine("auto-reload on save (M7.1.6)");
+    testAutoReload();
     if (failures == 0) {
         serial.writeLine("RUNTIME TESTS PASS");
         exitQemu(exit_pass);

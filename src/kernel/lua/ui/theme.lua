@@ -28,3 +28,26 @@ theme = {
 
     ws = { "1", "2", "3" },
 }
+
+-- Apply the persistent disk config (/theme.lua on the mounted filesystem) if
+-- present: the config is Lua code that overrides the theme table — there is
+-- no separate config format (spec/runtime.md §5a trigger 2). Called at boot,
+-- on F5 reload, and after every editor save.
+function apply_disk_theme()
+    local h = file.open("/theme.lua")
+    if not h then return end
+    local content = ""
+    while true do
+        local chunk = file.read(h, 4096)
+        if not chunk or chunk == "" then break end
+        content = content .. chunk
+    end
+    file.close(h)
+    local cfg = load(content)
+    if cfg then
+        pcall(cfg)
+    end
+    gfx.invalidate()
+end
+
+apply_disk_theme()

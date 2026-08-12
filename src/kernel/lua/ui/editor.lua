@@ -51,7 +51,9 @@ function editor_save()
     file.write(h, table.concat(ed_lines, "\n"))
     file.close(h)
     ed_dirty = false
-    gfx.invalidate()
+    -- The saved file is the persistent UI config: apply it live
+    -- (spec/runtime.md §5a trigger 2).
+    apply_disk_theme()
 end
 
 local function editor_render()
