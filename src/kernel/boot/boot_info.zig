@@ -41,4 +41,7 @@ pub const BootInfo = struct {
     /// Virtual (HHDM) address of the ACPI RSDP handed by the bootloader.
     /// Null when the bootloader exposed no ACPI tables.
     rsdp_address: ?u64,
+    /// Size in bytes of the kernel image itself (Limine executable file
+    /// request), reported in the boot log metrics.
+    kernel_size: u64,
 };

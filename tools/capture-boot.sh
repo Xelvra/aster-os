@@ -22,13 +22,24 @@ ISO="$(find .zig-cache -name aster.iso -printf '%T@ %p\n' | sort -rn | head -1 |
 tmpdir="$(mktemp -d)"
 serial_file="$tmpdir/boot.serial"
 
+# A test disk is attached so the captured log demonstrates the storage stack
+# (virtio-blk, GPT, ext2) too — the same configuration in both modes keeps
+# --check deterministic. BOOT_LOG_DISK overrides the default.
+DISK="${BOOT_LOG_DISK:-"$tmpdir/boot-disk.img"}"
+if [[ ! -f "$DISK" ]]; then
+    ./tools/make-test-disk.sh "$DISK" >/dev/null 2>&1
+fi
+
 qemu-system-x86_64 \
     $(./tools/qemu-accel.sh) \
     -M q35 \
     -m 512M \
     -cdrom "$ISO" \
+    -drive "file=$DISK,format=raw,if=none,id=hd0" \
+    -device virtio-blk-pci,drive=hd0,disable-legacy=on \
     -serial file:"$serial_file" \
     -display none \
+    -boot order=d \
     -no-reboot \
     >/dev/null 2>&1 &
 qemu_pid=$!
@@ -63,10 +74,11 @@ COMMIT="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 DATE="$(date +%Y-%m-%d)"
 HOST="$(hostname 2>/dev/null || echo host)"
 
-# Normalize the accelerator so KVM/TCG do not fail --check: the log body
-# must change only when the kernel logging itself changes.
+# Normalize the accelerator and the measured boot time so KVM/TCG and run-to-
+# run jitter do not fail --check: the log body must change only when the
+# kernel logging itself changes. The kernel size stays (it is deterministic).
 normalize() {
-    sed -E 's/\[ OK \] accelerator[[:space:]]+[a-z]+/[ OK ] accelerator ACCEL/'
+    sed -E 's/\[ OK \] accelerator[[:space:]]+[a-z]+/[ OK ] accelerator ACCEL/; s/(complete · [0-9]+ KiB · )[0-9]+ ms/\1N ms/'
 }
 
 if [[ "$MODE" == "--check" || "$MODE" == "check" ]]; then

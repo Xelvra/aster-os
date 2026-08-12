@@ -96,6 +96,32 @@ pub const rsdp_request = extern struct {
     response: ?*rsdp_response,
 };
 
+pub const executable_file_response = extern struct {
+    revision: u64,
+    executable_file: ?*file,
+};
+
+pub const executable_file_request = extern struct {
+    id: [4]u64,
+    revision: u64,
+    response: ?*executable_file_response,
+};
+
+/// The bootloader module that is the kernel image itself (Limine executable
+/// file request). Its size is the actual kernel image size, reported in the
+/// boot log (spec/roadmap.md metrics).
+export var executable_file_req: executable_file_request linksection(".limine_requests") = .{
+    .id = .{ 0xc7b1dd30df4c8b88, 0x0a82e883a194f07b, 0xad97e90e83f1ed67, 0x31eb5d1c5ff23b69 },
+    .revision = 0,
+    .response = null,
+};
+
+pub fn kernelSize() ?u64 {
+    const resp = executable_file_req.response orelse return null;
+    const kernel_file = resp.executable_file orelse return null;
+    return kernel_file.size;
+}
+
 pub const module_request = extern struct {
     id: [4]u64,
     revision: u64,

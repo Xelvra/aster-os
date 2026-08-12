@@ -25,6 +25,7 @@ pub fn collect() BootError!boot_info.BootInfo {
         .memory_entries = memory_entries,
         .initrd = initrd,
         .rsdp_address = rsdp_address,
+        .kernel_size = limine.kernelSize() orelse 0,
     };
 }
 

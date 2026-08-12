@@ -131,6 +131,9 @@ fn kernelMain() !void {
     bootlog.blank();
     bootlog.banner();
 
+    const time = @import("time.zig");
+    time.calibrateRealTime();
+    const boot_ms = time.ms();
     const info = try boot.collect();
     bootlog.ok("bootloader", "limine handoff");
 
@@ -192,7 +195,12 @@ fn kernelMain() !void {
     }
 
     bootlog.ok("accelerator", accelName());
-    bootlog.ok("boot sequence", "complete");
+    var seq_buf: [64]u8 = undefined;
+    const seq_detail = std.fmt.bufPrint(&seq_buf, "complete · {d} KiB · {d} ms", .{
+        (info.kernel_size + 1023) / 1024,
+        time.ms() - boot_ms,
+    }) catch "complete";
+    bootlog.ok("boot sequence", seq_detail);
     bootlog.blank();
 
     serial.writeLine("ASTER BOOT OK");
