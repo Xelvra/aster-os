@@ -447,44 +447,23 @@ const tests = [_]Test{
 };
 
 fn testFilesystem(alloc: std.mem.Allocator, memory: *mem.Memory) void {
-    // Mount the ext2 partition of an attached test disk and exercise the
-    // thin file API: mount, lookup, open, read, EOF, invalid path
-    // (spec/roadmap.md M6.1.5). Skipped when no disk is attached.
-    const virtio = @import("drivers/virtio.zig");
-    const block = @import("drivers/block.zig");
-    const gpt = @import("fs/gpt.zig");
-    const ext2 = @import("fs/ext2.zig");
+    // Exercise the thin file API against the disk mounted at boot: mount,
+    // lookup, open, read, EOF, invalid path, and the write path
+    // (spec/roadmap.md M6.1.5, M7.1.x). Skipped when no disk is attached.
+    // The boot-time storage stack is reused — a second VirtioBlk init would
+    // reprogram the shared device's queue and break the mounted one.
+    _ = alloc;
+    _ = memory;
+    const storage = @import("api/storage.zig");
     const file = @import("fs/file.zig");
 
-    var blk = virtio.VirtioBlk.init(alloc, &memory.pfa, memory.pfa.hhdm_offset) catch {
+    if (!storage.isMounted()) {
         expect(true, "filesystem test skipped (no disk attached)");
         return;
-    };
-    blk.setupQueue() catch {
-        expect(true, "filesystem test skipped (virtio queue failed)");
-        return;
-    };
-    var partitions: [8]block.PartitionView = undefined;
-    const count = gpt.discover(alloc, blk.asBlockDevice(), &partitions) catch {
-        expect(true, "filesystem test skipped (no GPT)");
-        return;
-    };
-    var fs_partition: ?block.PartitionView = null;
-    for (partitions[0..count]) |p| {
-        if (gpt.eqlGuid(p.type_guid, gpt.type_guid_linux_fs)) {
-            fs_partition = p;
-            break;
-        }
     }
-    const part = fs_partition orelse {
-        expect(true, "filesystem test skipped (no linux partition)");
-        return;
-    };
-    const fs = ext2.Ext2.init(part) catch {
-        expect(false, "ext2 mounts");
-        return;
-    };
-    expect(true, "ext2 mounts");
+    const part = storage.mounted.?.disk;
+    var fs = storage.mounted.?;
+    expect(true, "ext2 mounted at boot");
 
     const ino = fs.find("/theme.lua") catch {
         expect(false, "lookup finds /theme.lua");
@@ -578,6 +557,117 @@ fn testFilesystem(alloc: std.mem.Allocator, memory: *mem.Memory) void {
     expect(std.mem.eql(u8, &wbuf, &rbuf), "block readback matches written data");
 }
 
+fn testStorageKi() void {
+    // The KI storage module (M7.1.4): open/read/truncate/write/close through
+    // sys.dispatch against the disk mounted at boot. Skipped when no disk.
+    const storage = @import("api/storage.zig");
+    if (!storage.isMounted()) {
+        expect(true, "storage KI test skipped (no disk attached)");
+        return;
+    }
+    const path = "/theme.lua";
+    const open_result = storage.dispatch(.{
+        .a = @intFromEnum(storage.StorageOp.open),
+        .b = @intFromPtr(path.ptr),
+        .c = path.len,
+    });
+    expect(open_result >> 32 == 0, "storage open succeeds");
+    const handle = open_result & 0xFFFFFFFF;
+
+    var buf: [128]u8 = undefined;
+    const read_args = storage.ReadArgs{ .handle = handle, .buf = @intFromPtr(&buf), .len = buf.len };
+    const read_result = storage.dispatch(.{
+        .a = @intFromEnum(storage.StorageOp.read),
+        .b = @intFromPtr(&read_args),
+    });
+    expect(read_result >> 32 == 0, "storage read succeeds");
+
+    const truncate_result = storage.dispatch(.{
+        .a = @intFromEnum(storage.StorageOp.truncate),
+        .b = handle,
+        .c = 0,
+    });
+    expect(truncate_result >> 32 == 0, "storage truncate succeeds");
+
+    const payload = "ki=ok\n";
+    const write_args = storage.WriteArgs{
+        .handle = handle,
+        .data = @intFromPtr(payload.ptr),
+        .len = payload.len,
+    };
+    const write_result = storage.dispatch(.{
+        .a = @intFromEnum(storage.StorageOp.write),
+        .b = @intFromPtr(&write_args),
+    });
+    expect(write_result >> 32 == 0, "storage write succeeds");
+
+    _ = storage.dispatch(.{ .a = @intFromEnum(storage.StorageOp.close), .b = handle });
+
+    const reopen = storage.dispatch(.{
+        .a = @intFromEnum(storage.StorageOp.open),
+        .b = @intFromPtr(path.ptr),
+        .c = path.len,
+    });
+    expect(reopen >> 32 == 0, "storage reopen succeeds");
+    const h2 = reopen & 0xFFFFFFFF;
+    var buf2: [128]u8 = undefined;
+    const read2 = storage.ReadArgs{ .handle = h2, .buf = @intFromPtr(&buf2), .len = buf2.len };
+    const result2 = storage.dispatch(.{
+        .a = @intFromEnum(storage.StorageOp.read),
+        .b = @intFromPtr(&read2),
+    });
+    const n2: usize = @intCast(result2 & 0xFFFFFFFF);
+    expect(std.mem.eql(u8, payload, buf2[0..n2]), "storage write persisted through reopen");
+    _ = storage.dispatch(.{ .a = @intFromEnum(storage.StorageOp.close), .b = h2 });
+}
+
+fn testFileBindings() void {
+    // The Lua file.* bindings (M7.1.4): rewrite a file and read it back,
+    // exercising open/read/truncate/write/close end to end. Skipped when no
+    // disk is attached.
+    const lua = @import("lua/lua.zig");
+    const storage = @import("api/storage.zig");
+    if (!storage.isMounted()) {
+        expect(true, "file binding test skipped (no disk attached)");
+        return;
+    }
+    const L = @import("lua/cimport.zig").c;
+    const lua_state = lua.getState() orelse {
+        expect(false, "lua state exists");
+        return;
+    };
+    _ = L.lua_getglobal(lua_state, "file");
+    expect(L.lua_istable(lua_state, -1), "file binding table is registered");
+    _ = L.lua_pop(lua_state, 1);
+
+    const script =
+        \\local h = file.open("/theme.lua")
+        \\if not h then return "open-failed" end
+        \\file.truncate(h, 0)
+        \\file.write(h, "lua=ok")
+        \\file.close(h)
+        \\h = file.open("/theme.lua")
+        \\if not h then return "reopen-failed" end
+        \\local content = file.read(h, 128)
+        \\file.close(h)
+        \\return content
+    ;
+    const load_status = L.luaL_loadstring(lua_state, script);
+    expect(load_status == L.LUA_OK, "file binding script compiles");
+    if (load_status != L.LUA_OK) return;
+    const run_status = L.lua_pcallk(lua_state, 0, 1, 0, 0, null);
+    expect(run_status == L.LUA_OK, "file binding script runs");
+    if (run_status != L.LUA_OK) {
+        L.lua_pop(lua_state, 1);
+        return;
+    }
+    var len: usize = 0;
+    const str = L.lua_tolstring(lua_state, -1, &len);
+    const content: []const u8 = @as([*]const u8, @ptrCast(str))[0..len];
+    expect(len == 6 and std.mem.eql(u8, "lua=ok", content), "file bindings round-trip file content");
+    _ = L.lua_pop(lua_state, 1);
+}
+
 pub fn runAll(alloc: std.mem.Allocator, memory: *mem.Memory) noreturn {
     if (!comptime enabled) @compileError("runtime tests are not enabled");
     serial.writeLine("RUNTIME TESTS START");
@@ -586,6 +676,10 @@ pub fn runAll(alloc: std.mem.Allocator, memory: *mem.Memory) noreturn {
     }
     serial.writeLine("ext2 filesystem on disk (M6.1.5)");
     testFilesystem(alloc, memory);
+    serial.writeLine("storage KI (M7.1.4)");
+    testStorageKi();
+    serial.writeLine("lua file bindings (M7.1.4)");
+    testFileBindings();
     if (failures == 0) {
         serial.writeLine("RUNTIME TESTS PASS");
         exitQemu(exit_pass);

@@ -5,6 +5,7 @@ const timer = @import("timer.zig");
 const runtime = @import("runtime.zig");
 const sysmon = @import("sysmon.zig");
 const power = @import("power.zig");
+const storage = @import("storage.zig");
 
 pub const Syscall = enum(u64) {
     Debug = 0,
@@ -15,6 +16,7 @@ pub const Syscall = enum(u64) {
     Yield = 5,
     Sysmon = 6,
     Power = 7,
+    Storage = 8,
 };
 
 pub const KiStatus = enum(u16) {
@@ -25,6 +27,7 @@ pub const KiStatus = enum(u16) {
     NoMemory = 4,
     Busy = 5,
     Timeout = 6,
+    IoError = 7,
 };
 
 pub const SyscallArgs = struct {
@@ -43,5 +46,6 @@ pub fn dispatch(num: Syscall, args: SyscallArgs) u64 {
         .Yield => @intFromEnum(KiStatus.NotSupported),
         .Sysmon => sysmon.dispatch(args),
         .Power => power.dispatch(args),
+        .Storage => storage.dispatch(args),
     };
 }

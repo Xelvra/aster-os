@@ -25,7 +25,7 @@ const bootlog = @import("bootlog.zig");
 /// Main kernel stack. The bootloader hands the kernel a small stack; switch
 /// to a large one before kernelMain — deep call chains (Lua) and large stack
 /// frames overflow a small bootloader stack.
-var kernel_stack: [65536]u8 align(16) = undefined;
+var kernel_stack: [262144]u8 align(16) = undefined;
 
 export fn _start() callconv(.c) noreturn {
     const top: [*]u8 = @ptrCast(&kernel_stack);
@@ -268,7 +268,9 @@ fn present(display: *DisplayState) void {
 fn probeStorage(alloc: std.mem.Allocator, memory: *mem.Memory) void {
     const virtio = @import("drivers/virtio.zig");
     const gpt = @import("fs/gpt.zig");
-    var blk = virtio.VirtioBlk.init(alloc, &memory.pfa, memory.pfa.hhdm_offset) catch return;
+    const storage = @import("api/storage.zig");
+    storage.disk = virtio.VirtioBlk.init(alloc, &memory.pfa, memory.pfa.hhdm_offset) catch return;
+    const blk = &storage.disk;
     blk.setupQueue() catch return;
     var sector: [512]u8 = undefined;
     blk.readSector(0, &sector) catch return;
@@ -283,7 +285,9 @@ fn probeStorage(alloc: std.mem.Allocator, memory: *mem.Memory) void {
     bootlog.ok("gpt", msg);
 
     // M6.1.3: mount ext2 read-only on the linux-filesystem partition and
-    // list the root directory as the exit check ("výpis souborů").
+    // list the root directory as the exit check ("výpis souborů"). The mount
+    // is handed to the KI storage module (M7.1.4) so Lua file.* works after
+    // boot.
     const ext2 = @import("fs/ext2.zig");
     var fs_partition: ?block.PartitionView = null;
     for (partitions[0..count]) |p| {
@@ -293,7 +297,8 @@ fn probeStorage(alloc: std.mem.Allocator, memory: *mem.Memory) void {
         }
     }
     const part = fs_partition orelse return;
-    const fs = ext2.Ext2.init(part) catch return;
+    var fs = ext2.Ext2.init(part) catch return;
+    storage.mount(fs);
     bootlog.ok("fs", "ext2");
     var entries: [32]ext2.DirEntry = undefined;
     const n = fs.readDir(ext2.root_inode, &entries) catch return;

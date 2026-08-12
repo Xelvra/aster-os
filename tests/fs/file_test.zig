@@ -20,7 +20,7 @@ fn mount(mock: *MockDisk) block.PartitionView {
 test "open reads a whole file" {
     var img = buildImage();
     var mock = MockDisk{ .data = &img.data };
-    const fs = try ext2.Ext2.init(mount(&mock));
+    var fs = try ext2.Ext2.init(mount(&mock));
     var f = try file.File.open(&fs, "/hello.txt");
     defer f.close();
     var buf: [64]u8 = undefined;
@@ -35,7 +35,7 @@ test "open reads a whole file" {
 test "open reads in chunks across the offset" {
     var img = buildImage();
     var mock = MockDisk{ .data = &img.data };
-    const fs = try ext2.Ext2.init(mount(&mock));
+    var fs = try ext2.Ext2.init(mount(&mock));
     var f = try file.File.open(&fs, "/hello.txt");
     defer f.close();
     var buf: [2]u8 = undefined;
@@ -51,7 +51,7 @@ test "open reads in chunks across the offset" {
 test "open resolves nested paths" {
     var img = buildImage();
     var mock = MockDisk{ .data = &img.data };
-    const fs = try ext2.Ext2.init(mount(&mock));
+    var fs = try ext2.Ext2.init(mount(&mock));
     var f = try file.File.open(&fs, "/sub/inner.txt");
     defer f.close();
     var buf: [64]u8 = undefined;
@@ -62,7 +62,49 @@ test "open resolves nested paths" {
 test "open rejects a directory and a missing file" {
     var img = buildImage();
     var mock = MockDisk{ .data = &img.data };
-    const fs = try ext2.Ext2.init(mount(&mock));
+    var fs = try ext2.Ext2.init(mount(&mock));
     try std.testing.expectError(ext2.Ext2Error.NotAFile, file.File.open(&fs, "/"));
     try std.testing.expectError(ext2.Ext2Error.NotFound, file.File.open(&fs, "/nope"));
+}
+
+test "write replaces a file's content in place (M7.1.4)" {
+    const buildWriteImage = ext2_image.buildWriteImage;
+    var img = buildWriteImage();
+    var mock = MockDisk{ .data = &img.data };
+    var fs = try ext2.Ext2.init(mount(&mock));
+    {
+        var f = try file.File.open(&fs, "/hello.txt");
+        defer f.close();
+        try f.truncate(0);
+        try f.write("hey!");
+        try std.testing.expectEqual(@as(u64, 4), f.fileSize());
+    }
+    var rf = try file.File.open(&fs, "/hello.txt");
+    defer rf.close();
+    var buf: [64]u8 = undefined;
+    const n = try rf.read(&buf);
+    try std.testing.expectEqual(@as(usize, 4), n);
+    try std.testing.expect(std.mem.eql(u8, "hey!", buf[0..4]));
+}
+
+test "write grows a file beyond its first block (M7.1.4)" {
+    const buildWriteImage = ext2_image.buildWriteImage;
+    var img = buildWriteImage();
+    var mock = MockDisk{ .data = &img.data };
+    var fs = try ext2.Ext2.init(mount(&mock));
+    {
+        var f = try file.File.open(&fs, "/hello.txt");
+        defer f.close();
+        try f.truncate(0);
+        var content = [_]u8{0xAB} ** 2000;
+        try f.write(&content);
+        try std.testing.expectEqual(@as(u64, 2000), f.fileSize());
+    }
+    var rf = try file.File.open(&fs, "/hello.txt");
+    defer rf.close();
+    var buf: [2000]u8 = undefined;
+    const n = try rf.read(&buf);
+    try std.testing.expectEqual(@as(usize, 2000), n);
+    try std.testing.expectEqual(@as(u8, 0xAB), buf[0]);
+    try std.testing.expectEqual(@as(u8, 0xAB), buf[1999]);
 }

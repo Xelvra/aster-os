@@ -7,6 +7,7 @@ const api_timer = @import("../api/timer.zig");
 const api_debug = @import("../api/debug.zig");
 const api_runtime = @import("../api/runtime.zig");
 const api_power = @import("../api/power.zig");
+const api_storage = @import("../api/storage.zig");
 const sysmon = @import("../api/sysmon.zig");
 
 fn pushError(L: ?*lua_c.lua_State, comptime format: []const u8, args: anytype) void {
@@ -350,6 +351,105 @@ const PowerFuncs = [_]lua_c.luaL_Reg{
     .{ .name = null, .func = null },
 };
 
+const FileFuncs = [_]lua_c.luaL_Reg{
+    .{ .name = "open", .func = fileOpen },
+    .{ .name = "read", .func = fileRead },
+    .{ .name = "write", .func = fileWrite },
+    .{ .name = "close", .func = fileClose },
+    .{ .name = "truncate", .func = fileTruncate },
+    .{ .name = null, .func = null },
+};
+
+/// The storage KI reports `(status << 32) | value`; a zero status is success.
+fn storageResultOk(result: u64) bool {
+    return result >> 32 == 0;
+}
+
+fn fileOpen(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    const path = checkString(L, 1, "path") orelse return 2;
+    const result = sys.dispatch(.Storage, .{
+        .a = @intFromEnum(api_storage.StorageOp.open),
+        .b = @intFromPtr(path.ptr),
+        .c = path.len,
+    });
+    if (storageResultOk(result)) {
+        lua_c.lua_pushinteger(L, @intCast(result & 0xFFFFFFFF));
+        return 1;
+    }
+    pushError(L, "file.open failed", .{});
+    return 2;
+}
+
+fn fileRead(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    const handle = checkInteger(L, 1, "handle") orelse return 2;
+    const len = checkInteger(L, 2, "len") orelse return 2;
+    var buf: [4096]u8 = undefined;
+    const cap: u64 = @min(@as(u64, @intCast(len)), buf.len);
+    const ra = api_storage.ReadArgs{
+        .handle = @intCast(handle),
+        .buf = @intFromPtr(&buf),
+        .len = cap,
+    };
+    const result = sys.dispatch(.Storage, .{
+        .a = @intFromEnum(api_storage.StorageOp.read),
+        .b = @intFromPtr(&ra),
+    });
+    if (storageResultOk(result)) {
+        const n: usize = @intCast(result & 0xFFFFFFFF);
+        const ptr: [*c]const u8 = @ptrCast(&buf);
+        _ = lua_c.lua_pushlstring(L, ptr, n);
+        return 1;
+    }
+    pushError(L, "file.read failed", .{});
+    return 2;
+}
+
+fn fileWrite(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    const handle = checkInteger(L, 1, "handle") orelse return 2;
+    const data = checkString(L, 2, "data") orelse return 2;
+    const wa = api_storage.WriteArgs{
+        .handle = @intCast(handle),
+        .data = @intFromPtr(data.ptr),
+        .len = data.len,
+    };
+    const result = sys.dispatch(.Storage, .{
+        .a = @intFromEnum(api_storage.StorageOp.write),
+        .b = @intFromPtr(&wa),
+    });
+    if (storageResultOk(result)) {
+        lua_c.lua_pushinteger(L, 0);
+        return 1;
+    }
+    pushError(L, "file.write failed", .{});
+    return 2;
+}
+
+fn fileClose(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    const handle = checkInteger(L, 1, "handle") orelse return 2;
+    _ = sys.dispatch(.Storage, .{
+        .a = @intFromEnum(api_storage.StorageOp.close),
+        .b = @intCast(handle),
+    });
+    lua_c.lua_pushinteger(L, 0);
+    return 1;
+}
+
+fn fileTruncate(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    const handle = checkInteger(L, 1, "handle") orelse return 2;
+    const new_size = checkInteger(L, 2, "size") orelse return 2;
+    const result = sys.dispatch(.Storage, .{
+        .a = @intFromEnum(api_storage.StorageOp.truncate),
+        .b = @intCast(handle),
+        .c = @intCast(new_size),
+    });
+    if (storageResultOk(result)) {
+        lua_c.lua_pushinteger(L, 0);
+        return 1;
+    }
+    pushError(L, "file.truncate failed", .{});
+    return 2;
+}
+
 fn sysmonRamTotalMb(L: ?*lua_c.lua_State) callconv(.c) c_int {
     const value = sys.dispatch(.Sysmon, .{ .a = @intFromEnum(sysmon.SysmonOp.ram_total_mb) });
     lua_c.lua_pushinteger(L, @intCast(value));
@@ -422,4 +522,8 @@ pub fn register(L: *lua_c.lua_State) void {
     lua_c.lua_createtable(L, 0, 1);
     lua_c.luaL_setfuncs(L, @ptrCast(&PowerFuncs), 0);
     lua_c.lua_setglobal(L, "power");
+
+    lua_c.lua_createtable(L, 0, 5);
+    lua_c.luaL_setfuncs(L, @ptrCast(&FileFuncs), 0);
+    lua_c.lua_setglobal(L, "file");
 }
