@@ -512,6 +512,53 @@ fn testFilesystem(alloc: std.mem.Allocator, memory: *mem.Memory) void {
         expect(true, "open invalid path fails");
     }
 
+    // M7.1.3: rewrite theme.lua in place, grow it past the first block, and
+    // shrink it again — the write path (data blocks, allocation, inode size)
+    // against the real disk. The CI disk is a throwaway image. writeAt never
+    // shrinks, so a replacement is truncate + write.
+    var fs2 = fs;
+    fs2.truncate(ino, 0) catch {
+        expect(false, "ext2 truncate before rewrite");
+        return;
+    };
+    fs2.writeAt(ino, 0, "bg=0x123456") catch {
+        expect(false, "ext2 writeAt rewrites a file");
+        return;
+    };
+    expect(true, "ext2 writeAt rewrites a file");
+    var rbuf2: [128]u8 = undefined;
+    const rn2 = fs2.readAt(ino, 0, &rbuf2) catch {
+        expect(false, "ext2 readAt sees the rewrite");
+        return;
+    };
+    expect(std.mem.eql(u8, "bg=0x123456", rbuf2[0..rn2]), "ext2 readAt sees the rewrite");
+
+    var big: [2000]u8 = undefined;
+    for (&big) |*b| b.* = 0x42;
+    fs2.writeAt(ino, 0, &big) catch {
+        expect(false, "ext2 writeAt grows a file");
+        return;
+    };
+    expect(true, "ext2 writeAt grows a file");
+    var rbig: [2000]u8 = undefined;
+    const rn3 = fs2.readAt(ino, 0, &rbig) catch {
+        expect(false, "ext2 readAt reads the grown file");
+        return;
+    };
+    expect(std.mem.eql(u8, &big, rbig[0..rn3]), "ext2 readAt reads the grown file");
+
+    fs2.truncate(ino, 3) catch {
+        expect(false, "ext2 truncate shrinks a file");
+        return;
+    };
+    expect(true, "ext2 truncate shrinks a file");
+    var rshort: [64]u8 = undefined;
+    const rn4 = fs2.readAt(ino, 0, &rshort) catch {
+        expect(false, "ext2 readAt sees the truncated file");
+        return;
+    };
+    expect(std.mem.eql(u8, big[0..3], rshort[0..rn4]), "ext2 readAt sees the truncated file");
+
     // M7.1.1: sector write + readback through the block-device interface.
     // The last partition sector lies past the small ext2 image (the test disk
     // is mostly free space), so the write only touches unused capacity.

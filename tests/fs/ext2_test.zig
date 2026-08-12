@@ -6,6 +6,7 @@ const ext2_image = @import("ext2_image.zig");
 
 const image_size = 64 * 1024;
 const buildImage = ext2_image.buildImage;
+const buildWriteImage = ext2_image.buildWriteImage;
 
 fn mount(mock: *MockDisk) block.PartitionView {
     return .{
@@ -227,4 +228,63 @@ test "find resolves absolute paths" {
     try std.testing.expectEqual(@as(u32, 3), try fs.find("/hello.txt"));
     try std.testing.expectEqual(@as(u32, 3), try fs.find("/sub/inner.txt"));
     try std.testing.expectError(ext2.Ext2Error.NotFound, fs.find("/nope"));
+}
+
+test "writeAt overwrites an existing file in place (M7.1.3)" {
+    var img = buildWriteImage();
+    var mock = MockDisk{ .data = &img.data };
+    var fs = try ext2.Ext2.init(mount(&mock));
+    // Replacing a file's content is truncate + write (writeAt never shrinks
+    // the size by itself — partial overwrites keep the longer length).
+    try fs.truncate(3, 0);
+    try fs.writeAt(3, 0, "hey!");
+    var out: [64]u8 = undefined;
+    const n = try fs.readFile(3, &out);
+    try std.testing.expectEqual(@as(usize, 4), n);
+    try std.testing.expect(std.mem.eql(u8, "hey!", out[0..4]));
+}
+
+test "writeAt grows a file into a freshly allocated block (M7.1.2/3)" {
+    var img = buildWriteImage();
+    var mock = MockDisk{ .data = &img.data };
+    var fs = try ext2.Ext2.init(mount(&mock));
+    // 2000 bytes needs two 1024-byte blocks: the original block 7 plus one
+    // allocated block (the bitmap marks 0..8 used, so 9 is the first free).
+    var content = [_]u8{0xAB} ** 2000;
+    try fs.writeAt(3, 0, &content);
+    var out: [2000]u8 = undefined;
+    const n = try fs.readFile(3, &out);
+    try std.testing.expectEqual(@as(usize, 2000), n);
+    try std.testing.expect(std.mem.eql(u8, &content, &out));
+    // Block 9 allocated and freed count dropped by one.
+    const inode = try fs.readInode(3);
+    try std.testing.expectEqual(@as(u32, 9), inode.block[1]);
+    const fresh = try ext2.Ext2.init(mount(&mock));
+    try std.testing.expectEqual(@as(u32, 55), fresh.super.free_blocks_count);
+}
+
+test "writeAt allocates the single-indirect table for large writes (M7.1.2/3)" {
+    var img = buildWriteImage();
+    var mock = MockDisk{ .data = &img.data };
+    var fs = try ext2.Ext2.init(mount(&mock));
+    // 13 * 1024 bytes spans the 12 direct blocks plus one indirect entry.
+    var content = [_]u8{0x77} ** (13 * 1024);
+    try fs.writeAt(3, 0, &content);
+    var out: [13 * 1024]u8 = undefined;
+    const n = try fs.readFile(3, &out);
+    try std.testing.expectEqual(@as(usize, 13 * 1024), n);
+    try std.testing.expect(std.mem.eql(u8, &content, &out));
+    const inode = try fs.readInode(3);
+    try std.testing.expect(inode.block[ext2.inode_direct_blocks] != 0);
+}
+
+test "truncate shrinks a file size (M7.1.3)" {
+    var img = buildWriteImage();
+    var mock = MockDisk{ .data = &img.data };
+    var fs = try ext2.Ext2.init(mount(&mock));
+    try fs.truncate(3, 2);
+    var out: [64]u8 = undefined;
+    const n = try fs.readFile(3, &out);
+    try std.testing.expectEqual(@as(usize, 2), n);
+    try std.testing.expect(std.mem.eql(u8, "he", out[0..2]));
 }

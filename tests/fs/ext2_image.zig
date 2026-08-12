@@ -27,13 +27,14 @@ pub const Entry = struct {
 pub const Image = struct {
     data: [64 * 1024]u8 = [_]u8{0} ** (64 * 1024),
 
-    pub fn superblock(self: *Image, features: struct { compat: u32, incompat: u32, ro_compat: u32 }) void {
+    pub fn superblock(self: *Image, features: struct { compat: u32, incompat: u32, ro_compat: u32, blocks_per_group: u32 = 8 }) void {
         const sb = self.data[1024 .. 1024 + 256];
         writeU32(sb, 0, 32); // inodes_count
         writeU32(sb, 4, 64); // blocks_count
+        writeU32(sb, 12, 56); // free_blocks_count (64 - 8 used: 1..8)
         writeU32(sb, 20, 1); // first_data_block
         writeU32(sb, 24, 0); // log_block_size (1024 B)
-        writeU32(sb, 32, 8); // blocks_per_group
+        writeU32(sb, 32, features.blocks_per_group);
         writeU32(sb, 40, 8); // inodes_per_group
         writeU32(sb, 84, 11); // first_ino
         writeU16(sb, 56, ext2.super_magic);
@@ -49,6 +50,19 @@ pub const Image = struct {
         writeU32(gdt, 0, 3); // block_bitmap
         writeU32(gdt, 4, 4); // inode_bitmap
         writeU32(gdt, 8, 5); // inode_table
+        writeU16(gdt, 12, 56); // free_blocks_count
+    }
+
+    /// Mark the metadata + fixture blocks (1..8) used in the block bitmap
+    /// (block 3). Bit `i` maps to block `i + first_data_block` (1), matching
+    /// real mke2fs 1 KiB-block images, so the first free block is 9.
+    pub fn blockBitmap(self: *Image) void {
+        const base = 3 * block_size;
+        for (0..8) |i| {
+            const byte = i / 8;
+            const bit: u8 = @as(u8, 1) << @intCast(i % 8);
+            self.data[base + byte] |= bit;
+        }
     }
 
     pub fn putInode(self: *Image, ino: u32, mode: u16, size: u32, block0: u32) void {
@@ -95,9 +109,21 @@ pub const Image = struct {
 };
 
 pub fn buildImage() Image {
+    return buildImageWith(8);
+}
+
+/// Like buildImage but with blocks_per_group covering the whole filesystem
+/// (one group, 64 blocks) so that block allocation has free blocks in group 0
+/// — the write tests exercise allocBlock deterministically.
+pub fn buildWriteImage() Image {
+    return buildImageWith(64);
+}
+
+fn buildImageWith(blocks_per_group: u32) Image {
     var img = Image{};
-    img.superblock(.{ .compat = 0, .incompat = ext2.feature_incompat_filetype, .ro_compat = 0 });
+    img.superblock(.{ .compat = 0, .incompat = ext2.feature_incompat_filetype, .ro_compat = 0, .blocks_per_group = blocks_per_group });
     img.groupDescriptors();
+    img.blockBitmap();
     img.putInode(2, ext2.inode_type_dir, 64, 6); // root
     img.putInode(3, ext2.inode_type_reg, 5, 7); // hello.txt
     img.putInode(4, ext2.inode_type_dir, 64, 8); // sub

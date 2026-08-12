@@ -21,3 +21,15 @@ pub fn readU64(buf: []const u8, off: usize) u64 {
         (@as(u64, buf[off + 6]) << 48) |
         (@as(u64, buf[off + 7]) << 56);
 }
+
+pub fn writeU16(buf: []u8, off: usize, v: u16) void {
+    buf[off] = @truncate(v);
+    buf[off + 1] = @truncate(v >> 8);
+}
+
+pub fn writeU32(buf: []u8, off: usize, v: u32) void {
+    buf[off] = @truncate(v);
+    buf[off + 1] = @truncate(v >> 8);
+    buf[off + 2] = @truncate(v >> 16);
+    buf[off + 3] = @truncate(v >> 24);
+}
