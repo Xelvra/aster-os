@@ -57,6 +57,10 @@ Invarianty proti plýtvání v kritických cestách. Měří se po každém miln
 - [ ] **Žádná dynamická alokace v běžném frame.** Event loop nesmí v `render()` ani v
       běžné `update()` alokovat (mimo boot a ojedinělé eventy jako spawn).
 - [ ] **Frame latency (p99) je primární metrika**, ne FPS (viz `roadmap.md`).
+- [ ] **PFA alokace jsou hint-optimalizované bez lineárních průchodů na hot pathu.**
+      `findFirstFree`/`findFirstFreeRun` startují od `next_free_hint` (wrap-around)
+      a `totalFreePages()` vrací inkrementálně udržovanou cache — žádný plný scan
+      bitmapy při každém volání (viz `spec/memory.md` §3).
 - [ ] **UI kreslení = 0 syscallů a 0 ring přechodů** (SASOS). Pokud se v budoucnu objeví
       ring přechod v kritické cestě, musí být zdokumentovaný a odůvodněný.
 

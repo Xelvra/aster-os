@@ -47,6 +47,28 @@ test "freePage then allocPage reuses" {
     try std.testing.expectEqual(p1, p2);
 }
 
+test "freed middle page is reused by a later allocation" {
+    var alloc = initAllocator();
+    var pages: [8]u64 = undefined;
+    for (0..pages.len) |i| pages[i] = try alloc.allocPage(false);
+    try alloc.freePage(pages[4]);
+    const reuse = try alloc.allocPage(false);
+    // The freed middle page must be returned, not a new page at the end of
+    // the region (hint-driven first-fit + free_pages cache consistency).
+    try std.testing.expectEqual(pages[4], reuse);
+}
+
+test "free_pages cache tracks allocations and frees" {
+    var alloc = initAllocator();
+    try std.testing.expectEqual(expected_free_pages, alloc.totalFreePages());
+    const p1 = try alloc.allocPage(false);
+    _ = try alloc.allocPages(5, false);
+    try std.testing.expectEqual(expected_free_pages - 6, alloc.totalFreePages());
+    try alloc.freePage(p1);
+    try alloc.freePages(&.{ 0x00201000, 0x00202000, 0x00203000, 0x00204000, 0x00205000 });
+    try std.testing.expectEqual(expected_free_pages, alloc.totalFreePages());
+}
+
 test "freePage rejects double free" {
     var alloc = initAllocator();
     const page = try alloc.allocPage(false);

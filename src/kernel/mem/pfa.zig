@@ -30,6 +30,7 @@ pub const PageFrameAllocator = struct {
     total_pages: u64,
     hhdm_offset: u64,
     next_free_hint: u64,
+    free_pages: u64,
     pages_storage: []u64,
 
     pub fn init(memory_entries: []const boot_info.MemoryEntry, hhdm_offset: u64, bitmap: []u8, bitmap_phys_page: ?u64) PfaError!PageFrameAllocator {
@@ -52,6 +53,7 @@ pub const PageFrameAllocator = struct {
             .total_pages = total_pages,
             .hhdm_offset = hhdm_offset,
             .next_free_hint = 0,
+            .free_pages = 0,
             .pages_storage = &pages_storage_global,
         };
 
@@ -66,6 +68,7 @@ pub const PageFrameAllocator = struct {
                     // walk) - allocating it would page-fault on first touch.
                     if (i * page_size < low_memory_end) continue;
                     self.clearBit(i);
+                    self.free_pages += 1;
                 }
             }
         }
@@ -75,6 +78,9 @@ pub const PageFrameAllocator = struct {
             for (phys_page..phys_page + bitmap_page_count) |i| {
                 self.setBit(i);
             }
+            // The bitmap pages were carved out of a usable region already
+            // counted as free above; mark them consumed.
+            self.free_pages -= @intCast(bitmap_page_count);
         }
 
         return self;
@@ -84,6 +90,7 @@ pub const PageFrameAllocator = struct {
         const index = self.findFirstFree() orelse return PfaError.OutOfMemory;
         self.setBit(index);
         self.next_free_hint = index + 1;
+        self.free_pages -= 1;
         const addr = index * page_size;
         if (zero) self.zeroPage(addr);
         return addr;
@@ -96,6 +103,7 @@ pub const PageFrameAllocator = struct {
         if (!self.isSet(index)) return PfaError.NotAllocated;
         self.clearBit(index);
         if (index < self.next_free_hint) self.next_free_hint = index;
+        self.free_pages += 1;
     }
 
     pub fn allocPages(self: *PageFrameAllocator, count: usize, zero: bool) PfaError![]u64 {
@@ -109,6 +117,7 @@ pub const PageFrameAllocator = struct {
             self.pages_storage[i] = addr;
         }
         self.next_free_hint = start + count;
+        self.free_pages -= @intCast(count);
         return self.pages_storage[0..count];
     }
 
@@ -119,23 +128,39 @@ pub const PageFrameAllocator = struct {
     }
 
     pub fn totalFreePages(self: *const PageFrameAllocator) u64 {
-        var free_count: u64 = 0;
-        for (0..self.total_pages) |i| {
-            if (!self.isSet(i)) free_count += 1;
-        }
-        return free_count;
+        return self.free_pages;
     }
 
+    /// First single free page. Scans from the hint forward, then wraps around
+    /// to the start when the hint region is exhausted. The hint is a scanning
+    /// optimization, not a guarantee: freePage lowers it below any freshly
+    /// freed page, so correctness never depends on its accuracy.
     fn findFirstFree(self: *const PageFrameAllocator) ?u64 {
-        for (0..self.total_pages) |i| {
+        for (self.next_free_hint..self.total_pages) |i| {
+            if (!self.isSet(i)) return i;
+        }
+        for (0..self.next_free_hint) |i| {
             if (!self.isSet(i)) return i;
         }
         return null;
     }
 
+    /// First free run of `count` pages, scanned in two passes: from the hint
+    /// to the end, then from the start to the hint. A run is never counted
+    /// across the wrap boundary — pages wrap at `total_pages`, so contiguous
+    /// runs cannot span it.
     fn findFirstFreeRun(self: *const PageFrameAllocator, count: usize) ?u64 {
         var run: usize = 0;
-        for (0..self.total_pages) |i| {
+        for (self.next_free_hint..self.total_pages) |i| {
+            if (!self.isSet(i)) {
+                run += 1;
+                if (run == count) return i - (count - 1);
+            } else {
+                run = 0;
+            }
+        }
+        run = 0;
+        for (0..self.next_free_hint) |i| {
             if (!self.isSet(i)) {
                 run += 1;
                 if (run == count) return i - (count - 1);

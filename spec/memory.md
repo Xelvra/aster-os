@@ -61,10 +61,16 @@ Soubor: `src/kernel/mem/pfa.zig`.
       pub fn freePages(self: *Pfa, addrs: []const u64) void;
   };
   ```
-- **Chování:** `allocPage` najde první volný bit, označí ho a vrátí fyzickou adresu.
+- **Chování:** `allocPage` najde první volný bit od `next_free_hint` (s wrap-around),
+  označí ho a vrátí fyzickou adresu. Hint je optimalizace „kde zkoušet nejdřív", ne
+  garance: `freePage` ho snižuje pod nově uvolněnou stránku, takže se uvolněné stránky
+  znovu použijí první, ale korektnost na přesnosti hintu nezávisí.
   `zero: true` vynuluje stránku před vrácením (bezpečnostní default — žádné uvolnění
   původního obsahu do rukou nového vlastníka). `freePage` maže bit; **nikdy nepřiděluje
   stejnou stránku dvakrát bez mezilehlého free**.
+- **Cache volných stránek:** `free_pages` se udržuje inkrementálně (počítáno v `init`,
+  `±1`/`±count` na alokacích/uvolněních) a `totalFreePages()` vrací cache místo
+  lineárního průchodu bitmapy — ten zůstal jen jako boot-time inicializace.
 - **Chyby:** out-of-memory se vrací jako `PfaError.OutOfMemory`, nikdy `panic` —
   volající se rozhodne (typicky = neopravitelný stav → fault policy, `spec/invariants.md`).
 - **Determinismus:** alokace první volné stránky → stejný běh = stejné adresy
