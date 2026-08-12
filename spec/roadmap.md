@@ -44,13 +44,13 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 | Milník | Kernel image | RAM (idle) | Kernel Entry → First Frame | Frame latency (p99) | Compile time |
 |--------|-------------:|-----------:|---------------------------:|--------------------:|-------------:|
 | **Cíl** | < 256 KB | < 32 MB | < 50 ms | < 16 ms | TBD |
-| **M0 (měřeno)** | **12.0 KB** | — | **≈ 0.3 s**¹ | — | TBD |
+| **M0 (měřeno)** | **12.0 KiB** | — | **≈ 0.3 s**¹ | — | TBD |
 | M0 (cíl) | < 64 KB | — | < 10 ms | — | TBD |
-| **M1 (měřeno)** | **17.4 KB** | — | **≈ 0.4 s**¹ | — | TBD |
+| **M1 (měřeno)** | **17.4 KiB** | — | **≈ 0.4 s**¹ | — | TBD |
 | M1 (cíl) | < 80 KB | ≤ 4 MB | < 15 ms | — | TBD |
-| **M2 (měřeno)** | **28.8 KB** | — | **≈ 0.5 s**¹ | — | TBD |
+| **M2 (měřeno)** | **28.8 KiB** | — | **≈ 0.5 s**¹ | — | TBD |
 | M2 (cíl) | < 96 KB | ≤ 4 MB | < 20 ms | — | TBD |
-| **M3 (měřeno)** | **33.8 KB** | — | **≈ 0.6 s**¹ | — | TBD |
+| **M3 (měřeno)** | **33.8 KiB** | — | **≈ 0.6 s**¹ | — | TBD |
 | M3 (cíl) | < 128 KB | ≤ 6 MB | < 25 ms | < 16 ms | TBD |
 | **M4 (měřeno)** | **336 KiB** (RF 259) | — | **≈ 60 ms**² | TBD | TBD |
 | M4 (cíl) | < 512 KB (s Lua) | ≤ 12 MB | < 40 ms | < 16 ms | TBD |
@@ -183,7 +183,7 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 - [x] **Runtime testy v QEMU** (`isa-debug-exit`, exit kód) — první běžící runtime
       testy (tick, IDT, fronta událostí); mechanismus spec `verification.md` Krok 4b.
 - [x] **Freestanding backtrace** v panic/fault handleru (spec `invariants.md` §1).
-- [x] Metriky do tabulky (M2 28.8 KB, First Frame ≈ 0.5 s — viz §2).
+- [x] Metriky do tabulky (M2 28.8 KiB, First Frame ≈ 0.5 s — viz §2).
 
 **DoD:** scancody a tickery na serial; dispatch vrstva kompiluje; host testy zelené;
 první runtime testy v QEMU zelené (exit kód 0).
