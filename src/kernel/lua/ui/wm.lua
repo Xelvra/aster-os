@@ -25,7 +25,6 @@ end
 -- The REPL console lives as a window so it survives focus switches.
 windows[#windows + 1] = window("repl", 1)
 windows[#windows + 1] = window("sysmon", 1)
-windows[#windows + 1] = window("files", 2)
 local repl_visible = true
 
 local function find_win(title)

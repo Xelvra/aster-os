@@ -71,6 +71,18 @@ zig build run -Dkvm=false  # force TCG emulation
 zig build test         # host unit tests
 ```
 
+Persistent disk (M7.1): without a disk the filesystem is not mounted and the
+editor/file browser cannot open anything.
+
+```bash
+./tools/make-test-disk.sh disk.img   # 16 MiB GPT + ext2 test disk (theme.lua, README, apps/)
+zig build run -Ddisk=disk.img        # boot with the disk attached
+```
+
+In the shell: **Super+T** opens the editor on `theme.lua` (edit, **Ctrl+S**
+saves); **Super+Space** opens the launcher — type `files` and press Enter for
+the file browser, `editor` for the editor.
+
 Verification tools (see [`spec/verification.md`](spec/verification.md)):
 
 ```bash

@@ -5,6 +5,7 @@ zig-out/
 images/*.iso
 images/*.img
 images/*.bin
+/disk.img
 
 # Generated raw commit log (tools/generate-changelog.sh)
 CHANGELOG-commits.md
