@@ -279,9 +279,9 @@ binding marshallingu zelené.
       neexistuje žádná persistence; driver je samostatný bod (až pak FS). Modern
       (capability-based) transport, funguje na transitional (0x1af4:0x1001) i modern-only
       (0x1af4:0x1042) zařízení; boot log `[ OK ] storage virtio-blk`.
-- [ ] **Partition table** — **GPT** (standard), čtení; ext2/ext4 i FAT32 na disku potřebují
+- [x] **Partition table** — **GPT** (standard), čtení; ext2/ext4 i FAT32 na disku potřebují
       partition table. Nikdy vlastní formát.
-- [ ] **Perzistence: ext2 read-only** (ADR-023) — **nikdy vlastní formát**. ext2 je jen on-disk
+- [x] **Perzistence: ext2 read-only** (ADR-023) — **nikdy vlastní formát**. ext2 je jen on-disk
       reprezentace, žádná POSIX sémantika v API (výhrady v ADR-023); feature check odmítá
       nepodporované features; subset je spárován s přesnou `mke2fs -t ext2` invokací
       (ADR-014; pozor na defaultní `dir_index`). FAT32/ext4/EROFS/9P jsou budoucí backendy
@@ -292,8 +292,9 @@ binding marshallingu zelené.
       žádné pomalé čtení neběží uvnitř `update()`/`render()` — event loop nemá co blokovat.
       Plná kooperativní suspendace (deadline fronta, resume) se implementuje s tasky
       v **M7** (ADR-017 scheduler); viz `kernel-interface.md` §6.2.
-- [ ] **Auto-reload na uložení:** uložení `theme.lua`/config souboru → automatické
-      překreslení prostředí bez klávesy (spec `runtime.md` §5a spouštěč 2).
+- ~~**Auto-reload na uložení:** uložení `theme.lua`/config souboru → automatické
+      překreslení prostředí bez klávesy (spec `runtime.md` §5a spouštěč 2)~~ —
+      **přesunuto do M7.1.6** (čekalo na zápis na disk).
 - [ ] (Výhledově: ukládání, editor.)
       > **Poznámka (2026-08-08):** uložení nastavení (`theme.lua` apod.) nepůjde vyzkoušet,
       > dokud disk neumí zapisovat — ext2 je read-only, testovatelnost auto-reloadu je
@@ -416,6 +417,31 @@ se musí vyřešit **před** spuštěním dalších features, ne až na konci st
 - [ ] **Blokující synchronizační primitiva** (ADR-017): semafor, mutex, event group,
       message queue; **error handler úkolu** (`anyerror!void`).
 - [ ] Benchmark wasm vs Lua; metriky do tabulky.
+
+### M7.1 — Zápis na disk + editor (ADR-023)
+
+**Rozhodnutí (2026-08-12):** zápis do ext2 se implementuje v M7.1 (v M6 byl vědomě
+„Ne v M6", ADR-023; M6 zůstává uzavřené v rozsahu read-only). Bez zápisu nelze uložit
+konfiguraci a spustit editor. Zápis je **non-crash-safe** (žádný journal — trigger pro
+ext4 zůstává); pořadí data-před-metadaty je best-effort. Alokace bloků: direct +
+single indirect. **Rozhodnutí nemění backend politiku ADR-023** („Budoucí triggery",
+„nikdy vlastní formát") — ext2 zůstává první backend, další FS se přidávají dle
+triggerů / nových ADR.
+
+- [ ] **M7.1.1 virtio-blk write:** zápis sektoru přes virtqueue; `block.zig` `write`/`writeSector`.
+      *Exit: zápis + readback v runtime testu.*
+- [ ] **M7.1.2 ext2 alokace bloků:** scan block bitmapy, update bitmapy + group descriptoru +
+      superblocku (free counts); direct bloky + single indirect.
+      *Exit: soubor naroste za původní alokaci.*
+- [ ] **M7.1.3 ext2 writeAt + velikost:** zápis do existujících bloků, truncate, růst přes
+      alokaci; update `size`/`mtime` v inodu; data před metadaty. *Exit: runtime upraví
+      soubor na disku a přečte změnu.*
+- [ ] **M7.1.4 File API write + KI `Storage`:** `File.write`; nový KI modul `storage.*`
+      (ADR-020, append na konec enumu) + Lua bindings `file.open/read/write/close`.
+- [ ] **M7.1.5 Editor app:** Lua okno v launcheru, editace klávesnicí, uložení přes
+      `file.write`.
+- [ ] **M7.1.6 Auto-reload na uložení:** uložení `theme.lua` → okamžité překreslení
+      (`spec/runtime.md` §5a spouštěč 2).
 
 ### M8 — Stabilizace
 

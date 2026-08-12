@@ -105,8 +105,10 @@ backend-neutral interface: M6 má jeden backend, takže File API je ext2-specifi
 
 - M6.1 (rozpad v `roadmap.md`): Block Device API + virtio-blk → GPT → ext2 mount (read-only)
   → tenké Aster File API → integrace + deterministické testovací obrazy.
-- **Ne v M6:** zápis, journal, ACL, extended attributes, sparse optimalizace, POSIX
-  permissions jako bezpečnostní model, exotické ext2 feature flagy.
+- **Ne v M6:** journal, ACL, extended attributes, sparse optimalizace, POSIX
+  permissions jako bezpečnostní model, exotické ext2 feature flagy. **Zápis se
+  implementuje v M7.1** (rozhodnutí 2026-08-12, non-crash-safe, data-před-metadaty
+  best-effort; viz `roadmap.md` M7.1).
 - initfs (TAR) a persistentní FS zůstávají **oddělené backendy**.
 - Pozice backendů: **TAR** = boot/initfs, **ext2** = persistentní data, **9P** = dev
   integrace (mimo M6.1), výhledově **EROFS** = systémový image, **FAT32** = interoperability,

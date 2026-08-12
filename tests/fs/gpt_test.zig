@@ -150,13 +150,20 @@ test "type_guid_linux_fs matches the on-disk byte order" {
 }
 
 const MockDisk = struct {
-    data: []const u8,
+    data: []u8,
 
     fn read(ctx: *anyopaque, sector: u64, out: []u8) block.BlockError!void {
         const self: *MockDisk = @ptrCast(@alignCast(ctx));
         const off = @as(usize, sector) * 512;
         if (off + out.len > self.data.len) return error.OutOfBounds;
         @memcpy(out, self.data[off .. off + out.len]);
+    }
+
+    fn write(ctx: *anyopaque, sector: u64, in: []const u8) block.BlockError!void {
+        const self: *MockDisk = @ptrCast(@alignCast(ctx));
+        const off = @as(usize, sector) * 512;
+        if (off + in.len > self.data.len) return error.OutOfBounds;
+        @memcpy(self.data[off .. off + in.len], in);
     }
 };
 
@@ -176,7 +183,7 @@ test "discover finds partitions as block-device views" {
     var disk_data = buildMockDisk(3, 5);
     @memcpy(disk_data[3 * 512 .. 3 * 512 + 4], "DATA");
     var mock = MockDisk{ .data = &disk_data };
-    const dev = block.BlockDevice{ .ctx = &mock, .read_fn = MockDisk.read };
+    const dev = block.BlockDevice{ .ctx = &mock, .read_fn = MockDisk.read, .write_fn = MockDisk.write };
     var views: [4]block.PartitionView = undefined;
     const count = try gpt.discover(std.testing.allocator, dev, &views);
     try std.testing.expectEqual(@as(usize, 1), count);
@@ -191,7 +198,7 @@ test "discover finds partitions as block-device views" {
 test "discover rejects a disk without a GPT" {
     var disk_data = [_]u8{0} ** 2048;
     var mock = MockDisk{ .data = &disk_data };
-    const dev = block.BlockDevice{ .ctx = &mock, .read_fn = MockDisk.read };
+    const dev = block.BlockDevice{ .ctx = &mock, .read_fn = MockDisk.read, .write_fn = MockDisk.write };
     var views: [4]block.PartitionView = undefined;
     try std.testing.expectError(gpt.GptError.BadSignature, gpt.discover(std.testing.allocator, dev, &views));
 }
@@ -199,7 +206,7 @@ test "discover rejects a disk without a GPT" {
 test "discover reports a too-small output buffer" {
     var disk_data = buildMockDisk(3, 5);
     var mock = MockDisk{ .data = &disk_data };
-    const dev = block.BlockDevice{ .ctx = &mock, .read_fn = MockDisk.read };
+    const dev = block.BlockDevice{ .ctx = &mock, .read_fn = MockDisk.read, .write_fn = MockDisk.write };
     var views: [0]block.PartitionView = undefined;
     try std.testing.expectError(gpt.GptError.BufferTooSmall, gpt.discover(std.testing.allocator, dev, &views));
 }

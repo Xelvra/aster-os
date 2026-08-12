@@ -5,11 +5,11 @@ const page_map = @import("../mem/page_map.zig");
 const block = @import("block.zig");
 
 /// virtio-blk over the modern (capability-based) PCI transport. Only the
-/// blocks needed to read sectors are implemented: one split virtqueue, no
-/// feature negotiation beyond the bare minimum. QEMU's virtio-blk-pci is
-/// expected; the device is found by vendor/device id (0x1af4:0x1001 on q35
-/// without disable-legacy, 0x1af4:0x1042 with it — both expose the modern
-/// capability layout).
+/// blocks needed to read and write sectors are implemented: one split
+/// virtqueue, no feature negotiation beyond the bare minimum. QEMU's
+/// virtio-blk-pci is expected; the device is found by vendor/device id
+/// (0x1af4:0x1001 on q35 without disable-legacy, 0x1af4:0x1042 with it — both
+/// expose the modern capability layout).
 pub const VirtioError = error{
     NotFound,
     InitFailed,
@@ -73,6 +73,7 @@ const BlkReqHeader = extern struct {
 };
 
 const blk_req_in: u32 = 0;
+const blk_req_out: u32 = 1;
 
 /// Full memory fence for the virtio ring protocol (ring writes must be
 /// visible before the queue notification).
@@ -265,12 +266,79 @@ pub const VirtioBlk = struct {
         return .{
             .ctx = self,
             .read_fn = blockRead,
+            .write_fn = blockWrite,
         };
     }
 
     fn blockRead(ctx: *anyopaque, sector: u64, out: []u8) block.BlockError!void {
         const blk: *VirtioBlk = @ptrCast(@alignCast(ctx));
         blk.readSector(sector, out) catch return error.IoError;
+    }
+
+    fn blockWrite(ctx: *anyopaque, sector: u64, in: []const u8) block.BlockError!void {
+        const blk: *VirtioBlk = @ptrCast(@alignCast(ctx));
+        blk.writeSector(sector, in) catch return error.IoError;
+    }
+
+    /// Write one 512-byte sector from in. The data buffer handed to the device
+    /// is heap-backed (phys = virt - hhdm_offset holds, as in readSector).
+    pub fn writeSector(self: *VirtioBlk, sector: u64, in: []const u8) VirtioError!void {
+        if (in.len != 512) return error.NoSupport;
+
+        const header = try self.allocator.create(BlkReqHeader);
+        defer self.allocator.destroy(header);
+        const status_byte = try self.allocator.create(u8);
+        defer self.allocator.destroy(status_byte);
+        const data = try self.allocator.alloc(u8, 512);
+        defer self.allocator.free(data);
+
+        header.* = .{ .type = blk_req_out, .reserved = 0, .sector = sector };
+        status_byte.* = 0xFF;
+        @memcpy(data, in);
+
+        if (self.queue.next_desc + 3 > self.queue.size) {
+            self.queue.next_desc = 0;
+        }
+        const head = self.queue.next_desc;
+        const desc = self.queue.desc;
+        desc[head] = .{
+            .addr = @intFromPtr(header) - self.hhdm_offset,
+            .len = @sizeOf(BlkReqHeader),
+            .flags = desc_f_next,
+            .next = head + 1,
+        };
+        desc[head + 1] = .{
+            .addr = @intFromPtr(data.ptr) - self.hhdm_offset,
+            .len = @intCast(data.len),
+            .flags = desc_f_next,
+            .next = head + 2,
+        };
+        desc[head + 2] = .{
+            .addr = @intFromPtr(status_byte) - self.hhdm_offset,
+            .len = 1,
+            .flags = desc_f_write,
+            .next = 0xFFFF,
+        };
+        self.queue.next_desc = head + 3;
+
+        fence();
+        const avail_idx = self.queue.avail.idx;
+        self.queue.avail.ring[avail_idx % self.queue.size] = head;
+        fence();
+        self.queue.avail.idx = avail_idx + 1;
+        fence();
+
+        const notify_addr = self.notify_base + @as(u64, self.queue.notify_off) * self.notify_multiplier;
+        @as(*volatile u16, @ptrFromInt(notify_addr)).* = 0;
+
+        var spins: usize = 0;
+        while (self.queue.used.idx == self.queue.last_seen_used) : (spins += 1) {
+            if (spins > 100_000_000) return error.IoError;
+            std.atomic.spinLoopHint();
+        }
+        self.queue.last_seen_used = self.queue.used.idx;
+
+        if (status_byte.* != 0) return error.IoError;
     }
 
     /// Read one 512-byte sector into out. A heap-backed buffer is used for

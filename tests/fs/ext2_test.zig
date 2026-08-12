@@ -9,7 +9,7 @@ const buildImage = ext2_image.buildImage;
 
 fn mount(mock: *MockDisk) block.PartitionView {
     return .{
-        .disk = .{ .ctx = mock, .read_fn = MockDisk.read },
+        .disk = .{ .ctx = mock, .read_fn = MockDisk.read, .write_fn = MockDisk.write },
         .first_lba = 0,
         .last_lba = image_size / 512 - 1,
         .type_guid = undefined,
@@ -17,7 +17,7 @@ fn mount(mock: *MockDisk) block.PartitionView {
 }
 
 test "init accepts a valid ext2 image" {
-    const img = buildImage();
+    var img = buildImage();
     var mock = MockDisk{ .data = &img.data };
     const fs = try ext2.Ext2.init(mount(&mock));
     try std.testing.expectEqual(@as(usize, 1024), fs.block_size);
@@ -89,7 +89,7 @@ test "init rejects an unsupported block size" {
 }
 
 test "readInode resolves the root directory" {
-    const img = buildImage();
+    var img = buildImage();
     var mock = MockDisk{ .data = &img.data };
     const fs = try ext2.Ext2.init(mount(&mock));
     const inode = try fs.readInode(2);
@@ -141,7 +141,7 @@ test "readInode rejects an inode in a group beyond the descriptor table" {
 }
 
 test "readInode rejects inode 0 and out-of-range inodes" {
-    const img = buildImage();
+    var img = buildImage();
     var mock = MockDisk{ .data = &img.data };
     const fs = try ext2.Ext2.init(mount(&mock));
     try std.testing.expectError(ext2.Ext2Error.NotFound, fs.readInode(0));
@@ -149,7 +149,7 @@ test "readInode rejects inode 0 and out-of-range inodes" {
 }
 
 test "readDir walks the root directory" {
-    const img = buildImage();
+    var img = buildImage();
     var mock = MockDisk{ .data = &img.data };
     const fs = try ext2.Ext2.init(mount(&mock));
     var out: [8]ext2.DirEntry = undefined;
@@ -165,7 +165,7 @@ test "readDir walks the root directory" {
 }
 
 test "readDir walks a subdirectory" {
-    const img = buildImage();
+    var img = buildImage();
     var mock = MockDisk{ .data = &img.data };
     const fs = try ext2.Ext2.init(mount(&mock));
     var out: [8]ext2.DirEntry = undefined;
@@ -175,7 +175,7 @@ test "readDir walks a subdirectory" {
 }
 
 test "readDir rejects a regular file inode" {
-    const img = buildImage();
+    var img = buildImage();
     var mock = MockDisk{ .data = &img.data };
     const fs = try ext2.Ext2.init(mount(&mock));
     var out: [8]ext2.DirEntry = undefined;
@@ -183,7 +183,7 @@ test "readDir rejects a regular file inode" {
 }
 
 test "readDir reports a too-small output buffer" {
-    const img = buildImage();
+    var img = buildImage();
     var mock = MockDisk{ .data = &img.data };
     const fs = try ext2.Ext2.init(mount(&mock));
     var out: [1]ext2.DirEntry = undefined;
@@ -191,7 +191,7 @@ test "readDir reports a too-small output buffer" {
 }
 
 test "readFile reads a regular file" {
-    const img = buildImage();
+    var img = buildImage();
     var mock = MockDisk{ .data = &img.data };
     const fs = try ext2.Ext2.init(mount(&mock));
     var out: [64]u8 = undefined;
@@ -213,7 +213,7 @@ test "readFile reads through the single-indirect block" {
 }
 
 test "readFile rejects a directory inode" {
-    const img = buildImage();
+    var img = buildImage();
     var mock = MockDisk{ .data = &img.data };
     const fs = try ext2.Ext2.init(mount(&mock));
     var out: [64]u8 = undefined;
@@ -221,7 +221,7 @@ test "readFile rejects a directory inode" {
 }
 
 test "find resolves absolute paths" {
-    const img = buildImage();
+    var img = buildImage();
     var mock = MockDisk{ .data = &img.data };
     const fs = try ext2.Ext2.init(mount(&mock));
     try std.testing.expectEqual(@as(u32, 3), try fs.find("/hello.txt"));

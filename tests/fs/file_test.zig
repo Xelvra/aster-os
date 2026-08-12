@@ -10,7 +10,7 @@ const buildImage = ext2_image.buildImage;
 
 fn mount(mock: *MockDisk) block.PartitionView {
     return .{
-        .disk = .{ .ctx = mock, .read_fn = MockDisk.read },
+        .disk = .{ .ctx = mock, .read_fn = MockDisk.read, .write_fn = MockDisk.write },
         .first_lba = 0,
         .last_lba = image_size / 512 - 1,
         .type_guid = undefined,
@@ -18,7 +18,7 @@ fn mount(mock: *MockDisk) block.PartitionView {
 }
 
 test "open reads a whole file" {
-    const img = buildImage();
+    var img = buildImage();
     var mock = MockDisk{ .data = &img.data };
     const fs = try ext2.Ext2.init(mount(&mock));
     var f = try file.File.open(&fs, "/hello.txt");
@@ -33,7 +33,7 @@ test "open reads a whole file" {
 }
 
 test "open reads in chunks across the offset" {
-    const img = buildImage();
+    var img = buildImage();
     var mock = MockDisk{ .data = &img.data };
     const fs = try ext2.Ext2.init(mount(&mock));
     var f = try file.File.open(&fs, "/hello.txt");
@@ -49,7 +49,7 @@ test "open reads in chunks across the offset" {
 }
 
 test "open resolves nested paths" {
-    const img = buildImage();
+    var img = buildImage();
     var mock = MockDisk{ .data = &img.data };
     const fs = try ext2.Ext2.init(mount(&mock));
     var f = try file.File.open(&fs, "/sub/inner.txt");
@@ -60,7 +60,7 @@ test "open resolves nested paths" {
 }
 
 test "open rejects a directory and a missing file" {
-    const img = buildImage();
+    var img = buildImage();
     var mock = MockDisk{ .data = &img.data };
     const fs = try ext2.Ext2.init(mount(&mock));
     try std.testing.expectError(ext2.Ext2Error.NotAFile, file.File.open(&fs, "/"));

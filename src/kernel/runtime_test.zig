@@ -511,6 +511,24 @@ fn testFilesystem(alloc: std.mem.Allocator, memory: *mem.Memory) void {
     } else |_| {
         expect(true, "open invalid path fails");
     }
+
+    // M7.1.1: sector write + readback through the block-device interface.
+    // The last partition sector lies past the small ext2 image (the test disk
+    // is mostly free space), so the write only touches unused capacity.
+    const last = part.last_lba - part.first_lba;
+    var wbuf: [512]u8 = undefined;
+    @memset(&wbuf, 0xA5);
+    part.writeSector(last, &wbuf) catch {
+        expect(false, "block write succeeds");
+        return;
+    };
+    expect(true, "block write succeeds");
+    var rbuf: [512]u8 = undefined;
+    part.readSector(last, &rbuf) catch {
+        expect(false, "block readback after write");
+        return;
+    };
+    expect(std.mem.eql(u8, &wbuf, &rbuf), "block readback matches written data");
 }
 
 pub fn runAll(alloc: std.mem.Allocator, memory: *mem.Memory) noreturn {
