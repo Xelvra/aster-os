@@ -87,7 +87,7 @@ pub fn build(b: *std.Build) void {
 
     // The shell modules, concatenated by the kernel in this order (the kernel
     // keeps the same list in lua.zig — keep them in sync).
-    const shell_files = [_][]const u8{ "theme.lua", "wm.lua", "repl.lua", "launcher.lua", "input.lua", "main.lua" };
+    const shell_files = [_][]const u8{ "theme.lua", "wm.lua", "repl.lua", "editor.lua", "files.lua", "launcher.lua", "input.lua", "main.lua" };
 
     // initfs: the shell modules and assets are packed into a tar archive that
     // Limine loads as a module (initrd); the kernel reads them at runtime

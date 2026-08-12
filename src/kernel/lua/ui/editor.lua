@@ -1,0 +1,79 @@
+-- editor.lua - minimal in-memory file editor inside a shell window (M7.1.5).
+-- Loads a file through the file.* bindings, edits it with the keyboard and
+-- saves on ctrl+s. State is kept as globals so an F5 reload does not lose
+-- the buffer.
+
+ed_path = ed_path or "/theme.lua"
+ed_lines = ed_lines or { "" }
+ed_row = ed_row or 1
+ed_col = ed_col or 0
+ed_dirty = ed_dirty or false
+ed_open = ed_open or false
+ed_glyph_w = 8
+ed_row_h = 18
+
+function editor_load(path)
+    ed_path = path
+    ed_open = true
+    ed_row = 1
+    ed_col = 0
+    ed_dirty = false
+    local h = file.open(path)
+    if not h then
+        ed_lines = { "file.open failed: " .. path }
+        gfx.invalidate()
+        return
+    end
+    -- Read the whole file (loop until EOF: file.read returns "" at EOF).
+    local content = ""
+    while true do
+        local chunk = file.read(h, 4096)
+        if not chunk or chunk == "" then break end
+        content = content .. chunk
+    end
+    file.close(h)
+    -- Split into lines; a trailing newline must not add an empty line.
+    local body = content
+    if body:sub(-1) == "\n" then body = body:sub(1, -2) end
+    local t = {}
+    for line in (body .. "\n"):gmatch("(.-)\n") do
+        t[#t + 1] = line
+    end
+    if #t == 0 then t = { "" } end
+    ed_lines = t
+    gfx.invalidate()
+end
+
+function editor_save()
+    local h = file.open(ed_path)
+    if not h then return end
+    file.truncate(h, 0)
+    file.write(h, table.concat(ed_lines, "\n"))
+    file.close(h)
+    ed_dirty = false
+    gfx.invalidate()
+end
+
+local function editor_render()
+    if not ed_open then return end
+    local w = find_win("editor")
+    if not w or w.ws ~= current_ws then return end
+    local tx = w.x + theme.wm.border + 6
+    local ty = w.y + theme.wm.border + theme.wm.title_h + 6
+    -- Status line: path + dirty marker + save hint.
+    local status = ed_path .. (ed_dirty and " *" or "") .. "  ctrl+s save"
+    gfx.draw_text(status, tx, ty, theme.text_dim)
+    ty = ty + ed_row_h
+    local content_rows = math.floor((w.h - theme.wm.title_h - 12) / ed_row_h) - 1
+    if content_rows < 1 then content_rows = 1 end
+    -- Scroll so the cursor row is always visible.
+    local first = 1
+    if ed_row > content_rows then first = ed_row - content_rows + 1 end
+    for i = first, math.min(#ed_lines, first + content_rows - 1) do
+        gfx.draw_text(ed_lines[i], tx, ty, theme.text)
+        if i == ed_row then
+            gfx.draw_rect(tx + ed_col * ed_glyph_w, ty, ed_glyph_w, 16, theme.accent)
+        end
+        ty = ty + ed_row_h
+    end
+end

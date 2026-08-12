@@ -27,6 +27,10 @@ function render()
                 repl_render()
             elseif fs.title == "sysmon" then
                 sysmon_render()
+            elseif fs.title == "editor" then
+                editor_render()
+            elseif fs.title == "files" then
+                files_render()
             end
             return
         else
@@ -46,5 +50,7 @@ function render()
     for _, w in ipairs(floating) do win_render(w) end
     if repl_visible then repl_render() end
     sysmon_render()
+    editor_render()
+    files_render()
     if launcher_open then launcher_render() end
 end

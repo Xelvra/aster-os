@@ -5,6 +5,7 @@
 local apps = {
     { title = "repl",        id = "repl" },
     { title = "sysmon",      id = "sysmon" },
+    { title = "editor",      id = "editor" },
     { title = "files",       id = "files" },
     { title = "toggle fullscreen", id = "fullscreen" },
     { title = "close",       id = "close" },
@@ -79,7 +80,17 @@ local function launcher_run(id)
         else
             w.ws = current_ws
         end
+        if not fs_open then files_open("/") end
         set_focus("files")
+    elseif id == "editor" then
+        local w = find_win("editor")
+        if not w then
+            windows[#windows + 1] = window("editor", current_ws)
+        else
+            w.ws = current_ws
+        end
+        if not ed_open then editor_load(ed_path) end
+        set_focus("editor")
     elseif id == "fullscreen" then
         if fullscreen_win == focused then
             fullscreen_win = nil

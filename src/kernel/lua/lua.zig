@@ -112,7 +112,7 @@ fn openDbg(L: ?*lua_c.lua_State) callconv(.c) c_int {
 /// dependency order (theme first, entry point last). Keeping it one chunk
 /// means `local` state is shared across the whole shell, and there is no
 /// `require`/filesystem dependency in the kernel.
-const shell_files = [_][]const u8{ "theme.lua", "wm.lua", "repl.lua", "launcher.lua", "input.lua", "main.lua" };
+const shell_files = [_][]const u8{ "theme.lua", "wm.lua", "repl.lua", "editor.lua", "files.lua", "launcher.lua", "input.lua", "main.lua" };
 
 /// Concatenate the shell modules read from the initrd tar into a fresh heap
 /// buffer. The caller frees it after loading.

@@ -1,3 +1,4 @@
+const std = @import("std");
 const sys = @import("sys.zig");
 const file = @import("../fs/file.zig");
 const ext2 = @import("../fs/ext2.zig");
@@ -18,6 +19,7 @@ pub const StorageOp = enum(u64) {
     write = 2,
     close = 3,
     truncate = 4,
+    list = 5,
 };
 
 pub const ReadArgs = extern struct {
@@ -30,6 +32,16 @@ pub const WriteArgs = extern struct {
     handle: u64,
     data: u64,
     len: u64,
+};
+
+/// Directory listing request. Entries are packed into `out` as repeated
+/// `[name_len u8][is_dir u8][name bytes]` records (`.`/`..` skipped); the
+/// result value is the number of bytes written.
+pub const ListArgs = extern struct {
+    path: u64,
+    path_len: u64,
+    out: u64,
+    out_cap: u64,
 };
 
 /// Backing disk; only meaningful after a successful boot-time probe.
@@ -119,6 +131,28 @@ pub fn dispatch(args: sys.SyscallArgs) u64 {
             const f: *file.File = &slot.*.?;
             f.truncate(@as(usize, @intCast(args.c))) catch |err| return fail(errToStatus(err));
             return ok(0);
+        },
+        .list => {
+            const la: *const ListArgs = @ptrFromInt(@as(usize, @intCast(args.b)));
+            const path_ptr: [*]const u8 = @ptrFromInt(@as(usize, @intCast(la.path)));
+            const path = path_ptr[0..@as(usize, @intCast(la.path_len))];
+            const ino = fs_ptr.find(path) catch |err| return fail(errToStatus(err));
+            var entries: [32]ext2.DirEntry = undefined;
+            const count = fs_ptr.readDir(ino, &entries) catch |err| return fail(errToStatus(err));
+            const out: [*]u8 = @ptrFromInt(@as(usize, @intCast(la.out)));
+            const out_cap: usize = @intCast(la.out_cap);
+            var written: usize = 0;
+            for (entries[0..count]) |e| {
+                const name = e.name[0..e.name_len];
+                if (std.mem.eql(u8, name, ".") or std.mem.eql(u8, name, "..")) continue;
+                const needed = 2 + name.len;
+                if (written + needed > out_cap) break;
+                out[written] = @intCast(name.len);
+                out[written + 1] = if (e.file_type == 2) 1 else 0;
+                @memcpy(out[written + 2 .. written + needed], name);
+                written += needed;
+            }
+            return ok(@intCast(written));
         },
     }
 }

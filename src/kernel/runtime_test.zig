@@ -668,6 +668,81 @@ fn testFileBindings() void {
     _ = L.lua_pop(lua_state, 1);
 }
 
+fn testEditorApp() void {
+    // M7.1.5: the editor loads a file through file.*, saves it back and the
+    // round trip matches the buffer. Skipped when no disk is attached.
+    const lua = @import("lua/lua.zig");
+    const storage = @import("api/storage.zig");
+    if (!storage.isMounted()) {
+        expect(true, "editor app test skipped (no disk attached)");
+        return;
+    }
+    const L = @import("lua/cimport.zig").c;
+    const lua_state = lua.getState() orelse {
+        expect(false, "lua state exists");
+        return;
+    };
+    const script =
+        \\editor_load("/theme.lua")
+        \\local before = table.concat(ed_lines, "\n")
+        \\editor_save()
+        \\local h = file.open("/theme.lua")
+        \\local after = file.read(h, 4096) or ""
+        \\file.close(h)
+        \\return (before == after) and #before
+    ;
+    const load_status = L.luaL_loadstring(lua_state, script);
+    expect(load_status == L.LUA_OK, "editor script compiles");
+    if (load_status != L.LUA_OK) return;
+    const run_status = L.lua_pcallk(lua_state, 0, 1, 0, 0, null);
+    expect(run_status == L.LUA_OK, "editor script runs");
+    if (run_status != L.LUA_OK) {
+        L.lua_pop(lua_state, 1);
+        return;
+    }
+    const ok = L.lua_toboolean(lua_state, -1) == 1;
+    expect(ok, "editor loads, saves and round-trips a file");
+    _ = L.lua_pop(lua_state, 1);
+}
+
+fn testFileDir() void {
+    // M7.1.5: file.dir lists a directory as { name, dir } entries.
+    const lua = @import("lua/lua.zig");
+    const storage = @import("api/storage.zig");
+    if (!storage.isMounted()) {
+        expect(true, "file.dir test skipped (no disk attached)");
+        return;
+    }
+    const L = @import("lua/cimport.zig").c;
+    const lua_state = lua.getState() orelse {
+        expect(false, "lua state exists");
+        return;
+    };
+    const script =
+        \\local entries = file.dir("/")
+        \\if not entries then return nil end
+        \\local found = 0
+        \\local has_dir = false
+        \\for _, e in ipairs(entries) do
+        \\    if e.name == "theme.lua" and not e.dir then found = found + 1 end
+        \\    if e.name == "apps" and e.dir then has_dir = true end
+        \\end
+        \\return found == 1 and has_dir
+    ;
+    const load_status = L.luaL_loadstring(lua_state, script);
+    expect(load_status == L.LUA_OK, "file.dir script compiles");
+    if (load_status != L.LUA_OK) return;
+    const run_status = L.lua_pcallk(lua_state, 0, 1, 0, 0, null);
+    expect(run_status == L.LUA_OK, "file.dir script runs");
+    if (run_status != L.LUA_OK) {
+        L.lua_pop(lua_state, 1);
+        return;
+    }
+    const ok = L.lua_toboolean(lua_state, -1) == 1;
+    expect(ok, "file.dir lists files and directories");
+    _ = L.lua_pop(lua_state, 1);
+}
+
 pub fn runAll(alloc: std.mem.Allocator, memory: *mem.Memory) noreturn {
     if (!comptime enabled) @compileError("runtime tests are not enabled");
     serial.writeLine("RUNTIME TESTS START");
@@ -680,6 +755,10 @@ pub fn runAll(alloc: std.mem.Allocator, memory: *mem.Memory) noreturn {
     testStorageKi();
     serial.writeLine("lua file bindings (M7.1.4)");
     testFileBindings();
+    serial.writeLine("editor app (M7.1.5)");
+    testEditorApp();
+    serial.writeLine("file.dir listing (M7.1.5)");
+    testFileDir();
     if (failures == 0) {
         serial.writeLine("RUNTIME TESTS PASS");
         exitQemu(exit_pass);

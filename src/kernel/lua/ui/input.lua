@@ -156,6 +156,16 @@ local function handle_key(ev)
             end
             repl_visible = true
             set_focus("repl")
+        elseif code == "t" then
+            -- Editor (spec/lua-wm.md: Super+T -> editor).
+            local w = find_win("editor")
+            if not w then
+                windows[#windows + 1] = window("editor", current_ws)
+            else
+                w.ws = current_ws
+            end
+            if not ed_open then editor_load(ed_path) end
+            set_focus("editor")
         elseif code == "q" then
             if find_win(focused) then
                 for i, w in ipairs(windows) do
@@ -330,6 +340,91 @@ local function handle_key(ev)
         elseif ev.char then
             current = string.sub(current, 1, cursor) .. ev.char .. string.sub(current, cursor + 1)
             cursor = cursor + #ev.char
+        end
+        gfx.invalidate()
+    end
+
+    -- Editor input goes to the focused window when it is the editor.
+    if focused == "editor" and find_win("editor") then
+        if ev.ctrl and code == "s" then
+            editor_save()
+        elseif code == "enter" then
+            local line = ed_lines[ed_row]
+            ed_lines[ed_row] = string.sub(line, 1, ed_col)
+            table.insert(ed_lines, ed_row + 1, string.sub(line, ed_col + 1))
+            ed_row = ed_row + 1
+            ed_col = 0
+            ed_dirty = true
+        elseif code == "backspace" then
+            if ed_col > 0 then
+                local s = prev_cp(ed_lines[ed_row], ed_col)
+                ed_lines[ed_row] = string.sub(ed_lines[ed_row], 1, s) .. string.sub(ed_lines[ed_row], ed_col + 1)
+                ed_col = s
+            elseif ed_row > 1 then
+                local prev = ed_lines[ed_row - 1]
+                ed_col = #prev
+                ed_lines[ed_row - 1] = prev .. ed_lines[ed_row]
+                table.remove(ed_lines, ed_row)
+                ed_row = ed_row - 1
+            end
+            ed_dirty = true
+        elseif code == "left" then
+            ed_col = prev_cp(ed_lines[ed_row], ed_col)
+        elseif code == "right" then
+            ed_col = next_cp(ed_lines[ed_row], ed_col)
+        elseif code == "up" then
+            if ed_row > 1 then
+                ed_row = ed_row - 1
+                ed_col = math.min(ed_col, #ed_lines[ed_row])
+            end
+        elseif code == "down" then
+            if ed_row < #ed_lines then
+                ed_row = ed_row + 1
+                ed_col = math.min(ed_col, #ed_lines[ed_row])
+            end
+        elseif code == "home" then
+            ed_col = 0
+        elseif code == "end" then
+            ed_col = #ed_lines[ed_row]
+        elseif code == "delete" then
+            if ed_col < #ed_lines[ed_row] then
+                local after = next_cp(ed_lines[ed_row], ed_col)
+                ed_lines[ed_row] = string.sub(ed_lines[ed_row], 1, ed_col) .. string.sub(ed_lines[ed_row], after + 1)
+            elseif ed_row < #ed_lines then
+                ed_lines[ed_row] = ed_lines[ed_row] .. ed_lines[ed_row + 1]
+                table.remove(ed_lines, ed_row + 1)
+            end
+            ed_dirty = true
+        elseif ev.char then
+            local line = ed_lines[ed_row]
+            ed_lines[ed_row] = string.sub(line, 1, ed_col) .. ev.char .. string.sub(line, ed_col + 1)
+            ed_col = ed_col + #ev.char
+            ed_dirty = true
+        end
+        gfx.invalidate()
+    end
+
+    -- File browser input goes to the focused window when it is the files.
+    if focused == "files" and find_win("files") then
+        if fs_viewing then
+            if code == "escape" then files_back() end
+        else
+            if code == "up" then
+                fs_sel = math.max(fs_sel - 1, 1)
+            elseif code == "down" then
+                fs_sel = math.min(fs_sel + 1, math.max(#fs_entries, 1))
+            elseif code == "enter" then
+                local e = fs_entries[fs_sel]
+                if e then
+                    if e.dir then
+                        files_open(fs_path .. e.name)
+                    else
+                        files_view(e.name)
+                    end
+                end
+            elseif code == "escape" then
+                files_back()
+            end
         end
         gfx.invalidate()
     end

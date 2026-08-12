@@ -357,6 +357,7 @@ const FileFuncs = [_]lua_c.luaL_Reg{
     .{ .name = "write", .func = fileWrite },
     .{ .name = "close", .func = fileClose },
     .{ .name = "truncate", .func = fileTruncate },
+    .{ .name = "dir", .func = fileDir },
     .{ .name = null, .func = null },
 };
 
@@ -448,6 +449,44 @@ fn fileTruncate(L: ?*lua_c.lua_State) callconv(.c) c_int {
     }
     pushError(L, "file.truncate failed", .{});
     return 2;
+}
+
+fn fileDir(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    const path = checkString(L, 1, "path") orelse return 2;
+    var buf: [1024]u8 = undefined;
+    const la = api_storage.ListArgs{
+        .path = @intFromPtr(path.ptr),
+        .path_len = path.len,
+        .out = @intFromPtr(&buf),
+        .out_cap = buf.len,
+    };
+    const result = sys.dispatch(.Storage, .{
+        .a = @intFromEnum(api_storage.StorageOp.list),
+        .b = @intFromPtr(&la),
+    });
+    if (!storageResultOk(result)) {
+        pushError(L, "file.dir failed", .{});
+        return 2;
+    }
+    const n: usize = @intCast(result & 0xFFFFFFFF);
+    _ = lua_c.lua_createtable(L, 0, 0);
+    var off: usize = 0;
+    var idx: c_int = 1;
+    while (off + 2 <= n) {
+        const name_len: usize = buf[off];
+        const is_dir: bool = buf[off + 1] == 1;
+        if (off + 2 + name_len > n) break;
+        _ = lua_c.lua_createtable(L, 0, 2);
+        const name_ptr: [*c]const u8 = @ptrCast(&buf[off + 2]);
+        _ = lua_c.lua_pushlstring(L, name_ptr, name_len);
+        lua_c.lua_setfield(L, -2, "name");
+        lua_c.lua_pushboolean(L, if (is_dir) 1 else 0);
+        lua_c.lua_setfield(L, -2, "dir");
+        lua_c.lua_rawseti(L, -2, idx);
+        idx += 1;
+        off += 2 + name_len;
+    }
+    return 1;
 }
 
 fn sysmonRamTotalMb(L: ?*lua_c.lua_State) callconv(.c) c_int {
