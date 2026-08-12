@@ -97,6 +97,49 @@ test "readInode resolves the root directory" {
     try std.testing.expectEqual(@as(u32, 6), inode.block[0]);
 }
 
+test "init rejects inodes_per_group of zero" {
+    var img = buildImage();
+    ext2_image.writeU32(&img.data, 1024 + 40, 0);
+    var mock = MockDisk{ .data = &img.data };
+    try std.testing.expectError(ext2.Ext2Error.CorruptSuperblock, ext2.Ext2.init(mount(&mock)));
+}
+
+test "init rejects blocks_per_group of zero" {
+    var img = buildImage();
+    ext2_image.writeU32(&img.data, 1024 + 32, 0);
+    var mock = MockDisk{ .data = &img.data };
+    try std.testing.expectError(ext2.Ext2Error.CorruptSuperblock, ext2.Ext2.init(mount(&mock)));
+}
+
+test "groupDescriptor resolves a group beyond the first GDT block" {
+    var img = buildImage();
+    // Endow the superblock with enough inodes/groups to overflow one GDT
+    // block: block_size 1024 / 32 B descriptor = 32 groups per block.
+    ext2_image.writeU32(&img.data, 1024 + 0, 270); // inodes_count
+    ext2_image.writeU32(&img.data, 1024 + 4, 300); // blocks_count
+    // Group 32's descriptor lives in the second GDT block (block 3): inode
+    // table on block 20. The inode for index 256 lands at its start.
+    const gdt2 = img.data[3 * 1024 .. 3 * 1024 + 32];
+    ext2_image.writeU32(gdt2, 0, 18); // block_bitmap
+    ext2_image.writeU32(gdt2, 4, 19); // inode_bitmap
+    ext2_image.writeU32(gdt2, 8, 20); // inode_table
+    ext2_image.writeU16(&img.data, 20 * 1024, ext2.inode_type_reg);
+    var mock = MockDisk{ .data = &img.data };
+    const fs = try ext2.Ext2.init(mount(&mock));
+    const inode = try fs.readInode(257);
+    try std.testing.expectEqual(ext2.inode_type_reg, inode.mode & ext2.inode_type_reg);
+}
+
+test "readInode rejects an inode in a group beyond the descriptor table" {
+    var img = buildImage();
+    // 64 blocks / 8 blocks per group = 8 groups; inode 65 lives in group 8,
+    // one past the table.
+    ext2_image.writeU32(&img.data, 1024 + 0, 100); // inodes_count
+    var mock = MockDisk{ .data = &img.data };
+    const fs = try ext2.Ext2.init(mount(&mock));
+    try std.testing.expectError(ext2.Ext2Error.CorruptSuperblock, fs.readInode(65));
+}
+
 test "readInode rejects inode 0 and out-of-range inodes" {
     const img = buildImage();
     var mock = MockDisk{ .data = &img.data };

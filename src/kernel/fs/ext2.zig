@@ -5,6 +5,7 @@ const block = @import("../drivers/block.zig");
 pub const Ext2Error = error{
     BadMagic,
     BadBlockSize,
+    CorruptSuperblock,
     BadInodeSize,
     UnsupportedFeatures,
     OutOfBounds,
@@ -95,6 +96,9 @@ pub const Ext2 = struct {
         if (inode_size < 128) return Ext2Error.BadInodeSize;
         const log_block_size = bytes.readU32(&sb, 24);
         if (log_block_size > 2) return Ext2Error.BadBlockSize;
+        const blocks_per_group = bytes.readU32(&sb, 32);
+        const inodes_per_group = bytes.readU32(&sb, 40);
+        if (blocks_per_group == 0 or inodes_per_group == 0) return Ext2Error.CorruptSuperblock;
         const feature_compat = bytes.readU32(&sb, 92);
         const feature_incompat = bytes.readU32(&sb, 96);
         const feature_ro_compat = bytes.readU32(&sb, 100);
@@ -108,8 +112,8 @@ pub const Ext2 = struct {
                 .blocks_count = bytes.readU32(&sb, 4),
                 .first_data_block = bytes.readU32(&sb, 20),
                 .log_block_size = log_block_size,
-                .blocks_per_group = bytes.readU32(&sb, 32),
-                .inodes_per_group = bytes.readU32(&sb, 40),
+                .blocks_per_group = blocks_per_group,
+                .inodes_per_group = inodes_per_group,
                 .first_ino = bytes.readU32(&sb, 84),
                 .inode_size = inode_size,
                 .feature_compat = feature_compat,
@@ -123,6 +127,7 @@ pub const Ext2 = struct {
     /// Look up inode `ino` via its block group descriptor table.
     pub fn readInode(self: Ext2, ino: u32) Ext2Error!Inode {
         if (ino == 0 or ino > self.super.inodes_count) return Ext2Error.NotFound;
+        if (self.super.inodes_per_group == 0) return Ext2Error.CorruptSuperblock;
         const index = ino - 1;
         const group = index / self.super.inodes_per_group;
         const index_in_group = index % self.super.inodes_per_group;
@@ -243,10 +248,19 @@ pub const Ext2 = struct {
     }
 
     fn groupDescriptor(self: Ext2, group: usize) Ext2Error!BlockGroup {
-        const gdt_block: u32 = @intCast(superblock_offset / self.block_size + 1);
+        if (self.super.blocks_per_group == 0) return Ext2Error.CorruptSuperblock;
+        if (self.super.blocks_count < self.super.first_data_block) return Ext2Error.CorruptSuperblock;
+        const groups_count = (self.super.blocks_count - self.super.first_data_block + self.super.blocks_per_group - 1) / self.super.blocks_per_group;
+        if (group >= groups_count) return Ext2Error.CorruptSuperblock;
+
+        // The group descriptor table can span several blocks (one 32-byte
+        // descriptor per group). The group's descriptor lives in the table
+        // block that contains its index, at the remainder offset within it.
+        const groups_per_block: usize = self.block_size / 32;
+        const gdt_block: u32 = @intCast(superblock_offset / self.block_size + 1 + group / groups_per_block);
+        const off: usize = (group % groups_per_block) * 32;
         var block_buf: [4096]u8 = undefined;
         try self.readBlock(gdt_block, block_buf[0..self.block_size]);
-        const off = group * 32;
         if (off + 32 > self.block_size) return Ext2Error.OutOfBounds;
         const desc = block_buf[off .. off + 32];
         const inode_table = bytes.readU32(desc, 8);
