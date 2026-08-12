@@ -10,7 +10,7 @@ const apic_timer_initial: u32 = 0x380;
 const apic_eoi: u32 = 0xB0;
 const apic_svr: u32 = 0xF0;
 
-const ioapic_phys: u64 = 0xFEC00000;
+const ioapic_default_phys: u64 = 0xFEC00000;
 const ioapic_regsel: u32 = 0x00;
 const ioapic_win: u32 = 0x10;
 const ioapic_redtbl: u32 = 0x10;
@@ -26,12 +26,13 @@ const spurious_vector: u8 = 0xFF;
 var apic_base: u64 = 0;
 var ioapic_base: u64 = 0;
 
-pub fn init(hhdm_offset: u64) void {
+pub fn init(hhdm_offset: u64, ioapic_override: ?u64) void {
     const msr = io.readMsr(ia32_apic_base_msr);
     const apic_phys = msr & 0xFFFFF000;
     apic_base = apic_phys + hhdm_offset;
 
     page_map.mapPage(apic_base, apic_phys, 0x1A);
+    const ioapic_phys = ioapic_override orelse ioapic_default_phys;
     ioapic_base = ioapic_phys + hhdm_offset;
     page_map.mapPage(ioapic_base, ioapic_phys, 0x1A);
 

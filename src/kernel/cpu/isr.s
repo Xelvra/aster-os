@@ -92,6 +92,21 @@ isr_common:
   movdqu %xmm14, 0xe0(%rsp)
   movdqu %xmm15, 0xf0(%rsp)
   callq handle_isr
+  /* Preemptive task switch — timer vector only (see sched/task.zig). The
+     vector field of InterruptFrame sits at 0x178(%rsp): frame start is
+     0x100 below %rsp, the vector field is at offset 120 (0x78). Other
+     vectors skip the switch entirely, preserving the C35 invariant (full
+     XMM/GPR save+restore) for all of them. */
+  cmpq $0x20, 0x178(%rsp)
+  jne 1f
+  callq sched_switch
+1:
+  /* Restore sequence. Every task's saved stack pointer points at a copy of
+     this label's address — preempted tasks: pushed by `callq sched_switch`;
+     new tasks: assembled by buildFakeFrame — so the `ret` in sched_switch
+     lands here no matter which task is resumed. */
+  .globl sched_restore
+sched_restore:
   movdqu 0xf0(%rsp), %xmm15
   movdqu 0xe0(%rsp), %xmm14
   movdqu 0xd0(%rsp), %xmm13
@@ -126,3 +141,21 @@ isr_common:
   popq %rax
   addq $16, %rsp
   iretq
+
+  /* Task switch bridge (brief Task 7.2). On entry %rsp points at the return
+     address of the `callq sched_switch` (the sched_restore label) — that is
+     the current task's saved_sp. Ask the Zig scheduler for the next task and
+     switch: interrupts are already masked here (interrupt gate, IF=0) and the
+     `cli` keeps them masked as the last instruction before the switch; the
+     final `ret` reads the restore-sequence address off the NEW task's stack.
+     Save `current_rsp` BEFORE aligning: %rsp itself is the argument and must
+     still point at the return-address slot. sched_pick_next is normal Zig
+     code and requires the SysV stack alignment (16 bytes). */
+  .globl sched_switch
+sched_switch:
+  movq %rsp, %rdi
+  andq $-16, %rsp
+  callq sched_pick_next
+  cli
+  movq %rax, %rsp
+  ret

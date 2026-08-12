@@ -154,6 +154,8 @@ pub const InterruptFrame = struct {
     rip: u64,
     cs: u64,
     rflags: u64,
+    rsp: u64,
+    ss: u64,
 };
 
 fn read_cr2() u64 {

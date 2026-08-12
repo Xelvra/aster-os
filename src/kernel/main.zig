@@ -6,6 +6,7 @@ const mem = @import("mem/mem.zig");
 const pfa = @import("mem/pfa.zig");
 const cache_attr = @import("mem/cache_attr.zig");
 const idt = @import("cpu/idt.zig");
+const sched = @import("sched/task.zig");
 const pic = @import("drivers/pic.zig");
 const apic = @import("cpu/apic.zig");
 const page_map = @import("mem/page_map.zig");
@@ -136,6 +137,7 @@ fn kernelMain() !void {
     idt.init();
     pic.remap();
     bootlog.ok("interrupts", "idt · pic");
+    sched.init();
 
     var memory = try mem.Memory.init(&info);
     const sysmon = @import("api/sysmon.zig");
@@ -148,14 +150,20 @@ fn kernelMain() !void {
     if (test_buf[0] != 0xAB or test_buf[63] != 0xAB) return error.HeapTestFailed;
 
     page_map.init(&memory.pfa, info.hhdm_offset);
-    apic.init(info.hhdm_offset);
-    bootlog.ok("cpu", "page tables · apic timer");
+    const acpi = @import("cpu/acpi.zig");
+    const ioapic_override = if (info.rsdp_address) |addr| acpi.findIoApic(addr, info.hhdm_offset) else null;
+    apic.init(info.hhdm_offset, ioapic_override);
+    bootlog.ok("cpu", if (ioapic_override != null)
+        "page tables · apic timer"
+    else
+        "page tables · apic timer (ioapic: fallback)");
 
     ps2.init();
     bootlog.ok("input", "ps/2 keyboard + mouse");
     probeStorage(alloc, &memory);
 
-    if (initGraphics(&info, &memory)) {
+    var display: DisplayState = .{};
+    if (initGraphics(&display, &info, &memory)) {
         var gfx_buf: [96]u8 = undefined;
         bootlog.ok("graphics", graphicsDetail(&info, &gfx_buf));
         bootlog.ok("renderer", "primitives + bitmap font");
@@ -193,17 +201,25 @@ fn kernelMain() !void {
     if (comptime runtime_test.enabled) {
         runtime_test.runAll(alloc, &memory);
     }
-    eventLoop();
+    eventLoop(&display);
 }
 
-var fb_storage: ?framebuffer.Framebuffer = null;
-var back_fb: ?framebuffer.Framebuffer = null;
-var renderer: renderer_mod.Renderer = undefined;
-var mouse_cursor: mouse_cursor_mod.MouseCursor = .{};
+/// Display pipeline state: the two framebuffers, the renderer, the cursor
+/// overlay and the frame-loop dirty tracking. One instance is owned by
+/// kernelMain and threaded through the frame loop by pointer — this is the
+/// explicit-passing pattern of spec/code-style.md §1, not module globals.
+const DisplayState = struct {
+    fb_storage: ?framebuffer.Framebuffer = null,
+    back_fb: ?framebuffer.Framebuffer = null,
+    renderer: renderer_mod.Renderer = undefined,
+    mouse_cursor: mouse_cursor_mod.MouseCursor = .{},
+    needs_render: bool = true,
+    first_frame_reported: bool = false,
+};
 
-fn initGraphics(info: *const boot_info.BootInfo, memory: *mem.Memory) bool {
+fn initGraphics(display: *DisplayState, info: *const boot_info.BootInfo, memory: *mem.Memory) bool {
     const fb_info = info.framebuffer orelse return false;
-    fb_storage = framebuffer.Framebuffer.init(fb_info);
+    display.fb_storage = framebuffer.Framebuffer.init(fb_info);
 
     // Phase 2 double buffering: render into an offscreen back buffer and
     // present it to the visible framebuffer in one copy, so the viewer never
@@ -213,15 +229,15 @@ fn initGraphics(info: *const boot_info.BootInfo, memory: *mem.Memory) bool {
     const bytes: usize = @intCast(fb_info.pitch * fb_info.height);
     const pages_needed = (bytes + pfa.page_size - 1) / pfa.page_size;
     if (memory.pfa.allocPages(pages_needed, true) catch null) |pages| {
-        var back = fb_storage.?;
+        var back = display.fb_storage.?;
         back.base = @ptrFromInt(pages[0] + memory.pfa.hhdm_offset);
-        back_fb = back;
+        display.back_fb = back;
     }
 
-    renderer = renderer_mod.Renderer.init(renderTarget());
-    graphics.init(renderer);
-    renderer.fillScreen(0x000000);
-    mouse_cursor.init(renderTarget(), @intCast(fb_info.width / 2), @intCast(fb_info.height / 2));
+    display.renderer = renderer_mod.Renderer.init(renderTarget(display));
+    graphics.init(display.renderer);
+    display.renderer.fillScreen(0x000000);
+    display.mouse_cursor.init(renderTarget(display), @intCast(fb_info.width / 2), @intCast(fb_info.height / 2));
     input_service.setMouseState(.{
         .x = @divTrunc(@as(i32, @intCast(fb_info.width)), 2),
         .y = @divTrunc(@as(i32, @intCast(fb_info.height)), 2),
@@ -231,16 +247,16 @@ fn initGraphics(info: *const boot_info.BootInfo, memory: *mem.Memory) bool {
 
 /// The framebuffer the renderer draws into: the back buffer when double
 /// buffering is active, the visible framebuffer otherwise.
-fn renderTarget() *framebuffer.Framebuffer {
-    if (back_fb) |*back| return back;
-    return &fb_storage.?;
+fn renderTarget(display: *DisplayState) *framebuffer.Framebuffer {
+    if (display.back_fb) |*back| return back;
+    return &display.fb_storage.?;
 }
 
 /// Copy the finished back buffer to the visible framebuffer in one pass
 /// (Phase 2 present). Without double buffering this is a no-op.
-fn present() void {
-    const back = back_fb orelse return;
-    const front = &fb_storage.?;
+fn present(display: *DisplayState) void {
+    const back = display.back_fb orelse return;
+    const front = &display.fb_storage.?;
     const bytes: usize = @intCast(front.pitch * front.height);
     const src: [*]const u8 = @ptrCast(@volatileCast(back.base));
     const dst: [*]volatile u8 = front.base;
@@ -322,25 +338,22 @@ fn testKiDispatch() bool {
     return status == 0;
 }
 
-var needs_render = true;
-var first_frame_reported = false;
-
 /// Bounded mouse packet processing per poll() so a busy mouse cannot
 /// starve the keyboard/Lua update.
 const max_mouse_per_poll: usize = 64;
 
-fn eventLoop() noreturn {
+fn eventLoop(display: *DisplayState) noreturn {
     while (true) {
-        poll();
+        poll(display);
         if (update()) {
             // The shell errored; reload it so the desktop recovers instead
             // of staying half-drawn (spec/runtime.md §5 error containment).
             serial.writeLine("shell: error, hot reload");
             runtime.requestReload();
-            needs_render = true;
+            display.needs_render = true;
         }
         if (graphics.invalidate_requested) {
-            needs_render = true;
+            display.needs_render = true;
             graphics.invalidate_requested = false;
         }
         if (runtime.reloadRequested()) {
@@ -348,21 +361,21 @@ fn eventLoop() noreturn {
             // a pending reload can come from F5 (poll) or from Lua itself
             // (session menu "Logout"). Never close a lua_State mid-call.
             runtime.performReload();
-            needs_render = true;
+            display.needs_render = true;
         }
-        if (needs_render) {
-            render();
-            if (!first_frame_reported) {
-                first_frame_reported = true;
+        if (display.needs_render) {
+            render(display);
+            if (!display.first_frame_reported) {
+                display.first_frame_reported = true;
                 serial.writeLine("ASTER FIRST FRAME");
             }
-            needs_render = false;
+            display.needs_render = false;
         }
         asm volatile ("hlt" ::: .{ .memory = true });
     }
 }
 
-fn poll() void {
+fn poll(display: *DisplayState) void {
     // Two queues, two jobs:
     //  - global: timer ticks are consumed; keys are left queued for Lua but
     //    mark the screen dirty so a typed character repaints immediately.
@@ -379,9 +392,9 @@ fn poll() void {
                     _ = input_service.popKernelEvent();
                     serial.writeLine("shell: hot reload (F5)");
                     runtime.requestReload();
-                    needs_render = true;
+                    display.needs_render = true;
                 }
-                if (key.pressed) needs_render = true;
+                if (key.pressed) display.needs_render = true;
                 break;
             },
             .mouse => unreachable, // mouse lives in its own queue
@@ -395,10 +408,10 @@ fn poll() void {
             .timer_tick, .key => unreachable, // not valid in the mouse queue
             .mouse => |m| {
                 _ = input_service.popMouseEvent();
-                mouse_cursor.move(renderTarget(), m.dx, m.dy);
+                display.mouse_cursor.move(renderTarget(display), m.dx, m.dy);
                 input_service.setMouseState(.{
-                    .x = mouse_cursor.x,
-                    .y = mouse_cursor.y,
+                    .x = display.mouse_cursor.x,
+                    .y = display.mouse_cursor.y,
                     .left = m.left,
                     .right = m.right,
                     .middle = m.middle,
@@ -411,7 +424,7 @@ fn poll() void {
         // The cursor moved in the back buffer; show it without re-rendering
         // the Lua scene. Present once for the whole batch — a per-packet
         // copy (full-screen memcpy) starves the keyboard/Lua update.
-        present();
+        present(display);
     }
 }
 
@@ -421,15 +434,15 @@ fn update() bool {
     return result == lua.CallResult.err;
 }
 
-fn render() void {
+fn render(display: *DisplayState) void {
     if (graphics.renderer == null) return;
     if (lua.callRender() == .err) {
         // The shell draw loop failed; reload so the next frame is clean.
         serial.writeLine("shell: render error, hot reload");
         runtime.requestReload();
     }
-    mouse_cursor.redraw(renderTarget());
-    present();
+    display.mouse_cursor.redraw(renderTarget(display));
+    present(display);
 }
 
 fn ramUsedMiB(memory: *mem.Memory) u64 {

@@ -309,6 +309,73 @@ fn testRenderThroughput() void {
     expect(count > 0, "render throughput measured");
 }
 
+var task_a_counter = std.atomic.Value(u64).init(0);
+var task_b_counter = std.atomic.Value(u64).init(0);
+var task_stop = std.atomic.Value(bool).init(false);
+var task_a_parked = std.atomic.Value(bool).init(false);
+var task_b_parked = std.atomic.Value(bool).init(false);
+
+fn taskA() callconv(.c) noreturn {
+    while (true) {
+        if (task_stop.load(.monotonic)) {
+            task_a_parked.store(true, .monotonic);
+            while (true) {
+                asm volatile ("hlt" ::: .{ .memory = true });
+            }
+        }
+        _ = task_a_counter.fetchAdd(1, .monotonic);
+    }
+}
+
+fn taskB() callconv(.c) noreturn {
+    while (true) {
+        if (task_stop.load(.monotonic)) {
+            task_b_parked.store(true, .monotonic);
+            while (true) {
+                asm volatile ("hlt" ::: .{ .memory = true });
+            }
+        }
+        _ = task_b_counter.fetchAdd(1, .monotonic);
+    }
+}
+
+fn testPreemptiveScheduler() void {
+    // Two native kernel tasks on the shared address space, each spinning on
+    // its own counter. The APIC timer IRQ preempts whoever is running and the
+    // round-robin scheduler switches — both counters must advance. That is the
+    // only reliable proof of real preemption, not cooperative yield.
+    const sched = @import("sched/task.zig");
+    const time = @import("time.zig");
+
+    task_a_counter.store(0, .monotonic);
+    task_b_counter.store(0, .monotonic);
+    task_stop.store(false, .monotonic);
+    task_a_parked.store(false, .monotonic);
+    task_b_parked.store(false, .monotonic);
+
+    _ = sched.spawnTask(taskA) catch {
+        expect(false, "scheduler spawns task A");
+        return;
+    };
+    _ = sched.spawnTask(taskB) catch {
+        expect(false, "scheduler spawns task B");
+        return;
+    };
+
+    const deadline = time.ticks() + 30;
+    while (time.ticks() < deadline) {
+        asm volatile ("hlt" ::: .{ .memory = true });
+    }
+    task_stop.store(true, .monotonic);
+    var spins: usize = 0;
+    while ((!task_a_parked.load(.monotonic) or !task_b_parked.load(.monotonic)) and spins < 1000000) : (spins += 1) {
+        asm volatile ("hlt" ::: .{ .memory = true });
+    }
+    expect(task_a_counter.load(.monotonic) > 0, "task A counter advanced under preemption");
+    expect(task_b_counter.load(.monotonic) > 0, "task B counter advanced under preemption");
+    expect(task_a_parked.load(.monotonic) and task_b_parked.load(.monotonic), "both tasks parked cleanly");
+}
+
 const tests = [_]Test{
     .{ .name = "timer tick + event queue", .func = testTimerTicks },
     .{ .name = "mouse event queue", .func = testMouseEvent },
@@ -323,6 +390,7 @@ const tests = [_]Test{
     .{ .name = "reload from Lua is deferred, state survives", .func = testLuaTriggeredReload },
     .{ .name = "error containment (lua error)", .func = testErrorContainment },
     .{ .name = "render throughput", .func = testRenderThroughput },
+    .{ .name = "preemptive RR scheduler (two kernel tasks)", .func = testPreemptiveScheduler },
 };
 
 fn testFilesystem(alloc: std.mem.Allocator, memory: *mem.Memory) void {

@@ -100,6 +100,23 @@ wait by zastavil celý systém (klávesnice, rendering). Proto:
   (jádro přepne na jiný úkol do deadline) — volající sémantika se nemění
   (`time.sleep_ms(ms)` z Lua funguje stejně).
 
+### 5.1 Implementovaný stav (2026-08-12)
+
+- **Preemptivní RR scheduler pro nativní kernel tasky** (`src/kernel/sched/task.zig`):
+  APIC timer IRQ (vektor 0x20) je interrupt gate (IRQ maskované v ISR), takže `schedPickNext`
+  manipuluje TCB tabulku v nepřerušitelném kontextu — kritická sekce bez locku (ADR-017).
+- **Žádná alokace:** TCB tabulka i task stacky jsou statické v `.bss`; task stacky NIKDY
+  nepřijdou z PFA (`allocPages`) — kernel image není rezervovaný v PFA bitmapě.
+- **Switch:** asm bridge v `cpu/isr.s` (`sched_switch`/`sched_restore`) volá `sched_pick_next`,
+  vrací saved stack pointer nového tasku; spawn znovupoužívá Reserve stejný layout jako
+  preemptovaný task (fake InterruptFrame vč. `rsp`/`ss` — CPU 64-bit pushuje 5-prvkový
+  frame a `iretq` popne všech 5; viz `spec/troubleshooting.md` C38).
+- **Ověření:** `testPreemptiveScheduler` v runtime testech — dva tasky na sdíleném adresním
+  prostoru cyklí preempcí a oba inkrementují atomické počítadlo (`RUNTIME TESTS PASS`).
+
+**Zbývá do plné M7:** blokující `sleepMs` úkolu (viz §5 výše) a napojení na `Runtime.spawn`
+(wasm3 / per-program instance).
+
 ---
 
 ## 6. Invarianty
