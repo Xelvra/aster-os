@@ -428,19 +428,19 @@ single indirect. **Rozhodnutí nemění backend politiku ADR-023** („Budoucí 
 „nikdy vlastní formát") — ext2 zůstává první backend, další FS se přidávají dle
 triggerů / nových ADR.
 
-- [ ] **M7.1.1 virtio-blk write:** zápis sektoru přes virtqueue; `block.zig` `write`/`writeSector`.
+- [x] **M7.1.1 virtio-blk write:** zápis sektoru přes virtqueue; `block.zig` `write`/`writeSector`.
       *Exit: zápis + readback v runtime testu.*
-- [ ] **M7.1.2 ext2 alokace bloků:** scan block bitmapy, update bitmapy + group descriptoru +
+- [x] **M7.1.2 ext2 alokace bloků:** scan block bitmapy, update bitmapy + group descriptoru +
       superblocku (free counts); direct bloky + single indirect.
       *Exit: soubor naroste za původní alokaci.*
-- [ ] **M7.1.3 ext2 writeAt + velikost:** zápis do existujících bloků, truncate, růst přes
+- [x] **M7.1.3 ext2 writeAt + velikost:** zápis do existujících bloků, truncate, růst přes
       alokaci; update `size`/`mtime` v inodu; data před metadaty. *Exit: runtime upraví
       soubor na disku a přečte změnu.*
-- [ ] **M7.1.4 File API write + KI `Storage`:** `File.write`; nový KI modul `storage.*`
+- [x] **M7.1.4 File API write + KI `Storage`:** `File.write`; nový KI modul `storage.*`
       (ADR-020, append na konec enumu) + Lua bindings `file.open/read/write/close`.
-- [ ] **M7.1.5 Editor app:** Lua okno v launcheru, editace klávesnicí, uložení přes
+- [x] **M7.1.5 Editor app:** Lua okno v launcheru, editace klávesnicí, uložení přes
       `file.write`.
-- [ ] **M7.1.6 Auto-reload na uložení:** uložení `theme.lua` → okamžité překreslení
+- [x] **M7.1.6 Auto-reload na uložení:** uložení `theme.lua` → okamžité překreslení
       (`spec/runtime.md` §5a spouštěč 2).
 
 ### M8 — Stabilizace
