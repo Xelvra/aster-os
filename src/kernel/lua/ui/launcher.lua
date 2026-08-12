@@ -80,7 +80,7 @@ local function launcher_run(id)
         else
             w.ws = current_ws
         end
-        if not fs_open then files_open("/") end
+        files_open("/")
         set_focus("files")
     elseif id == "editor" then
         local w = find_win("editor")

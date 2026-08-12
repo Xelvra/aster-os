@@ -447,6 +447,8 @@ Vše v `handle_key` (`input.lua:118`). Super = `ev.super` (Hyprland konvence).
 | Kombinace | Akce | Místo |
 |---|---|---|
 | Super+Enter | zobraz + zaostřit REPL | `input.lua:183` |
+| Super+T | editor (otevře/zaostří editor okno) | `input.lua` |
+| Super+E | file manager (otevře files v kořenu) | `input.lua` |
 | Super+Q | zavřít fokusované okno | `input.lua:187` |
 | Super+Space | launcher toggle | `input.lua:211` |
 | Super+Alt+Space | float toggle (centrovat) | `input.lua:195` |
@@ -471,10 +473,11 @@ prvků). Platí „přidá se, až to jde" — ne „placeholder v UI".
 
 ### 7a.1 Klávesové zkratky (rezervované, `binds.lua`)
 
+**Splněno (přesunuto do §7):** Super+T → editor, Super+E → file manager
+(files okno). Zbývající rezervované:
+
 | Kombinace | Upstream akce | Backend, který to odblokuje |
 |---|---|---|
-| Super+E | file manager | app systém (files okno) |
-| Super+T | editor | app systém |
 | Super+C | calculator | app systém |
 | Super+W | browser | app systém (net, M9) |
 | Super+Z | settings | app systém |
@@ -514,9 +517,23 @@ věčně živé a obnova stavu jde hot reloadem.
 ### 7a.4 Aplikace (editor, calculator, browser, files)
 
 Upstream spouští cizí aplikace (kitty, dolphin, gnome-calc, ...). U nás jsou to
-budoucí **Lua app okna** (`Program` za `Runtime.spawn`, M7): okno + `render`
-funkce, spouštěné z launcheru. Files je dnes okno bez obsahu; editor/calculator/
-browser se přidají s app systémem.
+Lua app okna, spouštěné z launcheru (Super+Space) nebo přes rezervované zkratky.
+**Hotovo (M7.1):** `editor` (Super+T) a `files` (Super+E). calculator/browser
+se přidají s app systémem / net (M9).
+
+Navigační konvence:
+
+- **Editor (`editor.lua`):** šipky Nahoru/Dolů = řádek, Levá/Pravá = kurzor,
+  Home/End = začátek/konec řádku, Enter = nový řádek, Backspace/Delete = mazat,
+  **Ctrl+S** = uložit (`file.write`). Uložení configu (`/theme.lua`) spouští
+  auto-reload (`spec/runtime.md` §5a, trigger 2).
+- **Files browser (`files.lua`):** Up/Down = výběr, **Enter** = otevřít
+  (adresář → dovnitř, soubor → zobrazit obsah), **Escape** = o úroveň výš /
+  ven z náhledu, **Super+E** = otevřít v kořenu. Prohlížení je read-only;
+  editace souboru jde přes editor.
+
+Mezi okny: Alt+Tab (cyklus), Super+šipky (focus ve směru), Super+Space
+(launcher). Zavření fokusovaného okna: Super+Q.
 
 ---
 

@@ -10,14 +10,12 @@ fs_viewing = fs_viewing or false
 fs_view_name = fs_view_name or ""
 fs_view_content = fs_view_content or ""
 fs_error = fs_error or ""
-fs_open = fs_open or false
 fs_row_h = 18
 
 function files_open(path)
     fs_path = path
     fs_viewing = false
     fs_sel = 1
-    fs_open = true
     local entries = file.dir(path)
     if not entries then
         fs_entries = {}
@@ -53,12 +51,17 @@ function files_view(name)
     gfx.invalidate()
 end
 
-function files_back()
+function files_up()
     if fs_viewing then
         fs_viewing = false
-    else
-        files_open("/")
+        return
     end
+    local t = fs_path
+    if t == "/" or t == "" then return end
+    if t:sub(-1) == "/" then t = t:sub(1, -2) end
+    local parent = t:match("^(.*)/[^/]*$")
+    if parent == nil or parent == "" then parent = "/" end
+    files_open(parent)
 end
 
 local function files_render()

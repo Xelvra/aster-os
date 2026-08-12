@@ -166,6 +166,16 @@ local function handle_key(ev)
             end
             if not ed_open then editor_load(ed_path) end
             set_focus("editor")
+        elseif code == "e" then
+            -- File manager (spec/lua-wm.md: Super+E -> files), opened at root.
+            local w = find_win("files")
+            if not w then
+                windows[#windows + 1] = window("files", current_ws)
+            else
+                w.ws = current_ws
+            end
+            files_open("/")
+            set_focus("files")
         elseif code == "q" then
             if find_win(focused) then
                 for i, w in ipairs(windows) do
@@ -405,9 +415,11 @@ local function handle_key(ev)
     end
 
     -- File browser input goes to the focused window when it is the files.
+    -- Conventions: up/down select, enter opens (dir = navigate in, file =
+    -- view), escape goes up one level / exits a view.
     if focused == "files" and find_win("files") then
         if fs_viewing then
-            if code == "escape" then files_back() end
+            if code == "escape" then files_up() end
         else
             if code == "up" then
                 fs_sel = math.max(fs_sel - 1, 1)
@@ -423,7 +435,7 @@ local function handle_key(ev)
                     end
                 end
             elseif code == "escape" then
-                files_back()
+                files_up()
             end
         end
         gfx.invalidate()

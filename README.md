@@ -79,9 +79,10 @@ editor/file browser cannot open anything.
 zig build run -Ddisk=disk.img        # boot with the disk attached
 ```
 
-In the shell: **Super+T** opens the editor on `theme.lua` (edit, **Ctrl+S**
-saves); **Super+Space** opens the launcher — type `files` and press Enter for
-the file browser, `editor` for the editor.
+In the shell: **Super+T** opens the editor on `theme.lua` (arrows move the
+cursor/line, **Ctrl+S** saves and the shell repaints live); **Super+E** opens
+the file browser at the root (Up/Down select, Enter opens, Escape goes up a
+level). **Super+Space** opens the launcher; Alt+Tab cycles windows.
 
 Verification tools (see [`spec/verification.md`](spec/verification.md)):
 
