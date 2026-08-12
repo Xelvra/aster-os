@@ -41,132 +41,63 @@ fn checkString(L: ?*lua_c.lua_State, index: c_int, comptime name: []const u8) ?[
     return ptr[0..len];
 }
 
-fn gfxDrawRect(L: ?*lua_c.lua_State) callconv(.c) c_int {
-    const x = checkInteger(L, 1, "x") orelse return 2;
-    const y = checkInteger(L, 2, "y") orelse return 2;
-    const w = checkInteger(L, 3, "w") orelse return 2;
-    const h = checkInteger(L, 4, "h") orelse return 2;
-    const color = checkInteger(L, 5, "color") orelse return 2;
+const RectArgs = extern struct {
+    x: i32,
+    y: i32,
+    w: u32,
+    h: u32,
+    color: u32,
+};
 
-    const RectArgs = extern struct {
-        x: i32,
-        y: i32,
-        w: u32,
-        h: u32,
-        color: u32,
-    };
-    var rect = RectArgs{
-        .x = @intCast(x),
-        .y = @intCast(y),
-        .w = @intCast(w),
-        .h = @intCast(h),
-        .color = @intCast(color),
-    };
-    _ = sys.dispatch(.Graphics, .{
-        .a = @intFromEnum(graphics.GraphicsOp.draw_rect),
-        .b = @intFromPtr(&rect),
-    });
-    lua_c.lua_pushinteger(L, 0);
-    return 1;
-}
+const RoundRectArgs = extern struct {
+    x: i32,
+    y: i32,
+    w: u32,
+    h: u32,
+    radius: u32,
+    color: u32,
+};
 
-fn gfxRoundRect(L: ?*lua_c.lua_State) callconv(.c) c_int {
-    const x = checkInteger(L, 1, "x") orelse return 2;
-    const y = checkInteger(L, 2, "y") orelse return 2;
-    const w = checkInteger(L, 3, "w") orelse return 2;
-    const h = checkInteger(L, 4, "h") orelse return 2;
-    const radius = checkInteger(L, 5, "radius") orelse return 2;
-    const color = checkInteger(L, 6, "color") orelse return 2;
+const BorderArgs = extern struct {
+    x: i32,
+    y: i32,
+    w: u32,
+    h: u32,
+    thickness: u32,
+    color: u32,
+};
 
-    const RoundRectArgs = extern struct {
-        x: i32,
-        y: i32,
-        w: u32,
-        h: u32,
-        radius: u32,
-        color: u32,
-    };
-    var args = RoundRectArgs{
-        .x = @intCast(x),
-        .y = @intCast(y),
-        .w = @intCast(w),
-        .h = @intCast(h),
-        .radius = @intCast(radius),
-        .color = @intCast(color),
-    };
-    _ = sys.dispatch(.Graphics, .{
-        .a = @intFromEnum(graphics.GraphicsOp.round_rect),
-        .b = @intFromPtr(&args),
-    });
-    lua_c.lua_pushinteger(L, 0);
-    return 1;
-}
+const GradientBorderArgs = extern struct {
+    x: i32,
+    y: i32,
+    w: u32,
+    h: u32,
+    thickness: u32,
+    color_a: u32,
+    color_b: u32,
+};
 
-fn gfxRectBorder(L: ?*lua_c.lua_State) callconv(.c) c_int {
-    const x = checkInteger(L, 1, "x") orelse return 2;
-    const y = checkInteger(L, 2, "y") orelse return 2;
-    const w = checkInteger(L, 3, "w") orelse return 2;
-    const h = checkInteger(L, 4, "h") orelse return 2;
-    const thickness = checkInteger(L, 5, "thickness") orelse return 2;
-    const color = checkInteger(L, 6, "color") orelse return 2;
-
-    const BorderArgs = extern struct {
-        x: i32,
-        y: i32,
-        w: u32,
-        h: u32,
-        thickness: u32,
-        color: u32,
-    };
-    var args = BorderArgs{
-        .x = @intCast(x),
-        .y = @intCast(y),
-        .w = @intCast(w),
-        .h = @intCast(h),
-        .thickness = @intCast(thickness),
-        .color = @intCast(color),
-    };
-    _ = sys.dispatch(.Graphics, .{
-        .a = @intFromEnum(graphics.GraphicsOp.rect_border),
-        .b = @intFromPtr(&args),
-    });
-    lua_c.lua_pushinteger(L, 0);
-    return 1;
-}
-
-fn gfxGradientBorder(L: ?*lua_c.lua_State) callconv(.c) c_int {
-    const x = checkInteger(L, 1, "x") orelse return 2;
-    const y = checkInteger(L, 2, "y") orelse return 2;
-    const w = checkInteger(L, 3, "w") orelse return 2;
-    const h = checkInteger(L, 4, "h") orelse return 2;
-    const thickness = checkInteger(L, 5, "thickness") orelse return 2;
-    const color_a = checkInteger(L, 6, "color_a") orelse return 2;
-    const color_b = checkInteger(L, 7, "color_b") orelse return 2;
-
-    const GradientBorderArgs = extern struct {
-        x: i32,
-        y: i32,
-        w: u32,
-        h: u32,
-        thickness: u32,
-        color_a: u32,
-        color_b: u32,
-    };
-    var args = GradientBorderArgs{
-        .x = @intCast(x),
-        .y = @intCast(y),
-        .w = @intCast(w),
-        .h = @intCast(h),
-        .thickness = @intCast(thickness),
-        .color_a = @intCast(color_a),
-        .color_b = @intCast(color_b),
-    };
-    _ = sys.dispatch(.Graphics, .{
-        .a = @intFromEnum(graphics.GraphicsOp.gradient_border),
-        .b = @intFromPtr(&args),
-    });
-    lua_c.lua_pushinteger(L, 0);
-    return 1;
+/// Generate a Lua binding for a graphics op that takes only integer args.
+/// The extern struct's field order is the Lua argument order (and the
+/// graphics.zig ABI contract); every field is checked and copied with the
+/// same error path as a hand-written binding. Called via sys.dispatch with
+/// the struct pointer, mirroring the other binding shapes.
+fn makeGfxOp(comptime op: graphics.GraphicsOp, comptime Args: type) fn (?*lua_c.lua_State) callconv(.c) c_int {
+    return struct {
+        fn call(L: ?*lua_c.lua_State) callconv(.c) c_int {
+            var args: Args = undefined;
+            inline for (std.meta.fields(Args), 1..) |field, i| {
+                const v = checkInteger(L, @intCast(i), field.name) orelse return 2;
+                @field(args, field.name) = @intCast(v);
+            }
+            _ = sys.dispatch(.Graphics, .{
+                .a = @intFromEnum(op),
+                .b = @intFromPtr(&args),
+            });
+            lua_c.lua_pushinteger(L, 0);
+            return 1;
+        }
+    }.call;
 }
 
 fn gfxDrawText(L: ?*lua_c.lua_State) callconv(.c) c_int {
@@ -326,12 +257,8 @@ fn buildEventTable(L: ?*lua_c.lua_State, event: api_input.Event) void {
             lua_c.lua_setfield(L, -2, "tick");
         },
         .key => |key| {
-            setShift(key.code, key.pressed);
-            if (key.code == .caps_lock) setCapsLock(key.pressed);
-            setCtrl(key.code, key.pressed);
-            setAlt(key.code, key.pressed);
-            setAltGr(key.code, key.pressed);
-            setSuper(key.code, key.pressed);
+            api_input.setModifier(key.code, key.pressed);
+            if (key.code == .caps_lock) api_input.setCapsLock(key.pressed);
             _ = lua_c.lua_pushliteral(L, "key");
             lua_c.lua_setfield(L, -2, "type");
             lua_c.lua_pushboolean(L, if (key.pressed) 1 else 0);
@@ -340,22 +267,22 @@ fn buildEventTable(L: ?*lua_c.lua_State, event: api_input.Event) void {
             const name_ptr: [*c]const u8 = @ptrCast(name.ptr);
             _ = lua_c.lua_pushlstring(L, name_ptr, name.len);
             lua_c.lua_setfield(L, -2, "code");
-            lua_c.lua_pushboolean(L, if (effectiveShift()) 1 else 0);
+            const mods = api_input.modifierState();
+            lua_c.lua_pushboolean(L, if (api_input.effectiveShift()) 1 else 0);
             lua_c.lua_setfield(L, -2, "shift");
-            lua_c.lua_pushboolean(L, if (ctrl_pressed) 1 else 0);
+            lua_c.lua_pushboolean(L, if (mods.ctrl) 1 else 0);
             lua_c.lua_setfield(L, -2, "ctrl");
-            lua_c.lua_pushboolean(L, if (alt_pressed) 1 else 0);
+            lua_c.lua_pushboolean(L, if (mods.alt) 1 else 0);
             lua_c.lua_setfield(L, -2, "alt");
-            lua_c.lua_pushboolean(L, if (super_pressed) 1 else 0);
+            lua_c.lua_pushboolean(L, if (api_input.superPressed()) 1 else 0);
             lua_c.lua_setfield(L, -2, "super");
-            lua_c.lua_pushboolean(L, if (alt_gr_pressed) 1 else 0);
+            lua_c.lua_pushboolean(L, if (mods.alt_gr) 1 else 0);
             lua_c.lua_setfield(L, -2, "alt_gr");
-            const eff_shift = effectiveShift();
             const mapped = api_input.mapChar(key.code, .{
-                .shift = eff_shift,
-                .ctrl = ctrl_pressed,
-                .alt = alt_pressed,
-                .alt_gr = alt_gr_pressed,
+                .shift = api_input.effectiveShift(),
+                .ctrl = mods.ctrl,
+                .alt = mods.alt,
+                .alt_gr = mods.alt_gr,
             });
             if (mapped) |ch| {
                 var ch_buf: [1]u8 = .{ch};
@@ -371,63 +298,11 @@ fn buildEventTable(L: ?*lua_c.lua_State, event: api_input.Event) void {
     }
 }
 
-var shift_pressed = false;
-var caps_lock_on = false;
-var ctrl_pressed = false;
-var alt_pressed = false;
-var super_pressed = false;
-var alt_gr_pressed = false;
-
-fn setShift(code: api_input.KeyCode, pressed: bool) void {
-    switch (code) {
-        .shift_left, .shift_right => shift_pressed = pressed,
-        else => {},
-    }
-}
-
-fn setAlt(code: api_input.KeyCode, pressed: bool) void {
-    switch (code) {
-        .alt_left => alt_pressed = pressed,
-        else => {},
-    }
-}
-
-fn setAltGr(code: api_input.KeyCode, pressed: bool) void {
-    switch (code) {
-        .alt_right => alt_gr_pressed = pressed,
-        else => {},
-    }
-}
-
-fn setSuper(code: api_input.KeyCode, pressed: bool) void {
-    switch (code) {
-        .super_left, .super_right => super_pressed = pressed,
-        else => {},
-    }
-}
-
-fn setCapsLock(pressed: bool) void {
-    if (pressed) caps_lock_on = !caps_lock_on;
-}
-
-fn setCtrl(code: api_input.KeyCode, pressed: bool) void {
-    switch (code) {
-        .ctrl_left, .ctrl_right => ctrl_pressed = pressed,
-        else => {},
-    }
-}
-
-/// Effective shift for letters: shift XOR caps lock (letters are
-/// uppercase when exactly one of the two is active).
-fn effectiveShift() bool {
-    return shift_pressed != caps_lock_on;
-}
-
 const GfxFuncs = [_]lua_c.luaL_Reg{
-    .{ .name = "draw_rect", .func = gfxDrawRect },
-    .{ .name = "round_rect", .func = gfxRoundRect },
-    .{ .name = "rect_border", .func = gfxRectBorder },
-    .{ .name = "gradient_border", .func = gfxGradientBorder },
+    .{ .name = "draw_rect", .func = makeGfxOp(.draw_rect, RectArgs) },
+    .{ .name = "round_rect", .func = makeGfxOp(.round_rect, RoundRectArgs) },
+    .{ .name = "rect_border", .func = makeGfxOp(.rect_border, BorderArgs) },
+    .{ .name = "gradient_border", .func = makeGfxOp(.gradient_border, GradientBorderArgs) },
     .{ .name = "draw_text", .func = gfxDrawText },
     .{ .name = "fill_screen", .func = gfxFillScreen },
     .{ .name = "present", .func = gfxPresent },

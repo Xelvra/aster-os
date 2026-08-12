@@ -22,6 +22,17 @@ pub const decodeMousePacket = input.decodeMousePacket;
 
 var mouse_state: input.MouseState = .{};
 
+// ─── keyboard modifier state ─────────────────────────────────────────
+//
+// Tracked here beside mouse_state: the key event producer and the KI
+// bindings update it, the layout module reads it as a plain Modifiers
+// value. caps_lock and super have no place in Modifiers (which feeds
+// mapChar), so they live as their own flags next to it.
+
+var modifiers: layout.Modifiers = .{};
+var caps_lock_on: bool = false;
+var super_pressed: bool = false;
+
 // ─── producers (IRQ / driver context) ─────────────────────────────────
 
 pub fn pushKeyEvent(event: input.KeyEvent) void {
@@ -119,6 +130,42 @@ pub fn mouseRight() bool {
 
 pub fn mouseMiddle() bool {
     return mouse_state.middle;
+}
+
+/// Update the keyboard modifier that a key code maps to. Modifiers are
+/// separate KeyCodes (left/right); caps lock toggles through setCapsLock.
+pub fn setModifier(code: input.KeyCode, pressed: bool) void {
+    switch (code) {
+        .shift_left, .shift_right => modifiers.shift = pressed,
+        .ctrl_left, .ctrl_right => modifiers.ctrl = pressed,
+        .alt_left => modifiers.alt = pressed,
+        .alt_right => modifiers.alt_gr = pressed,
+        .super_left, .super_right => super_pressed = pressed,
+        else => {},
+    }
+}
+
+/// Caps lock toggles on a key-down edge.
+pub fn setCapsLock(pressed: bool) void {
+    if (pressed) caps_lock_on = !caps_lock_on;
+}
+
+pub fn modifierState() layout.Modifiers {
+    return modifiers;
+}
+
+pub fn capsLockOn() bool {
+    return caps_lock_on;
+}
+
+pub fn superPressed() bool {
+    return super_pressed;
+}
+
+/// Effective shift for letters: shift XOR caps lock (letters are
+/// uppercase when exactly one of the two is active).
+pub fn effectiveShift() bool {
+    return modifiers.shift != caps_lock_on;
 }
 
 pub fn setLayout(name: []const u8) bool {

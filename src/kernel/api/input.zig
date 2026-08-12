@@ -12,6 +12,12 @@ pub const eventName = service.eventName;
 pub const mapChar = service.mapChar;
 pub const layoutName = service.layoutName;
 pub const setLayout = service.setLayout;
+pub const modifierState = service.modifierState;
+pub const setModifier = service.setModifier;
+pub const setCapsLock = service.setCapsLock;
+pub const capsLockOn = service.capsLockOn;
+pub const superPressed = service.superPressed;
+pub const effectiveShift = service.effectiveShift;
 
 pub const InputOp = enum(u64) {
     next_event = 0,

@@ -139,6 +139,10 @@ while (true) {
   Lua → binding → KI → service → registry). CZ je QWERTZ (Y↔Z prohozené) s ASCII
   fallbackem (8x16 font neumí diakritiku). Layout registry čte/píše jen
   `service.zig` — nikdo jiný.
+- **Modifikátory (stav):** drží `service.zig` vedle `mouse_state` — `shift/ctrl/alt/alt_gr`
+  v `Modifiers` (čte je layout pro `mapChar`), `caps_lock` a `super` jako samostatné
+  flagy vedle. Lua bindings je aktualizují přes KI (`api/input.zig`), žádný vlastní
+  stav v `bindings.zig`.
 - **Budoucí:** USB HID (mapuje usage → stejný `KeyCode`) — potvrzený cíl (rozhodnutí 2026-08-09, viz `roadmap.md` Fáze 2), zatím PS/2.
 
 ---
