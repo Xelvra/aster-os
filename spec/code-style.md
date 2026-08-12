@@ -41,7 +41,10 @@ Zigu, ale doplňují je o projektovou disciplínu.
 - **Žádné singletony.** Stav se předává explicitně (struct instance), nesdílí se globálně.
 - **Žádné globální mutable stavy, pokud to není HW.** Výjimka: registry zařízení,
   framebuffer paměť, atomická fronta událostí — to je hardware/kontext přerušení, ne
-  programová globální proměnná.
+  programová globální proměnná. Bootstrap: `kernel_stack` v `main.zig` — kernel
+  potřebuje fixní stack **před** tím, než běží jakýkoli kód (bootloader předá malý
+  stack, heap ještě neexistuje), proto je povolená jediná statická zásobníková
+  proměnná.
 - **KISS + YAGNI.** Nejednodušší řešení, které funguje. Nepřidává se abstrakce "pro
   budoucí použití" — viz `spec/non-goals.md`.
 - **DRY s rozumem.** Opakující se logika se extrahuje; dvě věci, které se budou vyvíjet

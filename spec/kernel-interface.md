@@ -261,3 +261,35 @@ sémantika zůstává stejná, řeší se jinak:
 > Důvod, proč to neřešíme `callback`/`event` exponovaným do Lua: callback rozbíjí
 > request/reply kontrakt (dvě místa pokračování, ordering, reentrancy) a zbytečně
 > mění rozhraní. Kooperativní suspendace zachovává jednoznačný tok řízení i sémantiku.
+
+### 6.3 Pointerové argumenty přes `dispatch` — kontrakt (dočasný pro Ring 0)
+
+`SyscallArgs` nese tři `u64` sloty (`a`, `b`, `c`). Tento kontrakt určuje, který slot smí
+nést pointer a za jakých podmínek — dnes, v Ring-0 fázi:
+
+- **`a` nese jen hodnoty** (sub-op číslo, index, boolean). Nikdy pointer.
+- **`b` nese buď hodnotu, nebo `@intFromPtr`** na argumentovou strukturu se vstupními
+  parametry operace (argumentové structy jsou `extern struct` — pořadí polí je součást
+  KI kontraktu a nesmí se měnit). Terminologicky se v dokumentaci sjednocuje na
+  **„argumentová struktura"** (`args.b = @intFromPtr(&struct)`), i když historický kód
+  občas mluví o „bufferu" — funkčně je to totéž, pojmenování se v kódu nepřepisuje.
+- **`c` je rezervováno** a nesmí nést pointer; v dnešní KI se nepoužívá (výjimka:
+  operace, které mají pevně danou dvojici hodnot — viz konkrétní modul).
+
+**Vlastnictví a životnost (normativní):** ukazatel předaný v `b` musí zůstat platný
+**po celou dobu synchronního volání `dispatch()`** a ne o instrukci déle. Kernel nesmí
+ukazatel zadržet po návratu, nesmí do něj psát, ani na něj spoléhat napříč voláními.
+Dnes to fakticky platí (vše je synchronní volání funkce ve sdíleném adresním prostoru),
+ale je to **explicitní kontrakt**, ne vlastnost náhodou plynoucí ze SASOS.
+
+**Délka (normativní):** každý pointer nesoucí buffer **proměnné** délky (např. text v
+`gfxDrawText`) musí vždy nést i explicitní pole `len` ve **stejné** argumentové struktuře.
+Nikdy se nespoléhá na null-terminated řetězec (cizí konvence), nikdy na odhad délky
+z vnějších dat. Argumentová struktura = jediný zdroj pravdy o layoutu i délce.
+
+**Co se rozbije při Ring-3 mailboxu (ADR-018):** tento kontrakt je **dočasný pro Ring-0
+fázi**. Až přijde mailbox transport, každý pointerový argument bude muset být nahrazen
+buď **(a)** hodnotou zkopírovanou do zprávy, nebo **(b)** sdíleným bufferem s explicitním
+protokolem vlastnictví přes hranici procesu. To je právě ten refaktoring, kterému má tato
+sekce dnes předejít: nové KI moduly (síť, ADR-022; USB; audio) od začátku přinášejí
+zjevný `len`/ownership kontrakt, takže je přechod mechanický, ne architektonický.

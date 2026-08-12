@@ -1,3 +1,12 @@
+---
+layout: default
+title: third-party-notices
+nav_order: 3
+source: THIRD-PARTY-NOTICES.md
+synced: 2026-08-11
+---
+
+
 # THIRD-PARTY-NOTICES
 
 This document is the **single place** where third-party licenses and acknowledgments
@@ -153,3 +162,7 @@ safe, deterministic, and excellent for operating system development.
 
 *Generated and maintained manually. All licenses are open source and compatible with
 the MIT license of the Aster OS project (`LICENSE`).*
+
+---
+
+Last synced from [`THIRD-PARTY-NOTICES.md`](https://github.com/Xelvra/aster-os/blob/main/THIRD-PARTY-NOTICES.md) on **2026-08-11**.

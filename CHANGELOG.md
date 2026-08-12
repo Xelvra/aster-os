@@ -20,6 +20,45 @@ Runtime). Newer versions are listed first.
 This version tracks the milestone after M6 Storage was completed. No additions
 yet.
 
+### Added
+
+* **Preemptive round-robin scheduler for native kernel tasks (audit §3.5, Task 7):**
+  new `sched/task.zig` runs multiple kernel tasks on one core, preempted by the
+  APIC timer IRQ (vector 0x20). TCB table and all task stacks are static (no
+  allocation), the switch lives in the `cpu/isr.s` asm bridge, and the critical
+  section is lock-free thanks to the interrupt gate masking IRQs inside the ISR.
+  Runtime test proves real preemption: two tasks spin on atomic counters and both
+  advance. Blocking per-task `sleepMs` from `spec/timer.md` §5 is still open.
+
+* **I/O APIC discovery from ACPI (audit §3.7):** new `cpu/acpi.zig` parses
+  RSDP (handed by Limine) → RSDT/XSDT → MADT and reads the I/O APIC address
+  from the MADT entry instead of hardcoding `0xFEC00000` for QEMU. The legacy
+  address stays as a fallback default; the boot log reports a plain
+  `page tables · apic timer` when discovery succeeds and appends
+  `(ioapic: fallback)` otherwise. Every read table is checksum-
+  validated and any parse failure degrades to `null` → fallback (no panic on
+  malformed firmware data).
+
+### Fixed
+
+* **ext2 group descriptor hardening:** `groupDescriptor` now computes the GDT
+  block and in-block offset from the group index (multi-block descriptor tables
+  work), and bounds the group against the block-group count derived from the
+  superblock. `Ext2.init` rejects a superblock with `blocks_per_group == 0` or
+  `inodes_per_group == 0` as `CorruptSuperblock`, and `readInode` guards the
+  inode-to-group division (audit §3.6).
+* **PFA allocation locality:** the frame allocator keeps a `next_free_hint`
+  so allocations scan forward from the last free index (with wrap-around)
+  instead of restarting at zero, and a `free_pages` cache makes
+  `totalFreePages()` O(1) instead of a full bitmap scan (audit §3.1).
+* **Global mutable state eliminated (audit §3.2):** the six display globals
+  in `main.zig` (`fb_storage`, `back_fb`, `renderer`, `mouse_cursor`,
+  `needs_render`, `first_frame_reported`) are merged into one `DisplayState`
+  owned by `kernelMain` and threaded through the frame loop by pointer. The
+  six keyboard-modifier globals in `lua/bindings.zig` move to
+  `input/service.zig` beside `mouse_state`; the Lua bindings now reach them
+  through the KI (`api/input.zig`).
+
 ---
 
 ## [0.6.0] — Milestone M6 — Storage

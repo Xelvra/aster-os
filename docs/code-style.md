@@ -114,7 +114,6 @@ Before approving any change:
 * [ ] No magic, no implicit conversions.
 * [ ] `zig fmt --check` and `zig build test` pass (`spec/verification.md`).
 
-
 ---
 
 Last synced from [`code-style.md`](https://github.com/Xelvra/aster-os/blob/main/spec/code-style.md) on **2026-08-09**.

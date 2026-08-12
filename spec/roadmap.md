@@ -170,10 +170,10 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 - [x] GDT (dle potřeby), **IDT** se všemi entry, správné nastavení segmentů.
 - [x] **Local APIC timer** jako tick zdroj (MSR `IA32_APIC_BASE`, LVT) + korektní
       remap legacy 8259 PIC. **I/O APIC**: pro doručení ISA IRQ v APIC režimu je nutné
-      programovat redirection table (IRQ1 → vektor 0x21, BSP); **žádné ACPI MADT
-      parsování** — IOAPIC adresa (0xFEC00000) je hardcoded pro QEMU. Dluh do M7
-      (SMP): MADT (RSDP → RSDT/XSDT → MADT) pro skutečné LAPIC ID, ISA IRQ→GSI
-      overrides a detekci NMI. Viz `spec/non-goals.md`.
+      programovat redirection table (IRQ1 → vektor 0x21, BSP). Adresa I/O APIC se od
+      revision 2026-08-11 čte z **MADT** (`src/kernel/cpu/acpi.zig`: RSDP od Limine →
+      RSDT/XSDT → MADT); `0xFEC00000` je fallback default. Dluh do M7 (SMP): MADT pro
+      skutečné LAPIC ID, ISA IRQ→GSI overrides a detekci NMI. Viz `spec/non-goals.md`.
 - [x] **Fault policy:** defaultní IDT handlers pro double fault / GPF / page fault —
       výpis stavu na serial a halt (ne reset, ne tiché pokračování). Detail
       `spec/invariants.md` §1 (Safety).
@@ -402,9 +402,12 @@ se musí vyřešit **před** spuštěním dalších features, ne až na konci st
 - [ ] wasm3 vendored; `Runtime.spawn(.Wasm, ...)`.
 - [ ] První `.wasm` aplikace (C/Rust → wasm) kreslící do vlastní surface.
 - ~~Sdílené buffery + present~~ — přesunuto do Fáze 2 (render quality před stabilizací).
-- [ ] **Preemptivní RR scheduler** pro více tasků (ADR-017) — kritické sekce se
-      zakázanou preempcí, žádné locky; `sleepMs` přechází na blokující sleep úkolu
-      (`spec/timer.md` §5).
+- [x] **Preemptivní RR scheduler** pro nativní kernel tasky (ADR-017) — čistě IRQ-driven
+      switch přes APIC timer (vektor 0x20), TCB tabulka i stacky statické (žádná alokace),
+      kritická sekce bez locku: interrupt gate maskuje IRQ v ISR, takže manipulace s TCB
+      v schedulingu běží v nepřerušitelném kontextu. Ověřeno runtime testem: dva kernel
+      tasky na sdíleném adresním prostoru cyklí preempcí, oba inkrementují atomické
+      počítadlo. Zbývá: blokující `sleepMs` úkolu (`spec/timer.md` §5).
 - [ ] **Per-program `lua_State` / instance** po `spawn` — zamrzlý program (nekonečná
       smyčka) už nezamrzne prostředí; preempce + error handler úkolu (spec `runtime.md` §5).
 - [ ] **Blokující synchronizační primitiva** (ADR-017): semafor, mutex, event group,
