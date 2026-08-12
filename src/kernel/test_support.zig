@@ -12,3 +12,4 @@ pub const gpt = @import("fs/gpt.zig");
 pub const ext2 = @import("fs/ext2.zig");
 pub const file = @import("fs/file.zig");
 pub const block = @import("drivers/block.zig");
+pub const acpi = @import("cpu/acpi.zig");

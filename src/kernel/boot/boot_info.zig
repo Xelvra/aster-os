@@ -38,4 +38,7 @@ pub const BootInfo = struct {
     /// The initrd module from the bootloader (a tar archive), mapped into
     /// the higher half. Null when the bootloader provided none.
     initrd: ?[]const u8,
+    /// Virtual (HHDM) address of the ACPI RSDP handed by the bootloader.
+    /// Null when the bootloader exposed no ACPI tables.
+    rsdp_address: ?u64,
 };

@@ -85,6 +85,17 @@ pub const module_response = extern struct {
     modules: [*]?*file,
 };
 
+pub const rsdp_response = extern struct {
+    revision: u64,
+    address: u64,
+};
+
+pub const rsdp_request = extern struct {
+    id: [4]u64,
+    revision: u64,
+    response: ?*rsdp_response,
+};
+
 pub const module_request = extern struct {
     id: [4]u64,
     revision: u64,
@@ -123,6 +134,12 @@ export var module_req: module_request linksection(".limine_requests") = .{
     .internal_modules = 0,
 };
 
+export var rsdp_req: rsdp_request linksection(".limine_requests") = .{
+    .id = .{ 0xc7b1dd30df4c8b88, 0x0a82e883a194f07b, 0xc5e77b6b397e7b43, 0x27637845accdcf3c },
+    .revision = 0,
+    .response = null,
+};
+
 comptime {
     _ = &requests_start_marker;
     _ = &requests_end_marker;
@@ -151,5 +168,10 @@ pub fn memmap() ?*const memmap_response {
 
 pub fn modules() ?*const module_response {
     const req = @as(*volatile module_request, @ptrCast(&module_req));
+    return req.response;
+}
+
+pub fn rsdp() ?*const rsdp_response {
+    const req = @as(*volatile rsdp_request, @ptrCast(&rsdp_req));
     return req.response;
 }

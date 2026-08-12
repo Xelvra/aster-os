@@ -17,12 +17,14 @@ pub fn collect() BootError!boot_info.BootInfo {
     const framebuffer = translateFramebuffer(limine.framebuffers());
     const memory_entries = try translateMemoryEntries();
     const initrd = collectInitrd();
+    const rsdp_address = if (limine.rsdp()) |r| r.address else null;
 
     return .{
         .hhdm_offset = hhdm_offset,
         .framebuffer = framebuffer,
         .memory_entries = memory_entries,
         .initrd = initrd,
+        .rsdp_address = rsdp_address,
     };
 }
 
