@@ -71,9 +71,9 @@ local function handle_mouse()
                 end
             end
             -- Clicking the files header (the path line) navigates up one
-            -- level — the header mirrors the directory path.
+            -- level — or exits the current view — the header mirrors the path.
             local fw = find_win("files")
-            if fw and fw.ws == current_ws and not fs_viewing then
+            if fw and fw.ws == current_ws then
                 local hy = fw.y + theme.wm.border + theme.wm.title_h + 6
                 if mx >= fw.x + theme.wm.border + 6 and mx <= fw.x + fw.w - theme.wm.border and
                    my >= hy and my <= hy + fs_row_h then
@@ -435,7 +435,46 @@ local function handle_key(ev)
     -- path header also goes up.
     if focused == "files" and find_win("files") then
         if fs_viewing then
-            if code == "escape" or code == "space" or code == "enter" then files_up() end
+            -- View mode: navigate the hollow cursor like the editor, but with
+            -- no editing. Up/Down move rows (and scroll), Left/Right columns,
+            -- Home/End line ends, PgUp/PgDn page up/down. Esc/space/enter
+            -- exit back to the listing.
+            if code == "escape" or code == "space" or code == "enter" then
+                files_up()
+            elseif code == "up" then
+                if fs_view_row > 1 then
+                    fs_view_row = fs_view_row - 1
+                    if fs_view_row <= fs_view_scroll then fs_view_scroll = fs_view_scroll - 1 end
+                end
+            elseif code == "down" then
+                local lines = {}
+                for line in (fs_view_content .. "\n"):gmatch("(.-)\n") do lines[#lines + 1] = line end
+                local visible = math.max(math.floor((find_win("files").h - theme.wm.title_h - 12) / fs_row_h) - 2, 1)
+                if fs_view_row < #lines then
+                    fs_view_row = fs_view_row + 1
+                    if fs_view_row > fs_view_scroll + visible then fs_view_scroll = fs_view_scroll + 1 end
+                end
+            elseif code == "left" then
+                if fs_view_col > 0 then fs_view_col = fs_view_col - 1 end
+            elseif code == "right" then
+                fs_view_col = fs_view_col + 1
+            elseif code == "home" then
+                fs_view_col = 0
+            elseif code == "end" then
+                local line = {}
+                for l in (fs_view_content .. "\n"):gmatch("(.-)\n") do line[#line + 1] = l end
+                if line[fs_view_row] then fs_view_col = #line[fs_view_row] end
+            elseif code == "page_up" then
+                local visible = math.max(math.floor((find_win("files").h - theme.wm.title_h - 12) / fs_row_h) - 2, 1)
+                fs_view_row = math.max(fs_view_row - visible, 1)
+                fs_view_scroll = math.max(fs_view_scroll - visible, 0)
+            elseif code == "page_down" then
+                local lines = {}
+                for line in (fs_view_content .. "\n"):gmatch("(.-)\n") do lines[#lines + 1] = line end
+                local visible = math.max(math.floor((find_win("files").h - theme.wm.title_h - 12) / fs_row_h) - 2, 1)
+                fs_view_row = math.min(fs_view_row + visible, #lines)
+                fs_view_scroll = math.min(fs_view_scroll + visible, math.max(#lines - visible, 0))
+            end
         else
             if code == "up" then
                 fs_sel = math.max(fs_sel - 1, 1)

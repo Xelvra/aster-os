@@ -95,7 +95,7 @@ local function editor_render()
     local tx = w.x + theme.wm.border + 6
     local ty = w.y + theme.wm.border + theme.wm.title_h + 6
     -- Status line: path + dirty marker + save hint.
-    local status = ed_path .. (ed_dirty and " *" or "") .. "  ctrl+s save"
+    local status = ed_path .. (ed_dirty and " *" or "") .. "  Ctrl+s save"
     gfx.draw_text(status, tx, ty, theme.text_dim)
     ty = ty + ed_row_h
     local content_rows = math.floor((w.h - theme.wm.title_h - 12) / ed_row_h) - 1

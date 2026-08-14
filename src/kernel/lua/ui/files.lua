@@ -9,8 +9,12 @@ fs_sel = fs_sel or 1
 fs_viewing = fs_viewing or false
 fs_view_name = fs_view_name or ""
 fs_view_content = fs_view_content or ""
+fs_view_row = fs_view_row or 1
+fs_view_col = fs_view_col or 0
+fs_view_scroll = fs_view_scroll or 0
 fs_error = fs_error or ""
 fs_row_h = 18
+fs_glyph_w = 8
 
 -- Normalize a directory path: the root is "/", everything else has no
 -- trailing slash. Used for display and for building child paths.
@@ -61,6 +65,9 @@ function files_view(name)
     fs_viewing = true
     fs_view_name = name
     fs_view_content = content
+    fs_view_row = 1
+    fs_view_col = 0
+    fs_view_scroll = 0
     fs_error = ""
     gfx.invalidate()
 end
@@ -123,14 +130,26 @@ local function files_render()
         return
     end
     if fs_viewing then
-        gfx.draw_text(fs_view_name, tx, ty, theme.text)
+        -- Header: the full file path + cancel hint, like the editor status
+        -- line ("/apps/hello.lua   Esc  cancel"). Clicking it exits the view.
+        local header = join_path(fs_path, fs_view_name) .. "   Esc  cancel"
+        gfx.draw_text(header, tx, ty, theme.text_dim)
         ty = ty + fs_row_h
         local lines = {}
         for line in (fs_view_content .. "\n"):gmatch("(.-)\n") do
             lines[#lines + 1] = line
         end
-        for i = 1, math.min(#lines, rows - 1) do
+        local content_rows = rows - 1
+        if content_rows < 1 then content_rows = 1 end
+        -- Scroll so the cursor row is always visible.
+        local first = fs_view_scroll + 1
+        for i = first, math.min(#lines, first + content_rows - 1) do
             gfx.draw_text(lines[i], tx, ty, theme.text)
+            if i == fs_view_row then
+                -- Hollow cursor (outline only) marks view mode — the solid
+                -- accent block is reserved for the editor.
+                gfx.rect_border(tx + fs_view_col * fs_glyph_w, ty, fs_glyph_w, 16, 1, theme.accent)
+            end
             ty = ty + fs_row_h
         end
         return
