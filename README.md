@@ -9,7 +9,7 @@
 [![Lua](https://img.shields.io/badge/Lua-5.4.8-2C2D72.svg)](libs/lua-5.4)
 [![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-> **Aster is an experimental desktop operating system written in Zig.**
+> **Aster OS is an experimental desktop operating system written in Zig.**
 >
 > Aster currently targets **x86_64** (QEMU `q35`) — the only implemented architecture for
 > now. A future port (e.g. ARM, RISC-V) is not excluded by design, but it is not a goal

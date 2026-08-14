@@ -30,6 +30,19 @@ Zigu, ale doplňují je o projektovou disciplínu.
 - Zavedené zkratky a konvence (README.md, CHANGELOG.md, LICENSE, `adr/NNN-nazev.md`,
   `handoffs/NN-nazev.md`) zůstávají beze změny.
 
+### Název projektu (Aster OS)
+
+Oficiální název projektu je **Aster OS** a používá se podle konvence:
+
+- **Oficiální názvy a nadpisy — vždy „Aster OS":** název repozitáře, nadpisy kapitol,
+  titulky dokumentů, úvodní odstavce a marketingové/prezentační materiály.
+- **Běžný text a plynulost — přípustné „Aster":** jakmile se v dané kapitole nebo
+  odstavci jednou použije plný název a kontext je zcela jasný, může se v souvislém
+  textu dál psát jen „Aster" (opakované „OS" by znělo těžkopádně).
+- **Kód, API a CLI — jednoslovně bez mezer:** `aster` (např. `aster-kernel`,
+  `aster_ipc`, `aster.iso`, `zig-out/bin/aster`). V kódu se název nikdy nepíše
+  s mezerou ani jako „Aster OS".
+
 ---
 
 ## 1. Návrhové principy

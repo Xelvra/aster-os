@@ -70,7 +70,7 @@ directory`.
      vytiskne "failed command: xorriso" při každém skutečném běhu, exit 0 a build pokračuje.
    - Potvrzeno minimální reprodukcí: `sh -c "echo X >&2; echo d > \"$1\""` +
      `addOutputFileArg` → "failed command", exit 0. Bez stderr zápisu → žádná hláška.
-   - **Řešení pro Aster:** potlačit stderr xorriso (přesměrovat do /dev/null, nebo `-quiet`
+   - **Řešení pro Aster OS:** potlačit stderr xorriso (přesměrovat do /dev/null, nebo `-quiet`
      nestačí — banner jde na stderr i s `-quiet`). Viz §9.
 
 ## 5. Reprodukce

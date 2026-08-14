@@ -6,7 +6,7 @@ nav_order: 1
 
 # Aster OS — Web
 
-**Aster** is an experimental desktop operating system written in Zig. This site is the
+**Aster OS** is an experimental desktop operating system written in Zig. This site is the
 introduction to the project's complete English documentation.
 
 ## Documentation language

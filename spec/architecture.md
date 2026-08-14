@@ -20,7 +20,7 @@
 
 ## 1. Shrnutí
 
-Aster je experimentální desktopový operační systém napsaný v Zigu. První implementace
+Aster OS je experimentální desktopový operační systém napsaný v Zigu. První implementace
 záměrně upřednostňuje **jednoduchost před izolací**: desktop, skriptovací engine i runtime
 sdílejí jediný adresní prostor, aby se minimalizovala složitost a maximalizovala rychlost
 iterace. Veřejná rozhraní jsou navržena jako **stabilní abstrakce**, takže jednotlivé
@@ -52,7 +52,7 @@ a vyžádal by si vlastní změnu rozsahu (`spec/non-goals.md`).
 
 ### 2.1 Manifest (aktuální znění)
 
-> **Aster je experimentální desktopový operační systém napsaný v Zigu.**
+> **Aster OS je experimentální desktopový operační systém napsaný v Zigu.**
 >
 > První implementace záměrně upřednostňuje jednoduchost před izolací: desktop, skriptovací
 > engine i runtime sdílejí jediný adresní prostor, aby se minimalizovala složitost a

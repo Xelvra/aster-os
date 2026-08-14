@@ -1,7 +1,7 @@
 # Debugging Survival Guide
 
 **Status:** V1 (draft). **Rozhodnutí:** ADR-016, ADR-017.
-**Účel:** jak diagnostikovat, když Aster spadne, zamrzne nebo se chová divně.
+**Účel:** jak diagnostikovat, když Aster OS spadne, zamrzne nebo se chová divně.
 
 ---
 

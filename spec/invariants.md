@@ -1,4 +1,4 @@
-# Invarianty Aster
+# Invarianty Aster OS
 
 **Status:** V1 (draft). **Rozhodnutí:** ADR-002, ADR-003, ADR-008, ADR-009, ADR-017.
 **Účel:** kontrolní seznam při každém code review. Kód, který porušuje invariant, **není

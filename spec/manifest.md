@@ -1,8 +1,8 @@
-# Aster Manifest
+# Aster OS Manifest
 
 **Status:** Current design (aktuální stav)
 
-> **Aster je experimentální desktopový operační systém napsaný v Zigu.**
+> **Aster OS je experimentální desktopový operační systém napsaný v Zigu.**
 >
 > První implementace záměrně upřednostňuje jednoduchost před izolací: desktop, skriptovací
 > engine i runtime sdílejí jediný adresní prostor, aby se minimalizovala složitost a
@@ -20,7 +20,7 @@
 | *stabilní abstrakce* | Rozhraní (KI) se navrhují tak, jako by už dnes byla ABI. |
 | *přestěhování do izolovaných procesů bez změny API* | Z dnešních přímých volání se zítra stanou IPC zprávy — volající kód se nemění. |
 
-## Co Aster NENÍ
+## Co Aster OS NENÍ
 
 - **Není mikrojádro** (zatím). Je to evoluční SASOS, který se k mikrojádru může vyvíjet.
 - **Není POSIX-klon.** Žádná POSIX API, žádný historický balast.

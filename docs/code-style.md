@@ -3,7 +3,7 @@ layout: default
 title: code-style
 nav_order: 2
 source: spec/code-style.md
-synced: 2026-08-09
+synced: 2026-08-14
 ---
 
 # Code Style — Code Philosophy and Rules
@@ -37,6 +37,19 @@ Zig's naming conventions, but complement them with project-level discipline.
 * **No versions or dates in filenames** — versions belong inside the document / in git history.
 * Established abbreviations and conventions (`README.md`, `CHANGELOG.md`, `LICENSE`,
   `adr/NNN-name.md`, `handoffs/NNN-name.md`) remain unchanged.
+
+### Project name (Aster OS)
+
+The official project name is **Aster OS** and it follows this convention:
+
+- **Official names and headings — always "Aster OS":** the repository name, chapter
+  headings, document titles, intro paragraphs, and marketing/presentation material.
+- **Body text and flow — "Aster" is acceptable:** once the full name has been used in a
+  chapter or paragraph and the context is fully clear, continuous prose may keep using
+  just "Aster" (repeating "OS" would read as clunky).
+- **Code, API, and CLI — single word, no space:** `aster` (e.g. `aster-kernel`,
+  `aster_ipc`, `aster.iso`, `zig-out/bin/aster`). The name is never written with a space
+  or as "Aster OS" in code.
 
 ---
 
@@ -116,4 +129,4 @@ Before approving any change:
 
 ---
 
-Last synced from [`code-style.md`](https://github.com/Xelvra/aster-os/blob/main/spec/code-style.md) on **2026-08-09**.
+Last synced from [`code-style.md`](https://github.com/Xelvra/aster-os/blob/main/spec/code-style.md) on **2026-08-14**.

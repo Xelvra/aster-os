@@ -1,4 +1,4 @@
-# Non-Goals — Co Aster vědomě NEdělá
+# Non-Goals — Co Aster OS vědomě NEdělá
 
 **Status:** Current design
 **Účel:** jasně vymezený rozsah projektu. Každý dotaz typu "proč tam není X?" se odkazuje

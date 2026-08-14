@@ -7,7 +7,7 @@
 
 M6 adoptuje **ext2 jako první persistentní filesystem backend**, zpočátku **read-only**.
 ext2 je pouze **on-disk reprezentace** — nedefinuje sémantiku souborů, identitu, namespace,
-permissions ani bezpečnostní model Asteru. Rozhraní mezi Aster File API a backendem je tenké
+permissions ani bezpečnostní model Aster OS. Rozhraní mezi Aster File API a backendem je tenké
 (`open` / `read` / `close`); **nikdy vlastní on-disk formát** (navazuje na ADR-010).
 
 > **M6 status: ext2-specific adapter.** Veřejný File API je dnes typovaný na

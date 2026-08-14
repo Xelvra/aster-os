@@ -9,7 +9,7 @@ nové KI moduly přidané na konec enumu**, nikdy úpravou existujících. Kerne
 žádnou z nich dopředu; vše, co dnes navrhujeme, musí zůstat rozšiřitelné bez bourání.
 
 ## Odůvodnění
-Aster má být dlouhodobě živý systém: dnes UI v Luay, zítra i prohlížeč, hudba, připojení
+Aster OS má být dlouhodobě živý systém: dnes UI v Luay, zítra i prohlížeč, hudba, připojení
 k internetu. KI je stabilní šev (ADR-003, ADR-004) a čísla operací jsou zmrazená
 (`kernel-interface.md` §4 pravidlo 2) — jediný udržitelný způsob přidávání je **nový modul
 na konec**. Žádná dnešní struktura se nesmí navrhovat tak, aby budoucí feature vyžadovala

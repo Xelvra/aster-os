@@ -1,6 +1,6 @@
 # Aster OS — Specifikace
 
-**Aster** je experimentální desktopový operační systém napsaný v Zigu. Tento soubor je
+**Aster OS** je experimentální desktopový operační systém napsaný v Zigu. Tento soubor je
 úvodem do kompletní architektonické dokumentace projektu.
 
 > První implementace záměrně upřednostňuje jednoduchost před izolací: desktop, skriptovací

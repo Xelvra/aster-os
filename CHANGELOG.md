@@ -78,7 +78,7 @@ yet.
   and ext4.
 * **GPT partition discovery:** Partitions become block-device views (a sector
   of a partition maps to a sector of the disk), independent of any filesystem.
-* **ext2 read-only mount + thin Aster file API:** Superblock/feature validation
+* **ext2 read-only mount + thin Aster OS file API:** Superblock/feature validation
   (unknown bits and `dir_index` rejected), inode lookup, directory traversal,
   file reads through direct + single-indirect blocks; `open`/`read`/`close`
   over an opaque backend reference — the caller never sees ext2 metadata.

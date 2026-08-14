@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Create a deterministic Aster test disk image (spec/roadmap.md M6.1.5):
+# Create a deterministic Aster OS test disk image (spec/roadmap.md M6.1.5):
 # GPT with one ext2 partition populated from a fixed root filesystem tree.
 #
 # The exact mke2fs invocation is the ADR-023 contract: ext2, no dir_index

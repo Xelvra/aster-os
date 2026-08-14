@@ -1,6 +1,6 @@
 # Contributing to Aster OS
 
-Thanks for your interest. Aster is an experimental, alpha hobby operating
+Thanks for your interest. Aster OS is an experimental, alpha hobby operating
 system written in Zig. This document is short on purpose — the authoritative
 details live in the internal specifications (`spec/*.md`), referenced below.
 
