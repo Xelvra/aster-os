@@ -456,7 +456,11 @@ triggerů / nových ADR.
 - [x] **M7.1.5 Editor app:** Lua okno v launcheru, editace klávesnicí, uložení přes
       `file.write`.
 - [x] **M7.1.6 Auto-reload na uložení:** uložení `theme.lua` → okamžité překreslení
-      (`spec/runtime.md` §5a spouštěč 2).
+      (`spec/runtime.md` §5a spouštěč 2). **Rozšířeno (M7.1.7):** chybný config se hlásí
+      do REPL a live vzhled zůstává na poslední platné verzi **`.theme.bak`** (read-only
+      záloha, validace před zápisem v editoru, `spec/runtime.md` §5a.2).
+- [ ] **Toggle skrytých souborů ve files browseru** — zobrazit/skrýt dotfiles (dnes se
+      kreslí šedivě, vždy viditelné).
 
 ### M8 — Stabilizace
 

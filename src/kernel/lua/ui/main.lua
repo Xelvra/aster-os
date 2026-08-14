@@ -1,6 +1,14 @@
 -- main.lua - update/render entry points called by the kernel. Concatenated
 -- after the other ui modules, so all their local state is in scope.
 
+-- Apply the persistent disk config once the whole shell (incl. repl print)
+-- is loaded. Any config error is reported in the REPL scrollback, so a
+-- broken /theme.lua is visible after boot and after F5.
+local config_error = apply_disk_theme()
+if config_error then
+    print("theme.lua config error: " .. config_error)
+end
+
 function update()
     layout_pass()
     handle_mouse()

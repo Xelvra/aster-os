@@ -90,12 +90,21 @@ local function files_render()
         end
         return
     end
-    -- List mode: scroll so the selected entry stays visible.
+    -- List mode: scroll so the selected entry stays visible. Hidden files
+    -- (leading dot, e.g. the .theme.bak config backup) are shown in the dim
+    -- color so it is visually clear they are not regular editable files.
     local first = 1
     if fs_sel > rows then first = fs_sel - rows + 1 end
     for i = first, math.min(#fs_entries, first + rows - 1) do
         local e = fs_entries[i]
-        local color = (i == fs_sel) and theme.accent or theme.text
+        local color
+        if i == fs_sel then
+            color = theme.accent
+        elseif e.name:sub(1, 1) == "." then
+            color = theme.text_dim
+        else
+            color = theme.text
+        end
         local label = e.name
         if e.dir then label = label .. "/" end
         gfx.draw_text(label, tx, ty, color)

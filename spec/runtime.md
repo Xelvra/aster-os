@@ -217,6 +217,39 @@ běhu a celé prostředí se okamžitě překreslí.
 - M4–M5: spouštěče 1 a 3 (embedded soubory; „save" není, jen REPL).
 - M6+: spouštěč 2 (initfs / perzistence v souborech + auto-reload).
 
+### 5a.1 Config je plný Lua kód (ne datový formát)
+
+`/theme.lua` (a obecně každý config soubor aplikovaný přes `apply_disk_theme`) **není
+omezený datový formát — je to plnohodnotný Lua kód spuštěný na sdíleném `lua_State`
+shellu** (`load` + `pcall`). To je záměr projektu „kód je systém a systém je kód"
+(`spec/lua-wm.md` §1, D5): uživatel může přes config měnit nejen `theme` tabulku, ale
+i funkce WM (`win_render`, `bar_render`, ...), přidávat vlastní okna/zkratky a volat
+libovolné bindings. To není bezpečnostní díra, ale **vědomá vlastnost**: totéž už
+umožňuje REPL (`repl.lua` `run()`); `/theme.lua` je jen jeho perzistentní varianta.
+Bezpečnostní model zůstává jednouživatelský SASOS bez izolace domén
+(`spec/non-goals.md`, `SECURITY.md`) — plný kód v configu to nemění.
+
+### 5a.2 Fallback a chybové hlášení configu
+
+Chybný config **nesmí shodit shell ani nechat polorozkreslený vzhled**:
+
+- `apply_theme_content(content)` aplikuje config **atomicky**: `load` chytí syntax
+  chyby, `pcall` na **klonu** `theme` tabulky chytí runtime chyby; při jakékoli chybě
+  se stará `theme` tabulka vrátí (rollback) a vrátí se chybová zpráva.
+- `apply_disk_theme()` aplikuje `/theme.lua`; když neprojde, použije poslední platnou
+  verzi **`.theme.bak`** a chybu vrátí volajícímu.
+- Chyba se **vždy vypíše do REPL scrollbacku** (`main.lua` po bootu/F5, `editor_save`
+  po Ctrl+S) — uživatel vidí, že config je rozbitý, i když soubor neotevře.
+- Editor (`editor_save`) **validuje před zápisem**: rozbitý config se do `/theme.lua`
+  zapíše (working copy zůstává editovatelná), ale **`.theme.bak` se nemění** — drží
+  poslední platný config a live vzhled na něm zůstává, dokud uživatel neuloží platnou
+  verzi.
+- **`.theme.bak` je read-only** (view ve files browseru, Ctrl+S ho odmítne uložit):
+  záloha musí vždy zůstat poslední platná verze. Skryté soubory (vedoucí tečka) se
+  ve files browseru kreslí šedivě.
+- Diskový `.theme.bak` musí existovat v image (ext2 nemá `create`); `make-test-disk.sh`
+  ho vkládá z `tools/test-disk-root/.theme.bak`.
+
 ---
 
 ## 6. GC tempo (frame latency p99)

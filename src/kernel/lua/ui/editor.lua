@@ -45,15 +45,46 @@ function editor_load(path)
 end
 
 function editor_save()
+    -- The backup is read-only: you can view it in the file browser, but never
+    -- overwrite it with Ctrl+S (it must keep holding the last valid config).
+    if ed_path == "/.theme.bak" then
+        print("theme.lua config error: .theme.bak is read-only (view only)")
+        gfx.invalidate()
+        return
+    end
+    local content = table.concat(ed_lines, "\n")
+    -- Validate without writing: a broken config must not clobber the file.
+    -- On success apply_theme_content already applied the new look live.
+    local err = apply_theme_content(content)
+    if err then
+        -- Broken config: leave the working copy and the editor buffer as they
+        -- are (the user keeps fixing), but do not touch .theme.bak — the live
+        -- look stays on the last valid version.
+        local h = file.open(ed_path)
+        if h then
+            file.truncate(h, 0)
+            file.write(h, content)
+            file.close(h)
+        end
+        ed_dirty = false
+        print("theme.lua config error: " .. err)
+        gfx.invalidate()
+        return
+    end
+    -- Valid config: persist the new version and refresh the last-valid backup.
     local h = file.open(ed_path)
-    if not h then return end
-    file.truncate(h, 0)
-    file.write(h, table.concat(ed_lines, "\n"))
-    file.close(h)
+    if h then
+        file.truncate(h, 0)
+        file.write(h, content)
+        file.close(h)
+    end
+    local b = file.open("/.theme.bak")
+    if b then
+        file.truncate(b, 0)
+        file.write(b, content)
+        file.close(b)
+    end
     ed_dirty = false
-    -- The saved file is the persistent UI config: apply it live
-    -- (spec/runtime.md §5a trigger 2).
-    apply_disk_theme()
 end
 
 local function editor_render()

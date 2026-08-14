@@ -542,6 +542,11 @@ fn testFilesystem(alloc: std.mem.Allocator, memory: *mem.Memory) void {
     expect(n > 0, "read /theme.lua returns data");
     expect(std.mem.eql(u8, buf[0..n], "theme.background = 0x0f1117"), "read returns the config content");
     expect(f.eof(), "read reaches EOF");
+    if (!std.mem.eql(u8, buf[0..n], "theme.background = 0x0f1117")) {
+        var dbg: [192]u8 = undefined;
+        const line = std.fmt.bufPrint(&dbg, "DBG theme.lua[{d}] = {s}", .{ n, buf[0..n] }) catch "DBG";
+        serial.writeLine(line);
+    }
 
     if (file.File.open(&fs, "/missing.lua")) |_| {
         expect(false, "open invalid path fails");
@@ -802,8 +807,9 @@ fn testFileDir() void {
 }
 
 fn testAutoReload() void {
-    // M7.1.6: saving /theme.lua applies it live — writing a Lua config chunk
-    // and calling apply_disk_theme must change the theme table.
+    // M7.1.6: a valid /theme.lua applies live; a broken one must not crash —
+    // apply_disk_theme reports the error, the live look stays on the last
+    // valid version and .theme.bak is untouched.
     const lua = @import("lua/lua.zig");
     const storage = @import("api/storage.zig");
     if (!storage.isMounted()) {
@@ -816,12 +822,40 @@ fn testAutoReload() void {
         return;
     };
     const script =
-        \\local h = file.open("/theme.lua")
-        \\file.truncate(h, 0)
-        \\file.write(h, "theme.background = 0x112233")
-        \\file.close(h)
-        \\apply_disk_theme()
-        \\return theme.background == 0x112233
+        \\-- seed the working copy and the last-valid backup with the same
+        \\-- good config (mirrors editor_save after a successful Ctrl+S)
+        \\local s = file.open("/theme.lua")
+        \\file.truncate(s, 0)
+        \\file.write(s, "theme.background = 0x112233")
+        \\file.close(s)
+        \\local s2 = file.open("/.theme.bak")
+        \\file.truncate(s2, 0)
+        \\file.write(s2, "theme.background = 0x112233")
+        \\file.close(s2)
+        \\local ok = apply_disk_theme() == nil and theme.background == 0x112233
+        \\-- broken working copy: the error is returned, the live look stays on
+        \\-- the last valid version and .theme.bak is untouched
+        \\local w = file.open("/theme.lua")
+        \\file.truncate(w, 0)
+        \\file.write(w, "theme.background = 0xZZZZZZ")
+        \\file.close(w)
+        \\local err = apply_disk_theme()
+        \\ok = ok and err ~= nil and theme.background == 0x112233
+        \\local b2 = file.open("/.theme.bak")
+        \\local bak2 = ""
+        \\while true do
+        \\    local c = file.read(b2, 4096)
+        \\    if not c or c == "" then break end
+        \\    bak2 = bak2 .. c
+        \\end
+        \\file.close(b2)
+        \\ok = ok and bak2 == "theme.background = 0x112233"
+        \\-- restore the working copy for later tests
+        \\local w2 = file.open("/theme.lua")
+        \\file.truncate(w2, 0)
+        \\file.write(w2, "theme.background = 0x112233")
+        \\file.close(w2)
+        \\if ok then return "PASS" else return "FAIL" end
     ;
     const load_status = L.luaL_loadstring(lua_state, script);
     expect(load_status == L.LUA_OK, "auto-reload script compiles");
@@ -832,8 +866,11 @@ fn testAutoReload() void {
         L.lua_pop(lua_state, 1);
         return;
     }
-    const ok = L.lua_toboolean(lua_state, -1) == 1;
-    expect(ok, "saving the theme config applies it live");
+    var len: usize = 0;
+    const str = L.lua_tolstring(lua_state, -1, &len);
+    const result: []const u8 = @as([*]const u8, @ptrCast(str))[0..len];
+    const ok = len == 4 and std.mem.eql(u8, result, "PASS");
+    expect(ok, "config applies live, broken config falls back to .theme.bak, backup intact");
     _ = L.lua_pop(lua_state, 1);
 }
 

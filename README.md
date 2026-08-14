@@ -82,7 +82,13 @@ zig build run -Ddisk=disk.img        # boot with the disk attached
 In the shell: **Super+T** opens the editor on `theme.lua` (arrows move the
 cursor/line, **Ctrl+S** saves and the shell repaints live); **Super+E** opens
 the file browser at the root (Up/Down select, Enter opens, Escape goes up a
-level). **Super+Space** opens the launcher; Alt+Tab cycles windows.
+level; hidden dotfiles like the `.theme.bak` config backup are shown in dim
+gray). **Super+Space** opens the launcher; Alt+Tab cycles windows.
+
+`theme.lua` is full Lua code (not a data format), so you can tweak colors and
+geometry or rewrite window behavior — the shell applies it atomically on
+save. A broken config is reported in the REPL and the last valid look stays:
+`.theme.bak` holds the last working version as a read-only fallback.
 
 Verification tools (see [`spec/verification.md`](spec/verification.md)):
 
