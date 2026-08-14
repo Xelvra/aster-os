@@ -88,7 +88,9 @@ repaints the shell live; **Super+E** opens the file browser at the root
 (Up/Down select, **Enter** opens/edits a file,
 **Space** previews, **Delete** removes it, Escape or a click on the window
 title bar goes up a level; hidden
-dotfiles like the `.theme.bak` config backup are shown in dim gray).
+dotfiles like the `.theme.bak` config backup are shown in dim gray). Deletion
+is permanent for now — `/.trash` exists as the future trash location (its
+header shows an empty-trash hint that is not wired up yet).
 **Super+Space** opens the launcher, whose `help` entry lists every shortcut;
 Alt+Tab cycles windows. The WM follows
 **Hyprland conventions strictly** — shortcuts, buttons and navigation behave

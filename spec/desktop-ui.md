@@ -125,16 +125,19 @@ Pravá část baru je dnes placeholder, ale **má správné rozložení** (widge
 - Píšeš Lua kód, Enter spouští; `print()` píše na obrazovku.
 
 ### 4.6a Editor (✅ hotovo, M7.1)
-- **Super+T** otevře/zaostří editor okno (`ed_*` stav v `input.lua`).
+- **Super+T** (i položka `editor` v launcheru) otevře **prázdný buffer**;
+  čistý buffer se dalším Super+T resetuje, dirty se zachová (`ed_*` stav v `input.lua`).
 - Textový editor: šipky, Home/End, Enter, Backspace/Delete, **Ctrl+S** uloží
-  (`file.write`). Uložení configu (`/theme.lua`) spouští auto-reload.
+  (`file.write`); nový buffer nabídne **save as:** v titulkové liště a soubor
+  vytvoří (`file.create`). **Esc Esc** zavře editor jen u čistého bufferu.
+- **Super+Z** otevře settings (`/theme.lua`); uložení configu spouští auto-reload.
 - Detail navigace viz `spec/lua-wm.md` §7a.4.
 
 ### 4.6b Files — správce souborů (✅ hotovo, M7.1)
 - **Super+E** otevře files okno v kořenu (`files_*` stav v `input.lua`).
-- Up/Down výběr, **Enter** otevře (adresář → dovnitř, soubor → zobrazit obsah),
-  **Escape** o úroveň výš / ven z náhledu.
-- Prohlížení read-only; editace souboru jde přes editor.
+- Up/Down výběr, **Enter** otevře (adresář → dovnitř, soubor → **editace v editoru**),
+  **Space** = náhled (read-only), **Delete** = smazat, **Escape** o úroveň výš /
+  ven z náhledu; klik na **titulkovou lištu** (cesta) jde nahoru.
 - Detail viz `spec/lua-wm.md` §7a.4.
 
 ### 4.7 Aplikace (🔶 základ)

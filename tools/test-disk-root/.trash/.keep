@@ -1,0 +1,3 @@
+-- Aster OS trash directory (/.trash).
+-- Files are not moved here yet (deletion is permanent); this placeholder keeps
+-- the directory in the image. Emptying the trash (Ctrl+Delete) is planned.

@@ -447,7 +447,7 @@ local function handle_key(ev)
             table.insert(ed_lines, ed_row + 1, string.sub(line, ed_col + 1))
             ed_row = ed_row + 1
             ed_col = 0
-            ed_dirty = true
+            editor_touch()
         elseif code == "backspace" then
             if ed_col > 0 then
                 local s = prev_cp(ed_lines[ed_row], ed_col)
@@ -460,7 +460,7 @@ local function handle_key(ev)
                 table.remove(ed_lines, ed_row)
                 ed_row = ed_row - 1
             end
-            ed_dirty = true
+            editor_touch()
         elseif code == "left" then
             ed_col = prev_cp(ed_lines[ed_row], ed_col)
         elseif code == "right" then
@@ -487,12 +487,12 @@ local function handle_key(ev)
                 ed_lines[ed_row] = ed_lines[ed_row] .. ed_lines[ed_row + 1]
                 table.remove(ed_lines, ed_row + 1)
             end
-            ed_dirty = true
+            editor_touch()
         elseif ev.char then
             local line = ed_lines[ed_row]
             ed_lines[ed_row] = string.sub(line, 1, ed_col) .. ev.char .. string.sub(line, ed_col + 1)
             ed_col = ed_col + #ev.char
-            ed_dirty = true
+            editor_touch()
         end
         update_editor_header()
         gfx.invalidate()

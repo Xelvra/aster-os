@@ -300,6 +300,11 @@ stavu neví.
   **read-only** (view ve files browseru, Ctrl+S ho odmítne uložit) a jako dotfile se
   ve files browseru kreslí šedivě.
 
+- **Banner a hlavička:** scrollback začíná skutečným Lua bannerem
+  (`Lua 5.4.8  Copyright (C) 1994-2025 Lua.org, PUC-Rio` — `LUA_COPYRIGHT`
+  v `libs/lua-5.4/src/lua.h`); titulková lišta REPL ukazuje `~ repl  F5 reload`
+  (§7b).
+
 - UTF-8 helpery (`cp_start`, `cp_end`, `prev_cp`, `next_cp`) — kurzor je byte offset,
   ale edituje se po code pointech, aby se neroztrhl vícebajtový znak.
 - `print(...)` přepisuje globální Lua `print` — píše do scrollbacku místo stdout.
@@ -325,7 +330,8 @@ stavu neví.
 - `launcher_run(id)` — mapuje id na akci: zobrazení/zaostření okna (`repl`, `sysmon`,
   `files`), help, přepínání fullscreen, zavírání. Okna se **znovu používají**, ne
   duplikují (`find_win` → přesun na aktuální ws, nebo vytvoření); `repl`/`sysmon`/
-  `files` se přesunou na `current_ws`, aby se okno otevřelo tam, kde jsi.
+  `files` se přesunou na `current_ws`, aby se okno otevřelo tam, kde jsi. `editor`
+  se chová jako Super+T (čistý buffer → nový prázdný, dirty se zachová, §7a.4).
 
 ### 5.5 `input.lua` — vstupní obsluha
 
@@ -584,7 +590,10 @@ Navigační konvence:
   Home/End = začátek/konec řádku, Enter = nový řádek, Backspace/Delete = mazat,
   **Ctrl+S** = uložit (`file.write`). Nový buffer (bez cesty) přepne Ctrl+S na
   prompt **„save as:"** v titulkové liště: píše se cesta, **Enter** uloží —
-  neexistující soubor se vytvoří (`file.create`, ext2 create), **Esc** zruší.
+  neexistující soubor se vytvoří (`file.create`, ext2 create), **Esc** zruší
+  (akce v promptu odděluje `|`). Dirty marker se maže i tehdy, když uživatel
+  všechny změny vrátí zpět — buffer se porovnává s posledním uloženým stavem
+  (`ed_saved`), takže Ctrl+S se nabízí jen pro skutečně jiný obsah.
   **Esc Esc** (jen u čistého bufferu bez neuložených změn) zavře editor jako
   prohlížení; s neuloženými změnami je Esc blokován, takže se změny nemůžou
   ztratit. Konfigurace (`/theme.lua`) se otevírá přes **Super+Z** (settings);
@@ -599,6 +608,13 @@ Navigační konvence:
   ukazatel cesty). Konvence je „Enter otevře,
   Space prohlíží, Delete maže, klik na cestu jde nahoru" — v duchu Hyprland
   (Enter = otevřít soubor v příslušné aplikaci), ne Midnight Commander (F3/F4).
+- **Koš (`/.trash`):** smazání souborů je zatím **trvalé** (`file.remove` →
+  ext2 `unlink`; do `lost+found` nic nejde — to je jen prostor pro `fsck`
+  po havárii). Adresář `/.trash` existuje v image jako cíl budoucího koše;
+  při vstupu do něj ukazuje hlavička placeholder **`Ctrl+Delete empty`** —
+  kombinace zatím není propojená. Vymazání obsahu koše je plánované
+  (`roadmap.md`): buď ext2 `rename`/`link` (přesun místo mazání), nebo
+  iterace `file.remove` nad obsahem.
 
 **Smazání config souborů je bezpečné:** `.theme.bak` nemá žádnou ochranu proti
 smazání — systém na diskovém configu nezávisí. Když `/theme.lua` i `.theme.bak`

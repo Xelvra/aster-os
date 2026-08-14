@@ -27,6 +27,15 @@ local function set_window_header(title, text)
     win_headers[title] = text
 end
 
+-- Optional text cursor inside the title-bar header (glyph offset within the
+-- header text; nil hides it). The editor uses it for the "save as:" prompt so
+-- the cursor follows the typed path in the header instead of the body.
+local win_cursors = {}
+
+local function set_window_cursor(title, glyph_offset)
+    win_cursors[title] = glyph_offset
+end
+
 local function window(title, ws)
     z_counter = z_counter + 1
     return { title = title, ws = ws, x = 0, y = 0, w = 0, h = 0, floating = false, z = z_counter }
@@ -304,6 +313,10 @@ local function win_render(w)
     local hdr = win_headers[w.title]
     if hdr then
         gfx.draw_text(hdr, tx + 6 + (label:len() + 2) * 8, ty + (th - 16) // 2 + 1, theme.text_dim)
+        local cur = win_cursors[w.title]
+        if cur then
+            gfx.draw_rect(tx + 6 + (label:len() + 2) * 8 + cur * 8, ty + (th - 16) // 2 + 1, 8, 16, theme.accent)
+        end
     end
 end
 

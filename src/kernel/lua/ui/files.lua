@@ -33,10 +33,13 @@ local function join_path(p, name)
 end
 
 -- Window title-bar header (two-space-separated segments, §7b): the current
--- path in the listing, or the full file path + cancel hint while viewing.
+-- path in the listing, or the full file path + cancel hint while viewing. The
+-- trash directory gets an empty-trash hint (placeholder — not wired yet).
 local function update_files_header()
     if fs_viewing then
         set_window_header("files", join_path(fs_path, fs_view_name) .. "  Esc cancel")
+    elseif fs_path == "/.trash" then
+        set_window_header("files", fs_path .. "  Ctrl+Delete empty")
     else
         set_window_header("files", fs_path)
     end

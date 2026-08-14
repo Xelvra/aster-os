@@ -39,6 +39,29 @@ yet.
   validated and any parse failure degrades to `null` → fallback (no panic on
   malformed firmware data).
 
+* **ext2 file.create (M7.1.11):** the write path can now create new files —
+  `file.create` allocates and initializes an inode and links a directory entry
+  (ADR-023, non-crash-safe best effort). Exposed through the thin File API, the
+  storage KI (`storage.create`) and the Lua `file.create` binding; covered by
+  host and in-QEMU runtime tests.
+
+* **Editor workflow:** Super+T (and the launcher's `editor` entry) opens a
+  fresh untitled buffer (a dirty buffer is kept so edits survive); Ctrl+S on a
+  new buffer shows a `save as:` prompt in the window title bar (with a text
+  cursor) and creates the file via `file.create`; the dirty marker clears when
+  every change is reverted; Esc Esc closes the editor only when clean.
+  Super+Z opens the settings file `/theme.lua`.
+
+* **Unified window headers (§7b):** context and key hints moved into the title
+  bar (`~ repl  F5 reload`, `editor  /path  Ctrl+s save*`,
+  `files  /path  Esc cancel`), window content starts with the data; the REPL
+  shows the real Lua banner. Super+F1 was dropped (help stays in the launcher),
+  F5 hot reload stays.
+
+* **Trash directory (`/.trash`):** the image ships an empty `/.trash`
+  directory as the future trash location; its files-browser header shows the
+  `Ctrl+Delete empty` hint as a placeholder (empty-trash is planned, not wired).
+
 ### Fixed
 
 * **ext2 group descriptor hardening:** `groupDescriptor` now computes the GDT

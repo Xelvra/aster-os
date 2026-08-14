@@ -15,6 +15,7 @@ ed_open = ed_open or false
 ed_saveas = ed_saveas or false
 ed_saveas_path = ed_saveas_path or ""
 ed_esc_pending = ed_esc_pending or false
+ed_saved = ed_saved or ""
 ed_glyph_w = 8
 ed_row_h = 18
 
@@ -24,14 +25,28 @@ ed_row_h = 18
 -- save-as prompt replaces the path and hint while it is active.
 local function editor_header()
     if ed_saveas then
-        return "save as: " .. ed_saveas_path .. "  Enter save  Esc cancel"
+        return "save as: " .. ed_saveas_path .. "  Enter save  |  Esc cancel"
     end
     local path = ed_path or "untitled"
     return path .. "  Ctrl+s save" .. (ed_dirty and "*" or "")
 end
 
+-- Mark the buffer as edited unless its content matches the last saved/loaded
+-- text: reverting every change clears the dirty marker again, so a Ctrl+S is
+-- only ever offered for a buffer that really differs.
+local function editor_touch()
+    ed_dirty = table.concat(ed_lines, "\n") ~= ed_saved
+end
+
 local function update_editor_header()
     set_window_header("editor", editor_header())
+    -- During the save-as prompt the text cursor lives in the title bar after
+    -- the typed path; otherwise the body cursor stays.
+    if ed_saveas then
+        set_window_cursor("editor", #"save as: " + #ed_saveas_path)
+    else
+        set_window_cursor("editor", nil)
+    end
 end
 
 function editor_load(path)
@@ -45,6 +60,7 @@ function editor_load(path)
     ed_dirty = false
     if path == nil or path == "" then
         ed_lines = { "" }
+        ed_saved = ""
         update_editor_header()
         gfx.invalidate()
         return
@@ -52,6 +68,7 @@ function editor_load(path)
     local h = file.open(path)
     if not h then
         ed_lines = { "file.open failed: " .. path }
+        ed_saved = ed_lines[1]
         update_editor_header()
         gfx.invalidate()
         return
@@ -73,6 +90,7 @@ function editor_load(path)
     end
     if #t == 0 then t = { "" } end
     ed_lines = t
+    ed_saved = table.concat(t, "\n")
     update_editor_header()
     gfx.invalidate()
 end
@@ -129,6 +147,7 @@ function editor_save()
     if err then
         print(err)
     else
+        ed_saved = table.concat(ed_lines, "\n")
         ed_dirty = false
     end
     update_editor_header()
@@ -156,6 +175,7 @@ function editor_saveas_commit()
         return
     end
     ed_path = path
+    ed_saved = table.concat(ed_lines, "\n")
     ed_dirty = false
     ed_saveas = false
     ed_saveas_path = ""
@@ -201,7 +221,9 @@ local function editor_render()
             shown = string.sub(text, 1, max_chars)
         end
         gfx.draw_text(shown, tx, ty, theme.text)
-        if i == ed_row then
+        -- The solid block marks the text cursor — except during the save-as
+        -- prompt, when the cursor moved to the title bar.
+        if i == ed_row and not ed_saveas then
             gfx.draw_rect(tx + (ed_col - ed_scroll_col) * ed_glyph_w, ty, ed_glyph_w, 16, theme.accent)
         end
         ty = ty + ed_row_h
