@@ -163,6 +163,13 @@ Cíl: btop/Noctalia sysmon widget v baru + okno.
 
 ## 5. Zkratky (Hyprland standard — ✅ hotovo)
 
+> **Konvence ovládání = Hyprland.** Aster WM dodržuje **striktně Hyprland
+> konvence pro klávesové zkratky, tlačítka a navigaci**: pokud znáš Hyprland,
+> víš, jak se v Asteru ovládá okenní manažer. Zkratky jsou **data** (`input.lua`),
+> ne rozházený kód — přidávají se na jedno místo a fungují stejně. Žádné
+> MC/Total Commander konvence (F3/F4) — soubory se otevírají Enterem (jako
+> dvojklik v Hyprland file manageru), prohlížejí Spacem a mažou Delete.
+
 | Kombinace | Akce |
 |---|---|
 | Super+Enter | terminál (REPL) |

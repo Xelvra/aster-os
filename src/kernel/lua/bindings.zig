@@ -352,6 +352,7 @@ const FileFuncs = [_]lua_c.luaL_Reg{
     .{ .name = "close", .func = fileClose },
     .{ .name = "truncate", .func = fileTruncate },
     .{ .name = "dir", .func = fileDir },
+    .{ .name = "remove", .func = fileRemove },
     .{ .name = null, .func = null },
 };
 
@@ -481,6 +482,21 @@ fn fileDir(L: ?*lua_c.lua_State) callconv(.c) c_int {
         off += 2 + name_len;
     }
     return 1;
+}
+
+fn fileRemove(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    const path = checkString(L, 1, "path") orelse return 2;
+    const result = sys.dispatch(.Storage, .{
+        .a = @intFromEnum(api_storage.StorageOp.remove),
+        .b = @intFromPtr(path.ptr),
+        .c = path.len,
+    });
+    if (storageResultOk(result)) {
+        lua_c.lua_pushinteger(L, 0);
+        return 1;
+    }
+    pushError(L, "file.remove failed", .{});
+    return 2;
 }
 
 fn sysmonRamTotalMb(L: ?*lua_c.lua_State) callconv(.c) c_int {

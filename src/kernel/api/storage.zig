@@ -21,6 +21,7 @@ pub const StorageOp = enum(u64) {
     close = 3,
     truncate = 4,
     list = 5,
+    remove = 6,
 };
 
 pub const ReadArgs = extern struct {
@@ -163,6 +164,13 @@ pub fn dispatch(args: sys.SyscallArgs) u64 {
                 written += needed;
             }
             return ok(@intCast(written));
+        },
+        .remove => {
+            const checked = validate.checkPtr(args.b, u8) orelse return fail(.InvalidArgument);
+            const path_ptr: [*]const u8 = @ptrCast(checked);
+            const path = path_ptr[0..@as(usize, @intCast(args.c))];
+            file.File.delete(fs_ptr, path) catch |err| return fail(errToStatus(err));
+            return ok(0);
         },
     }
 }

@@ -544,9 +544,19 @@ Navigační konvence:
   **Ctrl+S** = uložit (`file.write`). Uložení configu (`/theme.lua`) spouští
   auto-reload (`spec/runtime.md` §5a, trigger 2).
 - **Files browser (`files.lua`):** Up/Down = výběr, **Enter** = otevřít
-  (adresář → dovnitř, soubor → zobrazit obsah), **Escape** = o úroveň výš /
-  ven z náhledu, **Super+E** = otevřít v kořenu. Prohlížení je read-only;
-  editace souboru jde přes editor.
+  (adresář → dovnitř, `..` → o úroveň výš, soubor → **editace v editoru**),
+  **Space** = rychlý náhled obsahu (read-only), **Delete** = smazat soubor
+  (`file.remove`), **Escape** = o úroveň výš / ven z náhledu, **Super+E** =
+  otevřít v kořenu. Nadpis okna je jen cesta (root = `/`); v podadresáři je
+  první položka `..` (parent). Konvence je „Enter otevře, Space prohlíží,
+  Delete maže" — v duchu Hyprland (Enter = otevřít soubor v příslušné
+  aplikaci), ne Midnight Commander (F3/F4).
+
+**Ochrana configu před smazáním:** `.theme.bak` je chráněný — dokud je
+`/theme.lua` rozbitý (nevalidní config), je `.theme.bak` jediná platná verze
+a **Delete ho odmítne smazat** (`files_remove` + `theme_config_valid`). Až se
+config opraví, záloha je smazatelná. Ochrana je v UI vrstvě (`files_remove`);
+KI `file.remove` ji nemá (kernel nerozlišuje config soubory).
 
 Mezi okny: Alt+Tab (cyklus), Super+šipky (focus ve směru), Super+Space
 (launcher). Zavření fokusovaného okna: Super+Q.

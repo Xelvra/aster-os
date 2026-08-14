@@ -418,11 +418,12 @@ local function handle_key(ev)
     end
 
     -- File browser input goes to the focused window when it is the files.
-    -- Conventions: up/down select, enter opens (dir = navigate in, file =
-    -- view), escape goes up one level / exits a view.
+    -- Conventions (Aster WM, Hyprland-flavoured): up/down select; enter opens
+    -- (dir = navigate in, ".." = parent, file = edit in the editor); space =
+    -- quick view of the file content; escape goes up one level / exits a view.
     if focused == "files" and find_win("files") then
         if fs_viewing then
-            if code == "escape" then files_up() end
+            if code == "escape" or code == "space" or code == "enter" then files_up() end
         else
             if code == "up" then
                 fs_sel = math.max(fs_sel - 1, 1)
@@ -431,12 +432,20 @@ local function handle_key(ev)
             elseif code == "enter" then
                 local e = fs_entries[fs_sel]
                 if e then
-                    if e.dir then
-                        files_open(fs_path .. e.name)
+                    if e.name == ".." then
+                        files_up()
+                    elseif e.dir then
+                        files_open(join_path(fs_path, e.name))
                     else
-                        files_view(e.name)
+                        files_edit(e.name)
                     end
                 end
+            elseif code == "space" then
+                local e = fs_entries[fs_sel]
+                if e and not e.dir and e.name ~= ".." then files_view(e.name) end
+            elseif code == "delete" then
+                local e = fs_entries[fs_sel]
+                if e and e.name ~= ".." then files_remove(e.name) end
             elseif code == "escape" then
                 files_up()
             end

@@ -726,6 +726,73 @@ fn testFileBindings() void {
     _ = L.lua_pop(lua_state, 1);
 }
 
+fn testFileRemove() void {
+    // M7.1.9: file.remove deletes a file (dir entry + data gone) and the
+    // config backup .theme.bak is protected while /theme.lua is broken.
+    const lua = @import("lua/lua.zig");
+    const storage = @import("api/storage.zig");
+    if (!storage.isMounted()) {
+        expect(true, "file remove test skipped (no disk attached)");
+        return;
+    }
+    const L = @import("lua/cimport.zig").c;
+    const lua_state = lua.getState() orelse {
+        expect(false, "lua state exists");
+        return;
+    };
+    const script =
+        \\-- grow the (existing) README past one block, then delete it: the
+        \\-- README is a test-disk artifact nobody reads afterwards, so this
+        \\-- exercises freeing a two-block file without breaking later tests
+        \\local w = file.open("/README")
+        \\if not w then return "open-failed" end
+        \\file.truncate(w, 0)
+        \\local big = string.rep("x", 2000)
+        \\file.write(w, big)
+        \\file.close(w)
+        \\file.remove("/README")
+        \\local entries = file.dir("/")
+        \\local gone = true
+        \\for _, e in ipairs(entries) do
+        \\    if e.name == "README" then gone = false end
+        \\end
+        \\-- the UI guard refuses to delete .theme.bak while /theme.lua is
+        \\-- broken: files_remove refuses, the file survives in the listing
+        \\local g = file.open("/theme.lua")
+        \\file.truncate(g, 0)
+        \\file.write(g, "theme.background = 0xZZZZZZ")
+        \\file.close(g)
+        \\fs_path = "/"
+        \\files_remove(".theme.bak")
+        \\local entries2 = file.dir("/")
+        \\local bak_survives = false
+        \\for _, e in ipairs(entries2) do
+        \\    if e.name == ".theme.bak" then bak_survives = true end
+        \\end
+        \\-- restore a valid config for later tests
+        \\local g2 = file.open("/theme.lua")
+        \\file.truncate(g2, 0)
+        \\file.write(g2, "theme.background = 0x112233")
+        \\file.close(g2)
+        \\if gone and bak_survives then return "PASS" else return "FAIL" end
+    ;
+    const load_status = L.luaL_loadstring(lua_state, script);
+    expect(load_status == L.LUA_OK, "file remove script compiles");
+    if (load_status != L.LUA_OK) return;
+    const run_status = L.lua_pcallk(lua_state, 0, 1, 0, 0, null);
+    expect(run_status == L.LUA_OK, "file remove script runs");
+    if (run_status != L.LUA_OK) {
+        L.lua_pop(lua_state, 1);
+        return;
+    }
+    var len: usize = 0;
+    const str = L.lua_tolstring(lua_state, -1, &len);
+    const result: []const u8 = @as([*]const u8, @ptrCast(str))[0..len];
+    const ok = len == 4 and std.mem.eql(u8, result, "PASS");
+    expect(ok, "file.remove frees a multi-block file and removes it from the listing");
+    _ = L.lua_pop(lua_state, 1);
+}
+
 fn testEditorApp() void {
     // M7.1.5: the editor loads a file through file.*, saves it back and the
     // round trip matches the buffer. Skipped when no disk is attached.
@@ -799,6 +866,35 @@ fn testFileDir() void {
     const ok = L.lua_toboolean(lua_state, -1) == 1;
     expect(ok, "file.dir lists files and directories");
     _ = L.lua_pop(lua_state, 1);
+
+    // M7.1.8: files_open prepends ".." only in a subdirectory, never in the
+    // root; join_path builds correct child paths for both cases.
+    const script2 =
+        \\local has_dotdot = false
+        \\for _, e in ipairs(fs_entries) do
+        \\    if e.name == ".." and e.dir then has_dotdot = true end
+        \\end
+        \\-- root listing must have no ".."; a subdirectory listing must
+        \\local root_ok = not has_dotdot
+        \\files_open("/apps")
+        \\local sub_dotdot = false
+        \\for _, e in ipairs(fs_entries) do
+        \\    if e.name == ".." and e.dir then sub_dotdot = true end
+        \\end
+        \\local path_ok = join_path("/", "apps") == "/apps" and join_path("/apps", "x") == "/apps/x"
+        \\files_open("/")
+        \\return root_ok and sub_dotdot and path_ok
+    ;
+    const load2 = L.luaL_loadstring(lua_state, script2);
+    expect(load2 == L.LUA_OK, "files convention script compiles");
+    if (load2 == L.LUA_OK) {
+        const run2 = L.lua_pcallk(lua_state, 0, 1, 0, 0, null);
+        if (run2 == L.LUA_OK) {
+            const ok2 = L.lua_toboolean(lua_state, -1) == 1;
+            expect(ok2, "files: '..' only in subdirs, join_path builds child paths");
+        }
+        L.lua_pop(lua_state, 1);
+    }
 }
 
 fn testAutoReload() void {
@@ -933,6 +1029,8 @@ pub fn runAll(alloc: std.mem.Allocator, memory: *mem.Memory) noreturn {
     testStorageKi();
     serial.writeLine("lua file bindings (M7.1.4)");
     testFileBindings();
+    serial.writeLine("file.remove + config backup protection (M7.1.9)");
+    testFileRemove();
     serial.writeLine("editor app (M7.1.5)");
     testEditorApp();
     serial.writeLine("file.dir listing (M7.1.5)");

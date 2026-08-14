@@ -108,3 +108,29 @@ test "write grows a file beyond its first block (M7.1.4)" {
     try std.testing.expectEqual(@as(u8, 0xAB), buf[0]);
     try std.testing.expectEqual(@as(u8, 0xAB), buf[1999]);
 }
+
+test "unlink removes a file: dir entry gone, inode and blocks freed (M7.1.9)" {
+    var img = buildImage();
+    var mock = MockDisk{ .data = &img.data };
+    var fs = try ext2.Ext2.init(mount(&mock));
+
+    try std.testing.expectEqual(@as(u32, 3), try fs.find("/hello.txt"));
+
+    try file.File.delete(&fs, "/hello.txt");
+
+    // The file is gone from the path resolution.
+    try std.testing.expectError(ext2.Ext2Error.NotFound, fs.find("/hello.txt"));
+
+    // Its dir entry is gone and the file resolves to nothing; the freed data
+    // block (7) is cleared in the block bitmap on disk (bit 6 of block 3).
+    var entries: [16]ext2.DirEntry = undefined;
+    const count = try fs.readDir(ext2.root_inode, &entries);
+    var found = false;
+    for (entries[0..count]) |e| {
+        if (e.name_len == 9 and std.mem.eql(u8, e.name[0..9], "hello.txt")) found = true;
+    }
+    try std.testing.expect(!found);
+
+    const bitmap_byte = img.data[3 * 1024 + 6 / 8];
+    try std.testing.expect(bitmap_byte & (@as(u8, 1) << 6) == 0);
+}

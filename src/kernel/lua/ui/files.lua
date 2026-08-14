@@ -12,25 +12,43 @@ fs_view_content = fs_view_content or ""
 fs_error = fs_error or ""
 fs_row_h = 18
 
+-- Normalize a directory path: the root is "/", everything else has no
+-- trailing slash. Used for display and for building child paths.
+local function norm_path(p)
+    if p == "" or p == "/" then return "/" end
+    if p:sub(-1) == "/" then return p:sub(1, -2) end
+    return p
+end
+
+-- Join a directory path and an entry name into a full path.
+local function join_path(p, name)
+    local base = norm_path(p)
+    if base == "/" then return "/" .. name end
+    return base .. "/" .. name
+end
+
 function files_open(path)
-    fs_path = path
+    fs_path = norm_path(path)
     fs_viewing = false
     fs_sel = 1
-    local entries = file.dir(path)
+    local entries = file.dir(fs_path)
     if not entries then
         fs_entries = {}
-        fs_error = "cannot read " .. path
+        fs_error = "cannot read " .. fs_path
         gfx.invalidate()
         return
     end
     fs_error = ""
+    -- ".." leads to the parent directory; hidden in the root (no parent).
+    if fs_path ~= "/" then
+        table.insert(entries, 1, { name = "..", dir = true })
+    end
     fs_entries = entries
     gfx.invalidate()
 end
 
 function files_view(name)
-    local full = fs_path .. name
-    if fs_path:sub(-1) ~= "/" then full = fs_path .. "/" .. name end
+    local full = join_path(fs_path, name)
     local h = file.open(full)
     if not h then
         fs_error = "cannot open " .. name
@@ -51,9 +69,23 @@ function files_view(name)
     gfx.invalidate()
 end
 
+-- Edit an entry in the editor window (Enter on a file). The editor window is
+-- created/raised like Super+T, then loaded with the selected file.
+function files_edit(name)
+    local w = find_win("editor")
+    if not w then
+        windows[#windows + 1] = window("editor", current_ws)
+    else
+        w.ws = current_ws
+    end
+    editor_load(join_path(fs_path, name))
+    set_focus("editor")
+end
+
 function files_up()
     if fs_viewing then
         fs_viewing = false
+        gfx.invalidate()
         return
     end
     local t = fs_path
@@ -64,12 +96,34 @@ function files_up()
     files_open(parent)
 end
 
+-- Delete the selected file (Delete key). The config backup .theme.bak is
+-- protected: while /theme.lua is broken it is the only working config and
+-- must stay, so deletion is refused until /theme.lua is valid again.
+function files_remove(name)
+    local full = join_path(fs_path, name)
+    if name == ".theme.bak" and not theme_config_valid() then
+        fs_error = "cannot delete .theme.bak while /theme.lua is broken"
+        gfx.invalidate()
+        return
+    end
+    if not file.remove(full) then
+        fs_error = "cannot delete " .. name
+        gfx.invalidate()
+        return
+    end
+    -- Refresh the listing after the entry is gone.
+    local was_viewing = fs_viewing
+    files_open(fs_path)
+    if was_viewing and fs_view_name == name then fs_viewing = false end
+end
+
 local function files_render()
     local w = find_win("files")
     if not w or w.ws ~= current_ws then return end
     local tx = w.x + theme.wm.border + 6
     local ty = w.y + theme.wm.border + theme.wm.title_h + 6
-    gfx.draw_text("files  " .. fs_path, tx, ty, theme.text_dim)
+    -- Header: the current directory path only (root is "/"), not a label.
+    gfx.draw_text(fs_path, tx, ty, theme.text_dim)
     ty = ty + fs_row_h
     local rows = math.floor((w.h - theme.wm.title_h - 12) / fs_row_h) - 1
     if rows < 1 then rows = 1 end

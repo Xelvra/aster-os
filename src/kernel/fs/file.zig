@@ -49,6 +49,12 @@ pub const File = struct {
         if (self.offset > new_size) self.offset = new_size;
     }
 
+    /// Delete a file by absolute path: frees its blocks and inode and removes
+    /// the directory entry (M7.1.9).
+    pub fn delete(backend: *ext2.Ext2, path: []const u8) ext2.Ext2Error!void {
+        try backend.unlink(path);
+    }
+
     pub fn close(self: *File) void {
         _ = self;
     }

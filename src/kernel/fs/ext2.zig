@@ -393,6 +393,121 @@ pub const Ext2 = struct {
         return ino;
     }
 
+    /// Delete the file at `path`: free its data blocks, free its inode, and
+    /// remove its directory entry. Best-effort metadata like the existing
+    /// write path (non-crash-safe, no journal); `dir_index` is unsupported so
+    /// directory entries are scanned linearly.
+    pub fn unlink(self: *Ext2, path: []const u8) Ext2Error!void {
+        const parent_path = parentPath(path) orelse return Ext2Error.NotFound;
+        const parent_ino = try self.find(parent_path);
+        const name = lastComponent(path) orelse return Ext2Error.NotFound;
+        const ino = (try self.lookupDir(parent_ino, name)) orelse return Ext2Error.NotFound;
+        const inode = try self.readInode(ino);
+        if (inode.mode & inode_type_dir != 0) return Ext2Error.NotAFile;
+
+        try self.freeBlocks(inode);
+        try self.freeInode(ino);
+        try self.removeDirEntry(parent_ino, ino);
+    }
+
+    /// Free the data blocks of `inode` (direct + single indirect) in the
+    /// block bitmap and adjust the free counts.
+    fn freeBlocks(self: *Ext2, inode: Inode) Ext2Error!void {
+        var index: usize = 0;
+        while (index < inode_direct_blocks) : (index += 1) {
+            if (inode.block[index] != 0) try self.freeBlock(inode.block[index]);
+        }
+        const ind_ptr = inode.block[inode_direct_blocks];
+        if (ind_ptr != 0) {
+            var ptr_buf: [4096]u8 = undefined;
+            try self.readBlock(ind_ptr, ptr_buf[0..self.block_size]);
+            var i: usize = 0;
+            while (i < self.block_size / 4) : (i += 1) {
+                const blk = bytes.readU32(&ptr_buf, i * 4);
+                if (blk != 0) try self.freeBlock(blk);
+            }
+            try self.freeBlock(ind_ptr);
+        }
+    }
+
+    /// Clear one block bit in its group's block bitmap and bump the free
+    /// counts (inverse of allocBlock).
+    fn freeBlock(self: *Ext2, block_num: u32) Ext2Error!void {
+        if (block_num < self.super.first_data_block) return Ext2Error.OutOfBounds;
+        const bpg = self.super.blocks_per_group;
+        if (bpg == 0) return Ext2Error.CorruptSuperblock;
+        const rel = @as(usize, block_num) - self.super.first_data_block;
+        const group = rel / bpg;
+        const idx_in_group = rel % bpg;
+        const desc = try self.groupDescriptor(group);
+        var bitmap_buf: [4096]u8 = undefined;
+        try self.readBlock(desc.block_bitmap, bitmap_buf[0..self.block_size]);
+        const byte = idx_in_group / 8;
+        const mask: u8 = @as(u8, 1) << @intCast(idx_in_group % 8);
+        bitmap_buf[byte] &= ~mask;
+        try self.writeBlock(desc.block_bitmap, bitmap_buf[0..self.block_size]);
+        try self.adjustFreeBlocks(group, 1);
+    }
+
+    /// Clear the inode bit and bump the free-inode count (inverse of
+    /// inodeTableLocation/allocInode).
+    fn freeInode(self: *Ext2, ino: u32) Ext2Error!void {
+        if (ino == 0 or ino > self.super.inodes_count) return Ext2Error.NotFound;
+        const index = ino - 1;
+        const group = index / self.super.inodes_per_group;
+        const idx_in_group = index % self.super.inodes_per_group;
+        const desc = try self.groupDescriptor(group);
+        var bitmap_buf: [4096]u8 = undefined;
+        try self.readBlock(desc.inode_bitmap, bitmap_buf[0..self.block_size]);
+        const byte = idx_in_group / 8;
+        const mask: u8 = @as(u8, 1) << @intCast(idx_in_group % 8);
+        bitmap_buf[byte] &= ~mask;
+        try self.writeBlock(desc.inode_bitmap, bitmap_buf[0..self.block_size]);
+        try self.adjustFreeInodes(group, 1);
+    }
+
+    /// Remove `ino` from the directory listing of `dir_ino` by zeroing its
+    /// entry's inode field (the entry stays as a dead record; readDir skips
+    /// zero inodes).
+    fn removeDirEntry(self: *Ext2, dir_ino: u32, ino: u32) Ext2Error!void {
+        const inode = try self.readInode(dir_ino);
+        if (inode.mode & inode_type_dir == 0) return Ext2Error.NotADirectory;
+        var block_buf: [4096]u8 = undefined;
+        try self.readBlock(inode.block[0], block_buf[0..self.block_size]);
+        const data = block_buf[0..self.block_size];
+        var off: usize = 0;
+        while (off + 8 <= data.len) {
+            const entry_inode = bytes.readU32(data, off);
+            const rec_len = bytes.readU16(data, off + 4);
+            if (rec_len == 0) break;
+            if (entry_inode == ino) {
+                bytes.writeU32(&block_buf, off, 0);
+                try self.writeBlock(inode.block[0], block_buf[0..self.block_size]);
+                return;
+            }
+            off += rec_len;
+        }
+        return Ext2Error.NotFound;
+    }
+
+    /// Increment the free-inode count in the group descriptor and superblock.
+    fn adjustFreeInodes(self: Ext2, group: usize, delta: i32) Ext2Error!void {
+        const groups_per_block: usize = self.block_size / 32;
+        const gdt_block: u32 = @intCast(superblock_offset / self.block_size + 1 + group / groups_per_block);
+        const off: usize = (group % groups_per_block) * 32;
+        var block_buf: [4096]u8 = undefined;
+        try self.readBlock(gdt_block, block_buf[0..self.block_size]);
+        const free = bytes.readU16(&block_buf, off + 14);
+        bytes.writeU16(&block_buf, off + 14, @intCast(@as(i32, free) + delta));
+        try self.writeBlock(gdt_block, block_buf[0..self.block_size]);
+
+        var sb: [1024]u8 = undefined;
+        try readDiskOffset(self.disk, superblock_offset, &sb);
+        const sb_free = bytes.readU32(&sb, 16);
+        bytes.writeU32(&sb, 16, @intCast(@as(i64, sb_free) + delta));
+        try writeDiskOffset(self.disk, superblock_offset, &sb);
+    }
+
     fn lookupDir(self: Ext2, dir_ino: u32, name: []const u8) Ext2Error!?u32 {
         var entries: [32]DirEntry = undefined;
         const count = try self.readDir(dir_ino, &entries);
@@ -490,4 +605,27 @@ fn writeDiskOffset(disk: block.PartitionView, offset: usize, data: []const u8) E
         disk.writeSector(lba, &sector_buf) catch return Ext2Error.IoError;
         buf_offset += n;
     }
+}
+
+/// Directory path of `path` ("/a/b" -> "/a", "/a" -> "/", "/" -> null).
+fn parentPath(path: []const u8) ?[]const u8 {
+    if (path.len == 0 or std.mem.eql(u8, path, "/")) return null;
+    var slash = path.len;
+    while (slash > 0 and path[slash - 1] == '/') slash -= 1;
+    if (slash == 0) return null;
+    var i = slash;
+    while (i > 0 and path[i - 1] != '/') i -= 1;
+    if (i == 0) return "/";
+    return path[0 .. i - 1];
+}
+
+/// Last path component ("/a/b" -> "b", "/a" -> "a", "/" -> null).
+fn lastComponent(path: []const u8) ?[]const u8 {
+    if (path.len == 0 or std.mem.eql(u8, path, "/")) return null;
+    var end = path.len;
+    while (end > 0 and path[end - 1] == '/') end -= 1;
+    if (end == 0) return null;
+    var start = end;
+    while (start > 0 and path[start - 1] != '/') start -= 1;
+    return path[start..end];
 }

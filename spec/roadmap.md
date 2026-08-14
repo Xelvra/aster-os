@@ -463,6 +463,11 @@ triggerů / nových ADR.
       se ukládá do skrytého read-only souboru (`repl_load_history`/`repl_save_history`,
       obdoba `.bash_history`); šipky Up/Down je vybaví i po F5 a rebootu. Stejná logika
       jako `.theme.bak` (dotfile, šedivý ve files, Ctrl+S odmítne uložit).
+- [x] **M7.1.9 Mazání souborů ve files browseru:** `file.remove(path)` → KI `storage.remove`
+      → ext2 `unlink` (uvolní data bloky + inode, smaže direntry). Files: **Delete** =
+      smazat. **Ochrana `.theme.bak`:** dokud je `/theme.lua` rozbitý, Delete ho odmítne
+      smazat (`files_remove` + `theme_config_valid`). **Files konvence (Hyprland):**
+      Enter = otevřít/upravit, Space = náhled, Delete = smazat; root = `/` s `..` položkou.
 - [ ] **Toggle skrytých souborů ve files browseru** — zobrazit/skrýt dotfiles (dnes se
       kreslí šedivě, vždy viditelné).
 
