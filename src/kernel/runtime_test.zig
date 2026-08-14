@@ -874,6 +874,57 @@ fn testAutoReload() void {
     _ = L.lua_pop(lua_state, 1);
 }
 
+fn testReplHistory() void {
+    // M7.1.7: the REPL command history persists to /.repl_history, so Up/Down
+    // recall commands across F5 reloads and reboots (mirrors .bash_history).
+    const lua = @import("lua/lua.zig");
+    const storage = @import("api/storage.zig");
+    if (!storage.isMounted()) {
+        expect(true, "repl history test skipped (no disk attached)");
+        return;
+    }
+    const L = @import("lua/cimport.zig").c;
+    const lua_state = lua.getState() orelse {
+        expect(false, "lua state exists");
+        return;
+    };
+    const script =
+        \\-- seed three commands, persist them, reload from disk, check order
+        \\history = { "a = 1", "b = 2", "c = 3" }
+        \\repl_save_history()
+        \\history = {}
+        \\repl_load_history()
+        \\local ok = #history == 3 and history[1] == "a = 1" and history[2] == "b = 2" and history[3] == "c = 3"
+        \\-- cap: 150 entries collapse to the last history_max (100)
+        \\local big = {}
+        \\for i = 1, 150 do big[#big + 1] = "cmd " .. i end
+        \\history = big
+        \\repl_save_history()
+        \\history = {}
+        \\repl_load_history()
+        \\ok = ok and #history == 100 and history[100] == "cmd 150" and history[1] == "cmd 51"
+        \\-- restore the seed file for later tests
+        \\history = {}
+        \\repl_save_history()
+        \\if ok then return "PASS" else return "FAIL" end
+    ;
+    const load_status = L.luaL_loadstring(lua_state, script);
+    expect(load_status == L.LUA_OK, "repl history script compiles");
+    if (load_status != L.LUA_OK) return;
+    const run_status = L.lua_pcallk(lua_state, 0, 1, 0, 0, null);
+    expect(run_status == L.LUA_OK, "repl history script runs");
+    if (run_status != L.LUA_OK) {
+        L.lua_pop(lua_state, 1);
+        return;
+    }
+    var len: usize = 0;
+    const str = L.lua_tolstring(lua_state, -1, &len);
+    const result: []const u8 = @as([*]const u8, @ptrCast(str))[0..len];
+    const ok = len == 4 and std.mem.eql(u8, result, "PASS");
+    expect(ok, "repl history persists commands and caps at 100");
+    _ = L.lua_pop(lua_state, 1);
+}
+
 pub fn runAll(alloc: std.mem.Allocator, memory: *mem.Memory) noreturn {
     if (!comptime enabled) @compileError("runtime tests are not enabled");
     concurrent_alloc = alloc;
@@ -893,6 +944,8 @@ pub fn runAll(alloc: std.mem.Allocator, memory: *mem.Memory) noreturn {
     testFileDir();
     serial.writeLine("auto-reload on save (M7.1.6)");
     testAutoReload();
+    serial.writeLine("persistent REPL history (M7.1.7)");
+    testReplHistory();
     if (failures == 0) {
         serial.writeLine("RUNTIME TESTS PASS");
         exitQemu(exit_pass);

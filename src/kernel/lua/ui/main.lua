@@ -9,6 +9,10 @@ if config_error then
     print("theme.lua config error: " .. config_error)
 end
 
+-- Restore the persistent REPL command history (/.repl_history), so Up/Down
+-- recall commands across F5 reloads and reboots.
+repl_load_history()
+
 function update()
     layout_pass()
     handle_mouse()

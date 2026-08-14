@@ -45,10 +45,11 @@ function editor_load(path)
 end
 
 function editor_save()
-    -- The backup is read-only: you can view it in the file browser, but never
-    -- overwrite it with Ctrl+S (it must keep holding the last valid config).
-    if ed_path == "/.theme.bak" then
-        print("theme.lua config error: .theme.bak is read-only (view only)")
+    -- Backups and the REPL history are read-only: you can view them in the
+    -- file browser, but never overwrite them with Ctrl+S (.theme.bak must
+    -- keep holding the last valid config).
+    if ed_path == "/.theme.bak" or ed_path == "/.repl_history" then
+        print("config error: " .. ed_path .. " is read-only (view only)")
         gfx.invalidate()
         return
     end

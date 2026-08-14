@@ -292,6 +292,14 @@ zůstává jen pro reload shellu) — `power` tak je čistě KI capability na ke
 `cursor` — `repl.lua:4`), aby **přežil hot reload** (`x or x or ...` idiom). Kernel o
 stavu neví.
 
+- **Perzistentní historie příkazů (`/.repl_history`, M7.1.7):** `history` tabulka se
+  po bootu a po F5 obnovuje ze skrytého souboru na disku (`repl_load_history` /
+  `repl_save_history` v `repl.lua`), takže šipky Up/Down vybaví příkazy napříč
+  restartem shellu i systému (obdoba `.bash_history`). Ukládá se posledních **100**
+  příkazů (novější na konci); bez disku je historie jen v paměti. Soubor je
+  **read-only** (view ve files browseru, Ctrl+S ho odmítne uložit) a jako dotfile se
+  ve files browseru kreslí šedivě.
+
 - UTF-8 helpery (`cp_start`, `cp_end`, `prev_cp`, `next_cp`) — kurzor je byte offset,
   ale edituje se po code pointech, aby se neroztrhl vícebajtový znak.
 - `print(...)` přepisuje globální Lua `print` — píše do scrollbacku místo stdout.

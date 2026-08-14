@@ -459,6 +459,10 @@ triggerů / nových ADR.
       (`spec/runtime.md` §5a spouštěč 2). **Rozšířeno (M7.1.7):** chybný config se hlásí
       do REPL a live vzhled zůstává na poslední platné verzi **`.theme.bak`** (read-only
       záloha, validace před zápisem v editoru, `spec/runtime.md` §5a.2).
+- [x] **M7.1.7 Perzistentní REPL historie (`/.repl_history`):** posledních 100 příkazů
+      se ukládá do skrytého read-only souboru (`repl_load_history`/`repl_save_history`,
+      obdoba `.bash_history`); šipky Up/Down je vybaví i po F5 a rebootu. Stejná logika
+      jako `.theme.bak` (dotfile, šedivý ve files, Ctrl+S odmítne uložit).
 - [ ] **Toggle skrytých souborů ve files browseru** — zobrazit/skrýt dotfiles (dnes se
       kreslí šedivě, vždy viditelné).
 

@@ -56,6 +56,51 @@ end
 
 add_line("shell  F5")
 
+-- Persistent command history (/.repl_history on the mounted filesystem).
+-- The in-memory `history` table is rebuilt after boot and F5 hot reload,
+-- mirroring .bash_history. Without a disk the session history is memory-only.
+local history_path = "/.repl_history"
+local history_max = 100
+
+-- Reload the last commands from disk into the `history` table. Called once
+-- after the shell loads (main.lua); no-op when the file is missing.
+function repl_load_history()
+    local h = file.open(history_path)
+    if not h then return end
+    local content = ""
+    while true do
+        local chunk = file.read(h, 4096)
+        if not chunk or chunk == "" then break end
+        content = content .. chunk
+    end
+    file.close(h)
+    local loaded = {}
+    for line in (content .. "\n"):gmatch("(.-)\n") do
+        if line ~= "" then loaded[#loaded + 1] = line end
+    end
+    if #loaded > history_max then
+        local keep = {}
+        for i = #loaded - history_max + 1, #loaded do keep[#keep + 1] = loaded[i] end
+        loaded = keep
+    end
+    history = loaded
+end
+
+-- Persist the last commands (newest last, capped at history_max). Called
+-- after every Enter; a missing file (no disk) makes it a no-op.
+function repl_save_history()
+    local h = file.open(history_path)
+    if not h then return end
+    file.truncate(h, 0)
+    local start = math.max(1, #history - history_max + 1)
+    local out = {}
+    for i = start, #history do out[#out + 1] = history[i] end
+    local content = table.concat(out, "\n")
+    if content ~= "" then content = content .. "\n" end
+    file.write(h, content)
+    file.close(h)
+end
+
 function print(...)
     local parts = {}
     for i = 1, select("#", ...) do

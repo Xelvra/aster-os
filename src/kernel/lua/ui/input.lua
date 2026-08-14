@@ -302,7 +302,10 @@ local function handle_key(ev)
     if find_win(focused) and focused == "repl" and repl_visible then
         if code == "enter" then
             add_line("> " .. current)
-            if current ~= "" then table.insert(history, current) end
+            if current ~= "" then
+                table.insert(history, current)
+                repl_save_history()
+            end
             run(current)
             current = ""
             cursor = 0
