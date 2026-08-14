@@ -465,10 +465,10 @@ triggerů / nových ADR.
       jako `.theme.bak` (dotfile, šedivý ve files, Ctrl+S odmítne uložit).
 - [x] **M7.1.9 Mazání souborů ve files browseru:** `file.remove(path)` → KI `storage.remove`
       → ext2 `unlink` (uvolní data bloky + inode, smaže direntry). Files: **Delete** =
-      smazat. **Ochrana `.theme.bak`:** dokud je `/theme.lua` rozbitý, Delete ho odmítne
-      smazat (`files_remove` + `theme_config_valid`). **Files konvence (Hyprland):**
+      smazat. **Files konvence (Hyprland):**
       Enter = otevřít/upravit, Space = náhled, Delete = smazat, **klik na nadpis
-      (cestu)** = o úroveň výš; root = `/` bez `..` položky.
+      (cestu)** = o úroveň výš; root = `/` bez `..` položky. Smazání `/theme.lua` i
+      `.theme.bak` je bezpečné — systém použije defaulty z initrd (žádný delete guard).
 - [ ] **Toggle skrytých souborů ve files browseru** — zobrazit/skrýt dotfiles (dnes se
       kreslí šedivě, vždy viditelné).
 

@@ -92,16 +92,11 @@ function files_up()
     files_open(parent)
 end
 
--- Delete the selected file (Delete key). The config backup .theme.bak is
--- protected: while /theme.lua is broken it is the only working config and
--- must stay, so deletion is refused until /theme.lua is valid again.
+-- Delete the selected file (Delete key). The system never depends on the
+-- disk config: if /theme.lua and .theme.bak are gone, the built-in defaults
+-- (initrd) are used, so any file can be removed freely.
 function files_remove(name)
     local full = join_path(fs_path, name)
-    if name == ".theme.bak" and not theme_config_valid() then
-        fs_error = "cannot delete .theme.bak while /theme.lua is broken"
-        gfx.invalidate()
-        return
-    end
     if not file.remove(full) then
         fs_error = "cannot delete " .. name
         gfx.invalidate()

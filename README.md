@@ -92,8 +92,9 @@ the same as in Hyprland (`spec/desktop-ui.md` §5).
 `theme.lua` is full Lua code (not a data format), so you can tweak colors and
 geometry or rewrite window behavior — the shell applies it atomically on
 save. A broken config is reported in the REPL and the last valid look stays:
-`.theme.bak` holds the last working version as a read-only fallback and
-cannot be deleted while `theme.lua` is broken.
+`.theme.bak` holds the last working version as a read-only editor backup.
+Deleting `theme.lua` and `.theme.bak` is safe — the shell falls back to the
+built-in defaults, so the environment never breaks.
 
 Verification tools (see [`spec/verification.md`](spec/verification.md)):
 

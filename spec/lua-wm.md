@@ -553,11 +553,11 @@ Navigační konvence:
   Space prohlíží, Delete maže, klik na cestu jde nahoru" — v duchu Hyprland
   (Enter = otevřít soubor v příslušné aplikaci), ne Midnight Commander (F3/F4).
 
-**Ochrana configu před smazáním:** `.theme.bak` je chráněný — dokud je
-`/theme.lua` rozbitý (nevalidní config), je `.theme.bak` jediná platná verze
-a **Delete ho odmítne smazat** (`files_remove` + `theme_config_valid`). Až se
-config opraví, záloha je smazatelná. Ochrana je v UI vrstvě (`files_remove`);
-KI `file.remove` ji nemá (kernel nerozlišuje config soubory).
+**Smazání config souborů je bezpečné:** `.theme.bak` nemá žádnou ochranu proti
+smazání — systém na diskovém configu nezávisí. Když `/theme.lua` i `.theme.bak`
+smažeš, `apply_disk_theme()` najde `nil` a použijí se vestavěné defaulty z initrd.
+`.theme.bak` je tedy jen komfortní záloha poslední platné verze pro editor, ne
+kritický fallback stability.
 
 Mezi okny: Alt+Tab (cyklus), Super+šipky (focus ve směru), Super+Space
 (launcher). Zavření fokusovaného okna: Super+Q.

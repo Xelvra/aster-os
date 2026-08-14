@@ -82,8 +82,7 @@ function apply_theme_content(content)
 end
 
 -- Read a whole file through the file.* bindings; nil when it cannot be
--- opened (no disk, file missing). Global so other modules (files.lua via
--- theme_config_valid) can read the config.
+-- opened (no disk, file missing).
 function read_file(path)
     local h = file.open(path)
     if not h then return nil end
@@ -95,22 +94,6 @@ function read_file(path)
     end
     file.close(h)
     return content
-end
-
--- Check whether the on-disk /theme.lua parses and runs without applying it
--- (no live change, no invalidate). Used to protect the .theme.bak fallback:
--- while the working config is broken, the backup must not be deleted.
-function theme_config_valid()
-    local content = read_file("/theme.lua")
-    if content == nil then return true end
-    local cfg, err = load(content)
-    if not cfg then return false, err end
-    local saved = theme
-    theme = clone(theme)
-    local ok, res = pcall(cfg)
-    theme = saved
-    if not ok then return false, res end
-    return true
 end
 
 -- Apply the persistent disk config (/theme.lua) if present: the config is

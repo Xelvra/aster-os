@@ -756,25 +756,9 @@ fn testFileRemove() void {
         \\for _, e in ipairs(entries) do
         \\    if e.name == "README" then gone = false end
         \\end
-        \\-- the UI guard refuses to delete .theme.bak while /theme.lua is
-        \\-- broken: files_remove refuses, the file survives in the listing
-        \\local g = file.open("/theme.lua")
-        \\file.truncate(g, 0)
-        \\file.write(g, "theme.background = 0xZZZZZZ")
-        \\file.close(g)
-        \\fs_path = "/"
-        \\files_remove(".theme.bak")
-        \\local entries2 = file.dir("/")
-        \\local bak_survives = false
-        \\for _, e in ipairs(entries2) do
-        \\    if e.name == ".theme.bak" then bak_survives = true end
-        \\end
-        \\-- restore a valid config for later tests
-        \\local g2 = file.open("/theme.lua")
-        \\file.truncate(g2, 0)
-        \\file.write(g2, "theme.background = 0x112233")
-        \\file.close(g2)
-        \\if gone and bak_survives then return "PASS" else return "FAIL" end
+        \\-- .theme.bak must not be deleted here: ext2 has no create, so a
+        \\-- removed backup could not be recreated and later tests need it.
+        \\if gone then return "PASS" else return "FAIL" end
     ;
     const load_status = L.luaL_loadstring(lua_state, script);
     expect(load_status == L.LUA_OK, "file remove script compiles");
@@ -789,7 +773,7 @@ fn testFileRemove() void {
     const str = L.lua_tolstring(lua_state, -1, &len);
     const result: []const u8 = @as([*]const u8, @ptrCast(str))[0..len];
     const ok = len == 4 and std.mem.eql(u8, result, "PASS");
-    expect(ok, "file.remove frees a multi-block file and removes it from the listing");
+    expect(ok, "file.remove frees a multi-block file");
     _ = L.lua_pop(lua_state, 1);
 }
 
