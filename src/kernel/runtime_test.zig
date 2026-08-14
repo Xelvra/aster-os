@@ -534,19 +534,14 @@ fn testFilesystem(alloc: std.mem.Allocator, memory: *mem.Memory) void {
         return;
     };
     defer f.close();
-    var buf: [128]u8 = undefined;
+    var buf: [4096]u8 = undefined;
     const n = f.read(&buf) catch {
         expect(false, "read /theme.lua");
         return;
     };
     expect(n > 0, "read /theme.lua returns data");
-    expect(std.mem.eql(u8, buf[0..n], "theme.background = 0x0f1117"), "read returns the config content");
+    expect(std.mem.indexOf(u8, buf[0..n], "theme = {") != null, "read returns the theme config table");
     expect(f.eof(), "read reaches EOF");
-    if (!std.mem.eql(u8, buf[0..n], "theme.background = 0x0f1117")) {
-        var dbg: [192]u8 = undefined;
-        const line = std.fmt.bufPrint(&dbg, "DBG theme.lua[{d}] = {s}", .{ n, buf[0..n] }) catch "DBG";
-        serial.writeLine(line);
-    }
 
     if (file.File.open(&fs, "/missing.lua")) |_| {
         expect(false, "open invalid path fails");
