@@ -44,6 +44,14 @@ Invarianty proti UB, memory chybám a nedefinovanému chování.
       explicitní chybovou hodnotu. Žádný prázdný `catch {}` bez zdůvodnění.
 - [ ] **Interrupt-friendly matematika:** indexy front jako atomické `usize`, nikdy
       ne-konzistentní čtení dvou souvisejících proměnných bez zámku/atomiky.
+- [ ] **Task/kernel zásobníky mají overflow kanárek kontrolovaný při přepnutí kontextu**
+      (ADR-017, `sched/task.zig`, `main.zig`): každý `task_stacks[i]` i `kernel_stack`
+      nese magic slovo na nejnižší adrese; přetečení zásobníku (rekurze, velký frame)
+      by jinak potichu přepsalo sousední stack v kontinuálním poli. Porušení kanárku =
+      halt s výpisem na serial (fault policy výše), ne pokračování. Jedná se o
+      softwarovou kontrolu se zpožděním (detekce až při dalším přepnutí) — plnohodnotná
+      MMU guard page v SASOS/Ring 0 bez per-task page tables neexistuje
+      (`spec/non-goals.md`). Analogie: heap `block_magic` v `mem/heap.zig`.
 
 ## 2. Performance (výkon)
 
@@ -84,7 +92,9 @@ neviditelné závislosti.
 - [ ] **Concurrency (M7+):** preemptivní RR scheduler na jednom jádře (ADR-017).
       „Žádné locky“ se transformuje na: **kritické sekce se zakázanou preempcí**
       (IRQ maska), žádné spinlocky/mutexy/atomy v běžném toku. Single-core — preempce
-      jen v IRQ od timeru, jediný kontext přepnutí.
+      jen v IRQ od timeru, jediný kontext přepnutí. **Kritické sekce pokrývají i sdílené
+      struktury alokátorů** (PFA bitmapa + hinty, heap free-list) — ne jen TCB tabulku
+      scheduleru (`mem/pfa.zig`, `mem/heap.zig`, `cpu/irq.zig`).
 - [ ] **Žádný cross-layer import napřímo:** `shell → api/* → (renderer, runtime, ...) →
       (fb, pfa, ...)`. Jakákoli odchylka = porušení KI (viz `kernel-interface.md` §4).
 

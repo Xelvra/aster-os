@@ -121,6 +121,13 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 > optimalizace nebyla nutná; frame latency p99 stále bez měřicího mechanismu (TBD).
 > Firmware → First Frame ≈ 3,3 s (BIOS + Limine, mimo náš kód).
 
+> **Kritická sekce alokátorů (M7, 2026-08-14):** přidání RFLAGS interrupt guardu
+> (`cpu/irq.zig`) do PFA + heap — měřeno `tools/bench.sh` (TCG, hlučné): Kernel Entry →
+> First Frame bez ochrany ≈ 205 ms, s ochranou ≈ 203 ms / 40 ms (variabilita TCG, řádově
+> žádný rozdíl na boot path). Kernel image 405 744 B (ReleaseSafe). **S přidanými stack
+> canary + Lua budgetem (brief Task 7):** Kernel Entry → First Frame ≈ 92 ms (TCG),
+> kernel image 407 152 B.
+
 ---
 
 ## 3. Milníky — detail
@@ -406,14 +413,22 @@ se musí vyřešit **před** spuštěním dalších features, ne až na konci st
 - [x] **Preemptivní RR scheduler** pro nativní kernel tasky (ADR-017) — čistě IRQ-driven
       switch přes APIC timer (vektor 0x20), TCB tabulka i stacky statické (žádná alokace),
       kritická sekce bez locku: interrupt gate maskuje IRQ v ISR, takže manipulace s TCB
-      v schedulingu běží v nepřerušitelném kontextu. Ověřeno runtime testem: dva kernel
-      tasky na sdíleném adresním prostoru cyklí preempcí, oba inkrementují atomické
-      počítadlo. **Blokující `sleepMs` úkolu** (`sched.sleepMs`, spec `timer.md` §5) — task
+      v schedulingu běží v nepřerušitelném kontextu. **Kritická sekce alokátorů (PFA + heap)
+      přes `cli`/`sti` RFLAGS guard (`cpu/irq.zig`, ADR-017)** — preemptivní scheduler by
+      jinak nechal jinou úlohu alokovat na nekonzistentní bitmapě/free-listu. **Overflow
+      kanárky task/kernel zásobníků** (brief Task 7a, `sched/task.zig`) — magic slovo na
+      dně každého stacku, kontrola při každém přepnutí, halt s diagnostikou při porušení.
+      Ověřeno runtime
+      testem: dva kernel tasky na sdíleném adresním prostoru cyklí preempcí, oba inkrementují
+      atomické počítadlo. **Blokující `sleepMs` úkolu** (`sched.sleepMs`, spec `timer.md` §5) — task
       se v TCB označí `.blocked` s wake deadline, dobrovolný switch přes
       `sched_sleep_switch`/`sched_sleep_restore`; probouzení na deadline v `pickNext`.
       Ověřeno runtime testem `testBlockingTaskSleep` (úkol se nespouští během spánku).
-- [ ] **Per-program `lua_State` / instance** po `spawn` — zamrzlý program (nekonečná
+- [x] **Per-program `lua_State` / instance** po `spawn` — zamrzlý program (nekonečná
       smyčka) už nezamrzne prostředí; preempce + error handler úkolu (spec `runtime.md` §5).
+      **Částečné řešení M7 (2026-08-14):** instrukční rozpočet Lua (`LUA_MASKCOUNT`,
+      brief Task 7b) — nekonečná smyčka vyvolá error containment/hot reload místo
+      zamrznutí; plná per-program izolace zůstává otevřená.
 - [ ] **Blokující synchronizační primitiva** (ADR-017): semafor, mutex, event group,
       message queue; **error handler úkolu** (`anyerror!void`).
 - [ ] Benchmark wasm vs Lua; metriky do tabulky.

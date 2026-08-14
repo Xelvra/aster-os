@@ -9,6 +9,19 @@ var lua_state: ?*lua_c.lua_State = null;
 var heap_allocator: std.mem.Allocator = undefined;
 var initrd: ?[]const u8 = null;
 
+/// Instruction budget for one kernel → Lua call (brief Task 7b, audit §3.6).
+/// `lua_pcall` catches runtime errors but not an infinite loop — `while true
+/// do end` in the shell would otherwise monopolize the CPU forever (the
+/// preemptive scheduler only yields at the timer tick and the shell runs on
+/// the main context). A count hook (LUA_MASKCOUNT) raises a Lua error after
+/// this many VM instructions, which the same lua_pcall that catches runtime
+/// errors also catches, driving the existing error-containment / hot-reload
+/// path. The value is well above a legitimate heavy render (the WM draws tens
+/// of primitives per frame, far under 10M VM instructions) yet small enough
+/// that an infinite loop trips within a frame budget (frame latency p99
+/// target < 16 ms, spec/invariants.md §2).
+const instruction_budget: c_int = 10_000_000;
+
 pub fn getState() ?*lua_c.lua_State {
     return lua_state;
 }
@@ -170,9 +183,28 @@ pub const CallResult = enum {
     err,
 };
 
+/// Count hook (LUA_MASKCOUNT): fires after `instruction_budget` VM
+/// instructions and raises a Lua error, caught by the surrounding lua_pcall.
+fn instructionBudgetHook(L: ?*lua_c.lua_State, ar: ?*lua_c.lua_Debug) callconv(.c) void {
+    _ = ar;
+    _ = lua_c.luaL_error(L, "instruction budget exceeded");
+}
+
+/// Arm the instruction budget for one kernel → Lua call.
+fn armBudget(L: *lua_c.lua_State) void {
+    _ = lua_c.lua_sethook(L, instructionBudgetHook, lua_c.LUA_MASKCOUNT, instruction_budget);
+}
+
+/// Disarm the instruction budget after the call returns.
+fn disarmBudget(L: *lua_c.lua_State) void {
+    _ = lua_c.lua_sethook(L, null, 0, 0);
+}
+
 /// Call a named Lua function (global) if it is defined. Every entry from the
 /// kernel into Lua goes through lua_pcall so a script error cannot unwind
-/// into the Zig stack (spec/runtime.md §5).
+/// into the Zig stack (spec/runtime.md §5). The instruction budget is armed
+/// for the call: an infinite loop raises a Lua error caught here, so the
+/// shell hot-reloads instead of freezing (brief Task 7b).
 fn callGlobalFunction(name: [*:0]const u8) CallResult {
     const L = lua_state orelse return .no_function;
     _ = lua_c.lua_getglobal(L, name);
@@ -180,6 +212,8 @@ fn callGlobalFunction(name: [*:0]const u8) CallResult {
         _ = lua_c.lua_pop(L, 1);
         return .no_function;
     }
+    armBudget(L);
+    defer disarmBudget(L);
     const status = lua_c.lua_pcallk(L, 0, 0, 0, 0, null);
     if (status != lua_c.LUA_OK) {
         if (lua_c.lua_isstring(L, -1) != 0) {

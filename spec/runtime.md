@@ -166,11 +166,21 @@ Lua běží vestavěně v jádře (Ring 0) — chyba skriptu **nesmí shodit ker
   stavu. Chybová zpráva Lua se loguje na serial. Ověřeno runtime testem „error
   containment".
 
-**Známé omezení (M0–M6):** v M0–M6 běží **jediný `lua_State`** (shell). `lua_pcall`
-chytí chyby, ale **ne nekonečné smyčky ani memory leak** — `while true do end` v
-uživatelském skriptu zamrazí UI (kernel i IRQ běží dál). Zmírnění: preemptivní
-scheduler od M7 (ADR-017) + per-program státy po `spawn`; do té doby je to vědomé
-riziko jednojadrové kooperativní smyčky (`spec/invariants.md`).
+**Známé omezení (M0–M6, částečně vyřešeno M7):** v M0–M6 běží **jediný `lua_State`**
+(shell). `lua_pcall` chytil chyby, ale **ne nekonečné smyčky ani memory leak** —
+`while true do end` v uživatelském skriptu zamrazil UI (kernel i IRQ běží dál).
+
+**Stav od M7 (2026-08-14, brief Task 7b):** kernel→Lua volání (`callUpdate`/
+`callRender`) má **instrukční rozpočet** (`LUA_MASKCOUNT` count hook, konstanta
+`instruction_budget` v `lua/lua.zig`): překročení vyvolá Lua chybu, kterou **stejný
+`lua_pcall` mechanismus jako runtime chybu** zachytí → `CallResult.err` → event loop
+spustí hot reload. Nekonečná smyčka tak **nezamrazí UI natrvalo** — vyvolá error
+containment/reload jako každá jiná chyba skriptu (ověřeno runtime testem „infinite
+loop containment"). **Reziduální omezení:** memory leak z nekonečné alokační smyčky
+rozpočet nezachytí (chyba se jen opakuje po každém reloadu, dokud se skript
+neopraví), a rozpočet běží na sdíleném `lua_State` — izolaci mezi programy zajistí až
+per-program `lua_State` po `spawn` (ADR-017, roadmapa M7). Preemptivní scheduler
+(ADR-017) problém zmírňuje jen částečně, protože shell běží na hlavním kontextu.
 
 ---
 

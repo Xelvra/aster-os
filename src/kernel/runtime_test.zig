@@ -235,6 +235,35 @@ fn testErrorContainment() void {
     expect(true, "shell reloaded after error containment");
 }
 
+fn testInfiniteLoopContainment() void {
+    // An infinite loop in the shell must not freeze the system: the
+    // instruction budget (lua.zig, LUA_MASKCOUNT) raises a Lua error that
+    // the same lua_pcall as a runtime error catches, so callUpdate returns
+    // CallResult.err and the event loop hot-reloads (spec/runtime.md §5,
+    // brief Task 7b).
+    const lua = @import("lua/lua.zig");
+    const L = @import("lua/cimport.zig").c;
+    const lua_state = lua.getState() orelse {
+        expect(false, "lua state exists");
+        return;
+    };
+    const script = "function update() while true do end end";
+    const load_status = L.luaL_loadstring(lua_state, script);
+    expect(load_status == L.LUA_OK, "infinite-loop script compiles");
+    if (load_status == L.LUA_OK) {
+        const run_status = L.lua_pcallk(lua_state, 0, 0, 0, 0, null);
+        expect(run_status == L.LUA_OK, "infinite-loop script runs");
+    }
+    const result = lua.callUpdate();
+    expect(result == lua.CallResult.err, "infinite loop returns CallResult.err");
+    expect(true, "kernel survives a lua infinite loop");
+    // Restore the real shell so later tests start clean.
+    const runtime = @import("api/runtime.zig");
+    runtime.reload();
+    _ = lua.callRender();
+    expect(true, "shell reloaded after infinite-loop containment");
+}
+
 fn testLiveThemeChange() void {
     // A theme change typed into the REPL must repaint without losing the
     // shell and without faulting render (spec/runtime.md §5a). The bar
@@ -315,6 +344,11 @@ var task_stop = std.atomic.Value(bool).init(false);
 var task_a_parked = std.atomic.Value(bool).init(false);
 var task_b_parked = std.atomic.Value(bool).init(false);
 
+/// Test-only handle to the kernel heap allocator shared between spawned tasks
+/// (they have no `std.mem.Allocator` of their own). Captured in `runAll`.
+var concurrent_alloc: std.mem.Allocator = undefined;
+var alloc_error = std.atomic.Value(bool).init(false);
+
 fn taskA() callconv(.c) noreturn {
     while (true) {
         if (task_stop.load(.monotonic)) {
@@ -324,6 +358,14 @@ fn taskA() callconv(.c) noreturn {
             }
         }
         _ = task_a_counter.fetchAdd(1, .monotonic);
+        // Allocate on the shared heap: with the interrupt guard (ADR-017) a
+        // preemption mid-allocation can no longer corrupt the free list.
+        const chunk = concurrent_alloc.alloc(u8, 64) catch {
+            alloc_error.store(true, .monotonic);
+            continue;
+        };
+        @memset(chunk, 0xAA);
+        concurrent_alloc.free(chunk);
     }
 }
 
@@ -336,14 +378,21 @@ fn taskB() callconv(.c) noreturn {
             }
         }
         _ = task_b_counter.fetchAdd(1, .monotonic);
+        const chunk = concurrent_alloc.alloc(u8, 128) catch {
+            alloc_error.store(true, .monotonic);
+            continue;
+        };
+        @memset(chunk, 0x55);
+        concurrent_alloc.free(chunk);
     }
 }
 
 fn testPreemptiveScheduler() void {
     // Two native kernel tasks on the shared address space, each spinning on
-    // its own counter. The APIC timer IRQ preempts whoever is running and the
-    // round-robin scheduler switches — both counters must advance. That is the
-    // only reliable proof of real preemption, not cooperative yield.
+    // its own counter and hammering the shared heap (brief Task 2). The APIC
+    // timer IRQ preempts whoever is running and the round-robin scheduler
+    // switches — both counters must advance. That is the only reliable proof
+    // of real preemption, not cooperative yield.
     const sched = @import("sched/task.zig");
     const time = @import("time.zig");
 
@@ -352,6 +401,7 @@ fn testPreemptiveScheduler() void {
     task_stop.store(false, .monotonic);
     task_a_parked.store(false, .monotonic);
     task_b_parked.store(false, .monotonic);
+    alloc_error.store(false, .monotonic);
 
     _ = sched.spawnTask(taskA) catch {
         expect(false, "scheduler spawns task A");
@@ -374,11 +424,20 @@ fn testPreemptiveScheduler() void {
     expect(task_a_counter.load(.monotonic) > 0, "task A counter advanced under preemption");
     expect(task_b_counter.load(.monotonic) > 0, "task B counter advanced under preemption");
     expect(task_a_parked.load(.monotonic) and task_b_parked.load(.monotonic), "both tasks parked cleanly");
+    expect(!alloc_error.load(.monotonic), "concurrent heap allocation has no error");
+
+    // The heap must still be usable after three contexts (both tasks + main)
+    // hammered it concurrently.
+    const probe = concurrent_alloc.alloc(u8, 32) catch {
+        expect(false, "heap usable after concurrent allocation");
+        return;
+    };
+    concurrent_alloc.free(probe);
+    expect(true, "heap usable after concurrent allocation");
 }
 
 var sleeper_blocked = std.atomic.Value(bool).init(false);
 var sleeper_resumed = std.atomic.Value(bool).init(false);
-
 fn sleepingTask() callconv(.c) noreturn {
     const sched = @import("sched/task.zig");
     sleeper_blocked.store(true, .monotonic);
@@ -441,6 +500,7 @@ const tests = [_]Test{
     .{ .name = "live theme change (render stays healthy)", .func = testLiveThemeChange },
     .{ .name = "reload from Lua is deferred, state survives", .func = testLuaTriggeredReload },
     .{ .name = "error containment (lua error)", .func = testErrorContainment },
+    .{ .name = "infinite loop containment (instruction budget)", .func = testInfiniteLoopContainment },
     .{ .name = "render throughput", .func = testRenderThroughput },
     .{ .name = "preemptive RR scheduler (two kernel tasks)", .func = testPreemptiveScheduler },
     .{ .name = "blocking sleep deschedules a task (M7)", .func = testBlockingTaskSleep },
@@ -781,6 +841,7 @@ fn testAutoReload() void {
 
 pub fn runAll(alloc: std.mem.Allocator, memory: *mem.Memory) noreturn {
     if (!comptime enabled) @compileError("runtime tests are not enabled");
+    concurrent_alloc = alloc;
     serial.writeLine("RUNTIME TESTS START");
     for (tests) |t| {
         runOne(t);
