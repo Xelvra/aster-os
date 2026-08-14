@@ -463,7 +463,8 @@ fn testBlockingTaskSleep() void {
     };
 
     var spins: usize = 0;
-    while (!sleeper_blocked.load(.monotonic) and time.ticks() < 200 and spins < 1000000) : (spins += 1) {
+    const spawn_start = time.ticks();
+    while (!sleeper_blocked.load(.monotonic) and time.ticks() < spawn_start + 200 and spins < 1000000) : (spins += 1) {
         asm volatile ("hlt" ::: .{ .memory = true });
     }
     expect(sleeper_blocked.load(.monotonic), "sleeping task starts and blocks");
