@@ -177,6 +177,7 @@ Cíl: btop/Noctalia sysmon widget v baru + okno.
 | Super+E | file manager |
 | Super+Q | zavřít fokusované okno |
 | Super+Space | launcher |
+| Super+F1 | help (přehled zkratek) |
 | Super+Alt+Space | float toggle |
 | Super+F / D | fullscreen |
 | Super+J | togglesplit |

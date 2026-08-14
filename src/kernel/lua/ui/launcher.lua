@@ -10,6 +10,7 @@ local apps = {
     { title = "editor",      id = "editor" },
 }
 local actions = {
+    { title = "help",            id = "help" },
     { title = "toggle fullscreen", id = "fullscreen" },
     { title = "close",       id = "close" },
 }
@@ -19,7 +20,37 @@ local actions = {
 local launcher_open = false
 local launcher_input = ""
 local launcher_sel = 1
+local launcher_mode = "run" -- "run" (app list) or "help" (keybinding cheat sheet)
 local mouse_was_down = false
+
+-- Keybinding cheat sheet. "active" is shown normally, "reserved" dimmed:
+-- the shortcuts are planned but not wired yet (spec/lua-wm.md §7a).
+local shortcuts_active = {
+    { "Super+Enter", "terminal (REPL)" },
+    { "Super+T", "editor" },
+    { "Super+E", "file manager" },
+    { "Super+Q", "close window" },
+    { "Super+Space", "launcher" },
+    { "Super+Alt+Space", "float toggle" },
+    { "Super+F / D", "fullscreen" },
+    { "Super+J", "togglesplit" },
+    { "Super+arrows", "focus direction" },
+    { "Super+Shift+arrows", "move window" },
+    { "Super+1/2/3", "workspace" },
+    { "Super+S", "scratchpad" },
+    { "Alt+Tab", "cycle windows" },
+    { "F5", "hot reload" },
+}
+local shortcuts_reserved = {
+    { "Super+C", "calculator" },
+    { "Super+W", "browser" },
+    { "Super+Z", "settings" },
+    { "Super+X", "control center" },
+    { "Super+V", "clipboard" },
+    { "Super+A", "notifications" },
+    { "Super+P", "color picker" },
+    { "Print", "screenshot" },
+}
 
 local function launcher_filtered()
     local q = launcher_input:lower()
@@ -36,8 +67,41 @@ local function launcher_filtered()
     return out
 end
 
+-- Open the launcher in a given mode: "run" (app list) or "help" (shortcut
+-- cheat sheet). Called from Super+Space, the bar chevron, and Super+F1.
+local function launcher_open_mode(mode)
+    launcher_open = true
+    launcher_mode = mode
+    launcher_input = ""
+    launcher_sel = 1
+    gfx.invalidate()
+end
+
 local function launcher_render()
-    -- A centered popup with a search box and the filtered app list.
+    -- Help mode: a cheat sheet of active and reserved keybindings, wider than
+    -- the run popup.
+    if launcher_mode == "help" then
+        local row_h = 18
+        local lw, lh = 460, 40 + (#shortcuts_active + #shortcuts_reserved + 2) * row_h
+        local lx = math.floor((SW - lw) / 2)
+        local ly = theme.bar.height + 8 + math.max(math.floor((SH - theme.bar.height - 8 - lh) / 2), 0)
+        gfx.draw_rect(lx, ly, lw, lh, theme.surface)
+        gfx.rect_border(lx, ly, lw, lh, 1, theme.accent)
+        gfx.draw_text("help  Esc  back", lx + 8, ly + 8, theme.text_dim)
+        local ty = ly + 30
+        for _, s in ipairs(shortcuts_active) do
+            gfx.draw_text(s[1], lx + 12, ty, theme.text)
+            gfx.draw_text(s[2], lx + 200, ty, theme.text_dim)
+            ty = ty + row_h
+        end
+        for _, s in ipairs(shortcuts_reserved) do
+            gfx.draw_text(s[1], lx + 12, ty, theme.text_dim)
+            gfx.draw_text(s[2], lx + 200, ty, theme.text_dim)
+            ty = ty + row_h
+        end
+        return
+    end
+    -- Run mode: a centered popup with a search box and the filtered app list.
     local items = launcher_filtered()
     local row_h = 20
     local lw, lh = 320, 40 + math.max(#items, 1) * row_h
@@ -98,6 +162,11 @@ local function launcher_run(id)
         end
         if not ed_open then editor_load(ed_path) end
         set_focus("editor")
+    elseif id == "help" then
+        launcher_mode = "help"
+        launcher_input = ""
+        launcher_sel = 1
+        gfx.invalidate()
     elseif id == "fullscreen" then
         if fullscreen_win == focused then
             fullscreen_win = nil

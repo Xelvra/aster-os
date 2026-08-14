@@ -85,7 +85,8 @@ the file browser at the root (Up/Down select, **Enter** opens/edits a file,
 **Space** previews, **Delete** removes it, Escape or a click on the path
 header goes up a level; hidden
 dotfiles like the `.theme.bak` config backup are shown in dim gray).
-**Super+Space** opens the launcher; Alt+Tab cycles windows. The WM follows
+**Super+Space** opens the launcher; **Super+F1** shows the keybinding help;
+Alt+Tab cycles windows. The WM follows
 **Hyprland conventions strictly** — shortcuts, buttons and navigation behave
 the same as in Hyprland (`spec/desktop-ui.md` §5).
 

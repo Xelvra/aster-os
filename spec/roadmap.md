@@ -469,6 +469,10 @@ triggerů / nových ADR.
       Enter = otevřít/upravit, Space = náhled, Delete = smazat, **klik na nadpis
       (cestu)** = o úroveň výš; root = `/` bez `..` položky. Smazání `/theme.lua` i
       `.theme.bak` je bezpečné — systém použije defaulty z initrd (žádný delete guard).
+- [x] **M7.1.10 Help v launcheru:** `help` položka v akcích + **Super+F1** otevře
+      přehled zkratek (`launcher_mode = "help"`). Aktivní zkratky normální barvou,
+      rezervované (neaktivované) šedivě (`spec/lua-wm.md` §7a); Esc se vrátí do run.
+      Prompt launcheru je `run:` (shell/dmenu konvence, ne `run?`).
 - [ ] **Toggle skrytých souborů ve files browseru** — zobrazit/skrýt dotfiles (dnes se
       kreslí šedivě, vždy viditelné).
 

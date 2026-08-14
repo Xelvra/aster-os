@@ -313,14 +313,19 @@ stavu neví.
 ### 5.4 `launcher.lua` — aplikace launcher
 
 - `apps` — statický seznam aplikací `{title, id}` (repl, sysmon, files, editor) a
-  `actions` — okenní akce (toggle fullscreen, close). Aplikace se v launcheru řadí
-  před akcemi (ergonomicky: soubory/files častěji než editor).
+  `actions` — okenní akce (help, toggle fullscreen, close). Aplikace se v launcheru
+  řadí před akcemi (ergonomicky: soubory/files častěji než editor).
 - `launcher_filtered()` — jednoduché substring filtrování (case-insensitive).
-- `launcher_render()` — centrovany popup 320 px: vyhledávací pole + list.
+- `launcher_render()` — centrovany popup 320 px: vyhledávací pole + list; **help mód**
+  (přes `help` položku nebo **Super+F1**) kreslí širší popup s přehledem zkratek:
+  **aktivní** zkratky normální barvou, **rezervované** (neaktivované, §7a) šedivě —
+  vizuálně oddělené, ale viditelné jako cíl. Esc v help módu se vrátí do run.
+- `launcher_open_mode(mode)` — otevře launcher v módu `"run"` (Super+Space, chevron)
+  nebo `"help"` (Super+F1 / help položka).
 - `launcher_run(id)` — mapuje id na akci: zobrazení/zaostření okna (`repl`, `sysmon`,
-  `files`), přepínání fullscreen, zavírání. Okna se **znovu používají**, ne duplikují
-  (`find_win` → přesun na aktuální ws, nebo vytvoření); `repl`/`sysmon`/`files` se
-  přesunou na `current_ws`, aby se okno otevřelo tam, kde jsi.
+  `files`), help, přepínání fullscreen, zavírání. Okna se **znovu používají**, ne
+  duplikují (`find_win` → přesun na aktuální ws, nebo vytvoření); `repl`/`sysmon`/
+  `files` se přesunou na `current_ws`, aby se okno otevřelo tam, kde jsi.
 
 ### 5.5 `input.lua` — vstupní obsluha
 

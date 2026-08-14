@@ -28,7 +28,12 @@ local function handle_mouse()
 
     if launcher_open then
         if left and not mouse_was_down then
-            -- Clicking an item runs it; click outside closes.
+            -- Clicking an item runs it; click outside closes. Help switches to
+            -- the cheat sheet instead of closing the launcher.
+            if launcher_mode == "help" then
+                mouse_was_down = left
+                return
+            end
             local items = launcher_filtered()
             local row_h = 20
             local lw, lh = 320, 40 + math.max(#items, 1) * row_h
@@ -37,8 +42,8 @@ local function handle_mouse()
             if mx >= lx and mx <= lx + lw and my >= ly and my <= ly + lh then
                 local idx = math.floor((my - ly - 30) / row_h) + 1
                 if items[idx] then
-                    launcher_open = false
                     launcher_run(items[idx].id)
+                    if launcher_mode ~= "help" then launcher_open = false end
                     gfx.invalidate()
                 end
             else
@@ -108,11 +113,7 @@ local function handle_mouse()
             end
             -- Clicking the launcher button (the ">" chevron) opens the launcher.
             if mx >= 8 and mx <= 28 and my >= 0 and my <= theme.bar.height then
-                launcher_open = not launcher_open
-                if launcher_open then
-                    launcher_input = ""
-                    launcher_sel = 1
-                end
+                launcher_open_mode("run")
                 gfx.invalidate()
             end
         end
@@ -136,6 +137,17 @@ end
 local function handle_key(ev)
     local code = ev.code
     if launcher_open then
+        -- Help mode: only Esc returns to the run list (or closes if we were
+        -- already in run mode); no typing/navigation needed.
+        if launcher_mode == "help" then
+            if code == "escape" then
+                launcher_mode = "run"
+                launcher_input = ""
+                launcher_sel = 1
+            end
+            gfx.invalidate()
+            return
+        end
         local items = launcher_filtered()
         -- Keep the selection valid after filtering changed the list size.
         launcher_sel = math.max(1, math.min(launcher_sel, math.max(#items, 1)))
@@ -143,8 +155,8 @@ local function handle_key(ev)
             launcher_open = false
             esc_pending = false
         elseif code == "enter" then
-            launcher_open = false
             if items[launcher_sel] then launcher_run(items[launcher_sel].id) end
+            if launcher_mode ~= "help" then launcher_open = false end
         elseif code == "up" then
             launcher_sel = math.max(launcher_sel - 1, 1)
         elseif code == "down" then
@@ -237,12 +249,11 @@ local function handle_key(ev)
                     end
                 end
             else
-                launcher_open = not launcher_open
-                if launcher_open then
-                    launcher_input = ""
-                    launcher_sel = 1
-                end
+                launcher_open_mode("run")
             end
+        elseif code == "f1" then
+            -- Super+F1: help / keybinding cheat sheet (F1 = help convention).
+            launcher_open_mode("help")
         elseif code == "f" or code == "d" then
             -- Fullscreen toggle.
             if fullscreen_win == focused then
