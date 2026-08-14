@@ -87,7 +87,7 @@ local function launcher_render()
         local ly = theme.bar.height + 8 + math.max(math.floor((SH - theme.bar.height - 8 - lh) / 2), 0)
         gfx.draw_rect(lx, ly, lw, lh, theme.surface)
         gfx.rect_border(lx, ly, lw, lh, 1, theme.accent)
-        gfx.draw_text("help  Esc  back", lx + 8, ly + 8, theme.text_dim)
+        gfx.draw_text("help  Esc back", lx + 8, ly + 8, theme.text_dim)
         local ty = ly + 30
         for _, s in ipairs(shortcuts_active) do
             gfx.draw_text(s[1], lx + 12, ty, theme.text)

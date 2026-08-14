@@ -137,13 +137,10 @@ end
 local function handle_key(ev)
     local code = ev.code
     if launcher_open then
-        -- Help mode: only Esc returns to the run list (or closes if we were
-        -- already in run mode); no typing/navigation needed.
+        -- Help mode: Esc closes the launcher entirely; no typing/navigation.
         if launcher_mode == "help" then
             if code == "escape" then
-                launcher_mode = "run"
-                launcher_input = ""
-                launcher_sel = 1
+                launcher_open = false
             end
             gfx.invalidate()
             return

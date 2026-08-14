@@ -1,6 +1,7 @@
 const std = @import("std");
 const pfa = @import("pfa.zig");
 const irq = @import("../cpu/irq.zig");
+const serial = @import("../serial.zig");
 
 /// Heap grows in multi-page chunks. Lua's loadbuffer needs allocations
 /// larger than a single 4 KiB page, so growing one page at a time would
@@ -38,7 +39,6 @@ const BlockHeader = struct {
 /// misread as a block). Halt, do not continue on corrupt state.
 fn checkBlock(block: *BlockHeader) void {
     if (block.magic == block_magic) return;
-    const serial = @import("../serial.zig");
     var cb: [128]u8 = undefined;
     const line = std.fmt.bufPrint(&cb, "HEAP CORRUPTION at block {x:0>12}", .{@intFromPtr(block)}) catch "HEAP CORRUPTION";
     serial.writeLine(line);
@@ -145,9 +145,13 @@ pub const HeapAllocator = struct {
 
     /// Grow the heap by enough contiguous pages to hold at least `min_bytes`
     /// of payload plus block overhead. A single grow block is contiguous, so a
-    /// large allocation (e.g. the shell source buffer) is satisfiable.
+    /// large allocation (e.g. the shell source buffer) is satisfiable. The
+    /// block overhead is added before rounding up to whole pages: `min_bytes`
+    /// already includes it, so the region must cover `min_bytes` bytes of
+    /// usable space, i.e. `min_bytes + header + footer` of raw pages.
     fn grow(self: *HeapAllocator, min_bytes: usize) !void {
-        const min_pages = (min_bytes + pfa.page_size - 1) / pfa.page_size;
+        const with_overhead = min_bytes + @sizeOf(BlockHeader) + @sizeOf(BlockFooter);
+        const min_pages = (with_overhead + pfa.page_size - 1) / pfa.page_size;
         const pages_count = @max(grow_pages, min_pages);
         const pages = try self.pfa.allocPages(pages_count, true);
         const virtual = pages[0] + self.pfa.hhdm_offset;
