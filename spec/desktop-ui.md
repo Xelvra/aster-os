@@ -105,7 +105,7 @@ Pravá část baru je dnes placeholder, ale **má správné rozložení** (widge
 ### 4.3 Launcher (✅ hotovo)
 - **Super+Space** otevře popup s vyhledávacím polem.
 - Psaní filtruje aplikace, šipky mění výběr, Enter spustí.
-- Položky: repl (terminál), sysmon, files, toggle fullscreen, close.
+- Položky: aplikace (repl, sysmon, files, editor) + akce (toggle fullscreen, close).
 
 ### 4.4 Okna a dekorace (✅ hotovo)
 - Tiling: splith (60/40, fokus širší) / splitv, **gapless** (`gap_out = 0`, `gap_in = 0`

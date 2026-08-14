@@ -1,12 +1,15 @@
 -- launcher.lua - application launcher (Super+Space): search box + filtered list.
 
 -- Applications the launcher can run. Each entry is { title, id }; the id
--- maps to a shell action (open a window, toggle something).
+-- maps to a shell action (open a window, toggle something). Apps come first,
+-- then window actions.
 local apps = {
     { title = "repl",        id = "repl" },
     { title = "sysmon",      id = "sysmon" },
-    { title = "editor",      id = "editor" },
     { title = "files",       id = "files" },
+    { title = "editor",      id = "editor" },
+}
+local actions = {
     { title = "toggle fullscreen", id = "fullscreen" },
     { title = "close",       id = "close" },
 }
@@ -21,11 +24,15 @@ local mouse_was_down = false
 local function launcher_filtered()
     local q = launcher_input:lower()
     local out = {}
-    for _, a in ipairs(apps) do
-        if q == "" or a.title:lower():find(q, 1, true) then
-            out[#out + 1] = a
+    local function add(list)
+        for _, a in ipairs(list) do
+            if q == "" or a.title:lower():find(q, 1, true) then
+                out[#out + 1] = a
+            end
         end
     end
+    add(apps)
+    add(actions)
     return out
 end
 

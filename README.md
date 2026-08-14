@@ -82,7 +82,8 @@ zig build run -Ddisk=disk.img        # boot with the disk attached
 In the shell: **Super+T** opens the editor on `theme.lua` (arrows move the
 cursor/line, **Ctrl+S** saves and the shell repaints live); **Super+E** opens
 the file browser at the root (Up/Down select, **Enter** opens/edits a file,
-**Space** previews, **Delete** removes it, Escape goes up a level; hidden
+**Space** previews, **Delete** removes it, Escape or a click on the path
+header goes up a level; hidden
 dotfiles like the `.theme.bak` config backup are shown in dim gray).
 **Super+Space** opens the launcher; Alt+Tab cycles windows. The WM follows
 **Hyprland conventions strictly** — shortcuts, buttons and navigation behave

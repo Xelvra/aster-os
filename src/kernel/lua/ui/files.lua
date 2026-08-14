@@ -39,10 +39,6 @@ function files_open(path)
         return
     end
     fs_error = ""
-    -- ".." leads to the parent directory; hidden in the root (no parent).
-    if fs_path ~= "/" then
-        table.insert(entries, 1, { name = "..", dir = true })
-    end
     fs_entries = entries
     gfx.invalidate()
 end

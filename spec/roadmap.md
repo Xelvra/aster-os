@@ -467,7 +467,8 @@ triggerů / nových ADR.
       → ext2 `unlink` (uvolní data bloky + inode, smaže direntry). Files: **Delete** =
       smazat. **Ochrana `.theme.bak`:** dokud je `/theme.lua` rozbitý, Delete ho odmítne
       smazat (`files_remove` + `theme_config_valid`). **Files konvence (Hyprland):**
-      Enter = otevřít/upravit, Space = náhled, Delete = smazat; root = `/` s `..` položkou.
+      Enter = otevřít/upravit, Space = náhled, Delete = smazat, **klik na nadpis
+      (cestu)** = o úroveň výš; root = `/` bez `..` položky.
 - [ ] **Toggle skrytých souborů ve files browseru** — zobrazit/skrýt dotfiles (dnes se
       kreslí šedivě, vždy viditelné).
 

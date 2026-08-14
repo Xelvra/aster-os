@@ -70,6 +70,17 @@ local function handle_mouse()
                     gfx.invalidate()
                 end
             end
+            -- Clicking the files header (the path line) navigates up one
+            -- level — the header mirrors the directory path.
+            local fw = find_win("files")
+            if fw and fw.ws == current_ws and not fs_viewing then
+                local hy = fw.y + theme.wm.border + theme.wm.title_h + 6
+                if mx >= fw.x + theme.wm.border + 6 and mx <= fw.x + fw.w - theme.wm.border and
+                   my >= hy and my <= hy + fs_row_h then
+                    files_up()
+                    gfx.invalidate()
+                end
+            end
             -- Clicking the launcher button (the ">" chevron) opens the launcher.
             if mx >= 8 and mx <= 28 and my >= 0 and my <= theme.bar.height then
                 launcher_open = not launcher_open
@@ -419,8 +430,9 @@ local function handle_key(ev)
 
     -- File browser input goes to the focused window when it is the files.
     -- Conventions (Aster WM, Hyprland-flavoured): up/down select; enter opens
-    -- (dir = navigate in, ".." = parent, file = edit in the editor); space =
-    -- quick view of the file content; escape goes up one level / exits a view.
+    -- (dir = navigate in, file = edit in the editor); space = quick view of
+    -- the file content; escape goes up one level / exits a view; clicking the
+    -- path header also goes up.
     if focused == "files" and find_win("files") then
         if fs_viewing then
             if code == "escape" or code == "space" or code == "enter" then files_up() end
@@ -432,9 +444,7 @@ local function handle_key(ev)
             elseif code == "enter" then
                 local e = fs_entries[fs_sel]
                 if e then
-                    if e.name == ".." then
-                        files_up()
-                    elseif e.dir then
+                    if e.dir then
                         files_open(join_path(fs_path, e.name))
                     else
                         files_edit(e.name)
@@ -442,10 +452,10 @@ local function handle_key(ev)
                 end
             elseif code == "space" then
                 local e = fs_entries[fs_sel]
-                if e and not e.dir and e.name ~= ".." then files_view(e.name) end
+                if e and not e.dir then files_view(e.name) end
             elseif code == "delete" then
                 local e = fs_entries[fs_sel]
-                if e and e.name ~= ".." then files_remove(e.name) end
+                if e then files_remove(e.name) end
             elseif code == "escape" then
                 files_up()
             end

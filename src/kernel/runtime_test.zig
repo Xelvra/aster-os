@@ -867,23 +867,20 @@ fn testFileDir() void {
     expect(ok, "file.dir lists files and directories");
     _ = L.lua_pop(lua_state, 1);
 
-    // M7.1.8: files_open prepends ".." only in a subdirectory, never in the
-    // root; join_path builds correct child paths for both cases.
+    // M7.1.9: files_open no longer prepends ".." — navigation up goes through
+    // Escape or a click on the path header; join_path builds child paths.
     const script2 =
-        \\local has_dotdot = false
+        \\local no_dotdot = true
         \\for _, e in ipairs(fs_entries) do
-        \\    if e.name == ".." and e.dir then has_dotdot = true end
+        \\    if e.name == ".." then no_dotdot = false end
         \\end
-        \\-- root listing must have no ".."; a subdirectory listing must
-        \\local root_ok = not has_dotdot
         \\files_open("/apps")
-        \\local sub_dotdot = false
         \\for _, e in ipairs(fs_entries) do
-        \\    if e.name == ".." and e.dir then sub_dotdot = true end
+        \\    if e.name == ".." then no_dotdot = false end
         \\end
         \\local path_ok = join_path("/", "apps") == "/apps" and join_path("/apps", "x") == "/apps/x"
         \\files_open("/")
-        \\return root_ok and sub_dotdot and path_ok
+        \\return no_dotdot and path_ok
     ;
     const load2 = L.luaL_loadstring(lua_state, script2);
     expect(load2 == L.LUA_OK, "files convention script compiles");
@@ -891,7 +888,7 @@ fn testFileDir() void {
         const run2 = L.lua_pcallk(lua_state, 0, 1, 0, 0, null);
         if (run2 == L.LUA_OK) {
             const ok2 = L.lua_toboolean(lua_state, -1) == 1;
-            expect(ok2, "files: '..' only in subdirs, join_path builds child paths");
+            expect(ok2, "files: no '..' entry, join_path builds child paths");
         }
         L.lua_pop(lua_state, 1);
     }

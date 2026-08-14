@@ -312,8 +312,9 @@ stavu neví.
 
 ### 5.4 `launcher.lua` — aplikace launcher
 
-- `apps` — statický seznam `{title, id}` (repl, sysmon, files, toggle fullscreen,
-  close).
+- `apps` — statický seznam aplikací `{title, id}` (repl, sysmon, files, editor) a
+  `actions` — okenní akce (toggle fullscreen, close). Aplikace se v launcheru řadí
+  před akcemi (ergonomicky: soubory/files častěji než editor).
 - `launcher_filtered()` — jednoduché substring filtrování (case-insensitive).
 - `launcher_render()` — centrovany popup 320 px: vyhledávací pole + list.
 - `launcher_run(id)` — mapuje id na akci: zobrazení/zaostření okna (`repl`, `sysmon`,
@@ -544,13 +545,13 @@ Navigační konvence:
   **Ctrl+S** = uložit (`file.write`). Uložení configu (`/theme.lua`) spouští
   auto-reload (`spec/runtime.md` §5a, trigger 2).
 - **Files browser (`files.lua`):** Up/Down = výběr, **Enter** = otevřít
-  (adresář → dovnitř, `..` → o úroveň výš, soubor → **editace v editoru**),
+  (adresář → dovnitř, soubor → **editace v editoru**),
   **Space** = rychlý náhled obsahu (read-only), **Delete** = smazat soubor
   (`file.remove`), **Escape** = o úroveň výš / ven z náhledu, **Super+E** =
-  otevřít v kořenu. Nadpis okna je jen cesta (root = `/`); v podadresáři je
-  první položka `..` (parent). Konvence je „Enter otevře, Space prohlíží,
-  Delete maže" — v duchu Hyprland (Enter = otevřít soubor v příslušné
-  aplikaci), ne Midnight Commander (F3/F4).
+  otevřít v kořenu. Nadpis okna je jen cesta (root = `/`); **klik na nadpis**
+  jde o úroveň výš (nadpis = ukazatel cesty). Konvence je „Enter otevře,
+  Space prohlíží, Delete maže, klik na cestu jde nahoru" — v duchu Hyprland
+  (Enter = otevřít soubor v příslušné aplikaci), ne Midnight Commander (F3/F4).
 
 **Ochrana configu před smazáním:** `.theme.bak` je chráněný — dokud je
 `/theme.lua` rozbitý (nevalidní config), je `.theme.bak` jediná platná verze
