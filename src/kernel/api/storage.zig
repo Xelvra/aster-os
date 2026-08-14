@@ -3,6 +3,7 @@ const sys = @import("sys.zig");
 const file = @import("../fs/file.zig");
 const ext2 = @import("../fs/ext2.zig");
 const virtio = @import("../drivers/virtio.zig");
+const validate = @import("validate.zig");
 
 /// Persistent filesystem behind the thin File API (spec/roadmap.md M7.1.4).
 /// The mounted backend and the block driver live here so they outlive the
@@ -45,6 +46,8 @@ pub const ListArgs = extern struct {
 };
 
 /// Backing disk; only meaningful after a successful boot-time probe.
+/// Composition-root exception (spec/code-style.md §1): device registry set
+/// once by main.zig at boot, read by dispatch. Not growing per-feature state.
 pub var disk: virtio.VirtioBlk = undefined;
 /// The mounted filesystem; `null` when no disk is attached.
 pub var mounted: ?ext2.Ext2 = null;
@@ -91,6 +94,7 @@ pub fn dispatch(args: sys.SyscallArgs) u64 {
     const op: StorageOp = @enumFromInt(args.a);
     switch (op) {
         .open => {
+            if (args.b == 0) return fail(.InvalidArgument);
             const path_ptr: [*]const u8 = @ptrFromInt(@as(usize, @intCast(args.b)));
             const path = path_ptr[0..@as(usize, @intCast(args.c))];
             for (&handles, 0..) |*slot, i| {
@@ -103,19 +107,21 @@ pub fn dispatch(args: sys.SyscallArgs) u64 {
             return fail(.Busy);
         },
         .read => {
-            const ra: *const ReadArgs = @ptrFromInt(@as(usize, @intCast(args.b)));
+            const ra = validate.checkPtr(args.b, ReadArgs) orelse return fail(.InvalidArgument);
             const slot = handleSlot(ra.handle) orelse return fail(.InvalidArgument);
             if (slot.* == null) return fail(.InvalidArgument);
             const f: *file.File = &slot.*.?;
+            if (ra.buf == 0) return fail(.InvalidArgument);
             const buf: [*]u8 = @ptrFromInt(@as(usize, @intCast(ra.buf)));
             const n = f.read(buf[0..@as(usize, @intCast(ra.len))]) catch |err| return fail(errToStatus(err));
             return ok(@intCast(n));
         },
         .write => {
-            const wa: *const WriteArgs = @ptrFromInt(@as(usize, @intCast(args.b)));
+            const wa = validate.checkPtr(args.b, WriteArgs) orelse return fail(.InvalidArgument);
             const slot = handleSlot(wa.handle) orelse return fail(.InvalidArgument);
             if (slot.* == null) return fail(.InvalidArgument);
             const f: *file.File = &slot.*.?;
+            if (wa.data == 0) return fail(.InvalidArgument);
             const data: [*]const u8 = @ptrFromInt(@as(usize, @intCast(wa.data)));
             f.write(data[0..@as(usize, @intCast(wa.len))]) catch |err| return fail(errToStatus(err));
             return ok(0);
@@ -133,7 +139,8 @@ pub fn dispatch(args: sys.SyscallArgs) u64 {
             return ok(0);
         },
         .list => {
-            const la: *const ListArgs = @ptrFromInt(@as(usize, @intCast(args.b)));
+            const la = validate.checkPtr(args.b, ListArgs) orelse return fail(.InvalidArgument);
+            if (la.path == 0 or la.out == 0) return fail(.InvalidArgument);
             const path_ptr: [*]const u8 = @ptrFromInt(@as(usize, @intCast(la.path)));
             const path = path_ptr[0..@as(usize, @intCast(la.path_len))];
             const ino = fs_ptr.find(path) catch |err| return fail(errToStatus(err));

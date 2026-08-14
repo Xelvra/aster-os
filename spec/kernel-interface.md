@@ -29,7 +29,7 @@ Všechna veřejná rozhraní žijí v `src/kernel/api/`:
 |---|---|---|
 | `sys.zig` | `dispatch(num, args)` — jediný vstupní bod operací | viz §3 |
 | `debug.zig` | Ladící/konzolový výstup (výpis na serial) | viz §3.5 |
-| `graphics.zig` | Kreslení: `drawRect`, `blit`, `drawGlyph`, border/round/gradient | `spec/graphics.md` |
+| `graphics.zig` | Kreslení: `drawRect`, `drawGlyph`, border/round/gradient | `spec/graphics.md` |
 | `input.zig` | Vstupní události: `pollEvent`, `nextEvent`, layout | `spec/input.md` |
 | `timer.zig` | Čas: `ticks`, `sleepMs`, tick zdroj | `spec/timer.md` |
 | `runtime.zig` | Spouštění programů: `spawn`, `RuntimeKind` | `spec/runtime.md` |
@@ -163,6 +163,40 @@ Malý KI modul, který vystavuje reálné metriky jádra shellu (Lua). Nejdřív
 - Lua bindingy: `sysmon.ram_total_mb()`, `sysmon.ram_free_mb()` (viz `spec/runtime.md` §4).
 - Sub-op čísla jsou zmrazená jako ostatní (§4 pravidlo 2).
 
+### 3.7 Argument contract (normativní)
+
+Formální kontrakt toho, co KI vyžaduje od volajícího a co garantuje volajícímu.
+Tento oddíl popisuje chování, které kód **dnes** implementuje (po validaci v
+`api/validate.zig`) — budoucí ADR-018 transport (Ring 3/mailbox) na něj navazuje,
+aniž by musel pravidla znovu objevovat.
+
+**Typy hodnot v `args.b`/`args.c`:** dnes se liší operaci od operace bez jednotné
+konvence — buď inline skalár (`graphics.width`/`height`/`fill_screen` barva,
+`storage.close`/`truncate` handle, `debug.status`), nebo **pointer na strukturu
+argumentů** v paměti volajícího (`graphics.draw_rect` → `RectArgs`, `storage.read`
+→ `ReadArgs`, `runtime.spawn` → `SpawnOptions`), nebo **přímý pointer na buffer**
+(`debug.write` → string, `storage.open` → path). Struktura argumentů je `extern
+struct` — pořadí polí je součástí kontraktu. **Tato nekonzistence je známá a
+otevřená** (brief Task 6): sjednocení na jednu konvenci je na vlastníkovi
+repozitáře, ne řešeno zde.
+
+**Vlastnictví paměti:** buffery a struktury předané pointerem patří **volajícímu
+a jsou platné jen po dobu synchronního volání `dispatch()`**. Žádné KI volání
+není asynchronní (ADR-018 §„Sémantika zůstává synchronní request/reply"); volaný
+kód si nesmí pointer uložit přes hranici volání. Příklady, které se na to spoléhají:
+`fileRead`/`fileWrite` v `lua/bindings.zig` předávají adresu vlastního stack bufferu.
+
+**Validace (na hranici KI, `api/validate.zig`):** KI garantuje **nenulovost** a
+**zarovnání** podle `@alignOf(T)` pro každý pointer přicházející přes `dispatch`.
+Neplatný pointer → `KiStatus.InvalidArgument`, ne pád ani UB. KI **negarantuje**,
+že paměť skutečně patří volajícímu — to vyžaduje per-task memory-region tracking,
+který SASOS dnes nemá (`spec/non-goals.md`); přidává se až s per-task izolací,
+ne před ní (YAGNI).
+
+**Návratové kódy:** úspěch = `Success` (0), selhání = konkrétní `KiStatus`
+(§3.3). Modul `storage` navíc balí status do horních 32 bitů návratové `u64`
+(`ok`/`fail`, viz `api/storage.zig`) — to je výjimka dokumentovaná u modulu.
+
 ---
 
 ## 4. Pravidla KI (normativní)
@@ -230,6 +264,8 @@ přechod na IPC nevyžaduje refaktor volajícího kódu:
 
 Sémantika je identická; mění se jen transport. **Asynchronie nikdy neuniká z `api/*`
 modulů do Lua/UI** — Lua nevidí porty, callbacky ani zprávy, jen volání a výsledek.
+Mailbox zprávy v ADR-018 ponesou **stejný tvar argumentů** jako dnešní `SyscallArgs`
+(§3.7 Argument contract) — volající kód se při přechodu nemění.
 
 **Co se přechodem upřímně mění (vědomě):**
 

@@ -44,7 +44,7 @@ Veřejná operace (čísla sub-op jsou rozšiřitelná, zmrazená):
 | # | Operace | Signatura | Poznámka |
 |---|---------|-----------|----------|
 | 0 | `drawRect` | `(x, y, w, h, color)` | plný obdélník, nevyhlazený (M3) |
-| 1 | `blit` | `(src, srcX, srcY, dstX, dstY, w, h)` | kopie bloku pixelů |
+| 1 | `blit` | *(rezervováno)* | **bez volajícího** — číslo zmrazené (KI pravidlo „čísla se nemazají"), dispatch vrací `NotSupported`; YAGNI, `code-style.md` §1 |
 | 2 | `drawGlyph` | `(codepoint, x, y, color)` | z embedded bitmap fontu |
 | 3 | `drawText` | `(str, x, y, color)` | n-tice glyphů |
 | 4 | `fillScreen` | `(color)` | |

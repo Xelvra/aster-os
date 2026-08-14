@@ -1,6 +1,7 @@
 const std = @import("std");
 const sys = @import("sys.zig");
 const lua = @import("../lua/lua.zig");
+const validate = @import("validate.zig");
 
 pub const RuntimeKind = enum(u8) {
     Lua = 0,
@@ -26,6 +27,9 @@ pub const RuntimeOp = enum(u64) {
     reload = 3,
 };
 
+/// Composition-root exception (spec/code-style.md §1): module-level handle
+/// counter and reload flag, set/read by the event loop and dispatch. Single
+/// instances, not per-feature state.
 var next_handle: u64 = 1;
 var reload_requested = false;
 
@@ -82,7 +86,7 @@ pub fn dispatch(args: sys.SyscallArgs) u64 {
     const op: RuntimeOp = @enumFromInt(args.a);
     switch (op) {
         .spawn => {
-            const opts: *const SpawnOptions = @ptrFromInt(@as(usize, @intCast(args.b)));
+            const opts = validate.checkPtr(args.b, SpawnOptions) orelse return @intFromEnum(sys.KiStatus.InvalidArgument);
             if (spawn(opts.*)) |_| {
                 return @intFromEnum(sys.KiStatus.Success);
             } else |_| {
