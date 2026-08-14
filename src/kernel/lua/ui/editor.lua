@@ -7,6 +7,7 @@ ed_path = ed_path or "/theme.lua"
 ed_lines = ed_lines or { "" }
 ed_row = ed_row or 1
 ed_col = ed_col or 0
+ed_scroll_col = ed_scroll_col or 0
 ed_dirty = ed_dirty or false
 ed_open = ed_open or false
 ed_glyph_w = 8
@@ -17,6 +18,7 @@ function editor_load(path)
     ed_open = true
     ed_row = 1
     ed_col = 0
+    ed_scroll_col = 0
     ed_dirty = false
     local h = file.open(path)
     if not h then
@@ -100,13 +102,31 @@ local function editor_render()
     ty = ty + ed_row_h
     local content_rows = math.floor((w.h - theme.wm.title_h - 12) / ed_row_h) - 1
     if content_rows < 1 then content_rows = 1 end
+    local max_chars = math.max(math.floor((w.w - 2 * theme.wm.border - 12) / ed_glyph_w), 1)
+    -- Keep the cursor visible horizontally: ed_scroll_col is the byte offset
+    -- of the first visible column; scroll it only when the cursor leaves the
+    -- window (like vertical scrolling, but along the line).
+    local line_len = #ed_lines[ed_row]
+    if ed_col < ed_scroll_col then
+        ed_scroll_col = ed_col
+    elseif ed_col - ed_scroll_col >= max_chars then
+        ed_scroll_col = ed_col - max_chars + 1
+    end
     -- Scroll so the cursor row is always visible.
     local first = 1
     if ed_row > content_rows then first = ed_row - content_rows + 1 end
     for i = first, math.min(#ed_lines, first + content_rows - 1) do
-        gfx.draw_text(ed_lines[i], tx, ty, theme.text)
+        local text = ed_lines[i]
+        -- Slice the visible part of the line when horizontally scrolled.
+        local shown = text
+        if ed_scroll_col > 0 and i == ed_row then
+            shown = string.sub(text, ed_scroll_col + 1)
+        elseif i ~= ed_row then
+            shown = string.sub(text, 1, max_chars)
+        end
+        gfx.draw_text(shown, tx, ty, theme.text)
         if i == ed_row then
-            gfx.draw_rect(tx + ed_col * ed_glyph_w, ty, ed_glyph_w, 16, theme.accent)
+            gfx.draw_rect(tx + (ed_col - ed_scroll_col) * ed_glyph_w, ty, ed_glyph_w, 16, theme.accent)
         end
         ty = ty + ed_row_h
     end

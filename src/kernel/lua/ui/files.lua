@@ -12,6 +12,7 @@ fs_view_content = fs_view_content or ""
 fs_view_row = fs_view_row or 1
 fs_view_col = fs_view_col or 0
 fs_view_scroll = fs_view_scroll or 0
+fs_view_scroll_col = fs_view_scroll_col or 0
 fs_error = fs_error or ""
 fs_row_h = 18
 fs_glyph_w = 8
@@ -68,6 +69,7 @@ function files_view(name)
     fs_view_row = 1
     fs_view_col = 0
     fs_view_scroll = 0
+    fs_view_scroll_col = 0
     fs_error = ""
     gfx.invalidate()
 end
@@ -138,14 +140,27 @@ local function files_render()
         end
         local content_rows = rows - 1
         if content_rows < 1 then content_rows = 1 end
+        local max_chars = math.max(math.floor((w.w - 2 * theme.wm.border - 12) / fs_glyph_w), 1)
+        -- Keep the cursor visible horizontally.
+        if fs_view_col < fs_view_scroll_col then
+            fs_view_scroll_col = fs_view_col
+        elseif fs_view_col - fs_view_scroll_col >= max_chars then
+            fs_view_scroll_col = fs_view_col - max_chars + 1
+        end
         -- Scroll so the cursor row is always visible.
         local first = fs_view_scroll + 1
         for i = first, math.min(#lines, first + content_rows - 1) do
-            gfx.draw_text(lines[i], tx, ty, theme.text)
+            local shown = lines[i]
+            if i == fs_view_row and fs_view_scroll_col > 0 then
+                shown = string.sub(shown, fs_view_scroll_col + 1)
+            elseif i ~= fs_view_row then
+                shown = string.sub(shown, 1, max_chars)
+            end
+            gfx.draw_text(shown, tx, ty, theme.text)
             if i == fs_view_row then
                 -- Hollow cursor (outline only) marks view mode — the solid
                 -- accent block is reserved for the editor.
-                gfx.rect_border(tx + fs_view_col * fs_glyph_w, ty, fs_glyph_w, 16, 1, theme.accent)
+                gfx.rect_border(tx + (fs_view_col - fs_view_scroll_col) * fs_glyph_w, ty, fs_glyph_w, 16, 1, theme.accent)
             end
             ty = ty + fs_row_h
         end
