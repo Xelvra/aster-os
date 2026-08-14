@@ -1,5 +1,10 @@
 -- input.lua - mouse and keyboard handling for the shell.
 
+-- Double-Esc (Esc Esc) exits the files view mode back to the listing —
+-- a single Esc is the "are you sure" press, the second one leaves the view.
+-- Only applies to file viewing; window close stays Super+Q (Hyprland).
+local esc_pending = false
+
 local function is_in_header(w)
     local mx = input.mouse_x()
     local my = input.mouse_y()
@@ -136,6 +141,7 @@ local function handle_key(ev)
         launcher_sel = math.max(1, math.min(launcher_sel, math.max(#items, 1)))
         if code == "escape" then
             launcher_open = false
+            esc_pending = false
         elseif code == "enter" then
             launcher_open = false
             if items[launcher_sel] then launcher_run(items[launcher_sel].id) end
@@ -448,8 +454,7 @@ local function handle_key(ev)
         gfx.invalidate()
     end
 
-    -- File browser input goes to the focused window when it is the files.
-    -- Conventions (Aster WM, Hyprland-flavoured): up/down select; enter opens
+    -- File browser input goes to the focused window when it is the files.    -- Conventions (Aster WM, Hyprland-flavoured): up/down select; enter opens
     -- (dir = navigate in, file = edit in the editor); space = quick view of
     -- the file content; escape goes up one level / exits a view; clicking the
     -- path header also goes up.
@@ -457,10 +462,18 @@ local function handle_key(ev)
         if fs_viewing then
             -- View mode: navigate the hollow cursor like the editor, but with
             -- no editing. Up/Down move rows (and scroll), Left/Right columns,
-            -- Home/End line ends, PgUp/PgDn page up/down. Esc/space/enter
-            -- exit back to the listing.
-            if code == "escape" or code == "space" or code == "enter" then
+            -- Home/End line ends, PgUp/PgDn page up/down. Pressing Esc twice
+            -- (Esc Esc) exits back to the listing; space/enter exit at once.
+            if code == "escape" then
+                if esc_pending then
+                    files_up()
+                    esc_pending = false
+                else
+                    esc_pending = true
+                end
+            elseif code == "space" or code == "enter" then
                 files_up()
+                esc_pending = false
             elseif code == "up" then
                 if fs_view_row > 1 then
                     fs_view_row = fs_view_row - 1
@@ -494,6 +507,9 @@ local function handle_key(ev)
                 local visible = math.max(math.floor((find_win("files").h - theme.wm.title_h - 12) / fs_row_h) - 2, 1)
                 fs_view_row = math.min(fs_view_row + visible, #lines)
                 fs_view_scroll = math.min(fs_view_scroll + visible, math.max(#lines - visible, 0))
+            else
+                -- Any other key in view mode resets the pending Esc.
+                esc_pending = false
             end
         else
             if code == "up" then
@@ -517,6 +533,7 @@ local function handle_key(ev)
                 if e then files_remove(e.name) end
             elseif code == "escape" then
                 files_up()
+                esc_pending = false
             end
         end
         gfx.invalidate()
