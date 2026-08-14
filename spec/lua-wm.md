@@ -23,7 +23,7 @@
 ## 1. Shrnutí
 
 **Lua WM je desktop shell napsaný v Luay 5.4, který běží vestavěně v kernelu (Ring 0,
-jediný adresní prostor).** Není to samostatný proces ani daemon — je to sada šesti
+jediný adresní prostor).** Není to samostatný proces ani daemon — je to sada osmi
 Lua modulů, které kernel **zkonkatenuje do jednoho chunku**, nahraje do jediného
 globálního `lua_State` a volá každý frame dvě konvenční funkce: `update()` a `render()`.
 
@@ -96,9 +96,9 @@ Shell moduly se **nekompilují do binárky** (`@embedFile`), ale balí do **tar 
 běhu a kernel se nepřestavuje (M6, `spec/roadmap.md`).
 
 ```zig
-// build.zig:90  — pořadí je ZÁVAZNÉ a musí souhlasit s lua.zig:115
+// build.zig:90  — pořadí je ZÁVAZNÉ a musí souhlasit s lua.zig:128
 const shell_files = [_][]const u8{
-    "theme.lua", "wm.lua", "repl.lua", "launcher.lua", "input.lua", "main.lua",
+    "theme.lua", "wm.lua", "repl.lua", "editor.lua", "files.lua", "launcher.lua", "input.lua", "main.lua",
 };
 
 // build.zig:99  — tar z rovných jmen (stripuje absolutní cesty zdroje)
@@ -119,7 +119,7 @@ for (shell_files) |f| tar_cmd.addFileArg(b.path("src/kernel/lua/ui/{s}", .{f}));
 // lua.zig:119 — načte soubory z initrd do jednoho heap bufferu
 fn loadShellSource() ![]const u8 {
     const tar = initrd orelse return error.NoInitrd;
-    // součet délek všech 6 souborů → alloc → @memcpy za sebe
+    // součet délek všech 8 souborů → alloc → @memcpy za sebe
 }
 
 // lua.zig:136 — nahraje buffer jako JEDEN Lua chunk a spustí ho
@@ -137,7 +137,7 @@ Sekvence startu (`main.zig:166`):
 ```
 runtime.init(alloc, info.initrd)          // lua.init → createState → bindings.register
 runtime.spawn(.{ .kind = .Lua, .entry = "main.lua" })  // lua.runMain
-   → načte 6 souborů z initrd, zkonkatenuje, spustí jako jeden chunk
+   → načte 8 souborů z initrd, zkonkatenuje, spustí jako jeden chunk
    → v globálu zůstanou update() a render()
 ```
 
@@ -148,14 +148,16 @@ runtime.spawn(.{ .kind = .Lua, .entry = "main.lua" })  // lua.runMain
 | 1 | `theme.lua` | globální `theme` tabulku |
 | 2 | `wm.lua` | `windows`, `focused`, `layout_pass`, `bar_render`, `win_render`, `find_win`, `set_focus`, `ws_capsules`, `window()` |
 | 3 | `repl.lua` | `print`, `repl_render`, `sysmon_render`, REPL editovací stav |
-| 4 | `launcher.lua` | `launcher_*` stav a funkce |
-| 5 | `input.lua` | `handle_mouse`, `handle_key` |
-| 6 | `main.lua` | globální `update()` / `render()` (entry) |
+| 4 | `editor.lua` | editor okno, `ed_*` stav, `editor_load` |
+| 5 | `files.lua` | files okno, `files_*` stav, `files_open` |
+| 6 | `launcher.lua` | `launcher_*` stav a funkce |
+| 7 | `input.lua` | `handle_mouse`, `handle_key` |
+| 8 | `main.lua` | globální `update()` / `render()` (entry) |
 
 Protože jde o **jeden chunk**, pozdější modul vidí `local` stav modulů předchozích
 — na tom stojí celý shell. Změna pořadí (např. `input.lua` před `wm.lua`) by shell
 rozbila, proto je seznam duplikován na dvou místech se vzájemným odkazem
-(`build.zig:90` ↔ `lua.zig:115`).
+(`build.zig:90` ↔ `lua.zig:128`).
 
 ---
 
@@ -166,11 +168,13 @@ src/kernel/lua/
 ├── cimport.zig       # @cImport Lua C API (lua.h, lauxlib.h, lualib.h)
 ├── libc.zig          # freestanding libc shim pro Lua (malloc, vsnprintf, fabs, ...)
 ├── lua.zig           # runtime: state, init/reload, chunk load, callUpdate/callRender, gcStep
-├── bindings.zig      # KI bindingy: gfx, input, time, debug, sysmon, runtime, power
+├── bindings.zig      # KI bindingy: gfx, input, time, debug, sysmon, runtime, file
 └── ui/               # ─── LUA WM ───
     ├── theme.lua     # barvy + geometrie (data, hot-reloadovatelné)
     ├── wm.lua        # WM stav, tiling layout, bar, dekorace oken
     ├── repl.lua      # REPL/terminál okno + sysmon okno
+    ├── editor.lua    # textový editor okno (Super+T)
+    ├── files.lua     # file manager okno (Super+E)
     ├── launcher.lua  # aplikace launcher (Super+Space)
     ├── input.lua     # myš + klávesnice (Hyprland zkratky, hit-testing)
     └── main.lua      # update()/render() entry — orchestrace
@@ -183,6 +187,8 @@ Role jednotlivých souborů:
 | `theme.lua` | deklarativní vzhled | globální `theme` |
 | `wm.lua` | stav WM + tiling + bar + dekorace | `layout_pass`, `bar_render`, `win_render`, `set_focus`, `find_win`, `focus_topmost`, `ws_capsules`, `window` |
 | `repl.lua` | REPL stav/editing/eval + render | `repl_render`, `sysmon_render`, `print`, REPL stav |
+| `editor.lua` | editor stav + editace | `editor_load`, `ed_*` stav |
+| `files.lua` | file manager stav + prohlížení | `files_open`, `files_*` stav |
 | `launcher.lua` | launcher popup + akce | `launcher_open`, `launcher_render`, `launcher_run`, `launcher_filtered` |
 | `input.lua` | vstupní obsluha | `handle_mouse`, `handle_key` |
 | `main.lua` | frame orchestrace | globální `update`, globální `render` |
@@ -274,9 +280,11 @@ Geometrie (`wm`/`bar`/`ws`) se rovněž od M5 nezměnila.
 logout, reboot, shutdown ani zámek**. Shell je věčně živý proces: obnova stavu se
 dělá hot reloadem (`runtime.reload()`, F5, nebo automaticky po chybě
 `update()`/`render()`; `spec/runtime.md` §5), nikdy restartem systému z UI. Restart
-i vypnutí jsou **kernel-level** operace (`power.reboot()` — i8042 reset; budoucí
-ACPI `shutdown`) — kernel je smí provést, UI ho nikdy nevystavuje. `power` a
-`runtime` tak zůstávají jen jako KI capability (kernel úroveň), v UI se nevystavují.
+i vypnutí jsou **kernel-level** operace (`api/power.zig` — i8042 reset; budoucí
+ACPI `shutdown`) — kernel je smí provést, UI ho nikdy nevystavuje. **`power` binding
+v Lua neexistuje** (od M7.1.7 žádná cesta z prostředí k resetu; `runtime` binding
+zůstává jen pro reload shellu) — `power` tak je čistě KI capability na kernelové
+úrovni, bez UI povrchu.
 
 ### 5.3 `repl.lua` — REPL/terminál a sysmon jako okna
 
@@ -694,7 +702,9 @@ draftu, `hist_idx` reset na 0.
 | `debug` | write | `api/debug` |
 | `sysmon` | ram_total_mb, ram_free_mb | `api/sysmon` |
 | `runtime` | reload | `api/runtime` |
-| `power` | reboot | `api/power` |
+
+> `power` binding v Lua **neexistuje** (žádná cesta z prostředí k resetu/vypnutí —
+> always-live, §5.2); `api/power.zig` zůstává jen jako KI capability pro kernel.
 
 **Marshalling pravidla** (`spec/runtime.md` §4):
 
@@ -848,6 +858,8 @@ Viz také `spec/invariants.md` (Safety / Performance / Architecture) a
 | `src/kernel/lua/ui/theme.lua` | §5.1 |
 | `src/kernel/lua/ui/wm.lua` | §5.2, §6 |
 | `src/kernel/lua/ui/repl.lua` | §5.3, §9.4 |
+| `src/kernel/lua/ui/editor.lua` | §7a.4, `spec/desktop-ui.md` §4.6a |
+| `src/kernel/lua/ui/files.lua` | §7a.4, `spec/desktop-ui.md` §4.6b |
 | `src/kernel/lua/ui/launcher.lua` | §5.4 |
 | `src/kernel/lua/ui/input.lua` | §5.5, §7, §9 |
 | `src/kernel/lua/ui/main.lua` | §5.6 |

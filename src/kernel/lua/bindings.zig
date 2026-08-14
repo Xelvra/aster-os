@@ -6,7 +6,6 @@ const api_input = @import("../api/input.zig");
 const api_timer = @import("../api/timer.zig");
 const api_debug = @import("../api/debug.zig");
 const api_runtime = @import("../api/runtime.zig");
-const api_power = @import("../api/power.zig");
 const api_storage = @import("../api/storage.zig");
 const sysmon = @import("../api/sysmon.zig");
 
@@ -346,11 +345,6 @@ const RuntimeFuncs = [_]lua_c.luaL_Reg{
     .{ .name = null, .func = null },
 };
 
-const PowerFuncs = [_]lua_c.luaL_Reg{
-    .{ .name = "reboot", .func = powerReboot },
-    .{ .name = null, .func = null },
-};
-
 const FileFuncs = [_]lua_c.luaL_Reg{
     .{ .name = "open", .func = fileOpen },
     .{ .name = "read", .func = fileRead },
@@ -507,12 +501,6 @@ fn runtimeReload(L: ?*lua_c.lua_State) callconv(.c) c_int {
     return 1;
 }
 
-fn powerReboot(L: ?*lua_c.lua_State) callconv(.c) c_int {
-    _ = sys.dispatch(.Power, .{ .a = @intFromEnum(api_power.PowerOp.reboot) });
-    lua_c.lua_pushinteger(L, 0);
-    return 1;
-}
-
 fn debugWrite(L: ?*lua_c.lua_State) callconv(.c) c_int {
     const text = checkString(L, 1, "text") orelse return 2;
     var buf: [256]u8 = undefined;
@@ -557,10 +545,6 @@ pub fn register(L: *lua_c.lua_State) void {
     lua_c.lua_createtable(L, 0, 1);
     lua_c.luaL_setfuncs(L, @ptrCast(&RuntimeFuncs), 0);
     lua_c.lua_setglobal(L, "runtime");
-
-    lua_c.lua_createtable(L, 0, 1);
-    lua_c.luaL_setfuncs(L, @ptrCast(&PowerFuncs), 0);
-    lua_c.lua_setglobal(L, "power");
 
     lua_c.lua_createtable(L, 0, 5);
     lua_c.luaL_setfuncs(L, @ptrCast(&FileFuncs), 0);

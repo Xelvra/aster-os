@@ -251,7 +251,7 @@ binding marshallingu zelené.
       bez klávesy; `ui/theme.lua` deklarativní theme (barvy jako data) se mění živě z REPL.
 - [x] Okna: seznam oken, focus, z-order, drag (tiling + float, Super+Alt+Space).
 - [x] Taskbar + launcher — Lua klienti Graphics API (taskbar 35px: launcher, clock,
-      workspace kaple, volume/session; launcher se search boxem + filtrováním).
+      workspace kaple, volume; launcher se search boxem + filtrováním).
 - [x] REPL konzole (`~`) — psaní Lua kódu do běžícího systému (jako okno v shellu).
 - [x] **Živá transformace:** příkaz v Luay okamžitě překreslí prostředí (barvy, tvary)
       bez ztráty oken/obsahu terminalu; **F5** = manuální refresh (spec `runtime.md` §5a).
@@ -328,7 +328,7 @@ binding marshallingu zelené.
       (`filetype` = incompat 0x2, `dir_index` = compat 0x20 → reject); boot log
       `[ OK ] fs ext2` + výpis kořenového adresáře. Ověřeno na obraze
       `mke2fs -t ext2 -O ^dir_index` + GPT.
-- [x] **M6.1.4 Tenké Aster File API:** `open` / `read` / `close`, opaque reference. **Ne:**
+- [x] **M6.1.4 Tenké Aster OS File API:** `open` / `read` / `close`, opaque reference. **Ne:**
       inode čísla, uid/gid, mode bity, ACL, hardlink sémantiku, ext2 metadata. *Exit: runtime
       čte ext2 soubor, aniž ví, že ext2 existuje.* — **hotovo:** `fs/file.zig`
       (`File.open/read/close`, `fileSize`, `eof`; backend reference opaque), `ext2.readAt`

@@ -82,7 +82,6 @@ Veškerý přístup z Lua jde přes KI, nikdy přímo do kernel struktur.
 | `input` | `input.next_event()`, `input.mouse_x()`, `input.mouse_y()`, `input.mouse_left()`, `input.mouse_right()`, `input.mouse_middle()`, `input.set_layout(name)`, `input.layout_name()` |
 | `timer` | `time.ticks()` |
 | `runtime` | `runtime.reload()` (restart shellu, M5; `spawn` se neexponuje do M7) |
-| `power` | `power.reboot()` (i8042 reset, M5) |
 | `sysmon` | `sysmon.ram_total_mb()`, `sysmon.ram_free_mb()` |
 | `debug` | `debug.write(str)` (výpis na serial, přidává `\n`) |
 
@@ -147,17 +146,22 @@ Lua běží vestavěně v jádře (Ring 0) — chyba skriptu **nesmí shodit ker
   daným státem a uvolní se s ním (žádné dangling pointery). Zbytečné držení
   externích struktur je porušení invariantu use-after-free (`spec/invariants.md`).
 - **Reload je vždy odložený (M5 close):** trigger — F5, chyba `update()`/`render()`,
-  nebo `runtime.reload()` z Lua (session menu „Logout") — jen **nastaví flag**;
-  samotné `lua_close`+`createState` provádí **event loop mimo jakýkoliv Lua call
-  frame** (`api/runtime.zig` `requestReload`/`performReload`). Nikdy se nezavírá
-  `lua_State`, na kterém právě stojí C funkce (use-after-free). Ověřeno runtime
-  testem „reload from Lua is deferred, state survives".
-- **Model restartů (session):** `F5`/`Logout` = restart **UI vrstvy** (shell) — kernel,
-  paměť, drivery a ticky běží dál. `Reboot` = restart **celého stroje** (i8042 reset →
-  BIOS → Limine → kernel → shell, `api/power.zig`). Restart **jen kernelu bez resetu
-  stroje** neexistuje (single address space; re-init kernelu = reboot) — to je smysl
-  F5/Logout: levnější než reboot. F5 a Logout jsou dnes identické; rozdělí se s M7
-  (programy — logout je ukončí, F5 jen přenačte shell).
+  nebo `runtime.reload()` z Lua — jen **nastaví flag**; samotné `lua_close`+`createState`
+  provádí **event loop mimo jakýkoliv Lua call frame** (`api/runtime.zig`
+  `requestReload`/`performReload`). Nikdy se nezavírá `lua_State`, na kterém právě stojí
+  C funkce (use-after-free). Ověřeno runtime testem „reload from Lua is deferred, state
+  survives".
+- **Model restartů:** `F5` (nebo auto-reload po chybě) = restart **UI vrstvy** (shell) —
+  kernel, paměť, drivery a ticky běží dál. `Reboot` = restart **celého stroje** (i8042
+  reset → BIOS → Limine → kernel → shell, `api/power.zig`). Restart **jen kernelu bez
+  resetu stroje** neexistuje (single address space; re-init kernelu = reboot) — to je
+  smysl F5: levnější než reboot. `Reboot` je **čistě kernel-level** operace — UI je
+  always-live (`spec/lua-wm.md` §1) a restart nikdy nevystavuje (`power` binding v Lua
+  neexistuje). **Otevřený bod pro M7 design:** až vzniknou per-program kontexty
+  (ADR-017), kernel/scheduler bude umět rozlišit **dvě úrovně reloadu** — částečný
+  reload shellu (jen UI) vs. plné teardown programů (ukončí se i ostatní běžící
+  programy). Kdo přesně co spouští, se rozhodne v M7; dnes existuje jen jedna úroveň
+  (F5 = celý shell).
 - **Marshalling je bezpečnostní hranice:** bindingy striktně validují typ a rozsah
   hodnot z Lua stacku (viz §4 + fuzz testy v `spec/verification.md` §3).
 - **Chyba v `update()`/`render()` spouští hot reload (M5):** `callUpdate`/`callRender`
@@ -241,7 +245,7 @@ způsobit pauzy mimo render — ohrožuje KPI `frame latency (p99) < 16 ms`
 
 ### 7.1 Dvě úrovně Wasm
 
-Wasm má v Asteru **dvě odlišné role**, které se nesmí zaměňovat:
+Wasm má v Aster OS **dvě odlišné role**, které se nesmí zaměňovat:
 
 1. **Domácí Wasm (M7):** aplikace **psané pro Aster** — volají KI přes Aster bindings
    (`gfx.*`, `input.*`, ...), jako Lua, ale s izolovanou lineární pamětí a bez sdíleného

@@ -126,9 +126,6 @@ fn testLuaBindings() void {
     _ = L.lua_getglobal(lua_state, "runtime");
     expect(L.lua_istable(lua_state, -1), "runtime binding table is registered");
     _ = L.lua_pop(lua_state, 1);
-    _ = L.lua_getglobal(lua_state, "power");
-    expect(L.lua_istable(lua_state, -1), "power binding table is registered");
-    _ = L.lua_pop(lua_state, 1);
     _ = L.lua_getglobal(lua_state, "render");
     expect(L.lua_isfunction(lua_state, -1), "render function is defined by main.lua");
     _ = L.lua_pop(lua_state, 1);

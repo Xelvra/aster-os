@@ -34,7 +34,7 @@ Všechna veřejná rozhraní žijí v `src/kernel/api/`:
 | `timer.zig` | Čas: `ticks`, `sleepMs`, tick zdroj | `spec/timer.md` |
 | `runtime.zig` | Spouštění programů: `spawn`, `RuntimeKind` | `spec/runtime.md` |
 | `sysmon.zig` | Systémové metriky: RAM usage pro shell | tento soubor |
-| `power.zig` | Napájení: reboot (i8042 reset) | session menu, M5 |
+| `power.zig` | Napájení: reboot (i8042 reset) | kernel-level, M5 |
 
 > **Střední vrstvy:** API moduly volají existující middle-layer moduly, ne nízké
 > kernel internals přímo — `graphics → renderer`, `runtime → lua`, `timer → time`
@@ -69,7 +69,7 @@ pub const Syscall = enum(u64) {
     Runtime = 4,   // Runtime.spawn a související
     Yield   = 5,   // dobrovolné vzdání se časového kvanta (výhledově)
     Sysmon  = 6,   // systémové metriky (RAM usage pro shell, M5)
-    Power   = 7,   // reboot (session menu, M5)
+    Power   = 7,   // reboot (kernel-level, i8042 reset)
 };
 ```
 

@@ -6,7 +6,7 @@ komponenta po komponentě. Zdrojem je [`cachyos-hypr-noctalia`](https://github.c
 software (Hyprland/Wayland/GTK/Qt v našem kernelu neběží).
 
 > **Transparentnost / licence:** upstream repo **nemá licenční soubor** (výchozí stav
-> „all rights reserved") — Aster proto **neobsahuje a nevendoruje žádný jeho soubor**.
+> „all rights reserved") — Aster OS proto **neobsahuje a nevendoruje žádný jeho soubor**.
 > Port znamená reimplementaci vizuálního konceptu a Hyprland konvencí vlastním kódem
 > (barvy jako data, klávesové zkratky jako data); poděkování viz
 > `THIRD-PARTY-NOTICES.md` (sekce „Thematic inspiration").
@@ -15,7 +15,7 @@ software (Hyprland/Wayland/GTK/Qt v našem kernelu neběží).
 
 ## 1. Vize
 
-Aster má být použitelný desktop, ne jen okenní manager. Rozdíl:
+Aster OS má být použitelný desktop, ne jen okenní manager. Rozdíl:
 
 - **Okenní manager (dnešní stav):** otevřeš okna, přepínáš workspace, zavíráš.
 - **Desktop (cíl):** prostředí, které hned po bootu vypadá hotové — bar s hodinami
@@ -34,10 +34,10 @@ Co repo obsahuje a co z toho portujeme:
 | Komponenta | Soubory v repu | Portovatelné? | Kam to dáme |
 |---|---|---|---|
 | **Barvy (Cachy paleta)** | `hypr/config/colors.lua` | ✅ ano | `ui/theme.lua` |
-| **Dekorace oken** (border, rounding, gaps, opacity) | `hypr/config/decorations.lua` | ✅ ano | `ui/wm.lua` (theme.wm) |
+| **Dekorace oken** (border, rounding, gaps, opacity) | `hypr/config/decorations.lua` | ✅ částečně — border/gaps/opacity ano, **rounding ne** (§4.4) | `ui/wm.lua` (theme.wm) |
 | **Zkratky** (Super+...) | `hypr/config/binds.lua` | ✅ ano | `ui/input.lua` (hotovo) |
 | **Workspaces 1–3** | `hypr/config/workspaces.lua` | ✅ ano | `ui/wm.lua` (hotovo) |
-| **Taskbar/bar** (launcher, clock, kaple, media, tray, network, volume, session) | `noctalia/config.toml` | ✅ vzhled ano | `ui/wm.lua` bar_render |
+| **Taskbar/bar** (launcher, clock, workspace štítky, media, tray, network, volume) | `noctalia/config.toml` | ✅ vzhled ano | `ui/wm.lua` bar_render |
 | **Launcher** (Super+Space) | binds + Noctalia launcher | ✅ ano | `ui/launcher.lua` (hotovo) |
 | **Animace** (ease curves, slide) | `hypr/config/animations.lua` | ⚠️ částečně (bez GPU; viz §6) | kernel render |
 | **Window rules** (float modály, centrování) | `hypr/config/windowrules.lua` | ✅ koncept | `ui/wm.lua` |
@@ -59,6 +59,8 @@ src/kernel/lua/ui/
 ├── theme.lua     # barvy + geometrie (port Cachy palety)
 ├── wm.lua        # okna, layout, bar, dekorace
 ├── repl.lua      # terminál/REPL jako okno
+├── editor.lua    # textový editor (Super+T)
+├── files.lua     # file manager (Super+E)
 ├── launcher.lua  # Super+Space aplikace
 ├── input.lua     # klávesnice + myš (Hyprland zkratky)
 └── main.lua      # update()/render() entry
@@ -84,17 +86,21 @@ src/kernel/lua/ui/
 
 ### 4.2 Bar — horní panel (🔶 částečně)
 Noctalia bar, 35 px, plné šířky. Zleva:
-- **Launcher tlačítko** (akcentová kaple `>`) — ✅, klik otevře launcher.
+- **Launcher tlačítko** (štítek akcentu `>`) — ✅, klik otevře launcher.
 - **Hodiny** `HH:MM` — ✅ (živě z `time.ticks()`).
-- **Workspace kaple 1–3** — ✅ (aktivní = akcent, klik přepne).
+- **Workspace štítky 1–3** — ✅ (aktivní = akcent, klik přepne).
 - **Mediální widget** (přehrává se?) — ⏳ (žádné audio v kernelu; placeholder "—").
 - **Sysmon widget** (CPU/RAM v kapli) — 🔶 (RAM ano; CPU ⏳, viz §4.8).
 - **Tray / Notifications** — ⏳ (placeholder ikona).
 - **Network** — ⏳ (žádná síť; placeholder "Net —").
 - **Volume** — ⏳ (žádné audio; placeholder "Vol —").
-- **Session** (lock/logout/reboot) — ✅ (menu: Lock = overlay, jakákoli klávesa odemkne — bez auth; Logout = reload shellu; Reboot = i8042 reset). Model restartů viz `spec/runtime.md` §5 (F5/Logout = UI vrstva, Reboot = celý stroj).
+- **Session** — ⏳ (záměrně: UI power management neexistuje — always-live design, viz `spec/lua-wm.md` §1; restart/vypnutí je kernel-level akce, ne UI feature).
 
 Pravá část baru je dnes placeholder, ale **má správné rozložení** (widgety zprava).
+
+> **Pojmenování:** workspace prvky v baru se v kódu jmenují `ws_capsules` (`wm.lua`) —
+> pojmenovací konvence z Noctalia, ne popis tvaru; vizuálně jde o **obyčejné
+> štítky** (bez zaoblení). Dokumentace používá neutrální „štítek".
 
 ### 4.3 Launcher (✅ hotovo)
 - **Super+Space** otevře popup s vyhledávacím polem.
@@ -102,8 +108,11 @@ Pravá část baru je dnes placeholder, ale **má správné rozložení** (widge
 - Položky: repl (terminál), sysmon, files, toggle fullscreen, close.
 
 ### 4.4 Okna a dekorace (✅ hotovo)
-- Tiling: splith (60/40, fokus širší) / splitv, gaps out 8 / in 3, border 2.
-- Aktivní okno: **gradient border** (tyrkys→tmavě zelená), rounding 10.
+- Tiling: splith (60/40, fokus širší) / splitv, **gapless** (`gap_out = 0`, `gap_in = 0`
+  v `theme.lua`) — okna se dotýkají, odděluje je jen border; border 2.
+- Gapless je záměrná vizuální preference (okna k sobě, kompaktní dlaždicový vzhled),
+  ne technické omezení — hodnoty jdou kdykoli změnit v `theme.lua`.
+- Aktivní okno: **gradient border** (tyrkys→tmavě zelená).
 - Neaktivní: šedý border, opacity 0.85.
 - Float (Super+Alt+Space), drag hlavičkou, fullscreen (Super+F/D), scratchpad (Super+S).
 
@@ -114,6 +123,19 @@ Pravá část baru je dnes placeholder, ale **má správné rozložení** (widge
 ### 4.6 Terminál / REPL (✅ hotovo)
 - **Super+Enter** zobrazí a zaostří REPL okno (`~ repl` v titulku).
 - Píšeš Lua kód, Enter spouští; `print()` píše na obrazovku.
+
+### 4.6a Editor (✅ hotovo, M7.1)
+- **Super+T** otevře/zaostří editor okno (`ed_*` stav v `input.lua`).
+- Textový editor: šipky, Home/End, Enter, Backspace/Delete, **Ctrl+S** uloží
+  (`file.write`). Uložení configu (`/theme.lua`) spouští auto-reload.
+- Detail navigace viz `spec/lua-wm.md` §7a.4.
+
+### 4.6b Files — správce souborů (✅ hotovo, M7.1)
+- **Super+E** otevře files okno v kořenu (`files_*` stav v `input.lua`).
+- Up/Down výběr, **Enter** otevře (adresář → dovnitř, soubor → zobrazit obsah),
+  **Escape** o úroveň výš / ven z náhledu.
+- Prohlížení read-only; editace souboru jde přes editor.
+- Detail viz `spec/lua-wm.md` §7a.4.
 
 ### 4.7 Aplikace (🔶 základ)
 - **sysmon** (RAM used/total, %, ticks) — ✅ základ, ⏳ CPU graf.
@@ -126,7 +148,7 @@ Cíl: btop/Noctalia sysmon widget v baru + okno.
 - **RAM** — ✅ (`sysmon.ram_total_mb/free_mb`).
 - **CPU** — ⏳ (potřeba CPU usage z kernelu; idle měření, M7 scheduler).
 - **Procesy** — ⏳ (M7).
-- Konfigurace widgetu: kaple v baru (temp, cpu, ram) dle `config.toml` sysmon widgetů.
+- Konfigurace widgetu: štítky v baru (temp, cpu, ram) dle `config.toml` sysmon widgetů.
 
 ### 4.9 Greeter / login screen (⏳ odloženo)
 - Noctalia greeter je samostatný přihlašovací screen. Portovat až po M8 stabilizaci.
@@ -144,6 +166,8 @@ Cíl: btop/Noctalia sysmon widget v baru + okno.
 | Kombinace | Akce |
 |---|---|
 | Super+Enter | terminál (REPL) |
+| Super+T | editor |
+| Super+E | file manager |
 | Super+Q | zavřít fokusované okno |
 | Super+Space | launcher |
 | Super+Alt+Space | float toggle |
@@ -173,7 +197,7 @@ Cíl: btop/Noctalia sysmon widget v baru + okno.
 
 ## 7. Prioritizace (co portovat dál)
 
-1. **Bar: reálné hodiny + session menu** — ✅ hotovo (M5 close: hodiny žijí z ticků, menu Lock/Logout/Reboot).
+1. **Bar: reálné hodiny** — ✅ hotovo (M5 close: hodiny žijí z ticků).
 2. **Sysmon CPU widget** (potřebuje kernel binding, medium effort).
 3. **Fade animace přepínání workspace** (bez GPU, medium effort).
 4. **Files aplikace** (po M6 initfs).
