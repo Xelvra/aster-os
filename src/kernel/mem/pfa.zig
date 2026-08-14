@@ -1,4 +1,5 @@
 const boot_info = @import("../boot/boot_info.zig");
+const irq = @import("../cpu/irq.zig");
 
 pub const page_size: u64 = 4096;
 
@@ -14,8 +15,10 @@ const max_pages_per_run: usize = 1024;
 
 /// Scratch output buffer for allocPages. It lives outside the PageFrameAllocator
 /// struct so the struct stays small on the (bootloader-provided) stack — a
-/// [1024]u64 member would overflow it. There is a single PFA instance, and
-/// allocations never run from an IRQ, so a single shared buffer is safe.
+/// [1024]u64 member would overflow it. There is a single PFA instance, and the
+/// bitmap/hint/free-pages state is guarded by an interrupt mask (ADR-017):
+/// the preemptive scheduler could otherwise preempt a task mid-allocation and
+/// let another task allocate on an inconsistent bitmap.
 var pages_storage_global: [max_pages_per_run]u64 = undefined;
 
 pub const PfaError = error{
@@ -87,6 +90,8 @@ pub const PageFrameAllocator = struct {
     }
 
     pub fn allocPage(self: *PageFrameAllocator, zero: bool) PfaError!u64 {
+        const guard = irq.begin();
+        defer guard.end();
         const index = self.findFirstFree() orelse return PfaError.OutOfMemory;
         self.setBit(index);
         self.next_free_hint = index + 1;
@@ -97,6 +102,8 @@ pub const PageFrameAllocator = struct {
     }
 
     pub fn freePage(self: *PageFrameAllocator, addr: u64) PfaError!void {
+        const guard = irq.begin();
+        defer guard.end();
         if (addr % page_size != 0) return PfaError.InvalidAddress;
         const index = addr / page_size;
         if (index >= self.total_pages) return PfaError.InvalidAddress;
@@ -107,6 +114,8 @@ pub const PageFrameAllocator = struct {
     }
 
     pub fn allocPages(self: *PageFrameAllocator, count: usize, zero: bool) PfaError![]u64 {
+        const guard = irq.begin();
+        defer guard.end();
         if (count > max_pages_per_run) return PfaError.RunTooLarge;
         const start = self.findFirstFreeRun(count) orelse return PfaError.OutOfMemory;
         for (0..count) |i| {
@@ -122,6 +131,8 @@ pub const PageFrameAllocator = struct {
     }
 
     pub fn freePages(self: *PageFrameAllocator, addrs: []const u64) PfaError!void {
+        const guard = irq.begin();
+        defer guard.end();
         for (addrs) |addr| {
             try self.freePage(addr);
         }

@@ -1,11 +1,18 @@
 const std = @import("std");
 const pfa = @import("pfa.zig");
+const irq = @import("../cpu/irq.zig");
 
 /// Heap grows in multi-page chunks. Lua's loadbuffer needs allocations
 /// larger than a single 4 KiB page, so growing one page at a time would
 /// never satisfy them.
 const grow_pages: usize = 4;
 
+/// `rawAlloc`/`rawFree` manipulate the shared free list under an interrupt
+/// mask (ADR-017): with the preemptive scheduler (M7+) a task could be
+/// preempted mid-allocation and another task would then work on an
+/// inconsistent list. `grow()` calls `pfa.allocPages()`, whose own guard
+/// sees IF already cleared and re-enables nothing — nesting is safe because
+/// the restore decision comes from RFLAGS, not a refcount.
 const min_block_size: usize = @sizeOf(BlockHeader) * 2 + @sizeOf(BlockFooter);
 
 /// Canary written into every block header. If memory corruption ever turns a
@@ -98,6 +105,8 @@ pub const HeapAllocator = struct {
     }
 
     fn rawAlloc(self: *HeapAllocator, len: usize, alignment: std.mem.Alignment) ![*]u8 {
+        const guard = irq.begin();
+        defer guard.end();
         const need = len + @sizeOf(BlockHeader) + @sizeOf(BlockFooter);
         if (self.free_list == null) try self.grow(need);
         var found = self.findBlock(need, alignment);
@@ -122,6 +131,8 @@ pub const HeapAllocator = struct {
     }
 
     fn rawFree(self: *HeapAllocator, ptr: [*]u8, len: usize) void {
+        const guard = irq.begin();
+        defer guard.end();
         _ = len;
         const block: *BlockHeader = @ptrFromInt(@intFromPtr(ptr) - @sizeOf(BlockHeader));
         checkBlock(block);

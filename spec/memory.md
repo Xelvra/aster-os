@@ -20,7 +20,11 @@
 - Heap alokace jen když je nutná; preferuje se stack a statické buffery.
 - Paměť se nealokuje v IRQ kontextu; IRQ handler používá předem alokované struktury.
 - Kernel je jednojadrový do M7; od M7 je alokátor chráněn vypnutím preempce
-  (ADR-017), žádné locky.
+  (ADR-017), žádné locky. Konkrétně: manipulace se sdílenými strukturami alokátoru
+  (PFA bitmapa + `next_free_hint`/`free_pages`, heap `free_list`) běží v kritické sekci
+  s maskovanými IRQ — `cpu/irq.zig` (`InterruptGuard`, RFLAGS-based, vnořitelné: restore
+  jen když guard sám IRQ zrušil). Preemptivní scheduler (M7+) by jinak nechal druhou
+  úlohu alokovat na nekonzistentní bitmapě/free-listu.
 
 ---
 
