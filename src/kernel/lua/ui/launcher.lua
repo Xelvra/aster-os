@@ -28,6 +28,7 @@ local mouse_was_down = false
 local shortcuts_active = {
     { "Super+Enter", "terminal (REPL)" },
     { "Super+T", "editor" },
+    { "Super+Z", "settings" },
     { "Super+E", "file manager" },
     { "Super+Q", "close window" },
     { "Super+Space", "launcher" },
@@ -44,7 +45,6 @@ local shortcuts_active = {
 local shortcuts_reserved = {
     { "Super+C", "calculator" },
     { "Super+W", "browser" },
-    { "Super+Z", "settings" },
     { "Super+X", "control center" },
     { "Super+V", "clipboard" },
     { "Super+A", "notifications" },
@@ -68,7 +68,7 @@ local function launcher_filtered()
 end
 
 -- Open the launcher in a given mode: "run" (app list) or "help" (shortcut
--- cheat sheet). Called from Super+Space, the bar chevron, and Super+F1.
+-- cheat sheet). Called from Super+Space and the bar chevron.
 local function launcher_open_mode(mode)
     launcher_open = true
     launcher_mode = mode
@@ -160,7 +160,9 @@ local function launcher_run(id)
         else
             w.ws = current_ws
         end
-        if not ed_open then editor_load(ed_path) end
+        -- Like Super+T: a clean buffer starts a fresh untitled document, a
+        -- dirty buffer is kept so unsaved edits are never lost.
+        if not ed_open or not ed_dirty then editor_load(nil) end
         set_focus("editor")
     elseif id == "help" then
         launcher_mode = "help"
@@ -174,13 +176,7 @@ local function launcher_run(id)
             fullscreen_win = focused
         end
     elseif id == "close" then
-        if find_win(focused) then
-            for i, w in ipairs(windows) do
-                if w.title == focused then table.remove(windows, i) break end
-            end
-            if fullscreen_win == focused then fullscreen_win = nil end
-            focus_topmost(current_ws)
-        end
+        if find_win(focused) then close_window(focused) end
     end
     layout_pass()
 end

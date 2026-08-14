@@ -243,14 +243,17 @@ Chybný config **nesmí shodit shell ani nechat polorozkreslený vzhled**:
 - Editor (`editor_save`) **validuje před zápisem**: rozbitý config se do `/theme.lua`
   zapíše (working copy zůstává editovatelná), ale **`.theme.bak` se nemění** — drží
   poslední platný config a live vzhled na něm zůstává, dokud uživatel neuloží platnou
-  verzi.
+  verzi. Validace jako `theme.lua` se týká **jen** souboru `/theme.lua`; ostatní
+  soubory se zapisují jako plain text. **Nový soubor** (save-as u prázdného bufferu)
+  se vytvoří přes `file.create` (ext2 create, M7.1.11).
 - **`.theme.bak` je read-only pro editor** (view ve files browseru, Ctrl+S ho odmítne
   uložit): záloha musí vždy zůstat poslední platná verze. Skryté soubory (vedoucí
   tečka) se ve files browseru kreslí šedivě. **Delete guard neexistuje** — smazání
   `/theme.lua` i `.theme.bak` je bezpečné: `apply_disk_theme()` najde `nil` a použijí
   se vestavěné defaulty z initrd, takže prostředí se nikdy nerozbije.
-- Diskový `.theme.bak` musí existovat v image (ext2 nemá `create`); `make-test-disk.sh`
-  ho vkládá z `tools/test-disk-root/.theme.bak`.
+- Diskový `.theme.bak` musí existovat v image; `make-test-disk.sh` ho vkládá
+  z `tools/test-disk-root/.theme.bak` (ext2 `create` existuje od M7.1.11, ale editor
+  záměrně `.theme.bak` nikdy nepřepisuje).
 
 ---
 

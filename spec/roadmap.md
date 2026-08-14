@@ -466,13 +466,25 @@ triggerů / nových ADR.
 - [x] **M7.1.9 Mazání souborů ve files browseru:** `file.remove(path)` → KI `storage.remove`
       → ext2 `unlink` (uvolní data bloky + inode, smaže direntry). Files: **Delete** =
       smazat. **Files konvence (Hyprland):**
-      Enter = otevřít/upravit, Space = náhled, Delete = smazat, **klik na nadpis
-      (cestu)** = o úroveň výš; root = `/` bez `..` položky. Smazání `/theme.lua` i
+      Enter = otevřít/upravit, Space = náhled, Delete = smazat, **klik na titulkovou
+      lištu (cestu)** = o úroveň výš; root = `/` bez `..` položky. Smazání `/theme.lua` i
       `.theme.bak` je bezpečné — systém použije defaulty z initrd (žádný delete guard).
-- [x] **M7.1.10 Help v launcheru:** `help` položka v akcích + **Super+F1** otevře
-      přehled zkratek (`launcher_mode = "help"`). Aktivní zkratky normální barvou,
-      rezervované (neaktivované) šedivě (`spec/lua-wm.md` §7a); Esc se vrátí do run.
+- [x] **M7.1.10 Help v launcheru:** `help` položka v akcích otevře přehled zkratek
+      (`launcher_mode = "help"`). Aktivní zkratky normální barvou,
+      rezervované (neaktivované) šedivě (`spec/lua-wm.md` §7a); Esc launcher zavře.
       Prompt launcheru je `run:` (shell/dmenu konvence, ne `run?`).
+- [x] **M7.1.11 ext2 create + settings + jednotné hlavičky:** `file.create(path)` →
+      KI `storage.create`       → ext2 `create` (alokace inode + init + zápis direntry,
+      ADR-023). **Super+T** otevírá prázdný editor (čistý buffer se resetuje na
+      nový prázdný, dirty se zachová), Ctrl+S u nového bufferu vyvolá
+      „save as:" (nový soubor se vytvoří `file.create`); **Super+Z** otevírá settings
+      (`/theme.lua`). **Esc Esc** v editoru zavře okno jako prohlížení, jen pokud
+      nejsou neuložené změny (jinak blokováno). **Jednotné hlavičky oken:** kontext a
+      klávesové hinty jsou v titulkové liště (`~ repl  F5 reload`,
+      `editor  /theme.lua  Ctrl+s save*`,
+      `files  /cesta  Esc cancel` — `spec/lua-wm.md` §7b), obsah začíná rovnou daty;
+      REPL ukazuje Lua banner (`LUA_COPYRIGHT`). **Super+F1** odstraněn (help zůstává
+      v launcheru), F5 hot reload zachován.
 - [ ] **Toggle skrytých souborů ve files browseru** — zobrazit/skrýt dotfiles (dnes se
       kreslí šedivě, vždy viditelné).
 

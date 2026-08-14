@@ -1,5 +1,5 @@
 -- theme.lua - persistent Aster OS config (data, applied live).
--- This is the on-disk copy the editor opens with Super+T: it mirrors the
+-- This is the on-disk copy settings opens with Super+Z: it mirrors the
 -- defaults from src/kernel/lua/ui/theme.lua so the whole config is editable
 -- here. Edit, save with Ctrl+S and the system repaints live — no F5, no
 -- kernel rebuild. A broken config is reported in the REPL and the last valid

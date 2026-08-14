@@ -777,6 +777,59 @@ fn testFileRemove() void {
     _ = L.lua_pop(lua_state, 1);
 }
 
+fn testFileCreate() void {
+    // file.create makes a brand-new file (ext2 create, the editor save-as
+    // path): create, write, read back; creating the same path again fails.
+    const lua = @import("lua/lua.zig");
+    const storage = @import("api/storage.zig");
+    if (!storage.isMounted()) {
+        expect(true, "file.create test skipped (no disk attached)");
+        return;
+    }
+    const L = @import("lua/cimport.zig").c;
+    const lua_state = lua.getState() orelse {
+        expect(false, "lua state exists");
+        return;
+    };
+    const script =
+        \\-- Start from a clean slate (no create_test.txt from a previous run).
+        \\local h = file.open("/create_test.txt")
+        \\if h then
+        \\    file.close(h)
+        \\    file.remove("/create_test.txt")
+        \\end
+        \\h = file.create("/create_test.txt")
+        \\if not h then return "create-failed" end
+        \\file.write(h, "fresh file")
+        \\file.close(h)
+        \\h = file.open("/create_test.txt")
+        \\local content = file.read(h, 4096)
+        \\file.close(h)
+        \\-- Creating the same path again must fail (FileExists).
+        \\local dup = file.create("/create_test.txt")
+        \\local dup_ok = (dup == nil)
+        \\if dup then file.close(dup) end
+        \\-- Cleanup so later tests (file.dir listing) are unaffected.
+        \\file.remove("/create_test.txt")
+        \\if content == "fresh file" and dup_ok then return "PASS" else return "FAIL" end
+    ;
+    const load_status = L.luaL_loadstring(lua_state, script);
+    expect(load_status == L.LUA_OK, "file.create script compiles");
+    if (load_status != L.LUA_OK) return;
+    const run_status = L.lua_pcallk(lua_state, 0, 1, 0, 0, null);
+    expect(run_status == L.LUA_OK, "file.create script runs");
+    if (run_status != L.LUA_OK) {
+        L.lua_pop(lua_state, 1);
+        return;
+    }
+    var len: usize = 0;
+    const str = L.lua_tolstring(lua_state, -1, &len);
+    const result: []const u8 = @as([*]const u8, @ptrCast(str))[0..len];
+    const ok = len == 4 and std.mem.eql(u8, result, "PASS");
+    expect(ok, "file.create makes a new file and rejects a duplicate path");
+    _ = L.lua_pop(lua_state, 1);
+}
+
 fn testEditorApp() void {
     // M7.1.5: the editor loads a file through file.*, saves it back and the
     // round trip matches the buffer. Skipped when no disk is attached.
@@ -1012,6 +1065,8 @@ pub fn runAll(alloc: std.mem.Allocator, memory: *mem.Memory) noreturn {
     testFileBindings();
     serial.writeLine("file.remove + config backup protection (M7.1.9)");
     testFileRemove();
+    serial.writeLine("file.create new file (M7.1.11)");
+    testFileCreate();
     serial.writeLine("editor app (M7.1.5)");
     testEditorApp();
     serial.writeLine("file.dir listing (M7.1.5)");

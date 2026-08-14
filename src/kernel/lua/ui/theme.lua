@@ -1,7 +1,7 @@
 -- theme.lua - declarative colors and geometry (hot-reloadable).
--- Open with Super+T, edit, save with Ctrl+S — the whole system repaints
--- live, no F5 and no kernel rebuild. A config error is reported in the REPL
--- and the last valid look stays; the system never crashes.
+-- Open with Super+Z (settings), edit, save with Ctrl+S — the whole system
+-- repaints live, no F5 and no kernel rebuild. A config error is reported in
+-- the REPL and the last valid look stays; the system never crashes.
 --
 -- Colors are 0xRRGGBB integers:
 --   theme.background  desktop background

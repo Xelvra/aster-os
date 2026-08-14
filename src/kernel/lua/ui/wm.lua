@@ -17,6 +17,16 @@ local layout_mode = "splith" -- "splith" (side by side) or "splitv" (stacked)
 local fullscreen_win = nil    -- title of a fullscreen window, if any
 local z_counter = 0
 
+-- Per-window header text drawn after the title (separated by two spaces, the
+-- §7b convention): the app sets context and key hints so every window shows
+-- the same layout (e.g. "editor  /theme.lua  Ctrl+s save*"). `local` here is
+-- visible across the whole concatenated shell chunk (wm.lua loads first).
+local win_headers = {}
+
+local function set_window_header(title, text)
+    win_headers[title] = text
+end
+
 local function window(title, ws)
     z_counter = z_counter + 1
     return { title = title, ws = ws, x = 0, y = 0, w = 0, h = 0, floating = false, z = z_counter }
@@ -71,6 +81,17 @@ local function focus_topmost(ws)
     elseif ws == current_ws then
         focused = nil
     end
+end
+
+-- Close a window: drop it from the list and refocus the topmost window on the
+-- current workspace. Shared by Super+Q, the launcher's "close" action and the
+-- editor's double-Esc exit.
+local function close_window(title)
+    for i, w in ipairs(windows) do
+        if w.title == title then table.remove(windows, i) break end
+    end
+    if fullscreen_win == title then fullscreen_win = nil end
+    focus_topmost(current_ws)
 end
 
 -- ---------------------------------------------------------------------------
@@ -269,14 +290,21 @@ local function win_render(w)
     -- Body.
     gfx.draw_rect(tx, ty + th, w.w - 2 * theme.wm.border, w.h - 2 * theme.wm.border - th, blend(theme.surface, opacity))
 
-    -- Title text.
+    -- Title text: the window label plus its status header (two-space gap).
+    -- The label keeps the window name; the header (path, dirty marker, key
+    -- hints) is app-provided via set_window_header and dimmed.
     local label = w.title
     if w.title == "repl" then
         label = "~ repl"
     elseif w.title == "sysmon" then
         label = "sysmon"
     end
-    gfx.draw_text(label, tx + 6, ty + (th - 16) // 2 + 1, active and theme.text or theme.text_dim)
+    local title_color = active and theme.text or theme.text_dim
+    gfx.draw_text(label, tx + 6, ty + (th - 16) // 2 + 1, title_color)
+    local hdr = win_headers[w.title]
+    if hdr then
+        gfx.draw_text(hdr, tx + 6 + (label:len() + 2) * 8, ty + (th - 16) // 2 + 1, theme.text_dim)
+    end
 end
 
 -- The initially focused window must also be the topmost (highest z), so its

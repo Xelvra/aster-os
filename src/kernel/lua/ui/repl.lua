@@ -9,6 +9,12 @@ cursor = cursor or 0
 glyph_w = 8
 glyph_h = 16
 
+-- The interactive banner mirrors Lua's own startup line (LUA_COPYRIGHT in
+-- libs/lua-5.4/src/lua.h); keep it in sync with the bundled release.
+local function repl_banner()
+    return "Lua 5.4.8  Copyright (C) 1994-2025 Lua.org, PUC-Rio"
+end
+
 -- UTF-8 helpers for cursor movement and editing: the cursor is a byte
 -- offset into `current`, and code points are 1..4 bytes (continuation
 -- bytes are 0x80..0xBF). Stepping over bytes alone would split a multi-byte
@@ -54,7 +60,8 @@ local function add_line(s)
     if #lines > 200 then table.remove(lines, 1) end
 end
 
-add_line("shell  F5")
+add_line(repl_banner())
+set_window_header("repl", "F5 reload")
 
 -- Persistent command history (/.repl_history on the mounted filesystem).
 -- The in-memory `history` table is rebuilt after boot and F5 hot reload,

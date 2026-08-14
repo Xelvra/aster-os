@@ -353,6 +353,7 @@ const FileFuncs = [_]lua_c.luaL_Reg{
     .{ .name = "truncate", .func = fileTruncate },
     .{ .name = "dir", .func = fileDir },
     .{ .name = "remove", .func = fileRemove },
+    .{ .name = "create", .func = fileCreate },
     .{ .name = null, .func = null },
 };
 
@@ -373,6 +374,21 @@ fn fileOpen(L: ?*lua_c.lua_State) callconv(.c) c_int {
         return 1;
     }
     pushError(L, "file.open failed", .{});
+    return 2;
+}
+
+fn fileCreate(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    const path = checkString(L, 1, "path") orelse return 2;
+    const result = sys.dispatch(.Storage, .{
+        .a = @intFromEnum(api_storage.StorageOp.create),
+        .b = @intFromPtr(path.ptr),
+        .c = path.len,
+    });
+    if (storageResultOk(result)) {
+        lua_c.lua_pushinteger(L, @intCast(result & 0xFFFFFFFF));
+        return 1;
+    }
+    pushError(L, "file.create failed", .{});
     return 2;
 }
 

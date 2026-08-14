@@ -17,6 +17,7 @@ pub const Ext2Error = error{
     BufferTooSmall,
     NameTooLong,
     OutOfSpace,
+    FileExists,
 };
 
 pub const super_magic: u16 = 0xEF53;
@@ -174,6 +175,21 @@ pub const Ext2 = struct {
         bytes.writeU32(table, 4, inode.size_lo);
         bytes.writeU32(table, 108, inode.size_high);
         for (0..inode_block_ptr_count) |i| bytes.writeU32(table, 40 + i * 4, inode.block[i]);
+        try self.writeBlock(loc.block, table_buf[0..self.block_size]);
+    }
+
+    /// Initialize a freshly allocated inode slot: zero the whole 128-byte
+    /// entry (no stale metadata leaking to host tools) and set the file mode,
+    /// zero size and a link count of 1 so host `stat` sees a sane file.
+    fn initInode(self: *Ext2, ino: u32, mode: u16) Ext2Error!void {
+        const loc = try self.inodeTableLocation(ino);
+        var table_buf: [4096]u8 = undefined;
+        try self.readBlock(loc.block, table_buf[0..self.block_size]);
+        if (loc.within + 128 > self.block_size) return Ext2Error.OutOfBounds;
+        const table = table_buf[loc.within .. loc.within + 128];
+        @memset(table, 0);
+        bytes.writeU16(table, 0, mode);
+        bytes.writeU16(table, 26, 1); // links_count
         try self.writeBlock(loc.block, table_buf[0..self.block_size]);
     }
 
@@ -410,6 +426,28 @@ pub const Ext2 = struct {
         try self.removeDirEntry(parent_ino, ino);
     }
 
+    /// Create a regular file at `path` and return its inode. The parent
+    /// directory must exist and have room in its first block (the same
+    /// single-block-directory limitation as readDir/removeDirEntry). A fresh
+    /// inode is allocated, initialized and linked into the parent. Like the
+    /// rest of the write path the operation is non-crash-safe best-effort
+    /// (ADR-023): if the directory link fails the inode stays allocated but
+    /// unreferenced (no rollback, matching unlink's style).
+    pub fn create(self: *Ext2, path: []const u8) Ext2Error!u32 {
+        const parent_path = parentPath(path) orelse return Ext2Error.NotFound;
+        const parent_ino = try self.find(parent_path);
+        const name = lastComponent(path) orelse return Ext2Error.NotFound;
+        const existing = self.find(path) catch |err| switch (err) {
+            error.NotFound => null,
+            else => return err,
+        };
+        if (existing != null) return Ext2Error.FileExists;
+        const ino = try self.allocInode();
+        try self.initInode(ino, inode_type_reg);
+        try self.addDirEntry(parent_ino, ino, name, 1);
+        return ino;
+    }
+
     /// Free the data blocks of `inode` (direct + single indirect) in the
     /// block bitmap and adjust the free counts.
     fn freeBlocks(self: *Ext2, inode: Inode) Ext2Error!void {
@@ -466,6 +504,44 @@ pub const Ext2 = struct {
         try self.adjustFreeInodes(group, 1);
     }
 
+    /// Allocate one free inode: scan the inode bitmap of each group for a
+    /// clear bit, set it, and decrement the group + superblock free counts.
+    /// Reserved inodes below `first_ino` (superblock offset 84) are skipped,
+    /// and the last group is capped at `inodes_count` (its bitmap may cover
+    /// inodes that do not exist).
+    fn allocInode(self: *Ext2) Ext2Error!u32 {
+        const ipg = self.super.inodes_per_group;
+        if (ipg == 0) return Ext2Error.CorruptSuperblock;
+        const groups_count = (@as(u64, self.super.inodes_count) + ipg - 1) / ipg;
+        const reserved = @as(u64, self.super.first_ino) - 1;
+        var g: u64 = 0;
+        while (g < groups_count) : (g += 1) {
+            const group_start = g * ipg;
+            const inodes_in_group: usize = @intCast(@min(@as(u64, ipg), @as(u64, self.super.inodes_count) - group_start));
+            // The reserved inodes (below first_ino) span the start of the
+            // inode space; skip them wherever they fall.
+            const start: usize = if (group_start < reserved)
+                @intCast(@min(@as(u64, ipg), reserved - group_start))
+            else
+                0;
+            const desc = try self.groupDescriptor(@intCast(g));
+            var bitmap_buf: [4096]u8 = undefined;
+            try self.readBlock(desc.inode_bitmap, bitmap_buf[0..self.block_size]);
+            var i: usize = start;
+            while (i < inodes_in_group) : (i += 1) {
+                const byte = i / 8;
+                const mask: u8 = @as(u8, 1) << @intCast(i % 8);
+                if (bitmap_buf[byte] & mask == 0) {
+                    bitmap_buf[byte] |= mask;
+                    try self.writeBlock(desc.inode_bitmap, bitmap_buf[0..self.block_size]);
+                    try self.adjustFreeInodes(@intCast(g), -1);
+                    return @intCast(group_start + i + 1);
+                }
+            }
+        }
+        return Ext2Error.OutOfSpace;
+    }
+
     /// Remove `ino` from the directory listing of `dir_ino` by zeroing its
     /// entry's inode field (the entry stays as a dead record; readDir skips
     /// zero inodes).
@@ -488,6 +564,56 @@ pub const Ext2 = struct {
             off += rec_len;
         }
         return Ext2Error.NotFound;
+    }
+
+    /// Link a new entry into a single-block directory: reuse a dead slot
+    /// (zero inode) that fits, otherwise shrink the last entry to its exact
+    /// aligned size and append. Entries use the mke2fs rec_len alignment
+    /// (4 bytes) so the block stays host-readable.
+    fn addDirEntry(self: *Ext2, dir_ino: u32, ino: u32, name: []const u8, file_type: u8) Ext2Error!void {
+        const inode = try self.readInode(dir_ino);
+        if (inode.mode & inode_type_dir == 0) return Ext2Error.NotADirectory;
+        if (name.len > 255) return Ext2Error.NameTooLong;
+        const needed = (8 + name.len + 3) & ~@as(usize, 3);
+        var block_buf: [4096]u8 = undefined;
+        try self.readBlock(inode.block[0], block_buf[0..self.block_size]);
+        const data = block_buf[0..self.block_size];
+        var off: usize = 0;
+        var last_off: usize = 0;
+        while (off + 8 <= data.len) {
+            const rec_len = bytes.readU16(data, off + 4);
+            if (rec_len == 0) break;
+            if (bytes.readU32(data, off) == 0 and rec_len >= needed) {
+                self.writeDirEntry(&block_buf, off, ino, name, file_type, rec_len);
+                try self.writeBlock(inode.block[0], block_buf[0..self.block_size]);
+                return;
+            }
+            last_off = off;
+            off += rec_len;
+        }
+        if (off == 0) {
+            self.writeDirEntry(&block_buf, 0, ino, name, file_type, self.block_size);
+            try self.writeBlock(inode.block[0], block_buf[0..self.block_size]);
+            return;
+        }
+        // Shrink the last entry to its exact size and append after it; the
+        // last entry's rec_len covers the rest of the block (mke2fs fills the
+        // final entry to the block end), so splitting it frees the room.
+        const last_exact = (8 + data[last_off + 6] + 3) & ~@as(usize, 3);
+        const append_at = last_off + last_exact;
+        if (append_at + needed > self.block_size) return Ext2Error.OutOfSpace;
+        bytes.writeU16(&block_buf, last_off + 4, @intCast(last_exact));
+        self.writeDirEntry(&block_buf, append_at, ino, name, file_type, self.block_size - append_at);
+        try self.writeBlock(inode.block[0], block_buf[0..self.block_size]);
+    }
+
+    fn writeDirEntry(self: *Ext2, block_buf: *[4096]u8, off: usize, ino: u32, name: []const u8, file_type: u8, rec_len: usize) void {
+        const data = block_buf[0..self.block_size];
+        bytes.writeU32(block_buf, off, ino);
+        bytes.writeU16(block_buf, off + 4, @intCast(rec_len));
+        data[off + 6] = @intCast(name.len);
+        data[off + 7] = file_type;
+        @memcpy(data[off + 8 .. off + 8 + name.len], name);
     }
 
     /// Increment the free-inode count in the group descriptor and superblock.

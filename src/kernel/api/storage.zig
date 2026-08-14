@@ -22,6 +22,7 @@ pub const StorageOp = enum(u64) {
     truncate = 4,
     list = 5,
     remove = 6,
+    create = 7,
 };
 
 pub const ReadArgs = extern struct {
@@ -89,6 +90,7 @@ fn errToStatus(err: ext2.Ext2Error) sys.KiStatus {
         error.NotAFile, error.NotADirectory => .InvalidArgument,
         error.IoError => .IoError,
         error.OutOfSpace => .NoMemory,
+        error.FileExists => .InvalidArgument,
         else => .NotSupported,
     };
 }
@@ -104,6 +106,19 @@ pub fn dispatch(args: sys.SyscallArgs) u64 {
             for (&handles, 0..) |*slot, i| {
                 if (slot.* == null) {
                     const f = file.File.open(fs_ptr, path) catch |err| return fail(errToStatus(err));
+                    slot.* = f;
+                    return ok(@intCast(i + 1));
+                }
+            }
+            return fail(.Busy);
+        },
+        .create => {
+            const checked = validate.checkPtr(args.b, u8) orelse return fail(.InvalidArgument);
+            const path_ptr: [*]const u8 = @ptrCast(checked);
+            const path = path_ptr[0..@as(usize, @intCast(args.c))];
+            for (&handles, 0..) |*slot, i| {
+                if (slot.* == null) {
+                    const f = file.File.create(fs_ptr, path) catch |err| return fail(errToStatus(err));
                     slot.* = f;
                     return ok(@intCast(i + 1));
                 }

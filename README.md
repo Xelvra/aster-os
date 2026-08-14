@@ -79,13 +79,17 @@ editor/file browser cannot open anything.
 zig build run -Ddisk=disk.img        # boot with the disk attached
 ```
 
-In the shell: **Super+T** opens the editor on `theme.lua` (arrows move the
-cursor/line, **Ctrl+S** saves and the shell repaints live); **Super+E** opens
-the file browser at the root (Up/Down select, **Enter** opens/edits a file,
-**Space** previews, **Delete** removes it, Escape or a click on the path
-header goes up a level; hidden
+In the shell: **Super+T** opens the editor with a fresh empty buffer each time
+(arrows move the cursor/line, **Ctrl+S** saves — an unsaved buffer asks for a
+path and the file is created, unsaved edits survive Super+T;
+**Esc Esc** closes the editor as long as there are no unsaved changes);
+**Super+Z** opens the settings file `theme.lua`, saving it
+repaints the shell live; **Super+E** opens the file browser at the root
+(Up/Down select, **Enter** opens/edits a file,
+**Space** previews, **Delete** removes it, Escape or a click on the window
+title bar goes up a level; hidden
 dotfiles like the `.theme.bak` config backup are shown in dim gray).
-**Super+Space** opens the launcher; **Super+F1** shows the keybinding help;
+**Super+Space** opens the launcher, whose `help` entry lists every shortcut;
 Alt+Tab cycles windows. The WM follows
 **Hyprland conventions strictly** — shortcuts, buttons and navigation behave
 the same as in Hyprland (`spec/desktop-ui.md` §5).

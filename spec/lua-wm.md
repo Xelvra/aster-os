@@ -317,11 +317,11 @@ stavu neví.
   řadí před akcemi (ergonomicky: soubory/files častěji než editor).
 - `launcher_filtered()` — jednoduché substring filtrování (case-insensitive).
 - `launcher_render()` — centrovany popup 320 px: vyhledávací pole + list; **help mód**
-  (přes `help` položku nebo **Super+F1**) kreslí širší popup s přehledem zkratek:
+  (přes `help` položku) kreslí širší popup s přehledem zkratek:
   **aktivní** zkratky normální barvou, **rezervované** (neaktivované, §7a) šedivě —
-  vizuálně oddělené, ale viditelné jako cíl. Esc v help módu se vrátí do run.
+  vizuálně oddělené, ale viditelné jako cíl. Esc v help módu launcher zavře.
 - `launcher_open_mode(mode)` — otevře launcher v módu `"run"` (Super+Space, chevron)
-  nebo `"help"` (Super+F1 / help položka).
+  nebo `"help"` (help položka).
 - `launcher_run(id)` — mapuje id na akci: zobrazení/zaostření okna (`repl`, `sysmon`,
   `files`), help, přepínání fullscreen, zavírání. Okna se **znovu používají**, ne
   duplikují (`find_win` → přesun na aktuální ws, nebo vytvoření); `repl`/`sysmon`/
@@ -469,7 +469,8 @@ Vše v `handle_key` (`input.lua:118`). Super = `ev.super` (Hyprland konvence).
 | Kombinace | Akce | Místo |
 |---|---|---|
 | Super+Enter | zobraz + zaostřit REPL | `input.lua:183` |
-| Super+T | editor (otevře/zaostří editor okno) | `input.lua` |
+| Super+T | editor (prázdný buffer) | `input.lua` |
+| Super+Z | settings (`/theme.lua` v editoru) | `input.lua` |
 | Super+E | file manager (otevře files v kořenu) | `input.lua` |
 | Super+Q | zavřít fokusované okno | `input.lua:187` |
 | Super+Space | launcher toggle | `input.lua:211` |
@@ -489,22 +490,27 @@ Vše v `handle_key` (`input.lua:118`). Super = `ev.super` (Hyprland konvence).
 ## 7b. UI textové konvence (normativní)
 
 Konzistentní formátování textu v oknech WM — stejné pravidlo platí ve všech
-oknech (editor, files, prohlížení), ať je klávesa jakákoli.
+oknech (repl, editor, files, prohlížení), ať je klávesa jakákoli.
 
-- **Klávesový hint za cestou:** vždy přesně **dvě mezery** mezi cestou a hintem
-  a **jedna mezera** mezi klávesou a akcí, s **velkým počátečním písmenem**
-  klávesy:
+- **Hlavička v titulkové liště:** kontext a klávesové hinty se kreslí do
+  titulkové lišty okna, za název, segmenty oddělené přesně **dvěma mezerami**;
+  mezi klávesou a akcí je **jedna mezera** a klávesa má **velké počáteční
+  písmeno**. Název okna je `theme.text`, kontext a hinty `theme.text_dim`:
   ```
-  /theme.lua  Ctrl+s save        -- editor (status line)
-  /theme.lua  Esc cancel         -- files prohlížení (hlavička)
+  ~ repl  F5 reload
+  editor  /theme.lua  Ctrl+s save*    (dirty marker = suffix na konci hintu)
+  files  /                             (list — cesta)
+  files  /theme.lua  Esc cancel        (prohlížení — cesta + hint)
   ```
   Žádné jiné počty mezer (3, 4, ...) ani malé „ctrl"/„esc" — mezerování je
   součást vizuálního jazyka a musí být stejné napříč okny.
-- **Stav na konci status line:** za akcí **žádná koncová mezera**; dirty marker
-  (editor) je bezprostředně za cestou, před mezerami k hintu.
-- **Cesta v hlavičce:** okno ukazuje **jednu** cestu v hlavičce — buď adresář
-  (files list) nebo plnou cestu souboru (prohlížení/editor). Nikdy ne obojí
-  zaráz (žádná duplicita).
+- **Žádné status řádky v obsahu:** obsah okna začíná rovnou daty (scrollback,
+  buffer, list souborů). Info o cestě/klávesách patří jen do titulkové lišty,
+  nikdy do obsahu (žádná duplicita mezi lištou a obsahem).
+- **Cesta v hlavičce:** okno ukazuje **jednu** cestu v titulkové liště — buď
+  adresář (files list) nebo plnou cestu souboru (prohlížení/editor). Nikdy ne
+  obojí zaráz. U files je titulková lišta zároveň ukazatel cesty (klik jde
+  o úroveň výš / ven z prohlížení).
 - **Kurzor prohlížení vs. editace:** editor má plný accent blok; prohlížení
   (files view) má **hollow** kurzor (jen obrys `rect_border`) — vizuálně
   odlišuje read-only prohlížení od editace, ale kurzor je vidět (připravený
@@ -522,13 +528,12 @@ prvků). Platí „přidá se, až to jde" — ne „placeholder v UI".
 ### 7a.1 Klávesové zkratky (rezervované, `binds.lua`)
 
 **Splněno (přesunuto do §7):** Super+T → editor, Super+E → file manager
-(files okno). Zbývající rezervované:
+(files okno), Super+Z → settings (`/theme.lua` v editoru). Zbývající rezervované:
 
 | Kombinace | Upstream akce | Backend, který to odblokuje |
 |---|---|---|
 | Super+C | calculator | app systém |
 | Super+W | browser | app systém (net, M9) |
-| Super+Z | settings | app systém |
 | Super+X | control center | panel systém |
 | Super+V | clipboard | clipboard služba |
 | Super+A | notifications | notification služba |
@@ -571,16 +576,27 @@ se přidají s app systémem / net (M9).
 
 Navigační konvence:
 
-- **Editor (`editor.lua`):** šipky Nahoru/Dolů = řádek, Levá/Pravá = kurzor,
+- **Editor (`editor.lua`):** Super+T (i položka `editor` v launcheru) otevře
+  **prázdný buffer** (bez cesty);
+  čistý buffer se dalším Super+T resetuje na nový prázdný dokument, neuložený
+  (dirty) se zachová, takže se změny nikdy neztratí.
+  Šipky Nahoru/Dolů = řádek, Levá/Pravá = kurzor,
   Home/End = začátek/konec řádku, Enter = nový řádek, Backspace/Delete = mazat,
-  **Ctrl+S** = uložit (`file.write`). Uložení configu (`/theme.lua`) spouští
-  auto-reload (`spec/runtime.md` §5a, trigger 2).
+  **Ctrl+S** = uložit (`file.write`). Nový buffer (bez cesty) přepne Ctrl+S na
+  prompt **„save as:"** v titulkové liště: píše se cesta, **Enter** uloží —
+  neexistující soubor se vytvoří (`file.create`, ext2 create), **Esc** zruší.
+  **Esc Esc** (jen u čistého bufferu bez neuložených změn) zavře editor jako
+  prohlížení; s neuloženými změnami je Esc blokován, takže se změny nemůžou
+  ztratit. Konfigurace (`/theme.lua`) se otevírá přes **Super+Z** (settings);
+  uložení configu spouští auto-reload (`spec/runtime.md` §5a, trigger 2).
+  `.theme.bak` a `.repl_history` jsou read-only.
 - **Files browser (`files.lua`):** Up/Down = výběr, **Enter** = otevřít
   (adresář → dovnitř, soubor → **editace v editoru**),
   **Space** = rychlý náhled obsahu (read-only), **Delete** = smazat soubor
   (`file.remove`), **Escape** = o úroveň výš / ven z náhledu, **Super+E** =
-  otevřít v kořenu. Nadpis okna je jen cesta (root = `/`); **klik na nadpis**
-  jde o úroveň výš (nadpis = ukazatel cesty). Konvence je „Enter otevře,
+  otevřít v kořenu. Cesta je v **titulkové liště** okna (root = `/`);
+  **klik na titulkovou lištu** jde o úroveň výš / ven z náhledu (lišta =
+  ukazatel cesty). Konvence je „Enter otevře,
   Space prohlíží, Delete maže, klik na cestu jde nahoru" — v duchu Hyprland
   (Enter = otevřít soubor v příslušné aplikaci), ne Midnight Commander (F3/F4).
 

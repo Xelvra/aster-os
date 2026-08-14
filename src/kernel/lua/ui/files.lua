@@ -32,6 +32,16 @@ local function join_path(p, name)
     return base .. "/" .. name
 end
 
+-- Window title-bar header (two-space-separated segments, §7b): the current
+-- path in the listing, or the full file path + cancel hint while viewing.
+local function update_files_header()
+    if fs_viewing then
+        set_window_header("files", join_path(fs_path, fs_view_name) .. "  Esc cancel")
+    else
+        set_window_header("files", fs_path)
+    end
+end
+
 function files_open(path)
     fs_path = norm_path(path)
     fs_viewing = false
@@ -40,11 +50,13 @@ function files_open(path)
     if not entries then
         fs_entries = {}
         fs_error = "cannot read " .. fs_path
+        update_files_header()
         gfx.invalidate()
         return
     end
     fs_error = ""
     fs_entries = entries
+    update_files_header()
     gfx.invalidate()
 end
 
@@ -71,6 +83,7 @@ function files_view(name)
     fs_view_scroll = 0
     fs_view_scroll_col = 0
     fs_error = ""
+    update_files_header()
     gfx.invalidate()
 end
 
@@ -90,6 +103,7 @@ end
 function files_up()
     if fs_viewing then
         fs_viewing = false
+        update_files_header()
         gfx.invalidate()
         return
     end
@@ -122,23 +136,21 @@ local function files_render()
     if not w or w.ws ~= current_ws then return end
     local tx = w.x + theme.wm.border + 6
     local ty = w.y + theme.wm.border + theme.wm.title_h + 6
-    local rows = math.floor((w.h - theme.wm.title_h - 12) / fs_row_h) - 1
+    local rows = math.floor((w.h - theme.wm.title_h - 12) / fs_row_h)
     if rows < 1 then rows = 1 end
     if fs_error ~= "" then
         gfx.draw_text(fs_error, tx, ty, theme.accent)
         return
     end
     if fs_viewing then
-        -- Single header: the full file path + cancel hint, like the editor
-        -- status line ("/theme.lua  Esc cancel"). Clicking it exits the view.
-        local header = join_path(fs_path, fs_view_name) .. "  Esc cancel"
-        gfx.draw_text(header, tx, ty, theme.text_dim)
-        ty = ty + fs_row_h
+        -- The full path + cancel hint live in the window title bar (header);
+        -- the content area is pure file content with a hollow cursor marking
+        -- read-only viewing.
         local lines = {}
         for line in (fs_view_content .. "\n"):gmatch("(.-)\n") do
             lines[#lines + 1] = line
         end
-        local content_rows = rows - 1
+        local content_rows = rows
         if content_rows < 1 then content_rows = 1 end
         local max_chars = math.max(math.floor((w.w - 2 * theme.wm.border - 12) / fs_glyph_w), 1)
         -- Keep the cursor visible horizontally.
@@ -166,12 +178,10 @@ local function files_render()
         end
         return
     end
-    -- List mode: header is the directory path (root is "/"), then the
-    -- scrollable entries. Hidden files (leading dot, e.g. the .theme.bak
-    -- config backup) are shown in the dim color so it is visually clear they
-    -- are not regular editable files.
-    gfx.draw_text(fs_path, tx, ty, theme.text_dim)
-    ty = ty + fs_row_h
+    -- List mode: the path lives in the window title bar (header), the scrollable
+    -- entries follow. Hidden files (leading dot, e.g. the .theme.bak config
+    -- backup) are shown in the dim color so it is visually clear they are not
+    -- regular editable files.
     local first = 1
     if fs_sel > rows then first = fs_sel - rows + 1 end
     for i = first, math.min(#fs_entries, first + rows - 1) do

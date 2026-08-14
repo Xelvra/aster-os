@@ -25,6 +25,17 @@ pub const File = struct {
         };
     }
 
+    /// Create a regular file by absolute path and open it (empty content).
+    pub fn create(backend: *ext2.Ext2, path: []const u8) ext2.Ext2Error!File {
+        const ino = try backend.create(path);
+        return .{
+            .backend = backend,
+            .ino = ino,
+            .offset = 0,
+            .file_size = 0,
+        };
+    }
+
     /// Read up to `out.len` bytes from the current offset; advances the
     /// offset. Returns 0 at end of file.
     pub fn read(self: *File, out: []u8) ext2.Ext2Error!usize {

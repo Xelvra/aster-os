@@ -108,7 +108,12 @@ backend-neutral interface: M6 má jeden backend, takže File API je ext2-specifi
 - **Ne v M6:** journal, ACL, extended attributes, sparse optimalizace, POSIX
   permissions jako bezpečnostní model, exotické ext2 feature flagy. **Zápis se
   implementuje v M7.1** (rozhodnutí 2026-08-12, non-crash-safe, data-před-metadaty
-  best-effort; viz `roadmap.md` M7.1).
+  best-effort; viz `roadmap.md` M7.1). **Vytváření souborů (`ext2.create`,
+  M7.1.11):** alokace inode (bitmapa, přeskočí rezervované pod `first_ino`),
+  init inode a zápis direntry do rodiče (reuse mrtvého slotu / zkrácení posledního
+  záznamu, rec_len 4-aligned jako mke2fs). Adresář musí mít volné místo v bloku 0
+  (stejné omezení jako `readDir`/`removeDirEntry`); selhání po alokaci inode
+  nerollbackuje (best-effort jako `unlink`).
 - initfs (TAR) a persistentní FS zůstávají **oddělené backendy**.
 - Pozice backendů: **TAR** = boot/initfs, **ext2** = persistentní data, **9P** = dev
   integrace (mimo M6.1), výhledově **EROFS** = systémový image, **FAT32** = interoperability,

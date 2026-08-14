@@ -27,15 +27,25 @@ pub const Entry = struct {
 pub const Image = struct {
     data: [64 * 1024]u8 = [_]u8{0} ** (64 * 1024),
 
-    pub fn superblock(self: *Image, features: struct { compat: u32, incompat: u32, ro_compat: u32, blocks_per_group: u32 = 8 }) void {
+    pub fn superblock(self: *Image, features: struct {
+        compat: u32,
+        incompat: u32,
+        ro_compat: u32,
+        blocks_per_group: u32 = 8,
+        inodes_per_group: u32 = 8,
+        inode_table_block: u32 = 5,
+        free_blocks: u32 = 56,
+        free_inodes: u32 = 29,
+    }) void {
         const sb = self.data[1024 .. 1024 + 256];
         writeU32(sb, 0, 32); // inodes_count
         writeU32(sb, 4, 64); // blocks_count
-        writeU32(sb, 12, 56); // free_blocks_count (64 - 8 used: 1..8)
+        writeU32(sb, 12, features.free_blocks); // free_blocks_count
+        writeU32(sb, 16, features.free_inodes); // free_inodes_count
         writeU32(sb, 20, 1); // first_data_block
         writeU32(sb, 24, 0); // log_block_size (1024 B)
         writeU32(sb, 32, features.blocks_per_group);
-        writeU32(sb, 40, 8); // inodes_per_group
+        writeU32(sb, 40, features.inodes_per_group);
         writeU32(sb, 84, 11); // first_ino
         writeU16(sb, 56, ext2.super_magic);
         writeU32(sb, 76, 0); // rev_level
@@ -45,28 +55,29 @@ pub const Image = struct {
         writeU32(sb, 100, features.ro_compat);
     }
 
-    pub fn groupDescriptors(self: *Image) void {
+    pub fn groupDescriptors(self: *Image, inode_table_block: u32, free_blocks: u16, free_inodes: u16) void {
         const gdt = self.data[2048 .. 2048 + 32];
         writeU32(gdt, 0, 3); // block_bitmap
         writeU32(gdt, 4, 4); // inode_bitmap
-        writeU32(gdt, 8, 5); // inode_table
-        writeU16(gdt, 12, 56); // free_blocks_count
+        writeU32(gdt, 8, inode_table_block);
+        writeU16(gdt, 12, free_blocks);
+        writeU16(gdt, 14, free_inodes);
     }
 
-    /// Mark the metadata + fixture blocks (1..8) used in the block bitmap
+    /// Mark the metadata + fixture blocks (1..count) used in the block bitmap
     /// (block 3). Bit `i` maps to block `i + first_data_block` (1), matching
-    /// real mke2fs 1 KiB-block images, so the first free block is 9.
-    pub fn blockBitmap(self: *Image) void {
+    /// real mke2fs 1 KiB-block images, so the first free block is count + 1.
+    pub fn blockBitmap(self: *Image, count: usize) void {
         const base = 3 * block_size;
-        for (0..8) |i| {
+        for (0..count) |i| {
             const byte = i / 8;
             const bit: u8 = @as(u8, 1) << @intCast(i % 8);
             self.data[base + byte] |= bit;
         }
     }
 
-    pub fn putInode(self: *Image, ino: u32, mode: u16, size: u32, block0: u32) void {
-        const off = 5 * block_size + @as(usize, ino - 1) * 128;
+    pub fn putInode(self: *Image, inode_table_block: u32, ino: u32, mode: u16, size: u32, block0: u32) void {
+        const off = @as(usize, inode_table_block) * block_size + @as(usize, ino - 1) * 128;
         writeU16(&self.data, off, mode);
         writeU32(&self.data, off + 4, size);
         writeU32(&self.data, off + 40, block0); // i_block[0]
@@ -119,14 +130,59 @@ pub fn buildWriteImage() Image {
     return buildImageWith(64);
 }
 
+/// Like buildWriteImage but with a 4-block inode table (32 inodes) so the
+/// create tests can allocate inodes above the reserved range (first_ino = 11).
+/// Layout: inode table blocks 5..8, root dir data on 9, a file on 10, a
+/// subdirectory on 11; the first free data block is 12.
+pub fn buildCreateImage() Image {
+    var img = Image{};
+    img.superblock(.{
+        .compat = 0,
+        .incompat = ext2.feature_incompat_filetype,
+        .ro_compat = 0,
+        .blocks_per_group = 64,
+        .inodes_per_group = 32,
+        .inode_table_block = 5,
+        .free_blocks = 53, // 64 - 11 used (1..11)
+        .free_inodes = 29, // 32 - 3 used (root, hello.txt, sub)
+    });
+    img.groupDescriptors(5, 53, 29);
+    img.blockBitmap(11);
+    img.putInode(5, 2, ext2.inode_type_dir, 64, 9); // root
+    img.putInode(5, 3, ext2.inode_type_reg, 5, 10); // hello.txt
+    img.putInode(5, 4, ext2.inode_type_dir, 64, 11); // sub
+    img.putDir(9, &.{
+        .{ .ino = 2, .file_type = 2, .name = "." },
+        .{ .ino = 2, .file_type = 2, .name = ".." },
+        .{ .ino = 3, .file_type = 1, .name = "hello.txt" },
+        .{ .ino = 4, .file_type = 2, .name = "sub" },
+    });
+    @memcpy(img.data[10 * block_size .. 10 * block_size + 5], "hello");
+    img.putDir(11, &.{
+        .{ .ino = 4, .file_type = 2, .name = "." },
+        .{ .ino = 4, .file_type = 2, .name = ".." },
+        .{ .ino = 3, .file_type = 1, .name = "inner.txt" },
+    });
+    return img;
+}
+
 fn buildImageWith(blocks_per_group: u32) Image {
     var img = Image{};
-    img.superblock(.{ .compat = 0, .incompat = ext2.feature_incompat_filetype, .ro_compat = 0, .blocks_per_group = blocks_per_group });
-    img.groupDescriptors();
-    img.blockBitmap();
-    img.putInode(2, ext2.inode_type_dir, 64, 6); // root
-    img.putInode(3, ext2.inode_type_reg, 5, 7); // hello.txt
-    img.putInode(4, ext2.inode_type_dir, 64, 8); // sub
+    img.superblock(.{
+        .compat = 0,
+        .incompat = ext2.feature_incompat_filetype,
+        .ro_compat = 0,
+        .blocks_per_group = blocks_per_group,
+        .inodes_per_group = 8,
+        .inode_table_block = 5,
+        .free_blocks = 56, // 64 - 8 used (1..8)
+        .free_inodes = 29, // 32 - 3 used (root, hello.txt, sub)
+    });
+    img.groupDescriptors(5, 56, 29);
+    img.blockBitmap(8);
+    img.putInode(5, 2, ext2.inode_type_dir, 64, 6); // root
+    img.putInode(5, 3, ext2.inode_type_reg, 5, 7); // hello.txt
+    img.putInode(5, 4, ext2.inode_type_dir, 64, 8); // sub
     img.putDir(6, &.{
         .{ .ino = 2, .file_type = 2, .name = "." },
         .{ .ino = 2, .file_type = 2, .name = ".." },

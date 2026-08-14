@@ -80,13 +80,13 @@ local function handle_mouse()
                     gfx.invalidate()
                 end
             end
-            -- Clicking the files header (the path line) navigates up one
+            -- Clicking the files title bar (the path header) navigates up one
             -- level — or exits the current view — the header mirrors the path.
             local fw = find_win("files")
             if fw and fw.ws == current_ws then
-                local hy = fw.y + theme.wm.border + theme.wm.title_h + 6
-                if mx >= fw.x + theme.wm.border + 6 and mx <= fw.x + fw.w - theme.wm.border and
-                   my >= hy and my <= hy + fs_row_h then
+                local hy = fw.y + theme.wm.border
+                if mx >= fw.x + theme.wm.border and mx <= fw.x + fw.w - theme.wm.border and
+                   my >= hy and my <= hy + theme.wm.title_h then
                     files_up()
                     gfx.invalidate()
                 end
@@ -95,8 +95,8 @@ local function handle_mouse()
             -- entered, a file is edited (same as Enter). Clicking the header
             -- above already handled going up.
             if fw and fw.ws == current_ws and not fs_viewing then
-                local rows = math.max(math.floor((fw.h - theme.wm.title_h - 12) / fs_row_h) - 1, 1)
-                local list_ty = fw.y + theme.wm.border + theme.wm.title_h + 6 + fs_row_h
+                local rows = math.max(math.floor((fw.h - theme.wm.title_h - 12) / fs_row_h), 1)
+                local list_ty = fw.y + theme.wm.border + theme.wm.title_h + 6
                 if my >= list_ty then
                     local row = math.floor((my - list_ty) / fs_row_h) + 1
                     local scroll_offset = math.max(fs_sel - rows, 0)
@@ -171,6 +171,9 @@ local function handle_key(ev)
 
     -- SUPER = mainMod (Hyprland convention). Window management:
     --   Super+Enter     terminal (REPL dropdown)
+    --   Super+T         editor (untitled buffer)
+    --   Super+Z         settings (/theme.lua)
+    --   Super+E         file manager
     --   Super+Q         close focused window
     --   Super+Space     launcher
     --   Super+Alt+Space float toggle
@@ -203,14 +206,27 @@ local function handle_key(ev)
             repl_visible = true
             set_focus("repl")
         elseif code == "t" then
-            -- Editor (spec/lua-wm.md: Super+T -> editor).
+            -- Editor (spec/lua-wm.md: Super+T -> editor). Super+T always
+            -- starts a fresh untitled document: a clean buffer is reset to
+            -- empty, a dirty buffer is kept so unsaved edits are never lost.
             local w = find_win("editor")
             if not w then
                 windows[#windows + 1] = window("editor", current_ws)
             else
                 w.ws = current_ws
             end
-            if not ed_open then editor_load(ed_path) end
+            if not ed_open or not ed_dirty then editor_load(nil) end
+            set_focus("editor")
+        elseif code == "z" then
+            -- Settings (spec/lua-wm.md: Super+Z -> settings): the theme
+            -- config lives in /theme.lua, opened in the editor.
+            local w = find_win("editor")
+            if not w then
+                windows[#windows + 1] = window("editor", current_ws)
+            else
+                w.ws = current_ws
+            end
+            editor_load("/theme.lua")
             set_focus("editor")
         elseif code == "e" then
             -- File manager (spec/lua-wm.md: Super+E -> files), opened at root.
@@ -223,13 +239,7 @@ local function handle_key(ev)
             files_open("/")
             set_focus("files")
         elseif code == "q" then
-            if find_win(focused) then
-                for i, w in ipairs(windows) do
-                    if w.title == focused then table.remove(windows, i) break end
-                end
-                if fullscreen_win == focused then fullscreen_win = nil end
-                focus_topmost(current_ws)
-            end
+            if find_win(focused) then close_window(focused) end
         elseif code == "space" then
             if ev.alt then
                 -- Super+Alt+Space: float toggle.
@@ -248,9 +258,6 @@ local function handle_key(ev)
             else
                 launcher_open_mode("run")
             end
-        elseif code == "f1" then
-            -- Super+F1: help / keybinding cheat sheet (F1 = help convention).
-            launcher_open_mode("help")
         elseif code == "f" or code == "d" then
             -- Fullscreen toggle.
             if fullscreen_win == focused then
@@ -404,7 +411,35 @@ local function handle_key(ev)
 
     -- Editor input goes to the focused window when it is the editor.
     if focused == "editor" and find_win("editor") then
-        if ev.ctrl and code == "s" then
+        -- Any non-Esc key cancels a pending editor exit. Esc is only a two-
+        -- step exit (like the files viewer) while the buffer is clean: with
+        -- unsaved changes it is blocked so edits can never be lost by it.
+        if code ~= "escape" and not ed_saveas then ed_esc_pending = false end
+        if ed_saveas then
+            -- Save-as prompt: text edits the target path, Enter commits, Esc
+            -- cancels back to the buffer. Navigation keys are disabled.
+            if code == "enter" then
+                editor_saveas_commit()
+            elseif code == "escape" then
+                editor_saveas_cancel()
+            elseif code == "backspace" then
+                ed_saveas_path = string.sub(ed_saveas_path, 1, -2)
+                update_editor_header()
+            elseif ev.char then
+                ed_saveas_path = ed_saveas_path .. ev.char
+                update_editor_header()
+            end
+            gfx.invalidate()
+        elseif code == "escape" then
+            if ed_dirty then
+                ed_esc_pending = false
+            elseif ed_esc_pending then
+                close_window("editor")
+                ed_esc_pending = false
+            else
+                ed_esc_pending = true
+            end
+        elseif ev.ctrl and code == "s" then
             editor_save()
         elseif code == "enter" then
             local line = ed_lines[ed_row]
@@ -459,6 +494,7 @@ local function handle_key(ev)
             ed_col = ed_col + #ev.char
             ed_dirty = true
         end
+        update_editor_header()
         gfx.invalidate()
     end
 
@@ -490,7 +526,7 @@ local function handle_key(ev)
             elseif code == "down" then
                 local lines = {}
                 for line in (fs_view_content .. "\n"):gmatch("(.-)\n") do lines[#lines + 1] = line end
-                local visible = math.max(math.floor((find_win("files").h - theme.wm.title_h - 12) / fs_row_h) - 2, 1)
+                local visible = math.max(math.floor((find_win("files").h - theme.wm.title_h - 12) / fs_row_h), 1)
                 if fs_view_row < #lines then
                     fs_view_row = fs_view_row + 1
                     if fs_view_row > fs_view_scroll + visible then fs_view_scroll = fs_view_scroll + 1 end
@@ -506,13 +542,13 @@ local function handle_key(ev)
                 for l in (fs_view_content .. "\n"):gmatch("(.-)\n") do line[#line + 1] = l end
                 if line[fs_view_row] then fs_view_col = #line[fs_view_row] end
             elseif code == "page_up" then
-                local visible = math.max(math.floor((find_win("files").h - theme.wm.title_h - 12) / fs_row_h) - 2, 1)
+                local visible = math.max(math.floor((find_win("files").h - theme.wm.title_h - 12) / fs_row_h), 1)
                 fs_view_row = math.max(fs_view_row - visible, 1)
                 fs_view_scroll = math.max(fs_view_scroll - visible, 0)
             elseif code == "page_down" then
                 local lines = {}
                 for line in (fs_view_content .. "\n"):gmatch("(.-)\n") do lines[#lines + 1] = line end
-                local visible = math.max(math.floor((find_win("files").h - theme.wm.title_h - 12) / fs_row_h) - 2, 1)
+                local visible = math.max(math.floor((find_win("files").h - theme.wm.title_h - 12) / fs_row_h), 1)
                 fs_view_row = math.min(fs_view_row + visible, #lines)
                 fs_view_scroll = math.min(fs_view_scroll + visible, math.max(#lines - visible, 0))
             else

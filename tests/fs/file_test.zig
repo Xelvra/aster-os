@@ -134,3 +134,64 @@ test "unlink removes a file: dir entry gone, inode and blocks freed (M7.1.9)" {
     const bitmap_byte = img.data[3 * 1024 + 6 / 8];
     try std.testing.expect(bitmap_byte & (@as(u8, 1) << 6) == 0);
 }
+
+test "create makes a new file: resolvable, writable, linked in the parent dir" {
+    const buildCreateImage = ext2_image.buildCreateImage;
+    var img = buildCreateImage();
+    var mock = MockDisk{ .data = &img.data };
+    var fs = try ext2.Ext2.init(mount(&mock));
+
+    const ino = try fs.create("/new.txt");
+    // allocInode skips the reserved inodes (< first_ino = 11); the first
+    // free slot is inode 11.
+    try std.testing.expectEqual(@as(u32, 11), ino);
+    try std.testing.expectEqual(@as(u32, 11), try fs.find("/new.txt"));
+
+    {
+        var f = try file.File.open(&fs, "/new.txt");
+        defer f.close();
+        try f.write("fresh");
+        try std.testing.expectEqual(@as(u64, 5), f.fileSize());
+    }
+    var rf = try file.File.open(&fs, "/new.txt");
+    defer rf.close();
+    var buf: [64]u8 = undefined;
+    const n = try rf.read(&buf);
+    try std.testing.expectEqual(@as(usize, 5), n);
+    try std.testing.expect(std.mem.eql(u8, "fresh", buf[0..5]));
+
+    // The new entry is visible in the root directory listing.
+    var entries: [16]ext2.DirEntry = undefined;
+    const count = try fs.readDir(ext2.root_inode, &entries);
+    var found = false;
+    for (entries[0..count]) |e| {
+        if (e.name_len == 7 and std.mem.eql(u8, e.name[0..7], "new.txt")) found = true;
+    }
+    try std.testing.expect(found);
+
+    // The allocated inode's bitmap bit is set on disk (inode 11 = bit index
+    // 10 = bit 2 of byte 1 in the inode bitmap block 4).
+    const bitmap_byte = img.data[4 * 1024 + 1];
+    try std.testing.expect(bitmap_byte & (@as(u8, 1) << 2) != 0);
+}
+
+test "create into an existing subdirectory links there" {
+    const buildCreateImage = ext2_image.buildCreateImage;
+    var img = buildCreateImage();
+    var mock = MockDisk{ .data = &img.data };
+    var fs = try ext2.Ext2.init(mount(&mock));
+
+    const ino = try fs.create("/sub/note.txt");
+    try std.testing.expectEqual(@as(u32, 11), ino);
+    try std.testing.expectEqual(@as(u32, 11), try fs.find("/sub/note.txt"));
+}
+
+test "create rejects an existing path and a missing parent" {
+    const buildCreateImage = ext2_image.buildCreateImage;
+    var img = buildCreateImage();
+    var mock = MockDisk{ .data = &img.data };
+    var fs = try ext2.Ext2.init(mount(&mock));
+
+    try std.testing.expectError(ext2.Ext2Error.FileExists, fs.create("/hello.txt"));
+    try std.testing.expectError(ext2.Ext2Error.NotFound, fs.create("/nope/file.txt"));
+}
