@@ -21,7 +21,7 @@ na tento dokument.
 | **Bezpečnostní certifikace** | ❌ Ne | Neformální systém; izolace je managed runtime úroveň (ADR-002). |
 | **Multi-user prostředí** | ❌ Ne | Jeden uživatel, žádné účty. |
 | **Zvuk / audio** | ❌ Ne (teď) | Rozšiřitelné přes KI: nová feature = nový KI modul přidaný na konec enumu (pravidlo §4.2 v `kernel-interface.md`), nikdy úprava existujících. Do té doby mimo roadmapu. |
-| **ACPI power management** | ❌ Ne | Žádné uspávání/spouštění; tick zdroj je Local APIC timer (MSR). **I/O APIC discovery: hotovo** (revision 2026-08-11) — RSDP od Limine → RSDT/XSDT → MADT, adresa I/O APIC se čte z MADT (`src/kernel/cpu/acpi.zig`), `0xFEC00000` je fallback default. **LAPIC topologie** (skutečné LAPIC ID) a **ISA IRQ→GSI overrides** a **NMI detekce** zůstávají dluh do M7 (SMP). Viz `roadmap.md` M2. |
+| **ACPI power management** | ❌ Ne | Žádné uspávání/spouštění; tick zdroj je Local APIC timer (MSR). **I/O APIC discovery: hotovo** (revision 2026-08-11) — RSDP od Limine → RSDT/XSDT → MADT, adresa I/O APIC se čte z MADT (`src/kernel/cpu/acpi.zig`), `0xFEC00000` je fallback default. Boot log rozlišuje důvod fallbacku (`no-rsdp` / `bad-checksum` / `no-madt` / `no-ioapic-entry`). **LAPIC topologie** (skutečné LAPIC ID) a **ISA IRQ→GSI overrides** a **NMI detekce** zůstávají dluh do M7 (SMP). Viz `roadmap.md` M2. |
 | **Perzistence před M6** | ❌ Ne | Žádný FS do M6 (ADR-010); assety embedded. |
 | **Síťové/cloudové služby** | ❌ Ne | Lokální experimentální systém. |
 | **Arm / jiné architektury** | ❌ Ne (teď) | Aktuálně jen x86_64 (QEMU `q35`). Port (např. ARM, RISC-V) není vyloučen, ale vyžádal by si arch-neutrální KI důsledněji a vlastní změnu rozsahu — není cílem dnes. |

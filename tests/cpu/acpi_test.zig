@@ -162,8 +162,8 @@ test "findIoApic resolves I/O APIC via RSDT" {
     l.writeMadt(&.{&Layout.ioApicEntry()});
     l.writeRoot(false, &.{madt_phys});
     l.writeRsdp();
-    const addr = acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset());
-    try std.testing.expectEqual(io_apic_address, addr);
+    const result = acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset());
+    try std.testing.expectEqual(acpi.IoApicResult{ .found = io_apic_address }, result);
 }
 
 test "findIoApic resolves I/O APIC via XSDT" {
@@ -171,8 +171,8 @@ test "findIoApic resolves I/O APIC via XSDT" {
     l.writeMadt(&.{&Layout.ioApicEntry()});
     l.writeRoot(true, &.{madt_phys});
     l.writeRsdpV2();
-    const addr = acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset());
-    try std.testing.expectEqual(io_apic_address, addr);
+    const result = acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset());
+    try std.testing.expectEqual(acpi.IoApicResult{ .found = io_apic_address }, result);
 }
 
 test "findIoApic skips non-APIC entries then finds I/O APIC" {
@@ -180,59 +180,59 @@ test "findIoApic skips non-APIC entries then finds I/O APIC" {
     l.writeMadt(&.{ &Layout.localApicEntry(), &Layout.ioApicEntry() });
     l.writeRoot(false, &.{madt_phys});
     l.writeRsdp();
-    const addr = acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset());
-    try std.testing.expectEqual(io_apic_address, addr);
+    const result = acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset());
+    try std.testing.expectEqual(acpi.IoApicResult{ .found = io_apic_address }, result);
 }
 
-test "findIoApic returns null on bad RSDP checksum" {
+test "findIoApic returns bad-checksum on bad RSDP checksum" {
     var l = Layout{};
     l.writeMadt(&.{&Layout.ioApicEntry()});
     l.writeRoot(false, &.{madt_phys});
     l.writeRsdp();
     l.buf[offFrom(rsdp_phys) + 8] +%= 1; // corrupt checksum
-    try std.testing.expectEqual(null, acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset()));
+    try std.testing.expectEqual(acpi.IoApicResult.bad_checksum, acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset()));
 }
 
-test "findIoApic returns null on wrong RSDP signature" {
+test "findIoApic returns no-rsdp on wrong RSDP signature" {
     var l = Layout{};
     l.writeMadt(&.{&Layout.ioApicEntry()});
     l.writeRoot(false, &.{madt_phys});
     l.writeRsdp();
     l.buf[offFrom(rsdp_phys)] = 'X'; // corrupt signature
-    try std.testing.expectEqual(null, acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset()));
+    try std.testing.expectEqual(acpi.IoApicResult.no_rsdp, acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset()));
 }
 
-test "findIoApic returns null on bad RSDT checksum" {
+test "findIoApic returns bad-checksum on bad RSDT checksum" {
     var l = Layout{};
     l.writeMadt(&.{&Layout.ioApicEntry()});
     l.writeRoot(false, &.{madt_phys});
     l.writeRsdp();
     l.buf[offFrom(root_phys) + 9] +%= 1; // corrupt RSDT checksum
-    try std.testing.expectEqual(null, acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset()));
+    try std.testing.expectEqual(acpi.IoApicResult.bad_checksum, acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset()));
 }
 
-test "findIoApic returns null on MADT without I/O APIC entry" {
+test "findIoApic returns no-ioapic-entry on MADT without I/O APIC entry" {
     var l = Layout{};
     l.writeMadt(&.{&Layout.localApicEntry()});
     l.writeRoot(false, &.{madt_phys});
     l.writeRsdp();
-    try std.testing.expectEqual(null, acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset()));
+    try std.testing.expectEqual(acpi.IoApicResult.no_ioapic_entry, acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset()));
 }
 
-test "findIoApic returns null when root table lists no tables" {
+test "findIoApic returns no-madt when root table lists no tables" {
     var l = Layout{};
     l.writeRoot(false, &.{});
     l.writeRsdp();
-    try std.testing.expectEqual(null, acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset()));
+    try std.testing.expectEqual(acpi.IoApicResult.no_madt, acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset()));
 }
 
-test "findIoApic returns null on bad MADT checksum" {
+test "findIoApic returns bad-checksum on bad MADT checksum" {
     var l = Layout{};
     l.writeMadt(&.{&Layout.ioApicEntry()});
     l.writeRoot(false, &.{madt_phys});
     l.writeRsdp();
     l.buf[offFrom(madt_phys) + 9] +%= 1; // corrupt MADT checksum
-    try std.testing.expectEqual(null, acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset()));
+    try std.testing.expectEqual(acpi.IoApicResult.bad_checksum, acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset()));
 }
 
 // Regression for CI boot failure: QEMU 8.2 SeaBIOS places the RSDT on an
@@ -244,8 +244,8 @@ test "findIoApic resolves I/O APIC via unaligned RSDT address" {
     l.writeMadt(&.{&Layout.ioApicEntry()});
     l.writeRootAt(unaligned_root, false, &.{madt_phys});
     l.writeRsdpAt(rsdp_phys, unaligned_root);
-    const addr = acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset());
-    try std.testing.expectEqual(io_apic_address, addr);
+    const result = acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset());
+    try std.testing.expectEqual(acpi.IoApicResult{ .found = io_apic_address }, result);
 }
 
 test "findIoApic resolves I/O APIC via unaligned RSDT and unaligned MADT address" {
@@ -255,8 +255,8 @@ test "findIoApic resolves I/O APIC via unaligned RSDT and unaligned MADT address
     l.writeMadtAt(unaligned_madt, &.{&Layout.ioApicEntry()});
     l.writeRootAt(unaligned_root, false, &.{unaligned_madt});
     l.writeRsdpAt(rsdp_phys, unaligned_root);
-    const addr = acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset());
-    try std.testing.expectEqual(io_apic_address, addr);
+    const result = acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset());
+    try std.testing.expectEqual(acpi.IoApicResult{ .found = io_apic_address }, result);
 }
 
 test "findIoApic resolves I/O APIC via unaligned XSDT address" {
@@ -265,8 +265,8 @@ test "findIoApic resolves I/O APIC via unaligned XSDT address" {
     l.writeMadt(&.{&Layout.ioApicEntry()});
     l.writeRootAt(unaligned_root, true, &.{madt_phys});
     l.writeRsdpV2At(rsdp_phys, unaligned_root);
-    const addr = acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset());
-    try std.testing.expectEqual(io_apic_address, addr);
+    const result = acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset());
+    try std.testing.expectEqual(acpi.IoApicResult{ .found = io_apic_address }, result);
 }
 
 test "findIoApic resolves I/O APIC via unaligned XSDT and unaligned MADT address" {
@@ -276,6 +276,6 @@ test "findIoApic resolves I/O APIC via unaligned XSDT and unaligned MADT address
     l.writeMadtAt(unaligned_madt, &.{&Layout.ioApicEntry()});
     l.writeRootAt(unaligned_root, true, &.{unaligned_madt});
     l.writeRsdpV2At(rsdp_phys, unaligned_root);
-    const addr = acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset());
-    try std.testing.expectEqual(io_apic_address, addr);
+    const result = acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset());
+    try std.testing.expectEqual(acpi.IoApicResult{ .found = io_apic_address }, result);
 }

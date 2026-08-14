@@ -140,7 +140,7 @@ fn kernelMain() !void {
     idt.init();
     pic.remap();
     bootlog.ok("interrupts", "idt · pic");
-    sched.init();
+    sched.init(@intFromPtr(&kernel_stack));
 
     var memory = try mem.Memory.init(&info);
     const sysmon = @import("api/sysmon.zig");
@@ -154,12 +154,22 @@ fn kernelMain() !void {
 
     page_map.init(&memory.pfa, info.hhdm_offset);
     const acpi = @import("cpu/acpi.zig");
-    const ioapic_override = if (info.rsdp_address) |addr| acpi.findIoApic(addr, info.hhdm_offset) else null;
+    const ioapic_result = if (info.rsdp_address) |addr| acpi.findIoApic(addr, info.hhdm_offset) else null;
+    const ioapic_override: ?u64 = if (ioapic_result) |r| switch (r) {
+        .found => |addr| addr,
+        else => null,
+    } else null;
     apic.init(info.hhdm_offset, ioapic_override);
-    bootlog.ok("cpu", if (ioapic_override != null)
-        "page tables · apic timer"
-    else
-        "page tables · apic timer (ioapic: fallback)");
+    const ioapic_note: []const u8 = if (ioapic_result) |r| switch (r) {
+        .found => "",
+        .bad_checksum => " · ioapic: fallback, bad-checksum",
+        .no_madt => " · ioapic: fallback, no-madt",
+        .no_ioapic_entry => " · ioapic: fallback, no-ioapic-entry",
+        .no_rsdp => " · ioapic: fallback, no-rsdp",
+    } else " · ioapic: fallback, no-rsdp";
+    var cpu_detail: [96]u8 = undefined;
+    const cpu_line = std.fmt.bufPrint(&cpu_detail, "page tables · apic timer{s}", .{ioapic_note}) catch "page tables · apic timer";
+    bootlog.ok("cpu", cpu_line);
 
     ps2.init();
     bootlog.ok("input", "ps/2 keyboard + mouse");

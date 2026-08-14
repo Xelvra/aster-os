@@ -42,79 +42,117 @@ const RsdpV2 = extern struct {
 /// Locate the I/O APIC address from the MADT. The RSDP pointer handed by the
 /// bootloader is already HHDM-mapped (base revision >= 4); the table addresses
 /// inside RSDT/XSDT are physical and must be translated by `hhdm_offset`
-/// (base revision >= 4 maps the ACPI regions in the higher half). Returns null
-/// on any parse failure so the caller falls back to the legacy default.
-pub fn findIoApic(rsdp_address: u64, hhdm_offset: u64) ?u64 {
-    const rsdp = readRsdp(rsdp_address) orelse return null;
-    const madt = findMadt(rsdp, hhdm_offset) orelse return null;
-    return ioApicAddress(madt);
+/// (base revision >= 4 maps the ACPI regions in the higher half). The result
+/// carries the reason for a fallback so the boot log can tell a firmware
+/// without ACPI from a corrupted table or a missing IOAPIC entry.
+pub const IoApicResult = union(enum) {
+    found: u64,
+    no_rsdp,
+    bad_checksum,
+    no_madt,
+    no_ioapic_entry,
+};
+
+pub fn findIoApic(rsdp_address: u64, hhdm_offset: u64) IoApicResult {
+    const rsdp = readRsdp(rsdp_address);
+    const rsdp_ptr = switch (rsdp) {
+        .found => |p| p,
+        .no_rsdp => return .no_rsdp,
+        .bad_checksum => return .bad_checksum,
+    };
+    const madt = findMadt(rsdp_ptr, hhdm_offset);
+    const madt_ptr = switch (madt) {
+        .found => |p| p,
+        .bad_checksum => return .bad_checksum,
+        .no_madt => return .no_madt,
+    };
+    return switch (ioApicAddress(madt_ptr)) {
+        .found => |addr| .{ .found = addr },
+        .bad_checksum => .bad_checksum,
+        .no_ioapic_entry => .no_ioapic_entry,
+    };
 }
 
-fn readRsdp(address: u64) ?*align(1) const RsdpV1 {
+const RsdpResult = union(enum) {
+    found: *align(1) const RsdpV1,
+    no_rsdp,
+    bad_checksum,
+};
+
+fn readRsdp(address: u64) RsdpResult {
     const ptr: [*]const u8 = @ptrFromInt(@as(usize, @intCast(address)));
-    if (!std.mem.eql(u8, ptr[0..8], rsdp_signature)) return null;
+    if (!std.mem.eql(u8, ptr[0..8], rsdp_signature)) return .no_rsdp;
     const v1: *align(1) const RsdpV1 = @ptrCast(ptr);
     if (checksumOk(ptr[0..@sizeOf(RsdpV1)])) {
         // Revision 0/1 carries only the 32-bit RSDT address.
-        return v1;
+        return .{ .found = v1 };
     }
     if (v1.revision >= 2) {
         const v2: *align(1) const RsdpV2 = @ptrCast(ptr);
-        if (checksumOk(ptr[0..@sizeOf(RsdpV2)])) return @ptrCast(v2);
+        if (checksumOk(ptr[0..@sizeOf(RsdpV2)])) return .{ .found = @ptrCast(v2) };
     }
-    return null;
+    return .bad_checksum;
 }
 
-fn findMadt(rsdp: *align(1) const RsdpV1, hhdm_offset: u64) ?*align(1) const AcpiHeader {
+const MadtResult = union(enum) {
+    found: *align(1) const AcpiHeader,
+    bad_checksum,
+    no_madt,
+};
+
+fn findMadt(rsdp: *align(1) const RsdpV1, hhdm_offset: u64) MadtResult {
     if (rsdp.revision >= 2) {
         const v2: *align(1) const RsdpV2 = @ptrCast(rsdp);
         const xsdt_ptr: [*]const u8 = @ptrFromInt(@as(usize, @intCast(v2.xsdt_address + hhdm_offset)));
         const header: *align(1) const AcpiHeader = @ptrCast(xsdt_ptr);
-        if (checksumOk(@as([*]const u8, @ptrCast(header))[0..header.length])) {
-            const entries = @as([*]const u8, @ptrCast(header))[acpi_header_size..header.length];
-            const table_count = (header.length - acpi_header_size) / @sizeOf(u64);
-            for (0..table_count) |i| {
-                const entry_addr = std.mem.readInt(u64, entries[i * 8 ..][0..8], .little);
-                const table_ptr: [*]const u8 = @ptrFromInt(@as(usize, @intCast(entry_addr + hhdm_offset)));
-                const table: *align(1) const AcpiHeader = @ptrCast(table_ptr);
-                if (std.mem.eql(u8, &table.signature, "APIC")) return table;
-            }
+        if (!checksumOk(@as([*]const u8, @ptrCast(header))[0..header.length])) return .bad_checksum;
+        const entries = @as([*]const u8, @ptrCast(header))[acpi_header_size..header.length];
+        const table_count = (header.length - acpi_header_size) / @sizeOf(u64);
+        for (0..table_count) |i| {
+            const entry_addr = std.mem.readInt(u64, entries[i * 8 ..][0..8], .little);
+            const table_ptr: [*]const u8 = @ptrFromInt(@as(usize, @intCast(entry_addr + hhdm_offset)));
+            const table: *align(1) const AcpiHeader = @ptrCast(table_ptr);
+            if (std.mem.eql(u8, &table.signature, "APIC")) return .{ .found = table };
         }
-        return null;
+        return .no_madt;
     }
 
     const rsdt_ptr: [*]const u8 = @ptrFromInt(@as(usize, @intCast(rsdp.rsdt_address + hhdm_offset)));
     const header: *align(1) const AcpiHeader = @ptrCast(rsdt_ptr);
-    if (checksumOk(@as([*]const u8, @ptrCast(header))[0..header.length])) {
-        const entries = @as([*]const u8, @ptrCast(header))[acpi_header_size..header.length];
-        const table_count = (header.length - acpi_header_size) / @sizeOf(u32);
-        for (0..table_count) |i| {
-            const entry_addr = std.mem.readInt(u32, entries[i * 4 ..][0..4], .little);
-            const table_ptr: [*]const u8 = @ptrFromInt(@as(usize, @intCast(entry_addr + hhdm_offset)));
-            const table: *align(1) const AcpiHeader = @ptrCast(table_ptr);
-            if (std.mem.eql(u8, &table.signature, "APIC")) return table;
-        }
+    if (!checksumOk(@as([*]const u8, @ptrCast(header))[0..header.length])) return .bad_checksum;
+    const entries = @as([*]const u8, @ptrCast(header))[acpi_header_size..header.length];
+    const table_count = (header.length - acpi_header_size) / @sizeOf(u32);
+    for (0..table_count) |i| {
+        const entry_addr = std.mem.readInt(u32, entries[i * 4 ..][0..4], .little);
+        const table_ptr: [*]const u8 = @ptrFromInt(@as(usize, @intCast(entry_addr + hhdm_offset)));
+        const table: *align(1) const AcpiHeader = @ptrCast(table_ptr);
+        if (std.mem.eql(u8, &table.signature, "APIC")) return .{ .found = table };
     }
-    return null;
+    return .no_madt;
 }
 
-fn ioApicAddress(madt: *align(1) const AcpiHeader) ?u64 {
-    if (checksumOk(@as([*]const u8, @ptrCast(madt))[0..madt.length])) {
-        const entries = @as([*]const u8, @ptrCast(madt))[acpi_header_size + madt_local_apic_and_flags_size .. madt.length];
-        var offset: usize = 0;
-        while (offset < entries.len) {
-            const entry_type = entries[offset];
-            const entry_length = entries[offset + 1];
-            if (entry_length == 0) return null;
-            if (offset + entry_length > entries.len) return null;
-            if (entry_type == madt_io_apic_type) {
-                const addr: u32 = std.mem.readInt(u32, entries[offset + 4 ..][0..4], .little);
-                return addr;
-            }
-            offset += entry_length;
+const IoApicEntryResult = union(enum) {
+    found: u64,
+    bad_checksum,
+    no_ioapic_entry,
+};
+
+fn ioApicAddress(madt: *align(1) const AcpiHeader) IoApicEntryResult {
+    if (!checksumOk(@as([*]const u8, @ptrCast(madt))[0..madt.length])) return .bad_checksum;
+    const entries = @as([*]const u8, @ptrCast(madt))[acpi_header_size + madt_local_apic_and_flags_size .. madt.length];
+    var offset: usize = 0;
+    while (offset < entries.len) {
+        const entry_type = entries[offset];
+        const entry_length = entries[offset + 1];
+        if (entry_length == 0) return .no_ioapic_entry;
+        if (offset + entry_length > entries.len) return .no_ioapic_entry;
+        if (entry_type == madt_io_apic_type) {
+            const addr: u32 = std.mem.readInt(u32, entries[offset + 4 ..][0..4], .little);
+            return .{ .found = addr };
         }
+        offset += entry_length;
     }
-    return null;
+    return .no_ioapic_entry;
 }
 
 fn checksumOk(bytes: []const u8) bool {

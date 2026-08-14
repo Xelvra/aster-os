@@ -1,6 +1,18 @@
 const std = @import("std");
 const idt = @import("../cpu/idt.zig");
 const time = @import("../time.zig");
+const serial = @import("../serial.zig");
+
+/// Stack-overflow canary (brief Task 7a, audit §3.5). The task stacks and the
+/// kernel stack are plain static arrays with no guard pages (the single
+/// address space has no per-task page tables — spec/non-goals.md), so an
+/// overflowing task silently writes into the neighbouring stack. Following
+/// the heap canary pattern (`mem/heap.zig` block_magic) each stack carries a
+/// magic word at its lowest address, checked on every context switch: a
+/// clobbered canary halts with a serial diagnostic instead of corrupting a
+/// sibling task. This is a software check with detection delay — it fires at
+/// the next switch, not at the moment of the write.
+const stack_canary_magic: u64 = 0xA57E5CA42C4CA1AE; // "ASTERSTK"
 
 /// Minimum preemptive round-robin scheduler (ADR-017, audit §3.5, brief Task 7).
 ///
@@ -22,6 +34,10 @@ pub const TaskId = usize;
 
 const task_stack_size = 16384;
 var task_stacks: [max_tasks][task_stack_size]u8 align(16) = undefined;
+
+/// Lowest address of the kernel main stack (task 0), set from main.zig at
+/// boot. Canary-checked on switch like every task stack.
+var kernel_stack_base: usize = 0;
 
 /// Layout of the top of a task stack while suspended in the timer ISR
 /// (see isr.s): the return address of the `callq sched_switch` (the
@@ -53,12 +69,46 @@ const sched_restore = @extern([*]u8, .{ .name = "sched_restore" });
 /// consistent TCB table. This call also anchors the module in the build: its
 /// exported symbol `sched_pick_next` is referenced by the asm bridge in
 /// `cpu/isr.s` unconditionally, so the module must be linked even when no
-/// runtime test spawns tasks.
-pub fn init() void {
+/// runtime test spawns tasks. `kernel_stack_address` is the lowest address of
+/// the kernel main stack (task 0), used for its overflow canary.
+pub fn init(kernel_stack_address: usize) void {
+    kernel_stack_base = kernel_stack_address;
+    writeCanary(kernel_stack_base);
+    for (&task_stacks) |*stack| {
+        writeCanary(@intFromPtr(stack));
+    }
     for (&tasks) |*t| t.* = .{};
     tasks[0] = .{ .state = .running };
     running = 0;
     task_count = 1;
+}
+
+fn writeCanary(base: usize) void {
+    const canary: *u64 = @ptrFromInt(base);
+    canary.* = stack_canary_magic;
+}
+
+/// Check the overflow canary at the lowest address of a stack; halt with a
+/// diagnostic when it is gone — the stack ran to its bottom (overflow risk).
+/// Follows the heap `checkBlock()` fault policy (spec/invariants.md §1):
+/// halt, do not continue on corrupt state.
+fn checkCanary(owner: []const u8, base: usize) void {
+    const canary: *const u64 = @ptrFromInt(base);
+    if (canary.* == stack_canary_magic) return;
+    var buf: [160]u8 = undefined;
+    const line = std.fmt.bufPrint(&buf, "STACK OVERFLOW: {s} canary clobbered (base {x})", .{ owner, base }) catch "STACK OVERFLOW";
+    serial.writeLine(line);
+    while (true) asm volatile ("hlt" ::: .{ .memory = true });
+}
+
+/// Check the canary of the task that is about to be switched away (its stack
+/// was live during the previous quantum). Task 0 lives on the kernel stack.
+fn checkCurrentStack() void {
+    if (running == 0) {
+        checkCanary("kernel", kernel_stack_base);
+    } else {
+        checkCanary("task", @intFromPtr(&task_stacks[running]));
+    }
 }
 
 /// Kernel code selector used by the IDT; a fresh task's interrupt frame must
@@ -77,6 +127,7 @@ const kernel_rflags: u64 = 0x202;
 /// task needs so that `movq saved_sp, %rsp; ret` lands on the restore
 /// sequence. Round-robin over the tasks in table order.
 pub fn schedPickNext(current_rsp: u64) callconv(.c) u64 {
+    checkCurrentStack();
     tasks[running].state = .ready;
     tasks[running].saved_sp = current_rsp;
     return pickNext();
@@ -88,6 +139,7 @@ pub fn schedPickNext(current_rsp: u64) callconv(.c) u64 {
 /// interrupts masked by that bridge), so the TCB table is still the natural
 /// critical section.
 pub fn schedSleepPickNext(current_rsp: u64, wake_at: u64) callconv(.c) u64 {
+    checkCurrentStack();
     tasks[running].state = .blocked;
     tasks[running].wake_at = wake_at;
     tasks[running].saved_sp = current_rsp;
