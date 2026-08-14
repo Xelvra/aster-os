@@ -81,6 +81,26 @@ local function handle_mouse()
                     gfx.invalidate()
                 end
             end
+            -- Clicking an entry in the files listing opens it: a directory is
+            -- entered, a file is edited (same as Enter). Clicking the header
+            -- above already handled going up.
+            if fw and fw.ws == current_ws and not fs_viewing then
+                local rows = math.max(math.floor((fw.h - theme.wm.title_h - 12) / fs_row_h) - 1, 1)
+                local list_ty = fw.y + theme.wm.border + theme.wm.title_h + 6 + fs_row_h
+                if my >= list_ty then
+                    local row = math.floor((my - list_ty) / fs_row_h) + 1
+                    local scroll_offset = math.max(fs_sel - rows, 0)
+                    local e = fs_entries[scroll_offset + row]
+                    if e then
+                        if e.dir then
+                            files_open(join_path(fs_path, e.name))
+                        else
+                            files_edit(e.name)
+                        end
+                        gfx.invalidate()
+                    end
+                end
+            end
             -- Clicking the launcher button (the ">" chevron) opens the launcher.
             if mx >= 8 and mx <= 28 and my >= 0 and my <= theme.bar.height then
                 launcher_open = not launcher_open

@@ -120,9 +120,6 @@ local function files_render()
     if not w or w.ws ~= current_ws then return end
     local tx = w.x + theme.wm.border + 6
     local ty = w.y + theme.wm.border + theme.wm.title_h + 6
-    -- Header: the current directory path only (root is "/"), not a label.
-    gfx.draw_text(fs_path, tx, ty, theme.text_dim)
-    ty = ty + fs_row_h
     local rows = math.floor((w.h - theme.wm.title_h - 12) / fs_row_h) - 1
     if rows < 1 then rows = 1 end
     if fs_error ~= "" then
@@ -130,9 +127,9 @@ local function files_render()
         return
     end
     if fs_viewing then
-        -- Header: the full file path + cancel hint, like the editor status
-        -- line ("/apps/hello.lua   Esc  cancel"). Clicking it exits the view.
-        local header = join_path(fs_path, fs_view_name) .. "   Esc  cancel"
+        -- Single header: the full file path + cancel hint, like the editor
+        -- status line ("/theme.lua  Esc cancel"). Clicking it exits the view.
+        local header = join_path(fs_path, fs_view_name) .. "  Esc cancel"
         gfx.draw_text(header, tx, ty, theme.text_dim)
         ty = ty + fs_row_h
         local lines = {}
@@ -154,9 +151,12 @@ local function files_render()
         end
         return
     end
-    -- List mode: scroll so the selected entry stays visible. Hidden files
-    -- (leading dot, e.g. the .theme.bak config backup) are shown in the dim
-    -- color so it is visually clear they are not regular editable files.
+    -- List mode: header is the directory path (root is "/"), then the
+    -- scrollable entries. Hidden files (leading dot, e.g. the .theme.bak
+    -- config backup) are shown in the dim color so it is visually clear they
+    -- are not regular editable files.
+    gfx.draw_text(fs_path, tx, ty, theme.text_dim)
+    ty = ty + fs_row_h
     local first = 1
     if fs_sel > rows then first = fs_sel - rows + 1 end
     for i = first, math.min(#fs_entries, first + rows - 1) do

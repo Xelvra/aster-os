@@ -481,6 +481,32 @@ Vše v `handle_key` (`input.lua:118`). Super = `ev.super` (Hyprland konvence).
 
 ---
 
+## 7b. UI textové konvence (normativní)
+
+Konzistentní formátování textu v oknech WM — stejné pravidlo platí ve všech
+oknech (editor, files, prohlížení), ať je klávesa jakákoli.
+
+- **Klávesový hint za cestou:** vždy přesně **dvě mezery** mezi cestou a hintem
+  a **jedna mezera** mezi klávesou a akcí, s **velkým počátečním písmenem**
+  klávesy:
+  ```
+  /theme.lua  Ctrl+s save        -- editor (status line)
+  /theme.lua  Esc cancel         -- files prohlížení (hlavička)
+  ```
+  Žádné jiné počty mezer (3, 4, ...) ani malé „ctrl"/„esc" — mezerování je
+  součást vizuálního jazyka a musí být stejné napříč okny.
+- **Stav na konci status line:** za akcí **žádná koncová mezera**; dirty marker
+  (editor) je bezprostředně za cestou, před mezerami k hintu.
+- **Cesta v hlavičce:** okno ukazuje **jednu** cestu v hlavičce — buď adresář
+  (files list) nebo plnou cestu souboru (prohlížení/editor). Nikdy ne obojí
+  zaráz (žádná duplicita).
+- **Kurzor prohlížení vs. editace:** editor má plný accent blok; prohlížení
+  (files view) má **hollow** kurzor (jen obrys `rect_border`) — vizuálně
+  odlišuje read-only prohlížení od editace, ale kurzor je vidět (připravený
+  pro budoucí schránku).
+
+---
+
 ## 7a. Rezervované / plánované položky (placeholdery)
 
 Tyto položky z upstreamu (cachyos-hypr-noctalia) **záměrně nejsou v kódu** — WM je
