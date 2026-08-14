@@ -7,6 +7,8 @@ pub const SysmonOp = enum(u64) {
     ram_free_mb = 1,
 };
 
+/// Composition-root exception (spec/code-style.md §1): the Memory instance set
+/// once by main.zig at boot and read by dispatch. Not per-feature state.
 var memory: ?*mem.Memory = null;
 
 pub fn init(memory_instance: *mem.Memory) void {

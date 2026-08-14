@@ -53,6 +53,9 @@ pub var disk: virtio.VirtioBlk = undefined;
 pub var mounted: ?ext2.Ext2 = null;
 
 const handle_max = 8;
+/// Open-file handle table, the module's own registry (composition-root
+/// exception, spec/code-style.md §1): per-module state, not a per-feature
+/// global. Lua keeps handles across syscalls through this table.
 var handles: [handle_max]?file.File = .{null} ** handle_max;
 
 const status_shift: u6 = 32;
@@ -94,8 +97,8 @@ pub fn dispatch(args: sys.SyscallArgs) u64 {
     const op: StorageOp = @enumFromInt(args.a);
     switch (op) {
         .open => {
-            if (args.b == 0) return fail(.InvalidArgument);
-            const path_ptr: [*]const u8 = @ptrFromInt(@as(usize, @intCast(args.b)));
+            const checked = validate.checkPtr(args.b, u8) orelse return fail(.InvalidArgument);
+            const path_ptr: [*]const u8 = @ptrCast(checked);
             const path = path_ptr[0..@as(usize, @intCast(args.c))];
             for (&handles, 0..) |*slot, i| {
                 if (slot.* == null) {

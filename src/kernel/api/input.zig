@@ -51,16 +51,16 @@ pub fn dispatch(args: sys.SyscallArgs) u64 {
 
 /// input.set_layout(name_ptr) — switch the active keyboard layout (ADR-024).
 fn setLayoutOp(name_ptr: u64) u64 {
-    if (name_ptr == 0) return @intFromEnum(sys.KiStatus.InvalidArgument);
-    const name: [*:0]const u8 = @ptrFromInt(@as(usize, @intCast(name_ptr)));
+    const checked = validate.checkPtr(name_ptr, u8) orelse return @intFromEnum(sys.KiStatus.InvalidArgument);
+    const name: [*:0]const u8 = @ptrCast(checked);
     const ok = service.setLayout(std.mem.span(name));
     return if (ok) @intFromEnum(sys.KiStatus.Success) else @intFromEnum(sys.KiStatus.InvalidArgument);
 }
 
 /// input.layout_name(out_ptr) — copy the active layout name into the buffer.
 fn layoutNameOp(out_ptr: u64) u64 {
-    if (out_ptr == 0) return @intFromEnum(sys.KiStatus.InvalidArgument);
-    const out: [*]u8 = @ptrFromInt(@as(usize, @intCast(out_ptr)));
+    const checked = validate.checkPtrMut(out_ptr, u8) orelse return @intFromEnum(sys.KiStatus.InvalidArgument);
+    const out: [*]u8 = @ptrCast(checked);
     const name = service.layoutName();
     @memcpy(out[0..name.len], name);
     out[name.len] = 0;

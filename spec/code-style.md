@@ -39,12 +39,19 @@ Zigu, ale doplňují je o projektovou disciplínu.
 - **Malé moduly, jedna zodpovědnost.** Soubor dělá jednu jasně pojmenovatelnou věc. Pokud
   popis modulu potřebuje "a", rozděl ho.
 - **Žádné singletony.** Stav se předává explicitně (struct instance), nesdílí se globálně.
-- **Žádné globální mutable stavy, pokud to není HW.** Výjimka: registry zařízení,
-  framebuffer paměť, atomická fronta událostí — to je hardware/kontext přerušení, ne
-  programová globální proměnná. Bootstrap: `kernel_stack` v `main.zig` — kernel
-  potřebuje fixní stack **před** tím, než běží jakýkoli kód (bootloader předá malý
-  stack, heap ještě neexistuje), proto je povolená jediná statická zásobníková
-  proměnná.
+- **Žádné globální mutable stavy, pokud to není HW.** Výjimky:
+  - **HW/kontext přerušení:** registry zařízení, framebuffer paměť, atomická fronta
+    událostí — to je hardware/kontext přerušení, ne programová globální proměnná.
+  - **Bootstrap:** `kernel_stack` v `main.zig` — kernel potřebuje fixní stack **před**
+    tím, než běží jakýkoli kód (bootloader předá malý stack, heap ještě neexistuje),
+    proto je povolená jediná statická zásobníková proměnná.
+  - **Composition-root singleton (KI moduly `api/*`):** jeden stav na modul, který
+    nastaví **jednou** composition root (`main.zig`) při bootu a dispatch ho pak jen
+    čte (např. `renderer`, `disk`/`mounted`, `sysmon` `memory`), plus stav, který patří
+    modulu jako jeho vnitřní registry/flagy (např. `handles`, `reload_requested`,
+    `invalidate_requested`). To **neroste s přidáváním funkcí** — nová KI operace
+    nepřidává novou globální proměnnou; proto je to přípustná výjimka, ne skrytý
+    globální stav. Komentář u proměnné to označuje (`api/graphics.zig` aj.).
 - **KISS + YAGNI.** Nejednodušší řešení, které funguje. Nepřidává se abstrakce "pro
   budoucí použití" — viz `spec/non-goals.md`.
 - **DRY s rozumem.** Opakující se logika se extrahuje; dvě věci, které se budou vyvíjet
