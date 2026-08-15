@@ -76,23 +76,48 @@ local function launcher_open_mode(mode)
     launcher_mode = mode
     launcher_input = ""
     launcher_sel = 1
+    -- F1 in a window shows that app's contextual help; the launcher "help"
+    -- entry always shows the global WM cheat sheet.
+    launcher_help_app = nil
+    gfx.invalidate()
+end
+
+-- Per-application help: each app registers its own keybinding cheat sheet,
+-- shown by F1 while that window is focused. The global WM cheat sheet stays
+-- reachable from the launcher "help" entry (and F1 outside any app window).
+local app_help = {}
+function register_app_help(app, items)
+    app_help[app] = items
+end
+
+-- Open the help popup for a specific application (F1 inside its window).
+function launcher_open_app_help(app)
+    launcher_open = true
+    launcher_mode = "help"
+    launcher_help_app = app
+    launcher_input = ""
+    launcher_sel = 1
     gfx.invalidate()
 end
 
 local function launcher_render()
-    -- Help mode: a cheat sheet of the active keybindings, wider than the run
-    -- popup. Reserved shortcuts are not shown here (they live in the spec).
+    -- Help mode: a cheat sheet of keybindings. With launcher_help_app set it
+    -- shows that app's contextual help; otherwise the global WM cheat sheet.
+    -- Reserved shortcuts are not shown (they live in the spec).
     if launcher_mode == "help" then
+        local items = launcher_help_app and app_help[launcher_help_app] or shortcuts_active
+        local title = launcher_help_app or "help"
         local row_h = 18
-        local lw, lh = 460, 40 + (#shortcuts_active + 2) * row_h
+        local lw, lh = 460, 40 + (#items + 2) * row_h
         local lx = math.floor((SW - lw) / 2)
         local ly = theme.bar.height + 8 + math.max(math.floor((SH - theme.bar.height - 8 - lh) / 2), 0)
         gfx.draw_rect(lx, ly, lw, lh, theme.surface)
         gfx.rect_border(lx, ly, lw, lh, 1, theme.accent)
-        -- "help:" is white like the run prompt; Esc closes the popup.
-        gfx.draw_text("help: ", lx + 8, ly + 8, theme.text)
+        -- The prompt is the window/app name ("help:", "files:", "editor:")
+        -- in white like the run prompt; Esc closes the popup.
+        gfx.draw_text(title .. ": ", lx + 8, ly + 8, theme.text)
         local ty = ly + 30
-        for _, s in ipairs(shortcuts_active) do
+        for _, s in ipairs(items) do
             gfx.draw_text(s[1], lx + 12, ty, theme.text)
             local desc_x = lx + 200
             gfx.draw_text(s[2], desc_x, ty, theme.text_dim)

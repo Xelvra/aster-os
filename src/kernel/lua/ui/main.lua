@@ -13,6 +13,30 @@ end
 -- recall commands across F5 reloads and reboots.
 repl_load_history()
 
+-- Per-application contextual help (F1 inside a window shows that app's
+-- keys). Each entry: { key, description, alt }; alt is the F-key duality.
+register_app_help("files", {
+    { "Up / Down", "select entry" },
+    { "Enter / F4", "edit file" },
+    { "Space / F3", "view file" },
+    { "Delete", "remove file" },
+    { "Esc", "up a level" },
+    { "Esc Esc", "exit view" },
+    { "F1", "this help" },
+})
+register_app_help("editor", {
+    { "Ctrl+S", "save" },
+    { "F2", "save as" },
+    { "F5", "hot reload" },
+    { "Esc Esc", "close editor" },
+    { "F1", "this help" },
+})
+register_app_help("repl", {
+    { "Enter", "run code" },
+    { "Up / Down", "command history" },
+    { "F1", "this help" },
+})
+
 function update()
     layout_pass()
     handle_mouse()

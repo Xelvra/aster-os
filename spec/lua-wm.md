@@ -356,10 +356,12 @@ stavu neví.
   řadí před akcemi (ergonomicky: soubory/files častěji než editor).
 - `launcher_filtered()` — jednoduché substring filtrování (case-insensitive).
 - `launcher_render()` — centrovany popup 320 px: vyhledávací pole + list; **help mód**
-  (přes `help` položku) kreslí širší popup s přehledem **aktivních** zkratek:
-  zkratka **bíle**, popis **šedivě**, a za popisem **bíle** případná F-zkratka
-  (designová dualita — druhá cesta ke stejné akci, např. `Super+T  editor  F2
-  save as`). Rezervované zkratky se v popupu **neukazují** — jsou v tabulkách
+  kreslí širší popup s přehledem zkratek. **F1 v okně aplikace** ukáže
+  **kontextový help té aplikace** (files/editor/repl — `register_app_help`);
+  **mimo okno / launcher `help` položka** ukáže **globální WM help**. Formát:
+  zkratka **bíle**, popis **šedivě**, za popisem **bíle** případná F-zkratka
+  (designová dualita — druhá cesta ke stejné akci, např. `Enter  edit file  F4`).
+  Rezervované zkratky se v popupu **neukazují** — jsou v tabulkách
   spec (§7, §7a), aby popup zůstal stručný. Esc v help módu launcher zavře.
 - `launcher_open_mode(mode)` — otevře launcher v módu `"run"` (Super+Space,
   chevron; aplikace + akce), `"scratchpad"` (Super+S; jen aplikace, prompt
@@ -526,7 +528,7 @@ Vše v `handle_key` (`input.lua:118`). Super = `ev.super` (Hyprland konvence).
 | Super+Shift+1/2/3 | přesunout okno na workspace | `input.lua:247` |
 | Super+S | scratchpad (toggle vyhrazené app) | `input.lua:227` |
 | Alt+Tab | cyklovat okna workspace | `input.lua:298` |
-| F1 | help (launcher cheat sheet) | `input.lua` |
+| F1 | help — kontextové (v okně) / globální (mimo okno) | `input.lua` |
 | F2 | editor: save as | `input.lua` |
 | F3 | files: view vybraný soubor (jako Space) | `input.lua` |
 | F4 | files: edit vybraný soubor | `input.lua` |
@@ -628,11 +630,13 @@ okno, které bylo zavřeno (Super+Q), a přesune ho na aktuální workspace.
   (fullscreen).
 - **Alt+Tab — cyklus oken.** Cykluje focus přes **všechna** okna aktuálního
   workspace (tiled i floating) v pořadí `windows` listu, s wrapem.
-- **F1 — help.** Globální a vždy dostupný: otevře launcher v help módu (cheat
-  sheet **aktivních** zkratek s F-ekvivalenty). Help popup je overlay — kreslí
+- **F1 — kontextová nápověda.** **V okně aplikace** (files, editor, repl)
+  otevře **help té aplikace** — kontextové zkratky daného okna (Enter/F4 edit,
+  Space/F3 view, Ctrl+S save, ...). **Mimo aplikaci** (desktop / sysmon) otevře
+  **globální WM help** (všechny zkratky okenního manažeru). Globální help je
+  vždy dostupný i z launcheru (položka `help`). Help popup je overlay — kreslí
   se nad okny **i ve fullscreenu**, takže nápověda je vyvolatelná v jakémkoli
-  režimu a okně. Stejná akce jako položka `help` v launcheru.
-  F1 = univerzální nápověda (zažitá konvence napříč aplikacemi).
+  režimu. F1 = univerzální nápověda (zažitá konvence napříč aplikacemi).
 - **F3 — files: view vybraný soubor.** Platí jen když je fokusovaný files
   browser: otevře **read-only náhled vybraného souboru** (stejná akce jako
   Space na souboru). Na rozdíl od F4/Enter **neotvírá editor** — jen prohlíží

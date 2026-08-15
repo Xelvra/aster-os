@@ -204,7 +204,13 @@ local function handle_key(ev)
     -- re-evaluating it (Hyprland reserved-slot pattern).
     if ev.pressed then
         if code == "f1" then
-            launcher_open_mode("help")
+            -- Contextual help: F1 inside a window shows that app's own cheat
+            -- sheet (files/editor/repl); F1 elsewhere shows the global WM help.
+            if find_win(focused) and (focused == "files" or focused == "editor" or focused == "repl") then
+                launcher_open_app_help(focused)
+            else
+                launcher_open_mode("help")
+            end
             return
         elseif code == "f11" then
             -- Fullscreen toggle, same as Super+F/D.
