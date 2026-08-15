@@ -168,9 +168,10 @@ const MockDisk = struct {
 };
 
 /// Build a mock disk image: sector 0 empty, sector 1 = GPT header, sector 2
-/// = partition entry array (256 B used), with one partition [first_lba..last_lba].
-fn buildMockDisk(first_lba: u64, last_lba: u64) [4096]u8 {
-    var disk = [_]u8{0} ** 4096;
+/// = partition entry array (256 B used), with one partition [first_lba..last_lba]
+/// inside the usable area (TestGpt: 34..100).
+fn buildMockDisk(first_lba: u64, last_lba: u64) [64 * 512]u8 {
+    var disk = [_]u8{0} ** (64 * 512);
     var gpt_data = TestGpt.build();
     gpt_data.putEntry(0, gpt.type_guid_linux_fs, first_lba, last_lba, &[_]u16{ 'p', 'a', 'r', 't' });
     gpt_data.finalize();
@@ -180,15 +181,15 @@ fn buildMockDisk(first_lba: u64, last_lba: u64) [4096]u8 {
 }
 
 test "discover finds partitions as block-device views" {
-    var disk_data = buildMockDisk(3, 5);
-    @memcpy(disk_data[3 * 512 .. 3 * 512 + 4], "DATA");
+    var disk_data = buildMockDisk(40, 90);
+    @memcpy(disk_data[40 * 512 .. 40 * 512 + 4], "DATA");
     var mock = MockDisk{ .data = &disk_data };
     const dev = block.BlockDevice{ .ctx = &mock, .read_fn = MockDisk.read, .write_fn = MockDisk.write };
     var views: [4]block.PartitionView = undefined;
     const count = try gpt.discover(std.testing.allocator, dev, &views);
     try std.testing.expectEqual(@as(usize, 1), count);
-    try std.testing.expectEqual(@as(u64, 3), views[0].first_lba);
-    try std.testing.expectEqual(@as(u64, 5), views[0].last_lba);
+    try std.testing.expectEqual(@as(u64, 40), views[0].first_lba);
+    try std.testing.expectEqual(@as(u64, 90), views[0].last_lba);
     try std.testing.expect(gpt.eqlGuid(views[0].type_guid, gpt.type_guid_linux_fs));
     var sector: [512]u8 = undefined;
     try views[0].readSector(0, &sector);
@@ -204,9 +205,17 @@ test "discover rejects a disk without a GPT" {
 }
 
 test "discover reports a too-small output buffer" {
-    var disk_data = buildMockDisk(3, 5);
+    var disk_data = buildMockDisk(40, 41);
     var mock = MockDisk{ .data = &disk_data };
     const dev = block.BlockDevice{ .ctx = &mock, .read_fn = MockDisk.read, .write_fn = MockDisk.write };
     var views: [0]block.PartitionView = undefined;
     try std.testing.expectError(gpt.GptError.BufferTooSmall, gpt.discover(std.testing.allocator, dev, &views));
+}
+
+test "discover rejects an inverted partition LBA range" {
+    var disk_data = buildMockDisk(90, 40); // first > last
+    var mock = MockDisk{ .data = &disk_data };
+    const dev = block.BlockDevice{ .ctx = &mock, .read_fn = MockDisk.read, .write_fn = MockDisk.write };
+    var views: [4]block.PartitionView = undefined;
+    try std.testing.expectError(error.OutOfBounds, gpt.discover(std.testing.allocator, dev, &views));
 }

@@ -28,12 +28,14 @@ pub const PartitionView = struct {
 
     /// Read a 512-byte sector by partition-local index.
     pub fn readSector(self: PartitionView, index: u64, out: []u8) BlockError!void {
+        if (self.first_lba > self.last_lba) return error.OutOfBounds;
         if (index > self.last_lba - self.first_lba) return error.OutOfBounds;
         return self.disk.read(self.first_lba + index, out);
     }
 
     /// Write a 512-byte sector by partition-local index.
     pub fn writeSector(self: PartitionView, index: u64, in: []const u8) BlockError!void {
+        if (self.first_lba > self.last_lba) return error.OutOfBounds;
         if (index > self.last_lba - self.first_lba) return error.OutOfBounds;
         return self.disk.write(self.first_lba + index, in);
     }

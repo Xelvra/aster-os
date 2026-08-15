@@ -64,6 +64,9 @@ pub var disk: virtio.VirtioBlk = undefined;
 pub var mounted: ?ext2.Ext2 = null;
 
 const handle_max = 8;
+/// Upper bound for a single read/write/list buffer, so a caller-supplied
+/// length cannot create an absurd slice (audit 2026-08-15).
+const io_cap: usize = 1024 * 1024;
 /// Open-file handle table, the module's own registry (composition-root
 /// exception, spec/code-style.md §1): per-module state, not a per-feature
 /// global. Lua keeps handles across syscalls through this table.
@@ -140,9 +143,10 @@ pub fn dispatch(args: sys.SyscallArgs) u64 {
             const slot = handleSlot(ra.handle) orelse return fail(.InvalidArgument);
             if (slot.* == null) return fail(.InvalidArgument);
             const f: *file.File = &slot.*.?;
-            if (ra.buf == 0) return fail(.InvalidArgument);
-            const buf: [*]u8 = @ptrFromInt(@as(usize, @intCast(ra.buf)));
-            const n = f.read(buf[0..@as(usize, @intCast(ra.len))]) catch |err| return fail(errToStatus(err));
+            const buf_p = validate.checkPtrMut(ra.buf, u8) orelse return fail(.InvalidArgument);
+            const buf: [*]u8 = @ptrCast(buf_p);
+            const len: usize = @min(@as(usize, @intCast(ra.len)), io_cap);
+            const n = f.read(buf[0..len]) catch |err| return fail(errToStatus(err));
             return ok(@intCast(n));
         },
         .write => {
@@ -150,9 +154,10 @@ pub fn dispatch(args: sys.SyscallArgs) u64 {
             const slot = handleSlot(wa.handle) orelse return fail(.InvalidArgument);
             if (slot.* == null) return fail(.InvalidArgument);
             const f: *file.File = &slot.*.?;
-            if (wa.data == 0) return fail(.InvalidArgument);
-            const data: [*]const u8 = @ptrFromInt(@as(usize, @intCast(wa.data)));
-            f.write(data[0..@as(usize, @intCast(wa.len))]) catch |err| return fail(errToStatus(err));
+            const data_p = validate.checkPtr(wa.data, u8) orelse return fail(.InvalidArgument);
+            const data: [*]const u8 = @ptrCast(data_p);
+            const len: usize = @min(@as(usize, @intCast(wa.len)), io_cap);
+            f.write(data[0..len]) catch |err| return fail(errToStatus(err));
             return ok(0);
         },
         .close => {
@@ -169,14 +174,15 @@ pub fn dispatch(args: sys.SyscallArgs) u64 {
         },
         .list => {
             const la = validate.checkPtr(args.b, ListArgs) orelse return fail(.InvalidArgument);
-            if (la.path == 0 or la.out == 0) return fail(.InvalidArgument);
-            const path_ptr: [*]const u8 = @ptrFromInt(@as(usize, @intCast(la.path)));
-            const path = path_ptr[0..@as(usize, @intCast(la.path_len))];
-            const ino = fs_ptr.find(path) catch |err| return fail(errToStatus(err));
+            const path_p = validate.checkPtr(la.path, u8) orelse return fail(.InvalidArgument);
+            const out_p = validate.checkPtrMut(la.out, u8) orelse return fail(.InvalidArgument);
+            const path: [*]const u8 = @ptrCast(path_p);
+            const out: [*]u8 = @ptrCast(out_p);
+            const path_slice = path[0..@as(usize, @intCast(la.path_len))];
+            const ino = fs_ptr.find(path_slice) catch |err| return fail(errToStatus(err));
             var entries: [32]ext2.DirEntry = undefined;
             const count = fs_ptr.readDir(ino, &entries) catch |err| return fail(errToStatus(err));
-            const out: [*]u8 = @ptrFromInt(@as(usize, @intCast(la.out)));
-            const out_cap: usize = @intCast(la.out_cap);
+            const out_cap: usize = @min(@as(usize, @intCast(la.out_cap)), io_cap);
             var written: usize = 0;
             for (entries[0..count]) |e| {
                 const name = e.name[0..e.name_len];

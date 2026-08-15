@@ -102,9 +102,20 @@ pub const Ext2 = struct {
         if (inode_size < 128) return Ext2Error.BadInodeSize;
         const log_block_size = bytes.readU32(&sb, 24);
         if (log_block_size > 2) return Ext2Error.BadBlockSize;
+        const block_size: usize = @as(usize, 1024) << @intCast(log_block_size);
         const blocks_per_group = bytes.readU32(&sb, 32);
         const inodes_per_group = bytes.readU32(&sb, 40);
         if (blocks_per_group == 0 or inodes_per_group == 0) return Ext2Error.CorruptSuperblock;
+        // A bitmap is one block; per-group counts larger than its capacity
+        // would make the bitmap scans read out of bounds (audit 2026-08-15).
+        if (blocks_per_group > block_size * 8 or inodes_per_group > block_size * 8) return Ext2Error.CorruptSuperblock;
+        const first_ino = bytes.readU32(&sb, 84);
+        if (first_ino == 0) return Ext2Error.CorruptSuperblock;
+        const blocks_count = bytes.readU32(&sb, 4);
+        // The per-group inode table (inode_size * inodes_per_group bytes) must
+        // fit inside the filesystem, so inodeTableLocation's block offset can
+        // never exceed u32 (audit 2026-08-15).
+        if (@as(u64, inodes_per_group) * inode_size > @as(u64, blocks_count) * block_size) return Ext2Error.CorruptSuperblock;
         const feature_compat = bytes.readU32(&sb, 92);
         const feature_incompat = bytes.readU32(&sb, 96);
         const feature_ro_compat = bytes.readU32(&sb, 100);
@@ -115,19 +126,19 @@ pub const Ext2 = struct {
             .disk = disk,
             .super = .{
                 .inodes_count = bytes.readU32(&sb, 0),
-                .blocks_count = bytes.readU32(&sb, 4),
+                .blocks_count = blocks_count,
                 .free_blocks_count = bytes.readU32(&sb, 12),
                 .first_data_block = bytes.readU32(&sb, 20),
                 .log_block_size = log_block_size,
                 .blocks_per_group = blocks_per_group,
                 .inodes_per_group = inodes_per_group,
-                .first_ino = bytes.readU32(&sb, 84),
+                .first_ino = first_ino,
                 .inode_size = inode_size,
                 .feature_compat = feature_compat,
                 .feature_incompat = feature_incompat,
                 .feature_ro_compat = feature_ro_compat,
             },
-            .block_size = @as(usize, 1024) << @intCast(log_block_size),
+            .block_size = block_size,
         };
     }
 
@@ -156,9 +167,14 @@ pub const Ext2 = struct {
         const group = index / self.super.inodes_per_group;
         const index_in_group = index % self.super.inodes_per_group;
         const desc = try self.groupDescriptor(group);
-        const block_off = @as(usize, index_in_group) * self.super.inode_size;
-        const table_block = desc.inode_table + @as(u32, @intCast(block_off / self.block_size));
-        return .{ .block = table_block, .within = block_off % self.block_size };
+        const block_off = @as(u64, index_in_group) * self.super.inode_size;
+        const table_off = block_off / self.block_size;
+        // table_off < blocks_count is guaranteed by the mount-time inode-table
+        // fit check; guard anyway so the cast below cannot overflow (audit
+        // 2026-08-15).
+        const table_block_u64 = @as(u64, desc.inode_table) + table_off;
+        if (table_block_u64 >= self.super.blocks_count) return Ext2Error.OutOfBounds;
+        return .{ .block = @intCast(table_block_u64), .within = @intCast(block_off % self.block_size) };
     }
 
     /// Write inode `ino` back to its inode-table block. The raw 128-byte table
@@ -698,11 +714,18 @@ pub const Ext2 = struct {
         try self.readBlock(gdt_block, block_buf[0..self.block_size]);
         if (off + 32 > self.block_size) return Ext2Error.OutOfBounds;
         const desc = block_buf[off .. off + 32];
+        const block_bitmap = bytes.readU32(desc, 0);
+        const inode_bitmap = bytes.readU32(desc, 4);
         const inode_table = bytes.readU32(desc, 8);
-        if (inode_table >= self.super.blocks_count) return Ext2Error.OutOfBounds;
+        // All three metadata pointers must point inside the filesystem; an
+        // unchecked bitmap would let a crafted GDT write "bitmap" bits over
+        // real metadata (audit 2026-08-15).
+        if (block_bitmap >= self.super.blocks_count or
+            inode_bitmap >= self.super.blocks_count or
+            inode_table >= self.super.blocks_count) return Ext2Error.OutOfBounds;
         return .{
-            .block_bitmap = bytes.readU32(desc, 0),
-            .inode_bitmap = bytes.readU32(desc, 4),
+            .block_bitmap = block_bitmap,
+            .inode_bitmap = inode_bitmap,
             .inode_table = inode_table,
         };
     }

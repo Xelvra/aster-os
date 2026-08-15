@@ -120,6 +120,10 @@ pub fn discover(alloc: std.mem.Allocator, disk: block.BlockDevice, out: []block.
     var header_sector: [512]u8 = undefined;
     try disk.read(1, &header_sector);
     const header = try parseHeader(&header_sector);
+    // Cap the entry array before allocating so a crafted num_entries/entry_size
+    // cannot drive a huge heap allocation (audit 2026-08-15).
+    if (header.entry_size < entry_size_default or header.entry_size > 512) return GptError.BadEntrySize;
+    if (header.num_entries == 0 or header.num_entries > 2048) return GptError.BadEntrySize;
     const entry_size = @as(usize, header.entry_size);
     const array_bytes = @as(usize, header.num_entries) * entry_size;
     const buf = try alloc.alloc(u8, array_bytes);
@@ -131,6 +135,12 @@ pub fn discover(alloc: std.mem.Allocator, disk: block.BlockDevice, out: []block.
     var written: usize = 0;
     for (entries[0..count]) |e| {
         if (written == out.len) return GptError.BufferTooSmall;
+        // A partition must span a valid, in-range LBA range; an inverted
+        // range would underflow PartitionView's bounds check and grant
+        // unbounded disk access (audit 2026-08-15).
+        if (e.first_lba > e.last_lba or
+            e.first_lba < header.first_usable_lba or
+            e.last_lba > header.last_usable_lba) return error.OutOfBounds;
         out[written] = .{
             .disk = disk,
             .first_lba = e.first_lba,
