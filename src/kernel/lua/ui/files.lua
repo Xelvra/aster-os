@@ -34,18 +34,17 @@ end
 
 -- Window title-bar header (segments joined by the theme separator, §7b): the
 -- current path in the listing, or the full file path + cancel hint while
--- viewing. Inside any subdirectory (Esc goes up) the header adds an "Esc up"
--- hint — but never at the root, where there is nothing to go up to. The trash
--- directory keeps its empty-trash hint (placeholder — not wired yet).
+-- viewing. Key hints are gone from the header — every shortcut lives in the
+-- help popup (F1), so the header only points there.
 local function update_files_header()
     if fs_viewing then
-        set_window_header("files", join_path(fs_path, fs_view_name) .. " | Esc cancel")
+        set_window_header("files", join_path(fs_path, fs_view_name) .. " | help F1")
     elseif fs_path == "/.trash" then
-        set_window_header("files", fs_path .. " | Esc up | Ctrl+Delete empty")
+        set_window_header("files", fs_path .. " | help F1")
     elseif fs_path == "/" then
-        set_window_header("files", fs_path)
+        set_window_header("files", fs_path .. " | help F1")
     else
-        set_window_header("files", fs_path .. " | Esc up")
+        set_window_header("files", fs_path .. " | help F1")
     end
 end
 

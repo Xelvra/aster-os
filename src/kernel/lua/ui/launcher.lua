@@ -31,7 +31,7 @@ local mouse_was_down = false
 -- popup stays short and readable.
 local shortcuts_active = {
     { "Super+Enter", "terminal (REPL)" },
-    { "Super+T", "editor", "F2 save as" },
+    { "Super+T", "editor · Ctrl+S save", "F2 save as" },
     { "Super+Z", "settings" },
     { "Super+E", "file manager", "F4 edit" },
     { "Super+Q", "close window" },
@@ -44,6 +44,7 @@ local shortcuts_active = {
     { "Super+1/2/3", "workspace" },
     { "Super+S", "scratchpad (toggle app)" },
     { "Alt+Tab", "cycle windows" },
+    { "Esc Esc", "close editor / exit view" },
     { "F1", "help" },
     { "F5", "hot reload" },
 }

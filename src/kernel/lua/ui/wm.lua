@@ -25,9 +25,10 @@ scratchpad_app = scratchpad_app or nil
 scratchpad_open = scratchpad_open or false
 
 -- Per-window header text drawn after the title (separated by two spaces, the
--- §7b convention): the app sets context and key hints so every window shows
--- the same layout (e.g. "editor /wm/theme.lua | Ctrl+s save*"). `local` here is
--- visible across the whole concatenated shell chunk (wm.lua loads first).
+-- §7b convention): the app sets context, and the header points to the help
+-- popup (F1) instead of listing key hints (e.g. "editor /wm/theme.lua |
+-- help F1"). `local` here is visible across the whole concatenated shell chunk
+-- (wm.lua loads first).
 local win_headers = {}
 
 local function set_window_header(title, text)

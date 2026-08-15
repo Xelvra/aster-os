@@ -658,17 +658,21 @@ oknech (repl, editor, files, prohlížení), ať je klávesa jakákoli.
   **velké počáteční písmeno**. Název okna je `theme.text`, kontext a hinty
   `theme.text_dim`:
   ```
-  ~ repl  F5 reload                   (jediné místo se dvěma mezerami)
-  editor /wm/theme.lua | Esc cancel | Ctrl+s save   (čisté)
-  editor /wm/theme.lua | Ctrl+s save*   (dirty — Esc cancel zmizí, * za save)
-  files /                             (root — bez hintu, Esc nejde výš)
-  files /apps | Esc up                (podadresář — Esc jde o úroveň výš)
-  files /wm/theme.lua | Esc cancel       (prohlížení — cesta + hint)
-  help: Esc back                      (launcher help popup, bílé jako run:)
-  save as: <cesta>  Enter save | Esc cancel   (kurzor sedí v první mezeře)
+  ~ repl  help F1                    (jediné místo se dvěma mezerami)
+  editor /wm/theme.lua | help F1     (čisté)
+  editor /wm/theme.lua* | help F1    (dirty — * za cestou)
+  files / | help F1                  (root)
+  files /apps | help F1              (podadresář)
+  files /wm/theme.lua | help F1      (prohlížení — cesta)
+  help: Esc back                     (launcher help popup, bílé jako run:)
+  save as: <cesta>  Enter save | Esc cancel   (save-as prompt, funkční ne hint)
   ```
   Žádné jiné počty mezer (3, 4, ...) ani malé „ctrl"/„esc" — mezerování je
   součást vizuálního jazyka a musí být stejné napříč okny.
+- **Hlavička neobsahuje klávesové hinty** — všechny zkratky jsou v help popupu
+  (F1), takže hlavička jen ukazuje cestu/kontext a `| help F1`. Funkční prvky
+  zůstávají: dirty marker (`*`), save-as prompt a cesta (u files = ukazatel
+  cesty). Esc Esc / Ctrl+S / F2 / F4 se nevypisují do hlaviček — jsou v helpu.
 - **Žádné status řádky v obsahu:** obsah okna začíná rovnou daty (scrollback,
   buffer, list souborů). Info o cestě/klávesách patří jen do titulkové lišty,
   nikdy do obsahu (žádná duplicita mezi lištou a obsahem).
@@ -755,9 +759,9 @@ Navigační konvence:
   (`ed_saved`), takže Ctrl+S se nabízí jen pro skutečně jiný obsah.
   **Esc Esc** (jen u čistého bufferu bez neuložených změn) zavře editor jako
   prohlížení; s neuloženými změnami je Esc blokován, takže se změny nemůžou
-  ztratit. Hlavička proto ukazuje **`| Esc cancel | Ctrl+s save`** jen u
-  čistého bufferu; jakmile se objeví dirty marker (`save*`), hint `Esc cancel`
-  zmizí (Esc je blokován) a po uložení se vrátí. Konfigurace (`/wm/theme.lua`) se
+  ztratit. Hlavička ukazuje cestu + **`| help F1`** (klávesové hinty jsou
+  v help popupu); dirty marker **`*`** za cestou značí neuložené změny.
+  Konfigurace (`/wm/theme.lua`) se
   otevírá přes **Super+Z** (settings);
   uložení configu spouští auto-reload (`spec/runtime.md` §5a, trigger 2).
   `/wm/.theme.bak` a `/.repl_history` jsou read-only (`editor_load` je odmítne
@@ -770,8 +774,8 @@ Navigační konvence:
   červené) se otevírají **jen Space náhledem** — Enter ani klik u nich editor
   nespouští (uložit se stejně nedají). Cesta je v **titulkové liště** okna (root = `/`);
   **klik na titulkovou lištu** jde o úroveň výš / ven z náhledu (lišta =
-  ukazatel cesty). Hlavička v podadresáři přidává hint **`| Esc up`** (root ho
-  nemá — Esc nejde výš). Konvence je „Enter otevře,
+  ukazatel cesty). Hlavička ukazuje cestu + **`| help F1`** (klávesové hinty
+  jsou v help popupu; i v rootu ukazuje help F1). Konvence je „Enter otevře,
   Space prohlíží, Delete maže, klik na cestu jde nahoru" — v duchu Hyprland
   (Enter = otevřít soubor v příslušné aplikaci), ne Midnight Commander (F3/F4).
   Z náhledu se vystupuje **Esc Esc** (jednou = zpět, podruhé = z náhledu ven) —
