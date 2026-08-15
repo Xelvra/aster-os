@@ -120,6 +120,12 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 > metriky drží cíle beze změn (image 371 → 362 KiB poklesem z dead code), žádná
 > optimalizace nebyla nutná; frame latency p99 stále bez měřicího mechanismu (TBD).
 > Firmware → First Frame ≈ 3,3 s (BIOS + Limine, mimo náš kód).
+> ⁷ **Metodika měření časů:** každá časová metrika (Kernel Entry → First Frame, boot
+> sequence, render throughput) je run-to-run hlučná — KVM/TCG i zátěž hostu mění výsledek
+> řádově (naměřeno 30 ms i 4 ms u stejné verze). Časy se proto reportují jako **medián z
+> alespoň 3 měření** `tools/bench.sh` při stejné akceleraci (a případně KVM), ne jako jeden
+> běh. `capture-boot.sh --check` ms v boot-logu normalizuje na `N ms` právě proto, že jitter
+> není reprodukovatelný — čísla v tabulkách musí uvádět akceleraci a počet běhů.
 
 > **Kritická sekce alokátorů (M7, 2026-08-14):** přidání RFLAGS interrupt guardu
 > (`cpu/irq.zig`) do PFA + heap — měřeno `tools/bench.sh` (TCG, hlučné): Kernel Entry →
