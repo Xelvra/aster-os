@@ -15,7 +15,7 @@ Runtime). Newer versions are listed first.
 
 ---
 
-## [0.7.0-alpha.1] — Milestone M7 — Runtime (in progress)
+## [0.7.0-alpha.2] — Milestone M7 — Runtime (in progress)
 
 This version tracks the milestone after M6 Storage was completed.
 

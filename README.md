@@ -1,7 +1,7 @@
 # Aster OS
 
 [![status](https://img.shields.io/badge/status-alpha-orange.svg)](spec/roadmap.md)
-[![version](https://img.shields.io/badge/version-0.7.0--alpha.1-orange.svg)](.version)
+[![version](https://img.shields.io/badge/version-0.7.0--alpha.2-orange.svg)](.version)
 [![milestone](https://img.shields.io/badge/milestone-M7%20Runtime-informational.svg)](spec/roadmap.md)
 [![Zig](https://img.shields.io/badge/Zig-0.16.0-f7a41d.svg)](.zig-version)
 [![architecture](https://img.shields.io/badge/arch-x86__64-blue.svg)](spec/architecture.md)
