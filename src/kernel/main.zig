@@ -105,10 +105,6 @@ fn cpuId(leaf: u32, subleaf: u32) [4]u32 {
     return .{ eax, ebx, ecx, edx };
 }
 
-/// Report the accelerator: "kvm" under KVM, "tcg" when no hypervisor is
-/// present (QEMU TCG by default), "hv" for any other hypervisor. CPUID
-/// leaf 1 ECX bit 31 is the hypervisor-present bit; leaf 0x40000000
-/// carries the hypervisor vendor (EBX, EDX, ECX — KVM = "KVMKVMKVM").
 /// Report the accelerator: "kvm" under KVM, "tcg" under QEMU TCG, "hv" for
 /// any other hypervisor. CPUID leaf 1 ECX bit 31 is the hypervisor-present
 /// bit; leaf 0x40000000 carries the hypervisor vendor in EBX, ECX, EDX
