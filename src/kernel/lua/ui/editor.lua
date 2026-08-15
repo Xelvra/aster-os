@@ -62,7 +62,7 @@ function editor_load(path)
     -- overwritten with Ctrl+S. Checked first so a refused load leaves the
     -- current buffer untouched.
     if path == "/.theme.bak" or path == "/.repl_history" then
-        print("config error: " .. path .. " is read-only (view only)")
+        wm_error("editor", path .. " is read-only (view only)")
         gfx.invalidate()
         return
     end
@@ -83,9 +83,7 @@ function editor_load(path)
     end
     local h = file.open(path)
     if not h then
-        ed_lines = { "file.open failed: " .. path }
-        ed_saved = ed_lines[1]
-        update_editor_header()
+        wm_error("editor", "file.open failed: " .. path)
         gfx.invalidate()
         return
     end
@@ -129,7 +127,7 @@ local function editor_write(path, content)
                 file.write(h, content)
                 file.close(h)
             end
-            return "theme.lua config error: " .. err
+            return err
         end
         -- Valid config: .theme.bak gets the previous working copy (the fallback
         -- for a future broken save), then /theme.lua gets the new version.
@@ -170,7 +168,7 @@ function editor_save()
     end
     local err = editor_write(ed_path, table.concat(ed_lines, "\n"))
     if err then
-        print(err)
+        wm_error("editor", err)
     else
         ed_saved = table.concat(ed_lines, "\n")
         ed_dirty = false
@@ -184,18 +182,18 @@ end
 function editor_saveas_commit()
     local path = ed_saveas_path
     if path == "" or path:sub(1, 1) ~= "/" or path:sub(-1) == "/" then
-        print("save error: path must be absolute (e.g. /notes.txt)")
+        wm_error("editor", "save: path must be absolute (e.g. /notes.txt)")
         gfx.invalidate()
         return
     end
     if path == "/.theme.bak" or path == "/.repl_history" then
-        print("config error: " .. path .. " is read-only (view only)")
+        wm_error("editor", path .. " is read-only (view only)")
         gfx.invalidate()
         return
     end
     local err = editor_write(path, table.concat(ed_lines, "\n"))
     if err then
-        print(err)
+        wm_error("editor", err)
         gfx.invalidate()
         return
     end

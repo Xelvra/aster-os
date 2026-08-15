@@ -300,14 +300,22 @@ stavu neví.
   **read-only** — `editor_load` ho odmítne načíst, prohlíží se jen Spacem ve
   files browseru; ve files browseru se kreslí červeně jako `.theme.bak` (§7a.4).
 
-- **Banner a hlavička:** scrollback začíná skutečným Lua bannerem
-  (`Lua 5.4.8  Copyright (C) 1994-2025 Lua.org, PUC-Rio` — `LUA_COPYRIGHT`
-  v `libs/lua-5.4/src/lua.h`); titulková lišta REPL ukazuje `~ repl  F5 reload`
+- **Banner a hlavička:** scrollback začíná skutečným Lua bannerem, čteným z
+  globálu `_COPYRIGHT` (`LUA_COPYRIGHT` v `libs/lua-5.4/src/lua.h`, kernel ho
+  vystavuje při startu runtime) — verze/copyright se bere přímo z vendored Lua,
+  nikde se neduplikuje; titulková lišta REPL ukazuje `~ repl  F5 reload`
   (§7b, jediné místo se dvěma mezerami).
 
 - UTF-8 helpery (`cp_start`, `cp_end`, `prev_cp`, `next_cp`) — kurzor je byte offset,
   ale edituje se po code pointech, aby se neroztrhl vícebajtový znak.
 - `print(...)` přepisuje globální Lua `print` — píše do scrollbacku místo stdout.
+- **Jednotný chybový kanál `wm_error(source, message)`:** všechny UI moduly
+  (editor, files, theme config, repl) hlásí chyby přes jedinou globální funkci,
+  která do scrollbacku zapíše `"<source>: <message>"` — jeden formát napříč
+  shellem, žádné ad-hoc prefixy. Kernel→shell chyby z frame smyčky
+  (`update`/`render`) se do scrollbacku dostávají přes `on_shell_error` hook
+  (`lua/lua.zig` ho volá před hot reloadem); serial zůstává privilegovaný
+  kernel diagnostický sink.
 - `run(code)` (`repl.lua:67`) — `load(code)` + `pcall(chunk)`; chyby → řádek do
   scrollbacku. Bezpečné: chyba skriptu se nikdy nešíří do kernelu.
 - `repl_render()` — word-wrap po `max_chars` code pointech, scrollback ukazuje

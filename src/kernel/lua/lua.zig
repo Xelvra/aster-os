@@ -96,6 +96,13 @@ fn openLibraries(L: *lua_c.lua_State) void {
         lua_c.lua_pop(L, 1);
     }
     bindings.register(L);
+    // Expose the bundled Lua's own copyright line (LUA_COPYRIGHT from
+    // libs/lua-5.4/src/lua.h) as a Lua global so the shell banner reads the
+    // version straight from the vendored source — no duplicated constant to
+    // keep in sync when Lua is bumped. `_VERSION` alone ("Lua 5.4") lacks
+    // the release and copyright text that stock `lua` prints on startup.
+    _ = lua_c.lua_pushstring(L, lua_c.LUA_COPYRIGHT);
+    lua_c.lua_setglobal(L, "_COPYRIGHT");
 }
 
 const DbgFuncs = [_]lua_c.luaL_Reg{
@@ -219,10 +226,23 @@ fn callGlobalFunction(name: [*:0]const u8) CallResult {
         if (lua_c.lua_isstring(L, -1) != 0) {
             var len: usize = 0;
             const ptr = lua_c.lua_tolstring(L, -1, &len);
+            const msg = ptr[0..len];
+            // Surface the error in the graphical shell (REPL scrollback) when
+            // the shell defines the on_shell_error hook — the desktop has no
+            // terminal, so this is where the user sees it before the shell
+            // hot-reloads. The serial line below stays as the privileged
+            // kernel diagnostic sink.
+            _ = lua_c.lua_getglobal(L, "on_shell_error");
+            if (lua_c.lua_isfunction(L, -1)) {
+                _ = lua_c.lua_pushlstring(L, msg.ptr, msg.len);
+                _ = lua_c.lua_pcallk(L, 1, 0, 0, 0, null);
+            } else {
+                _ = lua_c.lua_pop(L, 1);
+            }
             serial.write("shell: ");
             serial.write(std.mem.span(name));
             serial.writeLine(" failed:");
-            serial.writeLine(ptr[0..len]);
+            serial.writeLine(msg);
         }
         _ = lua_c.lua_pop(L, 1);
         return .err;

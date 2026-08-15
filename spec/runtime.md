@@ -167,7 +167,9 @@ Lua běží vestavěně v jádře (Ring 0) — chyba skriptu **nesmí shodit ker
 - **Chyba v `update()`/`render()` spouští hot reload (M5):** `callUpdate`/`callRender`
   vrací `CallResult` (`ok`/`no_function`/`err`); při `err` event loop automaticky
   znovu načte shell (`runtime.reload()`), aby se desktop zotavil z polorozkresleného
-  stavu. Chybová zpráva Lua se loguje na serial. Ověřeno runtime testem „error
+  stavu. Chybová zpráva Lua se loguje na serial a zároveň se před reloadem ukáže
+  v REPL scrollbacku přes `on_shell_error` hook (`repl.lua`) — desktop nemá terminál,
+  takže uživatel chybu vidí v grafickém shellu. Ověřeno runtime testem „error
   containment".
 
 **Známé omezení (M0–M6, částečně vyřešeno M7):** v M0–M6 běží **jediný `lua_State`**

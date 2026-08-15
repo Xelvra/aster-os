@@ -3,23 +3,45 @@
 -- repaints live, no F5 and no kernel rebuild. A config error is reported in
 -- the REPL and the last valid look stays; the system never crashes.
 --
--- Colors are 0xRRGGBB integers:
---   theme.background  desktop background
---   theme.surface     window body
---   theme.surface_alt active title bar / bar
---   theme.text / theme.text_dim   normal / dim text
---   theme.accent      accent (active border, launcher, selected entry)
---   theme.accent_b / theme.accent_dark   gradient-border end colors
---   theme.inactive    inactive window border
---   theme.wm.*        gaps, border width, title height, window opacity
---   theme.bar.height  taskbar height
---   theme.ws          workspace names
+-- This file is full Lua code, not a data format: you can compute values,
+-- branch on conditions or call shell functions. The `theme` table is the WM's
+-- single visual contract; everything the shell draws reads from it. To change
+-- window behaviour (which windows exist, keybindings, launcher entries) the
+-- WM exposes its Lua API — see the shell modules in this directory.
 --
--- Examples:
---   theme.accent = 0xFF5544          -- accent color
---   theme.wm.border = 4              -- thicker window borders
---   theme.wm.gap_out = 8             -- gap to the screen edge
---   theme.wm.opacity_inactive = 0.7
+-- Colors are 0xRRGGBB integers:
+--   theme.background     desktop background
+--   theme.surface        window body
+--   theme.surface_alt    active title bar / taskbar
+--   theme.text           normal text
+--   theme.text_dim       dim / secondary text
+--   theme.accent         accent (active border, launcher, selected entry)
+--   theme.accent_b       gradient-border start color
+--   theme.accent_dark    gradient-border end color
+--   theme.inactive       inactive window border
+--   theme.red            error color (read-only files)
+--
+-- Geometry (pixels / ratios):
+--   theme.wm.gap_out          gap from the tiling area to the screen edges
+--   theme.wm.gap_in           gap between tiled windows
+--   theme.wm.border           window border width
+--   theme.wm.title_h          title-bar height
+--   theme.wm.opacity_active   active window opacity (0..1)
+--   theme.wm.opacity_inactive inactive window opacity (0..1)
+--   theme.bar.height          taskbar height
+--
+-- Workspaces:
+--   theme.ws = { "1", "2", "3" }   capsule labels; length = workspace count
+--
+-- Examples — edit /theme.lua and press Ctrl+S to apply live:
+--   theme.accent = 0xFF5544             -- warm accent color
+--   theme.wm.border = 4                 -- thicker window borders
+--   theme.wm.gap_out = 8                -- gap to the screen edge
+--   theme.wm.gap_in = 4                 -- gap between tiled windows
+--   theme.wm.opacity_inactive = 0.7     -- dim inactive windows more
+--   theme.ws = { "dev", "web", "chat" } -- named workspaces
+--   theme.ws = { "1", "2", "3", "4" }   -- add a fourth workspace
+--   theme.bar.height = 40               -- taller taskbar
 --
 -- The on-disk copy is /theme.lua (applied at boot, on F5 and after every
 -- editor save). The last valid version is kept in .theme.bak and is used as

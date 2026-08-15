@@ -9,10 +9,12 @@ cursor = cursor or 0
 glyph_w = 8
 glyph_h = 16
 
--- The interactive banner mirrors Lua's own startup line (LUA_COPYRIGHT in
--- libs/lua-5.4/src/lua.h); keep it in sync with the bundled release.
+-- The interactive banner is the bundled Lua's own startup line, exposed by
+-- the kernel as the _COPYRIGHT global (LUA_COPYRIGHT in
+-- libs/lua-5.4/src/lua.h) — no duplicated version string to keep in sync.
+-- _VERSION is the stock fallback if the global is ever absent.
 local function repl_banner()
-    return "Lua 5.4.8  Copyright (C) 1994-2025 Lua.org, PUC-Rio"
+    return _COPYRIGHT or _VERSION or "Lua"
 end
 
 -- UTF-8 helpers for cursor movement and editing: the cursor is a byte
@@ -118,16 +120,31 @@ function print(...)
     add_line(table.concat(parts, "\t"))
 end
 
+-- Unified shell error channel: every UI module reports failures through this
+-- single formatter, so the REPL scrollback always shows "<source>: <message>".
+-- Keeping one entry point guarantees a consistent format as the shell grows.
+function wm_error(source, message)
+    add_line(source .. ": " .. tostring(message))
+    gfx.invalidate()
+end
+
+-- Kernel → shell error hook: called by lua.zig when a frame-loop call
+-- (update/render) fails, before the shell hot-reloads. Surfaces the error in
+-- the REPL scrollback (the desktop has no terminal; the serial line stays as
+-- the privileged kernel diagnostic sink).
+function on_shell_error(message)
+    wm_error("shell", message)
+end
+
 local function run(code)
     local chunk, err = load(code)
     if not chunk then
-        add_line("error: " .. tostring(err))
-        gfx.invalidate()
+        wm_error("repl", err)
         return
     end
     local ok, res = pcall(chunk)
     if not ok then
-        add_line("error: " .. tostring(res))
+        wm_error("repl", res)
     elseif res ~= nil then
         add_line(tostring(res))
     end

@@ -6,7 +6,7 @@
 -- broken /theme.lua is visible after boot and after F5.
 local config_error = apply_disk_theme()
 if config_error then
-    print("theme.lua config error: " .. config_error)
+    wm_error("theme", config_error)
 end
 
 -- Restore the persistent REPL command history (/.repl_history), so Up/Down
