@@ -20,7 +20,6 @@ const min_block_size: usize = @sizeOf(BlockHeader) * 2 + @sizeOf(BlockFooter);
 /// alignments (32/64/4096) would need block splitting that the free-list scan
 /// does not provide — no current consumer requests them (documented guarantee,
 /// audit 2026-08-15).
-
 /// Canary written into every block header. If memory corruption ever turns a
 /// foreign buffer into a "block", checkBlock() fires while it is still being
 /// used — pinpointing the corrupter instead of failing three tests later.
