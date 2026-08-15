@@ -60,16 +60,43 @@ This version tracks the milestone after M6 Storage was completed.
   every change is reverted; Esc Esc closes the editor only when clean.
   Super+Z opens the settings file `/wm/theme.lua`.
 
-* **Unified window headers (§7b):** context and key hints moved into the title
-  bar (`~ repl  F5 reload`, `editor /path | Ctrl+s save*`,
-  `files /path | Esc cancel` — one space label→context, a pipe only
-  context→hint; the REPL header is the only two-space spot), window content
-  starts with the data; the REPL shows the real Lua banner. Super+F1 was
-  dropped (help stays in the launcher), F5 hot reload stays.
+* **Unified window headers (§7b):** the title bar carries only the context
+  (path, dirty marker) on the left and a right-aligned dim `help F1` hint on
+  the right — no inline key hints, so the header stays clean and every window
+  points to the same help popup in the same place; window content starts with
+  the data; the REPL shows the real Lua banner. F5 hot reload stays.
 
 * **Trash directory (`/.trash`):** the image ships an empty `/.trash`
   directory as the future trash location; its files-browser header shows the
   `Ctrl+Delete empty` hint as a placeholder (empty-trash is planned, not wired).
+
+* **F-key duality with Hyprland shortcuts:** F1/F2/F3/F4/F5/F11 reach the same
+  actions as their Super+.../Ctrl+S counterparts a second, familiar way —
+  F1 help, F2 editor save-as, F3 files view (like Space), F4 files edit (like
+  Enter), F5 hot reload, F11 fullscreen (like Super+F/D). F6–F10 and F12 are
+  reserved (Hyprland reserved-slot pattern) and must not be bound without
+  re-evaluation.
+
+* **Contextual help (F1 / Super+F1):** F1 inside a window opens that app's own
+  complete cheat sheet — the file manager lists its listing and view-mode keys
+  as separate sections (including Page Up/Page Down), the editor covers its
+  save-as prompt, the REPL its history/cursor editing. Super+F1 anywhere (or
+  F1 outside a window, or the launcher `help` entry) opens the global WM help
+  (`global help:`), which lists only window-manager functions valid for all
+  windows; every app help ends with a `Super+F1  global help` row so the user
+  can always find the WM sheet (e.g. Super+Q). Popup titles are accent-colored
+  in all modes (`run:`, `scratchpad:`, `global help:`, app names), typed input
+  stays white.
+
+* **Esc Esc as a deliberate deviation from Hyprland:** double-Esc closes the
+  editor (clean buffer only) / exits the file view — a documented guard
+  against accidental closes (Hyprland has no double-Esc convention; windows
+  close via Super+Q).
+
+* **Super+S as a real scratchpad toggle:** the first Super+S opens an app
+  picker (applications only, labelled `scratchpad:`); afterwards Super+S only
+  shows/hides that dedicated window over anything — a fullscreen window or an
+  empty workspace. Not an alias of Super+Space or Super+Alt+Space.
 
 ### Fixed
 
@@ -90,6 +117,16 @@ This version tracks the milestone after M6 Storage was completed.
   six keyboard-modifier globals in `lua/bindings.zig` move to
   `input/service.zig` beside `mouse_state`; the Lua bindings now reach them
   through the KI (`api/input.zig`).
+* **Fullscreen exit on a floating window:** a window (e.g. the scratchpad)
+  entered fullscreen via Super+F/D but stayed fullscreen-sized on exit —
+  `toggle_fullscreen()` now stores the geometry before entering and restores
+  it on exit (floating windows only; tiled ones are repositioned by
+  `layout_pass`). `exit_fullscreen()` is shared by the toggle, workspace
+  switches and window close, so the geometry stays coherent everywhere.
+* **Navigation consistency across workspaces:** moving a window to another
+  workspace (Super+Shift+1/2/3) or switching workspaces while a window is
+  fullscreen now clears fullscreen/scratchpad state deterministically in the
+  input path, not as a render side effect.
 
 ---
 
