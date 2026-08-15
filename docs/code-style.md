@@ -60,9 +60,14 @@ The official project name is **Aster OS** and it follows this convention:
 * **Small modules, single responsibility.** A file does one clearly describable thing. If
   describing a module requires "and", split it.
 * **No singletons.** State is passed explicitly (struct instances), not shared globally.
-* **No global mutable state unless it is hardware-related.** Exceptions: device registries,
-  framebuffer memory, atomic event queues — these are hardware/interrupt-context concerns,
-  not program-level global variables.
+* **No global mutable state unless it is hardware-related.** Exceptions:
+  - device registries, framebuffer memory, atomic event queues — these are
+    hardware/interrupt-context concerns, not program-level global variables;
+  - **bootstrap:** the `kernel_stack` in `main.zig` (a fixed stack is needed
+    before the allocator exists);
+  - **composition-root singletons in the KI modules (`api/*`):** one state per
+    module (e.g. `api/storage.zig` handle table, `api/graphics.zig`), a
+    deliberate registry exception — never a per-feature global.
 * **KISS + YAGNI.** Use the simplest solution that works. Do not add abstractions "for
   future use" — see `spec/non-goals.md`.
 * **DRY with common sense.** Repeated logic should be extracted; two things that will evolve

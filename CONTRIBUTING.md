@@ -46,6 +46,8 @@ zig build test
 ./tools/qemu-smoke.sh
 ./tools/qemu-test.sh
 ./tools/verify-reproducible.sh
+./tools/capture-boot.sh --check
+./tools/sync-docs.sh --check
 ```
 
 A task is done only when all of the above pass and the report includes the

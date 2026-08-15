@@ -43,7 +43,7 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 
 | Milník | Kernel image | RAM (idle) | Kernel Entry → First Frame | Frame latency (p99) | Compile time |
 |--------|-------------:|-----------:|---------------------------:|--------------------:|-------------:|
-| **Cíl** | < 256 KB | < 32 MB | < 50 ms | < 16 ms | TBD |
+| **Cíl** | < 512 KB (s Lua) | < 32 MB | < 50 ms | < 16 ms | TBD |
 | **M0 (měřeno)** | **12.0 KiB** | — | **≈ 0.3 s**¹ | — | TBD |
 | M0 (cíl) | < 64 KB | — | < 10 ms | — | TBD |
 | **M1 (měřeno)** | **17.4 KiB** | — | **≈ 0.4 s**¹ | — | TBD |
@@ -259,7 +259,7 @@ binding marshallingu zelené.
       runtime test „live theme change"; F5 = hot reload = restart shellu dle §5.)
 - [x] Restart shellu nesmí shodit jádro (error containment, `spec/runtime.md` §5;
       runtime test „error containment").
-- [x] Metriky do tabulky (bench 2026-08-08: kernel 366 KiB, Kernel Entry → First Frame
+- [x] Metriky do tabulky (bench 2026-08-08: kernel 371 KiB, Kernel Entry → First Frame
       ≈ 90 ms; render throughput ≈ 3–4 renders / 10 ticks — full-shell render, viz pozn. ³).
 
 > **Optimalizační průchod M5 (pravidlo 5 v §4):** proběhl — renderer throughput měřen
@@ -328,10 +328,11 @@ binding marshallingu zelené.
       (`filetype` = incompat 0x2, `dir_index` = compat 0x20 → reject); boot log
       `[ OK ] fs ext2` + výpis kořenového adresáře. Ověřeno na obraze
       `mke2fs -t ext2 -O ^dir_index` + GPT.
-- [x] **M6.1.4 Tenké Aster OS File API:** `open` / `read` / `close`, opaque reference. **Ne:**
+- [x] **M6.1.4 Tenké Aster OS File API:** `open` / `read` / `close`, backend reference. **Ne:**
       inode čísla, uid/gid, mode bity, ACL, hardlink sémantiku, ext2 metadata. *Exit: runtime
       čte ext2 soubor, aniž ví, že ext2 existuje.* — **hotovo:** `fs/file.zig`
-      (`File.open/read/close`, `fileSize`, `eof`; backend reference opaque), `ext2.readAt`
+      (`File.open/read/close`, `fileSize`, `eof`; backend reference je dnes **ext2-specifická**,
+      `*ext2.Ext2` — ADR-023 ji zatím nedělá opaque, viz ADR-023), `ext2.readAt`
       (čtení od offsetu); boot log `  file <obsah>` z `theme.lua` na disku. Fix: kernel stack
       16 KiB → 64 KiB (16.9 KiB dir-entry buffer přetekl 16 KiB stack).
 - [x] **M6.1.5 Integrace:** persistentní FS vedle initfs (oddělené backendy); deterministické
@@ -424,7 +425,7 @@ se musí vyřešit **před** spuštěním dalších features, ne až na konci st
       se v TCB označí `.blocked` s wake deadline, dobrovolný switch přes
       `sched_sleep_switch`/`sched_sleep_restore`; probouzení na deadline v `pickNext`.
       Ověřeno runtime testem `testBlockingTaskSleep` (úkol se nespouští během spánku).
-- [x] **Per-program `lua_State` / instance** po `spawn` — zamrzlý program (nekonečná
+- [~] **Per-program `lua_State` / instance** po `spawn` — zamrzlý program (nekonečná
       smyčka) už nezamrzne prostředí; preempce + error handler úkolu (spec `runtime.md` §5).
       **Částečné řešení M7 (2026-08-14):** instrukční rozpočet Lua (`LUA_MASKCOUNT`,
       brief Task 7b) — nekonečná smyčka vyvolá error containment/hot reload místo

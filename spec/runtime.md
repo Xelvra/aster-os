@@ -84,6 +84,7 @@ Veškerý přístup z Lua jde přes KI, nikdy přímo do kernel struktur.
 | `runtime` | `runtime.reload()` (restart shellu, M5; `spawn` se neexponuje do M7) |
 | `sysmon` | `sysmon.ram_total_mb()`, `sysmon.ram_free_mb()` |
 | `debug` | `debug.write(str)` (výpis na serial, přidává `\n`) |
+| `storage` | `file.open(path)`, `file.read(h, len)`, `file.write(h, data)`, `file.close(h)`, `file.truncate(h, size)`, `file.dir(path)`, `file.remove(path)`, `file.create(path)`, `file.rename(old, new)` |
 
 **Neexponované KI operace:** `gfx.blit`, `gfx.draw_glyph` (KI ops, `graphics.md` §2) a `timer.sleep_ms`
 (zmrazený sub-op, kooperativní sleep přijde s M7) jsou deklarované, ale **Lua binding zatím nemají** —

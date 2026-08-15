@@ -35,6 +35,7 @@ Všechna veřejná rozhraní žijí v `src/kernel/api/`:
 | `runtime.zig` | Spouštění programů: `spawn`, `RuntimeKind` | `spec/runtime.md` |
 | `sysmon.zig` | Systémové metriky: RAM usage pro shell | tento soubor |
 | `power.zig` | Napájení: reboot (i8042 reset) | kernel-level, M5 |
+| `storage.zig` | Soubory: open/read/write/close/truncate/list/remove/create/rename | `spec/roadmap.md` M7.1, `spec/lua-wm.md` |
 
 > **Střední vrstvy:** API moduly volají existující middle-layer moduly, ne nízké
 > kernel internals přímo — `graphics → renderer`, `runtime → lua`, `timer → time`
@@ -70,6 +71,7 @@ pub const Syscall = enum(u64) {
     Yield   = 5,   // dobrovolné vzdání se časového kvanta (výhledově)
     Sysmon  = 6,   // systémové metriky (RAM usage pro shell, M5)
     Power   = 7,   // reboot (kernel-level, i8042 reset)
+    Storage = 8,   // souborové operace (open/read/write/close/truncate/list/remove/create/rename)
 };
 ```
 
@@ -96,6 +98,8 @@ pub fn dispatch(num: Syscall, args: SyscallArgs) u64 {
         .Runtime  => runtime.dispatch(args),
         .Yield    => @intFromEnum(KiStatus.NotSupported), // scheduler.yield() od M7
         .Sysmon   => sysmon.dispatch(args),
+        .Power    => power.dispatch(args),   // api/power.zig
+        .Storage  => storage.dispatch(args), // api/storage.zig
     };
 }
 ```
@@ -123,6 +127,7 @@ pub const KiStatus = enum(u16) {
     NoMemory        = 4,
     Busy            = 5,
     Timeout         = 6, // výhledově: IPC / pomalá operace nepokrytá v čase
+    IoError         = 7, // blokové I/O selhání (storage)
 };
 ```
 

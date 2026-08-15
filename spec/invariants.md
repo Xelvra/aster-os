@@ -57,9 +57,11 @@ Invarianty proti UB, memory chybám a nedefinovanému chování.
 
 Invarianty proti plýtvání v kritických cestách. Měří se po každém milníku (roadmapa).
 
-- [ ] **Žádná kopie celého framebufferu.** Renderer píše přímo do GOP paměti. Prezentace =
-      přímý zápis. Výjimka: kurzor myši ukládá/obnovuje 12×19 px pod kurzorem
-      (`render/mouse_cursor.zig`) — dílčí save/restore, ne kopie bufferu.
+- [ ] **Jediná kopie celého framebufferu (Phase 2 present).** Renderer píše do back
+      bufferu; `present()` (main.zig) ho jednou za frame zkopíruje do GOP paměti —
+      to je záměrná výjimka z „přímého zápisu" (Phase 2 double buffering, 2026-08-09,
+      `spec/graphics.md` §6). Kurzor myši navíc ukládá/obnovuje 12×19 px pod kurzorem
+      (`render/mouse_cursor.zig`).
 - [ ] **Žádný heap allocation při renderingu.** Renderovací primitiva používají stack /
       statické buffery.
 - [ ] **Žádná dynamická alokace v běžném frame.** Event loop nesmí v `render()` ani v

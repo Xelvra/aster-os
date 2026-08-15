@@ -36,7 +36,8 @@ This version tracks the milestone after M6 Storage was completed.
   allocation), the switch lives in the `cpu/isr.s` asm bridge, and the critical
   section is lock-free thanks to the interrupt gate masking IRQs inside the ISR.
   Runtime test proves real preemption: two tasks spin on atomic counters and both
-  advance. Blocking per-task `sleepMs` from `spec/timer.md` §5 is still open.
+  advance. Blocking per-task `sleepMs` (`spec/timer.md` §5) is implemented and
+  verified by the `testBlockingTaskSleep` runtime test.
 
 * **I/O APIC discovery from ACPI (audit §3.7):** new `cpu/acpi.zig` parses
   RSDP (handed by Limine) → RSDT/XSDT → MADT and reads the I/O APIC address
@@ -163,6 +164,13 @@ This version tracks the milestone after M6 Storage was completed.
   relative-pointer lock, so the mouse reaches every edge of the 800x600
   framebuffer in a window, fullscreen and on every monitor (Ctrl+Alt+G grabs/
   releases; see `spec/troubleshooting.md` C43).
+
+### Removed
+
+* **Session menu and the Lua `power` binding:** the Lock/Logout/Reboot session
+  menu and the `power` KI binding were removed (the WM is intentionally
+  always-live — `spec/runtime.md` §5a; the `power` KI module stays for the
+  kernel reboot path). The M5 changelog entry above is historical.
 
 ---
 

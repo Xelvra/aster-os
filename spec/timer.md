@@ -85,9 +85,9 @@ wait by zastavil celý systém (klávesnice, rendering). Proto:
 ## 4. Event `timer_tick`
 
 - Fronta událostí (`spec/input.md`) nese `timer_tick: u64` — číslo ticku.
-- Lua vidí `time.ticks()` a `time.sleep_ms(ms)` (konvence `spec/runtime.md` §4);
-  sleep se implementuje nad ticks, nikoli přes `timer_tick` eventy (eventy jen pro
-  probuzení, ne pro dotazování).
+- Lua vidí `time.ticks()` (binding `TimeFuncs.ticks`); `sleep_ms` je deklarované,
+  ale **Lua binding zatím neexistuje** (viz `spec/runtime.md` §4) — sleep se
+  implementuje nad ticks, nikoli přes `timer_tick` eventy.
 
 ---
 

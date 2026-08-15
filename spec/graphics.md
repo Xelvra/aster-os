@@ -53,6 +53,8 @@ Veřejná operace (čísla sub-op jsou rozšiřitelná, zmrazená):
 | 7 | `roundRect` | `(x, y, w, h, radius, color)` | zaoblené rohy (M5, kaple v taskbaru) |
 | 8 | `rectBorder` | `(x, y, w, h, thickness, color)` | ohraničení obdélníku (M5) |
 | 9 | `gradientBorder` | `(x, y, w, h, thickness, colorA, colorB)` | lineární interpolace po obvodu (M5, aktivní okno) |
+| 10 | `width` | `()` | šířka framebufferu v pixelech |
+| 11 | `height` | `()` | výška framebufferu v pixelech |
 
 **Typ barvy (rozhodnuto, V1):** `Color = u32`, reprezentace **`0xRRGGBB`** (horní byte 0).
 Stejná reprezentace ve všech vrstvách (Lua → KI → Graphics API → Renderer → Framebuffer)

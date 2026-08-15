@@ -1,7 +1,7 @@
 # Aster OS — Architektonický přehled
 
 **Verze:** 1.1 (draft)
-**Status:** Current design — Schváleno k implementaci (Milníky M0–M6)
+**Status:** Current design — Schváleno k implementaci (Milníky M0–M6; M7 Runtime rozpracovaný)
 
 > Tento dokument je **hlavním architektonickým přehledem** projektu. Zachycuje aktuální
 > návrh a jeho rozhodnutí. Slouží jako referenční bod pro konzultaci návrhu architektury a
@@ -40,7 +40,7 @@ a vyžádal by si vlastní změnu rozsahu (`spec/non-goals.md`).
 | Velikost kernel image | < 512 KB (s Lua; viz `roadmap.md` §2) |
 | Kernel Entry → First Frame (z Limine handoff) | < 40 ms (cíl M4/M5; v QEMU TCG měřeno ≈ 90 ms — viz `roadmap.md` pozn. ³) |
 | GUI paměť (idle) | < 32 MB RAM |
-| UI kreslení | 0 syscallů, 0 kopií framebufferu *(platí pro fázi Ring 0; od Ring 3 — M8+ — se přidávají ring přechody, viz `roadmap.md`; výjimka: kurzor myši ukládá/obnovuje 12×19 px pod kurzorem)* |
+| UI kreslení | 0 syscallů, 1 kopie framebufferu za frame *(Phase 2 present, `main.zig`; kurzor myši navíc ukládá/obnovuje 12×19 px. Platí pro fázi Ring 0; od Ring 3 — M8+ — se přidávají ring přechody, viz `roadmap.md`)* |
 | Kompilace | reprodukovatelná (viz `spec/verification.md`) |
 
 > Konkrétní hodnoty per milník jsou v `spec/roadmap.md` jako rozsahy a cíle, ne falešně

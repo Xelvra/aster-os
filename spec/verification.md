@@ -189,7 +189,7 @@ Klon se dělá z pracovní kopie na disku, ne přes síť — testuje se, že re
 |---|---|
 | `zig fmt --check .` | ✅ OK |
 | `zig build` | ✅ OK |
-| `zig build test` | ✅ 123/123 |
+| `zig build test` | ✅ 132/132 |
 | `./tools/qemu-smoke.sh` | ✅ PASS |
 | `./tools/capture-boot.sh --check` | ✅ OK |
 | `./tools/sync-docs.sh --check` | ✅ OK |

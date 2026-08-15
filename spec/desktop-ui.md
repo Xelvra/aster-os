@@ -89,14 +89,17 @@ Noctalia bar, 35 px, plné šířky. Zleva:
 - **Launcher tlačítko** (štítek akcentu `>`) — ✅, klik otevře launcher.
 - **Hodiny** `HH:MM` — ✅ (živě z `time.ticks()`).
 - **Workspace štítky 1–3** — ✅ (aktivní = akcent, klik přepne).
-- **Mediální widget** (přehrává se?) — ⏳ (žádné audio v kernelu; placeholder "—").
-- **Sysmon widget** (CPU/RAM v kapli) — 🔶 (RAM ano; CPU ⏳, viz §4.8).
+- **Active window štítek** — ✅ (uprostřed; fokusované okno).
+- **Help F1** — ✅ (vpravo; klik otevře kontextový help jako F1).
+- **Mediální widget** (přehrává se?) — ⏳ (žádné audio v kernelu; není).
+- **Sysmon widget** (CPU/RAM v kapli) — ⏳ (není; RAM žije v okně sysmonu, viz §4.8).
 - **Tray / Notifications** — ⏳ (placeholder ikona).
 - **Network** — ⏳ (žádná síť; placeholder "Net —").
-- **Volume** — ⏳ (žádné audio; placeholder "Vol —").
+- **Volume** — ⏳ (žádné audio; placeholder byl odstraněn).
 - **Session** — ⏳ (záměrně: UI power management neexistuje — always-live design, viz `spec/lua-wm.md` §1; restart/vypnutí je kernel-level akce, ne UI feature).
 
-Pravá část baru je dnes placeholder, ale **má správné rozložení** (widgety zprava).
+Pravá část baru nese jen `Help F1`; další widgety se přidávají od pravého okraje.
+Jinak má bar správné rozložení.
 
 > **Pojmenování:** workspace prvky v baru se v kódu jmenují `ws_capsules` (`wm.lua`) —
 > pojmenovací konvence z Noctalia, ne popis tvaru; vizuálně jde o **obyčejné

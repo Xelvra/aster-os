@@ -23,7 +23,7 @@ This is a solo hobby project; there is no security team and no SLA.
 
 - **Response:** best effort, typically within days — not hours.
 - **Fixes:** in a regular commit (there is no release cadence; the current
-  version is `0.6.0-alpha.1`, tracked in `.version`).
+  version is `0.7.0-alpha.1`, tracked in `.version`).
 
 ## Out of scope
 
