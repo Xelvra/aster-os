@@ -188,10 +188,15 @@ kód si nesmí pointer uložit přes hranici volání. Příklady, které se na 
 
 **Validace (na hranici KI, `api/validate.zig`):** KI garantuje **nenulovost** a
 **zarovnání** podle `@alignOf(T)` pro každý pointer přicházející přes `dispatch`.
-Neplatný pointer → `KiStatus.InvalidArgument`, ne pád ani UB. KI **negarantuje**,
-že paměť skutečně patří volajícímu — to vyžaduje per-task memory-region tracking,
-který SASOS dnes nemá (`spec/non-goals.md`); přidává se až s per-task izolací,
-ne před ní (YAGNI).
+Neplatný pointer → `KiStatus.InvalidArgument`, ne pád ani UB. Toto je **záměrně
+minimální politika (YAGNI)**: jediný dnešní volající KI je důvěryhodný Lua binding
+(`spec/runtime.md`), ne nedůvěryhodný vstup, takže plná kontrola „patří paměť
+volajícímu?" by byla mrtvý kód. KI proto **negarantuje**, že paměť skutečně patří
+volajícímu — to vyžaduje per-task memory-region tracking, který SASOS dnes nemá
+(`spec/non-goals.md`); přidává se až s per-task izolací, ne před ní (YAGNI).
+**Politika přestává platit, jakmile KI obslouží nedůvěryhodného volajícího** (cizí
+Wasm/WASI, síťový parser, M9+): tehdy se validace rozšíří na per-modul whitelist
+rozsahů a per-task memory-region tracking s per-task izolací — ne dřív.
 
 **Návratové kódy:** úspěch = `Success` (0), selhání = konkrétní `KiStatus`
 (§3.3). Modul `storage` navíc balí status do horních 32 bitů návratové `u64`
