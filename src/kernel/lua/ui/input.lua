@@ -274,12 +274,14 @@ local function handle_key(ev)
             -- Real scratchpad (Hyprland convention): Super+S toggles a
             -- dedicated window over anything — a fullscreen window or an empty
             -- workspace. The first Super+S picks which application becomes the
-            -- scratchpad (launcher run mode, scratchpad_picking set); afterwards
-            -- Super+S only shows/hides that window. This is a stateful toggle,
-            -- not an alias of Super+Space (launcher) or Super+Alt+Space (float).
+            -- scratchpad; afterwards Super+S only shows/hides that window.
+            -- This is a stateful toggle, not an alias of Super+Space
+            -- (launcher) or Super+Alt+Space (float).
             if not scratchpad_app then
-                scratchpad_picking = true
-                launcher_open_mode("run")
+                -- Pick which application becomes the scratchpad: the launcher
+                -- opens in scratchpad mode (applications only, labelled
+                -- "scratchpad:"), not in run mode (which also lists actions).
+                launcher_open_mode("scratchpad")
             elseif scratchpad_open then
                 -- Hide: park the window off-screen (workspace 0 is never shown).
                 local w = find_win(scratchpad_app)

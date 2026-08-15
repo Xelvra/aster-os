@@ -63,12 +63,15 @@ local function launcher_filtered()
         end
     end
     add(apps)
-    add(actions)
+    -- The scratchpad picker offers applications only — window actions
+    -- (help/fullscreen/close) are not windows, so they cannot be scratchpads.
+    if launcher_mode ~= "scratchpad" then add(actions) end
     return out
 end
 
--- Open the launcher in a given mode: "run" (app list) or "help" (shortcut
--- cheat sheet). Called from Super+Space and the bar chevron.
+-- Open the launcher in a given mode: "run" (apps + actions), "scratchpad"
+-- (apps only, labels itself "scratchpad:") or "help" (shortcut cheat sheet).
+-- Called from Super+Space (run), Super+S (scratchpad) and the bar chevron.
 local function launcher_open_mode(mode)
     launcher_open = true
     launcher_mode = mode
@@ -111,8 +114,10 @@ local function launcher_render()
     local ly = theme.bar.height + 8 + math.max(math.floor((SH - theme.bar.height - 8 - lh) / 2), 0)
     gfx.draw_rect(lx, ly, lw, lh, theme.surface)
     gfx.rect_border(lx, ly, lw, lh, 1, theme.accent)
-    -- Search box.
-    gfx.draw_text("run: " .. launcher_input, lx + 8, ly + 8, theme.text)
+    -- Search box. The scratchpad picker labels itself "scratchpad:" (it offers
+    -- only applications), the run launcher "run:" (applications + actions).
+    local prompt = (launcher_mode == "scratchpad") and "scratchpad: " or "run: "
+    gfx.draw_text(prompt .. launcher_input, lx + 8, ly + 8, theme.text)
     local ty = ly + 30
     for i, a in ipairs(items) do
         local sel = (i == launcher_sel)
@@ -185,11 +190,11 @@ local function launcher_run(id)
     elseif id == "close" then
         if find_win(focused) then close_window(focused) end
     end
-    -- The first Super+S asked the launcher to pick the scratchpad app: the
-    -- chosen window becomes the scratchpad (shown centered, floating, on top).
-    if scratchpad_picking and app_win then
+    -- Super+S opened the scratchpad picker: the chosen application window
+    -- becomes the scratchpad (shown centered, floating, on top). Actions are
+    -- not offered in this mode, so app_win is always set here.
+    if launcher_mode == "scratchpad" and app_win then
         scratchpad_app = app_win.title
-        scratchpad_picking = false
         app_win.floating = true
         app_win.w = math.floor(SW * 0.6)
         app_win.h = math.floor((SH - theme.bar.height) * 0.6)

@@ -18,12 +18,11 @@ local fullscreen_win = nil    -- title of a fullscreen window, if any
 local z_counter = 0
 -- Real scratchpad state: Super+S toggles a dedicated window over anything
 -- (a fullscreen window or an empty workspace). The first Super+S picks which
--- application becomes the scratchpad (via the launcher); afterwards Super+S
--- only shows/hides that window — a stateful toggle, not an alias of another
--- keybinding. Parked on workspace 0 when hidden.
+-- application becomes the scratchpad (launcher scratchpad mode — applications
+-- only); afterwards Super+S only shows/hides that window — a stateful toggle,
+-- not an alias of another keybinding. Parked on workspace 0 when hidden.
 scratchpad_app = scratchpad_app or nil
 scratchpad_open = scratchpad_open or false
-scratchpad_picking = scratchpad_picking or false
 
 -- Per-window header text drawn after the title (separated by two spaces, the
 -- §7b convention): the app sets context and key hints so every window shows

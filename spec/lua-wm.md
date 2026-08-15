@@ -359,8 +359,9 @@ stavu neví.
   (přes `help` položku) kreslí širší popup s přehledem zkratek:
   **aktivní** zkratky normální barvou, **rezervované** (neaktivované, §7a) šedivě —
   vizuálně oddělené, ale viditelné jako cíl. Esc v help módu launcher zavře.
-- `launcher_open_mode(mode)` — otevře launcher v módu `"run"` (Super+Space, chevron)
-  nebo `"help"` (help položka).
+- `launcher_open_mode(mode)` — otevře launcher v módu `"run"` (Super+Space,
+  chevron; aplikace + akce), `"scratchpad"` (Super+S; jen aplikace, prompt
+  `scratchpad:`) nebo `"help"` (help položka).
 - `launcher_run(id)` — mapuje id na akci: zobrazení/zaostření okna (`repl`, `sysmon`,
   `files`), help, přepínání fullscreen, zavírání. Okna se **znovu používají**, ne
   duplikují (`find_win` → přesun na aktuální ws, nebo vytvoření); `repl`/`sysmon`/
@@ -593,15 +594,18 @@ okno, které bylo zavřeno (Super+Q), a přesune ho na aktuální workspace.
   workspace (vynuluje floating → tiled), přepne `current_ws` na cíl a zaostří
   okno. Okno se tím přesune „s tebou" mezi workspace.
 - **Super+S — scratchpad.** **Stavový toggle vyhrazené aplikace**, ne alias
-  jiné zkratky. **První** Super+S otevře launcher a vybereš, která aplikace
-  se stane scratchpadem (repl/sysmon/files/editor — vybrané okno se zobrazí
-  vycentrované, floating). **Další** Super+S jen **show/hide** to okno přes
-  **cokoli** — fullscreen i prázdný workspace (vždy se kreslí na vrchu).
-  Skryté okno se parkuje na ws 0 (nikdy se nezobrazuje); ukázané se vrátí na
-  aktuální ws, vycentrované, floating. Zavření scratchpad okna (Super+Q)
-  **resetuje výběr** — příští Super+S vybere novou app. Liší se od Super+Space
-  (launcher otevře a nechá app tiled), Super+Alt+Space (float toggle
-  fokusovaného okna) a Super+F/D (fullscreen).
+  jiné zkratky. **První** Super+S otevře launcher v módu **`scratchpad:`**
+  (nabízí **jen aplikace** — repl/sysmon/files/editor; okenní akce jako help,
+  toggle fullscreen nebo close se **neukazují**, protože nejsou okna, takže je
+  nelze scratchpadovat) a vybereš, která aplikace se stane scratchpadem
+  (vybrané okno se zobrazí vycentrované, floating). **Další** Super+S jen
+  **show/hide** to okno přes **cokoli** — fullscreen i prázdný workspace
+  (vždy se kreslí na vrchu). Skryté okno se parkuje na ws 0 (nikdy se
+  nezobrazuje); ukázané se vrátí na aktuální ws, vycentrované, floating.
+  Zavření scratchpad okna (Super+Q) **resetuje výběr** — příští Super+S vybere
+  novou app. Liší se od Super+Space (launcher `run:` otevře a nechá app tiled,
+  nabízí i akce), Super+Alt+Space (float toggle fokusovaného okna) a Super+F/D
+  (fullscreen).
 - **Alt+Tab — cyklus oken.** Cykluje focus přes **všechna** okna aktuálního
   workspace (tiled i floating) v pořadí `windows` listu, s wrapem.
 - **F5 — hot reload.** Kernel zavře a znovu vytvoří `lua_State`, znovu načte
@@ -1033,7 +1037,7 @@ Viz také `spec/invariants.md` (Safety / Performance / Architecture) a
 | D5 | Vzhled jako data (`theme`), hot reload F5 | config formát, recompile | „živá transformace", kernel se nikdy nepřestavuje (`spec/runtime.md` §5a) |
 | D6 | Myš jako stav (poll), klávesy jako eventy | myš jako eventy, klávesy jako stav | overlay potřebuje hladký pohyb bez Lua round-tripu; klávesy jsou řídké, eventy stačí (`spec/input.md` §6) |
 | D7 | Složené argumenty pointerem (extern struct) | kopie, marshalling do registry | žádná kopie velkých struktur; wire formát KI (§10) |
-| D8 | Skutečný scratchpad (toggle vyhrazené app) | Super+S = launcher / Super+S = float toggle | scratchpad = **stavový toggle**: první Super+S vybere app (launcher), další Super+S jen show/hide to okno přes cokoli (i fullscreen/prázdný ws). Není alias Super+Space (launcher) ani Super+Alt+Space (float) — každá zkratka dělá jinou věc. |
+| D8 | Skutečný scratchpad (toggle vyhrazené app) | Super+S = launcher / Super+S = float toggle | scratchpad = **stavový toggle**: první Super+S otevře launcher v módu `scratchpad:` (jen aplikace, žádné akce), další Super+S jen show/hide to okno přes cokoli (i fullscreen/prázdný ws). Není alias Super+Space (`run:`, aplikace + akce) ani Super+Alt+Space (float) — každá zkratka dělá jinou věc. |
 | D9 | Bindingy vracejí `nil, err` místo panic | pcall + log, ignore | marshalling je bezpečnostní hranice; kernel nesmí shodit skript |
 | D10 | REPL stav v globálu přeživším reload | stav v userdata kernelu | uživatelské data nepřežívají `lua_State` (invariant use-after-free); globál je čistě Lua doména |
 
