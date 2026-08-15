@@ -67,8 +67,7 @@ This version tracks the milestone after M6 Storage was completed.
   the data; the REPL shows the real Lua banner. F5 hot reload stays.
 
 * **Trash directory (`/.trash`):** the image ships an empty `/.trash`
-  directory as the future trash location; its files-browser header shows the
-  `Ctrl+Delete empty` hint as a placeholder (empty-trash is planned, not wired).
+  directory as the future trash location (empty-trash is planned, not wired).
 
 * **F-key duality with Hyprland shortcuts:** F1/F2/F3/F4/F5/F11 reach the same
   actions as their Super+.../Ctrl+S counterparts a second, familiar way —

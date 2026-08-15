@@ -518,27 +518,27 @@ Vše v `handle_key` (`input.lua:118`). Super = `ev.super` (Hyprland konvence).
 
 | Kombinace | Akce | Místo |
 |---|---|---|
-| Super+Enter | zobraz + zaostřit REPL | `input.lua:183` |
-| Super+T | editor (prázdný buffer) | `input.lua` |
-| Super+Z | settings (`/wm/theme.lua` v editoru) | `input.lua` |
-| Super+E | file manager (otevře files v kořenu) | `input.lua` |
-| Super+Q | zavřít fokusované okno | `input.lua:187` |
-| Super+Space | launcher toggle | `input.lua:211` |
-| Super+Alt+Space | float toggle (centrovat) | `input.lua:195` |
-| Super+F / Super+D | fullscreen toggle | `input.lua:217` |
-| Super+J | togglesplit (splih↔splitv) | `input.lua:224` |
-| Super+šipky | focus ve směru (wrap) | `input.lua:279` |
-| Super+Shift+šipky | swap s okolím v tiling pořadí | `input.lua:253` |
-| Super+1/2/3 | přepnout workspace | `input.lua:174` |
-| Super+Shift+1/2/3 | přesunout okno na workspace | `input.lua:247` |
-| Super+S | scratchpad (toggle vyhrazené app) | `input.lua:227` |
-| Alt+Tab | cyklovat okna workspace | `input.lua:298` |
-| F1 | help — kontextové (v okně) / globální (mimo okno) | `input.lua` |
-| F2 | editor: save as | `input.lua` |
-| F3 | files: view vybraný soubor (jako Space) | `input.lua` |
-| F4 | files: edit vybraný soubor | `input.lua` |
+| Super+Enter | zobraz + zaostřit REPL | `input.lua:242` |
+| Super+T | editor (prázdný buffer) | `input.lua:265` |
+| Super+Z | settings (`/wm/theme.lua` v editoru) | `input.lua:278` |
+| Super+E | file manager (otevře files v kořenu) | `input.lua:289` |
+| Super+Q | zavřít fokusované okno | `input.lua:298` |
+| Super+Space | launcher toggle | `input.lua:300` |
+| Super+Alt+Space | float toggle (centrovat) | `input.lua:302` |
+| Super+F / Super+D | fullscreen toggle | `input.lua:318` |
+| Super+J | togglesplit (splih↔splitv) | `input.lua:321` |
+| Super+šipky | focus ve směru (wrap) | `input.lua:412` |
+| Super+Shift+šipky | swap s okolím v tiling pořadí | `input.lua:385` |
+| Super+1/2/3 | přepnout workspace | `input.lua:236` |
+| Super+Shift+1/2/3 | přesunout okno na workspace | `input.lua:368` |
+| Super+S | scratchpad (toggle vyhrazené app) | `input.lua:324` |
+| Alt+Tab | cyklovat okna workspace | `input.lua:434` |
+| F1 / Super+F1 | help — F1 kontextové (v okně) / Super+F1 globální WM help | `input.lua:206` |
+| F2 | editor: save as | `input.lua:225` |
+| F3 | files: view vybraný soubor (jako Space) | `input.lua:221` |
+| F4 | files: edit vybraný soubor | `input.lua:228` |
 | F5 | hot reload (kernel, `main.zig:378`) | — |
-| F11 | fullscreen (jako Super+F/D) | `input.lua` |
+| F11 | fullscreen (jako Super+F/D) | `input.lua:217` |
 | F6–F10, F12 | **rezervované** (neobsazovat bez přehodnocení) | — |
 
 > **F-klávesy = designová dualita s Hyprland zkratkami** (viz `spec/desktop-ui.md` §5):
@@ -791,8 +791,8 @@ Navigační konvence:
   (`ed_saved`), takže Ctrl+S se nabízí jen pro skutečně jiný obsah.
   **Esc Esc** (jen u čistého bufferu bez neuložených změn) zavře editor jako
   prohlížení; s neuloženými změnami je Esc blokován, takže se změny nemůžou
-  ztratit. Hlavička ukazuje cestu + **`| help F1`** (klávesové hinty jsou
-  v help popupu); dirty marker **`*`** za cestou značí neuložené změny.
+  ztratit. Hlavička ukazuje cestu + vpravo zarovnané **`help F1`** (klávesové
+  hinty jsou v help popupu); dirty marker **`*`** za cestou značí neuložené změny.
   Konfigurace (`/wm/theme.lua`) se
   otevírá přes **Super+Z** (settings);
   uložení configu spouští auto-reload (`spec/runtime.md` §5a, trigger 2).
@@ -806,8 +806,8 @@ Navigační konvence:
   červené) se otevírají **jen Space náhledem** — Enter ani klik u nich editor
   nespouští (uložit se stejně nedají). Cesta je v **titulkové liště** okna (root = `/`);
   **klik na titulkovou lištu** jde o úroveň výš / ven z náhledu (lišta =
-  ukazatel cesty). Hlavička ukazuje cestu + **`| help F1`** (klávesové hinty
-  jsou v help popupu; i v rootu ukazuje help F1). Konvence je „Enter otevře,
+  ukazatel cesty). Hlavička ukazuje cestu + vpravo zarovnané **`help F1`**
+  (klávesové hinty jsou v help popupu; i v rootu ukazuje help F1). Konvence je „Enter otevře,
   Space prohlíží, Delete maže, klik na cestu jde nahoru" — v duchu Hyprland
   (Enter = otevřít soubor v příslušné aplikaci), ne Midnight Commander (F3/F4).
   Z náhledu se vystupuje **Esc Esc** (jednou = zpět, podruhé = z náhledu ven) —
@@ -816,8 +816,8 @@ Navigační konvence:
 - **Koš (`/.trash`):** smazání souborů je zatím **trvalé** (`file.remove` →
   ext2 `unlink`; do `lost+found` nic nejde — to je jen prostor pro `fsck`
   po havárii). Adresář `/.trash` existuje v image jako cíl budoucího koše;
-  hlavička v koši ukazuje **`| Esc up | Ctrl+Delete empty`** — empty kombinace
-  zatím není propojená. Vymazání obsahu koše je plánované
+  jeho hlavička ukazuje jen cestu + `help F1` jako každé jiné files okno
+  (empty-trash kombinace není propojená). Vymazání obsahu koše je plánované
   (`roadmap.md`): buď ext2 `rename`/`link` (přesun místo mazání), nebo
   iterace `file.remove` nad obsahem.
 

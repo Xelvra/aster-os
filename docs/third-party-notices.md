@@ -3,7 +3,7 @@ layout: default
 title: third-party-notices
 nav_order: 3
 source: THIRD-PARTY-NOTICES.md
-synced: 2026-08-11
+synced: 2026-08-15
 ---
 
 
@@ -165,4 +165,4 @@ the MIT license of the Aster OS project (`LICENSE`).*
 
 ---
 
-Last synced from [`THIRD-PARTY-NOTICES.md`](https://github.com/Xelvra/aster-os/blob/main/THIRD-PARTY-NOTICES.md) on **2026-08-11**.
+Last synced from [`THIRD-PARTY-NOTICES.md`](https://github.com/Xelvra/aster-os/blob/main/THIRD-PARTY-NOTICES.md) on **2026-08-15**.

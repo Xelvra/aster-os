@@ -480,13 +480,12 @@ triggerů / nových ADR.
       nový prázdný, dirty se zachová), Ctrl+S u nového bufferu vyvolá
       „save as:" (nový soubor se vytvoří `file.create`); **Super+Z** otevírá settings
       (`/wm/theme.lua`). **Esc Esc** v editoru zavře okno jako prohlížení, jen pokud
-      nejsou neuložené změny (jinak blokováno). **Jednotné hlavičky oken:** kontext a
-      klávesové hinty jsou v titulkové liště (`~ repl  F5 reload`,
-      `editor /wm/theme.lua | Ctrl+s save*`,
-      `files /cesta | Esc cancel` — `spec/lua-wm.md` §7b: název→kontext
-      jedna mezera, pipe jen kontext→hint), obsah začíná rovnou daty;
-      REPL ukazuje Lua banner (`LUA_COPYRIGHT`). **Super+F1** odstraněn (help zůstává
-      v launcheru), F5 hot reload zachován.
+      nejsou neuložené změny (jinak blokováno). **Jednotné hlavičky oken:** kontext
+      (cesta, dirty marker) vlevo, vpravo zarovnané dim `help F1` — žádné klávesové
+      hinty v hlavičce (`spec/lua-wm.md` §7b), obsah začíná rovnou daty;
+      REPL ukazuje Lua banner (`LUA_COPYRIGHT`). **F1 v okně aplikace = kontextový
+      help té aplikace; Super+F1 kdekoli = globální WM help** (viz `spec/lua-wm.md`
+      §7.1), F5 hot reload zachován.
 - [ ] **Toggle skrytých souborů ve files browseru** — zobrazit/skrýt dotfiles (dnes se
       kreslí šedivě, vždy viditelné).
 - [ ] **Koš (`/.trash`)** — smazání je dnes trvalé (`file.remove`); cílová funkce:

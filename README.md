@@ -90,10 +90,11 @@ repaints the shell live; **Super+E** opens the file browser at the root
 title bar goes up a level; hidden
 dotfiles are shown dim, read-only files like the `/wm/.theme.bak` config backup
 in red). Deletion
-is permanent for now — `/.trash` exists as the future trash location (its
-header shows an empty-trash hint that is not wired up yet).
+is permanent for now — `/.trash` exists as the future trash location
+(empty-trash is planned, not wired yet).
 **Super+Space** opens the launcher, whose `help` entry lists every shortcut;
-Alt+Tab cycles windows. The WM follows
+**F1** inside a window shows that app's own cheat sheet and **Super+F1**
+(anywhere) shows the global WM help; Alt+Tab cycles windows. The WM follows
 **Hyprland conventions strictly** — shortcuts, buttons and navigation behave
 the same as in Hyprland (`spec/desktop-ui.md` §5).
 
