@@ -18,7 +18,7 @@ repl_load_history()
 -- A string entry is a section heading (e.g. view mode of the file manager).
 register_app_help("files", {
     "listing",
-    { "Up / Down", "select entry" },
+    { "Arrow up / down", "select entry" },
     { "Enter / F4", "edit file" },
     { "Space / F3", "view file" },
     { "Delete", "remove file" },
@@ -26,17 +26,16 @@ register_app_help("files", {
     { "click entry", "open (dir enter / file edit)" },
     { "click header", "up a level" },
     "view mode",
-    { "Up / Down", "move row" },
-    { "Left / Right", "move column" },
+    { "Arrow up / down", "move row" },
+    { "Arrow left / right", "move column" },
     { "Home / End", "line start / end" },
-    { "PageUp / PageDown", "page scroll" },
+    { "Page Up / Page Down", "page scroll" },
     { "Space / Enter", "exit view" },
     { "Esc Esc", "exit view" },
 })
 register_app_help("editor", {
     { "Ctrl+S", "save" },
     { "F2", "save as" },
-    { "F5", "hot reload" },
     { "Esc Esc", "close editor" },
     { "Esc", "confirm close (clean buffer)" },
     "save-as prompt",
@@ -45,8 +44,8 @@ register_app_help("editor", {
 })
 register_app_help("repl", {
     { "Enter", "run code" },
-    { "Up / Down", "command history" },
-    { "Left / Right", "move cursor" },
+    { "Arrow up / down", "command history" },
+    { "Arrow left / right", "move cursor" },
     { "Home / End", "line start / end" },
     { "Backspace / Delete", "delete char" },
 })
