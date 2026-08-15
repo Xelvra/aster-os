@@ -23,17 +23,18 @@ local launcher_sel = 1
 local launcher_mode = "run" -- "run" (app list) or "help" (keybinding cheat sheet)
 local mouse_was_down = false
 
--- Keybinding cheat sheet (help popup). Each entry: { key, description, alt }.
--- `alt` is optional and drawn as white text right after the grey description —
--- a familiar F-key that reaches the same action a second way (F2 = save as in
--- the editor, F4 = edit in the files browser). Reserved shortcuts are NOT
--- listed here: they live in the spec tables (spec/lua-wm.md §7/§7a) so the
--- popup stays short and readable.
+-- Global WM cheat sheet (help popup outside a window). Only window-manager
+-- functions that apply to all windows belong here; per-application keys
+-- (editing, viewing, files navigation, save-as, ...) live in the focused
+-- window's own help (register_app_help). Each entry: { key, description, alt }
+-- where `alt` is optional and drawn as white text after the grey description
+-- (an F-key duality, e.g. F11 for fullscreen). Reserved shortcuts are NOT
+-- listed here: they live in the spec tables (spec/lua-wm.md §7/§7a).
 local shortcuts_active = {
     { "Super+Enter", "terminal (REPL)" },
-    { "Super+T", "editor · Ctrl+S", "F2 save as" },
-    { "Super+Z", "settings" },
-    { "Super+E", "file manager", "F3 view · F4 edit" },
+    { "Super+T", "editor" },
+    { "Super+Z", "settings (/wm/theme.lua)" },
+    { "Super+E", "file manager" },
     { "Super+Q", "close window" },
     { "Super+Space", "launcher" },
     { "Super+Alt+Space", "float toggle" },
@@ -45,10 +46,10 @@ local shortcuts_active = {
     { "Super+Shift+1/2/3", "move window to ws" },
     { "Super+S", "scratchpad (toggle app)" },
     { "Alt+Tab", "cycle windows" },
-    { "Esc", "files: up a level" },
-    { "Esc Esc", "close editor / exit view" },
-    { "F1", "help" },
+    { "F1", "this help" },
     { "F5", "hot reload" },
+    { "click header", "drag floating window" },
+    { "click capsule", "switch workspace" },
 }
 
 local function launcher_filtered()
@@ -108,7 +109,15 @@ local function launcher_render()
         local items = launcher_help_app and app_help[launcher_help_app] or shortcuts_active
         local title = launcher_help_app or "help"
         local row_h = 18
-        local lw, lh = 460, 40 + (#items + 2) * row_h
+        -- Column width: descriptions are left-aligned at a fixed gutter, so
+        -- the popup must be wide enough for the longest entry either column.
+        local desc_x = 200
+        local lw = 460
+        for _, s in ipairs(items) do
+            local d = s[2] or ""
+            if #d * 8 + desc_x > lw then lw = #d * 8 + desc_x + 12 end
+        end
+        local lh = 40 + (#items + 2) * row_h
         local lx = math.floor((SW - lw) / 2)
         local ly = theme.bar.height + 8 + math.max(math.floor((SH - theme.bar.height - 8 - lh) / 2), 0)
         gfx.draw_rect(lx, ly, lw, lh, theme.surface)
@@ -118,15 +127,22 @@ local function launcher_render()
         gfx.draw_text(title .. ": ", lx + 8, ly + 8, theme.text)
         local ty = ly + 30
         for _, s in ipairs(items) do
-            gfx.draw_text(s[1], lx + 12, ty, theme.text)
-            local desc_x = lx + 200
-            gfx.draw_text(s[2], desc_x, ty, theme.text_dim)
-            -- An F-key that reaches the same action a second way (design
-            -- duality) is drawn white right after the grey description.
-            if s[3] then
-                gfx.draw_text("  " .. s[3], desc_x + s[2]:len() * 8, ty, theme.text)
+            -- A string entry is a section heading (e.g. "view mode" of the
+            -- file manager), drawn as a subheading between the rows.
+            if type(s) == "string" then
+                gfx.draw_text(s, lx + 12, ty, theme.accent)
+                ty = ty + row_h
+            else
+                gfx.draw_text(s[1], lx + 12, ty, theme.text)
+                local desc_x = lx + 200
+                gfx.draw_text(s[2], desc_x, ty, theme.text_dim)
+                -- An F-key that reaches the same action a second way (design
+                -- duality) is drawn white right after the grey description.
+                if s[3] then
+                    gfx.draw_text("  " .. s[3], desc_x + s[2]:len() * 8, ty, theme.text)
+                end
+                ty = ty + row_h
             end
-            ty = ty + row_h
         end
         return
     end

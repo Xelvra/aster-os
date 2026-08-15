@@ -357,8 +357,11 @@ stavu neví.
 - `launcher_filtered()` — jednoduché substring filtrování (case-insensitive).
 - `launcher_render()` — centrovany popup 320 px: vyhledávací pole + list; **help mód**
   kreslí širší popup s přehledem zkratek. **F1 v okně aplikace** ukáže
-  **kontextový help té aplikace** (files/editor/repl — `register_app_help`);
-  **mimo okno / launcher `help` položka** ukáže **globální WM help**. Formát:
+  **kontextový help té aplikace** (files/editor/repl — `register_app_help`):
+  **kompletní** ovládání daného okna, módy oddělené nadpisy (např. `listing`
+  / `view mode` u files, `save-as prompt` u editoru). **Mimo okno / launcher
+  `help` položka** ukáže **globální WM help** — jen WM funkce platné pro
+  všechna okna; per-app zkratky tam nejsou. Formát:
   zkratka **bíle**, popis **šedivě**, za popisem **bíle** případná F-zkratka
   (designová dualita — druhá cesta ke stejné akci, např. `Enter  edit file  F4`).
   Rezervované zkratky se v popupu **neukazují** — jsou v tabulkách
@@ -631,12 +634,15 @@ okno, které bylo zavřeno (Super+Q), a přesune ho na aktuální workspace.
 - **Alt+Tab — cyklus oken.** Cykluje focus přes **všechna** okna aktuálního
   workspace (tiled i floating) v pořadí `windows` listu, s wrapem.
 - **F1 — kontextová nápověda.** **V okně aplikace** (files, editor, repl)
-  otevře **help té aplikace** — kontextové zkratky daného okna (Enter/F4 edit,
-  Space/F3 view, Ctrl+S save, ...). **Mimo aplikaci** (desktop / sysmon) otevře
-  **globální WM help** (všechny zkratky okenního manažeru). Globální help je
-  vždy dostupný i z launcheru (položka `help`). Help popup je overlay — kreslí
-  se nad okny **i ve fullscreenu**, takže nápověda je vyvolatelná v jakémkoli
-  režimu. F1 = univerzální nápověda (zažitá konvence napříč aplikacemi).
+  otevře **help té aplikace** — **kompletní** kontextové zkratky daného okna
+  (včetně módu view/save-as, viz §7b). **Mimo aplikaci** (desktop / sysmon)
+  otevře **globální WM help** — **jen** funkce okenního manažeru, které platí
+  pro všechna okna (Super+..., Alt+Tab, F5, F11, myš). Per-app zkratky (F2,
+  F3/F4, Esc, Ctrl+S, ...) do globálního helpu **nepatří** — jsou v helpu
+  fokusovaného okna. Globální help je vždy dostupný i z launcheru (položka
+  `help`). Help popup je overlay — kreslí se nad okny **i ve fullscreenu**,
+  takže nápověda je vyvolatelná v jakémkoli režimu.
+  F1 = univerzální nápověda (zažitá konvence napříč aplikacemi).
 - **F3 — files: view vybraný soubor.** Platí jen když je fokusovaný files
   browser: otevře **read-only náhled vybraného souboru** (stejná akce jako
   Space na souboru). Na rozdíl od F4/Enter **neotvírá editor** — jen prohlíží

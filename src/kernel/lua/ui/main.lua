@@ -15,26 +15,40 @@ repl_load_history()
 
 -- Per-application contextual help (F1 inside a window shows that app's
 -- keys). Each entry: { key, description, alt }; alt is the F-key duality.
+-- A string entry is a section heading (e.g. view mode of the file manager).
 register_app_help("files", {
+    "listing",
     { "Up / Down", "select entry" },
     { "Enter / F4", "edit file" },
     { "Space / F3", "view file" },
     { "Delete", "remove file" },
     { "Esc", "up a level" },
+    { "click entry", "open (dir enter / file edit)" },
+    { "click header", "up a level" },
+    "view mode",
+    { "Up / Down", "move row" },
+    { "Left / Right", "move column" },
+    { "Home / End", "line start / end" },
+    { "PageUp / PageDown", "page scroll" },
+    { "Space / Enter", "exit view" },
     { "Esc Esc", "exit view" },
-    { "F1", "this help" },
 })
 register_app_help("editor", {
     { "Ctrl+S", "save" },
     { "F2", "save as" },
     { "F5", "hot reload" },
     { "Esc Esc", "close editor" },
-    { "F1", "this help" },
+    { "Esc", "confirm close (clean buffer)" },
+    "save-as prompt",
+    { "Enter", "confirm path" },
+    { "Esc", "cancel, back to buffer" },
 })
 register_app_help("repl", {
     { "Enter", "run code" },
     { "Up / Down", "command history" },
-    { "F1", "this help" },
+    { "Left / Right", "move cursor" },
+    { "Home / End", "line start / end" },
+    { "Backspace / Delete", "delete char" },
 })
 
 function update()
