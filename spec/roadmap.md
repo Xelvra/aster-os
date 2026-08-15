@@ -501,8 +501,9 @@ triggerů / nových ADR.
       liště, Enter uloží / Esc zruší); **Shift+F4** = nový soubor (MC konvence,
       otevře editor s prázdným bufferem). Rozšiřuje ext2 `rename`/`link` potřebné pro
       budoucí koš (`/.trash`).
-- [ ] **Toggle skrytých souborů ve files browseru** — zobrazit/skrýt dotfiles (dnes se
-      kreslí šedivě, vždy viditelné).
+- [x] **M7.1.14 Toggle skrytých souborů ve files browseru** — **Ctrl+H** přepíná
+      zobrazování dotfiles (dnes se kreslí šedivě, default viditelné; skryté
+      se filtrují v `load_listing`).
 - [x] **M7.1.13 Koš (`/.trash`)** — Delete mimo koš přesune soubor/adresář do
       `/.trash` (ext2 `rename`, žádná kopie dat); uvnitř koše Delete trvale
       smaže vybranou položku a `Ctrl+Delete` vyprázdní celý koš (iterace

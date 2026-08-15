@@ -31,11 +31,11 @@ Using the shell
            when there are no unsaved changes.
   Super+Z  settings: opens /wm/theme.lua; saving it repaints the shell live.
   Super+E  file browser at the root: Up/Down select, Enter opens/edits a
-           regular file, Space previews, Delete removes it, Escape or a click
-           on the title bar goes up a level. Hidden dotfiles are shown dim,
-           read-only files like .theme.bak in red. F2 renames the selected
-           entry, Shift+F4 starts a new file, and a file saved from the editor
-           appears in the listing right away.
+           regular file, Space previews, Delete moves it to the trash, Escape
+           or a click on the title bar goes up a level. Hidden dotfiles are
+           shown dim (Ctrl+H toggles them), read-only files like .theme.bak in
+           red. F2 renames the selected entry, Shift+F4 starts a new file, and
+           a file saved from the editor appears in the listing right away.
   Super+Space  launcher; its "help" entry lists every shortcut. F1 inside a
            window shows that app's cheat sheet, Super+F1 (anywhere) the global
            WM help; Alt+Tab cycles windows.

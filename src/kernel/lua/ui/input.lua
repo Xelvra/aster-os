@@ -767,6 +767,10 @@ local function handle_key(ev)
             elseif code == "delete" and ev.ctrl then
                 -- Ctrl+Delete inside /.trash empties the whole trash.
                 files_empty_trash()
+            elseif code == "h" and ev.ctrl then
+                -- Ctrl+H toggles hidden (dot) files.
+                fs_show_hidden = not fs_show_hidden
+                files_open(fs_path)
             elseif code == "delete" then
                 local e = fs_entries[fs_sel]
                 if e then files_remove(e.name) end

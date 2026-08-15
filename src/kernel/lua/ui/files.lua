@@ -17,6 +17,8 @@ fs_error = fs_error or ""
 fs_renaming = fs_renaming or false
 fs_rename_orig = fs_rename_orig or ""
 fs_rename_name = fs_rename_name or ""
+-- Show hidden (dot) files; Ctrl+H toggles.
+fs_show_hidden = fs_show_hidden or true
 fs_row_h = 18
 fs_glyph_w = 8
 
@@ -56,18 +58,25 @@ end
 -- Read and sort a directory listing: the ext2 `lost+found` directory always
 -- comes first, then directories, then files; each group alphabetically by
 -- name. ext2 returns direntries in on-disk order, which is not user-facing.
+-- Hidden (dot) files are filtered out unless fs_show_hidden is set (Ctrl+H).
 -- Returns nil when the directory cannot be read.
 local function load_listing(path)
     local entries = file.dir(path)
     if not entries then return nil end
-    table.sort(entries, function(a, b)
+    local shown = {}
+    for _, e in ipairs(entries) do
+        if fs_show_hidden or e.name:sub(1, 1) ~= "." then
+            shown[#shown + 1] = e
+        end
+    end
+    table.sort(shown, function(a, b)
         local a_lf = a.name == "lost+found"
         local b_lf = b.name == "lost+found"
         if a_lf ~= b_lf then return a_lf end
         if a.dir ~= b.dir then return a.dir end
         return a.name < b.name
     end)
-    return entries
+    return shown
 end
 
 function files_open(path)

@@ -824,10 +824,11 @@ Navigační konvence:
 - **Files browser (`files.lua`):** Up/Down = výběr, **Enter** = otevřít
   (adresář → dovnitř, soubor → **editace v editoru**),
   **Space** = rychlý náhled obsahu (read-only), **F2** = přejmenovat vybranou
-  položku (`file.rename`, prompt „rename:" v titulkové liště; soubor i adresář
+  položku (  `file.rename`, prompt „rename:" v titulkové liště; soubor i adresář
   v rámci aktuální složky), **Delete** = přesunout do koše (mimo `/.trash`)
   resp. trvale smazat (uvnitř `/.trash`), **Ctrl+Delete** = vyprázdnit koš
-  (uvnitř `/.trash`), **Shift+F4** = nový soubor (otevře editor s prázdným
+  (uvnitř `/.trash`), **Ctrl+H** = přepnout skryté (dot) soubory,
+  **Shift+F4** = nový soubor (otevře editor s prázdným
   bufferem, MC konvence), **Escape** = o úroveň výš / ven z náhledu, **Super+E** =
   otevřít v kořenu. **Read-only soubory** (`/wm/.theme.bak`, `/.repl_history`,
   červené) se otevírají **jen Space náhledem** — Enter ani klik u nich editor

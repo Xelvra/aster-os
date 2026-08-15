@@ -25,6 +25,7 @@ register_app_help("files", {
     { "F2", "rename entry" },
     { "Delete", "move to trash" },
     { "Ctrl+Delete", "empty trash (in /.trash)" },
+    { "Ctrl+H", "toggle hidden files" },
     { "Esc", "up a level" },
     { "click entry", "open (dir enter / file edit)" },
     { "click header", "up a level" },
