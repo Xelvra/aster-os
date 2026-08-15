@@ -1,26 +1,36 @@
 const std = @import("std");
 const serial = @import("serial.zig");
-const boot = @import("boot/boot.zig");
-const boot_info = @import("boot/boot_info.zig");
-const mem = @import("mem/mem.zig");
-const pfa = @import("mem/pfa.zig");
-const cache_attr = @import("mem/cache_attr.zig");
-const idt = @import("cpu/idt.zig");
-const sched = @import("sched/task.zig");
-const pic = @import("drivers/pic.zig");
-const apic = @import("cpu/apic.zig");
-const page_map = @import("mem/page_map.zig");
-const ps2 = @import("drivers/ps2.zig");
-const block = @import("drivers/block.zig");
-const input_service = @import("input/service.zig");
-const framebuffer = @import("fb/framebuffer.zig");
-const renderer_mod = @import("render/renderer.zig");
-const mouse_cursor_mod = @import("render/mouse_cursor.zig");
+const debug = @import("api/debug.zig");
 const graphics = @import("api/graphics.zig");
 const runtime = @import("api/runtime.zig");
-const runtime_test = @import("runtime_test.zig");
-const lua = @import("lua/lua.zig");
+const storage = @import("api/storage.zig");
+const sys = @import("api/sys.zig");
+const sysmon = @import("api/sysmon.zig");
+const boot = @import("boot/boot.zig");
+const boot_info = @import("boot/boot_info.zig");
 const bootlog = @import("bootlog.zig");
+const acpi = @import("cpu/acpi.zig");
+const apic = @import("cpu/apic.zig");
+const idt = @import("cpu/idt.zig");
+const block = @import("drivers/block.zig");
+const pic = @import("drivers/pic.zig");
+const ps2 = @import("drivers/ps2.zig");
+const virtio = @import("drivers/virtio.zig");
+const framebuffer = @import("fb/framebuffer.zig");
+const ext2 = @import("fs/ext2.zig");
+const file = @import("fs/file.zig");
+const gpt = @import("fs/gpt.zig");
+const input_service = @import("input/service.zig");
+const lua = @import("lua/lua.zig");
+const cache_attr = @import("mem/cache_attr.zig");
+const mem = @import("mem/mem.zig");
+const page_map = @import("mem/page_map.zig");
+const pfa = @import("mem/pfa.zig");
+const mouse_cursor_mod = @import("render/mouse_cursor.zig");
+const renderer_mod = @import("render/renderer.zig");
+const sched = @import("sched/task.zig");
+const time = @import("time.zig");
+const runtime_test = @import("runtime_test.zig");
 
 /// Main kernel stack. The bootloader hands the kernel a small stack; switch
 /// to a large one before kernelMain — deep call chains (Lua) and large stack
@@ -127,7 +137,6 @@ fn kernelMain() !void {
     bootlog.blank();
     bootlog.banner();
 
-    const time = @import("time.zig");
     time.calibrateRealTime();
     const boot_ms = time.ms();
     const info = try boot.collect();
@@ -139,7 +148,6 @@ fn kernelMain() !void {
     sched.init(@intFromPtr(&kernel_stack));
 
     var memory = try mem.Memory.init(&info);
-    const sysmon = @import("api/sysmon.zig");
     sysmon.init(&memory);
 
     const alloc = memory.allocator();
@@ -149,7 +157,6 @@ fn kernelMain() !void {
     if (test_buf[0] != 0xAB or test_buf[63] != 0xAB) return error.HeapTestFailed;
 
     page_map.init(&memory.pfa, info.hhdm_offset);
-    const acpi = @import("cpu/acpi.zig");
     const ioapic_result = if (info.rsdp_address) |addr| acpi.findIoApic(addr, info.hhdm_offset) else null;
     const ioapic_override: ?u64 = if (ioapic_result) |r| switch (r) {
         .found => |addr| addr,
@@ -280,9 +287,6 @@ fn present(display: *DisplayState) void {
 }
 
 fn probeStorage(alloc: std.mem.Allocator, memory: *mem.Memory) void {
-    const virtio = @import("drivers/virtio.zig");
-    const gpt = @import("fs/gpt.zig");
-    const storage = @import("api/storage.zig");
     storage.disk = virtio.VirtioBlk.init(alloc, &memory.pfa, memory.pfa.hhdm_offset) catch return;
     const blk = &storage.disk;
     blk.setupQueue() catch return;
@@ -302,7 +306,6 @@ fn probeStorage(alloc: std.mem.Allocator, memory: *mem.Memory) void {
     // list the root directory as the exit check ("výpis souborů"). The mount
     // is handed to the KI storage module (M7.1.4) so Lua file.* works after
     // boot.
-    const ext2 = @import("fs/ext2.zig");
     var fs_partition: ?block.PartitionView = null;
     for (partitions[0..count]) |p| {
         if (gpt.eqlGuid(p.type_guid, gpt.type_guid_linux_fs)) {
@@ -327,7 +330,6 @@ fn probeStorage(alloc: std.mem.Allocator, memory: *mem.Memory) void {
         serial.write("  ");
         serial.write(name);
         if (std.mem.eql(u8, name, config_name)) {
-            const file = @import("fs/file.zig");
             var fh = file.File.open(&fs, name) catch null;
             if (fh) |*f| {
                 var fbuf: [128]u8 = undefined;
@@ -344,8 +346,6 @@ fn probeStorage(alloc: std.mem.Allocator, memory: *mem.Memory) void {
 }
 
 fn testKiDispatch() bool {
-    const sys = @import("api/sys.zig");
-    const debug = @import("api/debug.zig");
     // Dispatch the Debug write op with an empty message: exercises the full
     // KI path (sys.dispatch -> debug module) without polluting the boot log.
     const dummy: u8 = 0;
