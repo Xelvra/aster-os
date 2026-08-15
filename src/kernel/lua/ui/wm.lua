@@ -16,6 +16,10 @@ local drag = nil     -- { title, dx, dy } while dragging a window header
 local layout_mode = "splith" -- "splith" (side by side) or "splitv" (stacked)
 local fullscreen_win = nil    -- title of a fullscreen window, if any
 local z_counter = 0
+-- Scratchpad gate: when open, the scratchpad window (REPL) is drawn over
+-- everything including a fullscreen window; when closed it is hidden (the
+-- window stays on its workspace). Toggled by Super+S (input.lua).
+scratchpad_open = scratchpad_open or false
 
 -- Per-window header text drawn after the title (separated by two spaces, the
 -- §7b convention): the app sets context and key hints so every window shows

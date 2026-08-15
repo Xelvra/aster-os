@@ -521,7 +521,7 @@ Vše v `handle_key` (`input.lua:118`). Super = `ev.super` (Hyprland konvence).
 | Super+Shift+šipky | swap s okolím v tiling pořadí | `input.lua:253` |
 | Super+1/2/3 | přepnout workspace | `input.lua:174` |
 | Super+Shift+1/2/3 | přesunout okno na workspace | `input.lua:247` |
-| Super+S | scratchpad (float toggle) | `input.lua:227` |
+| Super+S | scratchpad (vždy otevře REPL přes cokoli) | `input.lua:227` |
 | Alt+Tab | cyklovat okna workspace | `input.lua:298` |
 | F5 | hot reload (kernel, `main.zig:378`) | — |
 
@@ -947,7 +947,7 @@ Viz také `spec/invariants.md` (Safety / Performance / Architecture) a
 | D5 | Vzhled jako data (`theme`), hot reload F5 | config formát, recompile | „živá transformace", kernel se nikdy nepřestavuje (`spec/runtime.md` §5a) |
 | D6 | Myš jako stav (poll), klávesy jako eventy | myš jako eventy, klávesy jako stav | overlay potřebuje hladký pohyb bez Lua round-tripu; klávesy jsou řídké, eventy stačí (`spec/input.md` §6) |
 | D7 | Složené argumenty pointerem (extern struct) | kopie, marshalling do registry | žádná kopie velkých struktur; wire formát KI (§10) |
-| D8 | Float toggle / scratchpad sdílí jednu cestu | samostatný scratchpad workspace | nejmenší kód; scratchpad = floating okno v „kapse" |
+| D8 | Scratchpad oddělen od float toggle | Super+S = scratchpad, Super+Alt+Space = float toggle | scratchpad (Super+S) vždy otevře REPL přes cokoli (i fullscreen/prázdný ws); float toggle zůstává na Super+Alt+Space. Původní „sdílená cesta" byla duplicitní (oba dělaly totéž). |
 | D9 | Bindingy vracejí `nil, err` místo panic | pcall + log, ignore | marshalling je bezpečnostní hranice; kernel nesmí shodit skript |
 | D10 | REPL stav v globálu přeživším reload | stav v userdata kernelu | uživatelské data nepřežívají `lua_State` (invariant use-after-free); globál je čistě Lua doména |
 

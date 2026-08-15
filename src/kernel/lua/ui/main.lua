@@ -54,11 +54,16 @@ function render()
     bar_render()
     -- Fullscreen: only the fullscreen window is drawn (it covers everything);
     -- the bar is skipped by bar_render, and no other window is rendered. The
-    -- window's content (REPL prompt, sysmon) is still drawn.
+    -- window's content (REPL prompt, sysmon) is still drawn. An open
+    -- scratchpad (Super+S) is drawn on top of the fullscreen window.
     if fullscreen_win then
         local fs = find_win(fullscreen_win)
         if fs and fs.ws == current_ws then
             render_window(fs)
+            if scratchpad_open then
+                local sp = find_win("repl")
+                if sp then render_window(sp) end
+            end
             return
         else
             fullscreen_win = nil
