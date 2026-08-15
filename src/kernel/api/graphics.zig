@@ -89,7 +89,7 @@ pub fn init(renderer_instance: Renderer) void {
 
 pub fn dispatch(args: sys.SyscallArgs) u64 {
     const r = renderer orelse return @intFromEnum(sys.KiStatus.NotSupported);
-    const op: GraphicsOp = @enumFromInt(args.a);
+    const op = validate.opEnum(GraphicsOp, args.a) orelse return @intFromEnum(sys.KiStatus.NotSupported);
     switch (op) {
         .width => return @intCast(r.fb.width),
         .height => return @intCast(r.fb.height),

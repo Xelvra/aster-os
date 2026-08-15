@@ -173,12 +173,14 @@ pub fn runMain(entry: []const u8) !void {
     if (status != lua_c.LUA_OK) {
         const err = lua_c.lua_tolstring(L, -1, null);
         if (err) |e| serial.writeLine(std.mem.span(e));
+        _ = lua_c.lua_pop(L, 1); // drop the error message (audit 2026-08-15)
         return error.LuaLoadFailed;
     }
     const run_status = lua_c.lua_pcallk(L, 0, 0, 0, 0, null);
     if (run_status != lua_c.LUA_OK) {
         const err = lua_c.lua_tolstring(L, -1, null);
         if (err) |e| serial.writeLine(std.mem.span(e));
+        _ = lua_c.lua_pop(L, 1); // drop the error message (audit 2026-08-15)
         return error.LuaRunFailed;
     }
 }
@@ -223,10 +225,13 @@ fn callGlobalFunction(name: [*:0]const u8) CallResult {
     defer disarmBudget(L);
     const status = lua_c.lua_pcallk(L, 0, 0, 0, 0, null);
     if (status != lua_c.LUA_OK) {
-        if (lua_c.lua_isstring(L, -1) != 0) {
-            var len: usize = 0;
+        var len: usize = 0;
+        const msg: []const u8 = if (lua_c.lua_isstring(L, -1) != 0) blk: {
             const ptr = lua_c.lua_tolstring(L, -1, &len);
-            const msg = ptr[0..len];
+            break :blk ptr[0..len];
+        } else "";
+        _ = lua_c.lua_pop(L, 1); // drop the original error deterministically
+        if (msg.len > 0) {
             // Surface the error in the graphical shell (REPL scrollback) when
             // the shell defines the on_shell_error hook — the desktop has no
             // terminal, so this is where the user sees it before the shell
@@ -235,7 +240,12 @@ fn callGlobalFunction(name: [*:0]const u8) CallResult {
             _ = lua_c.lua_getglobal(L, "on_shell_error");
             if (lua_c.lua_isfunction(L, -1)) {
                 _ = lua_c.lua_pushlstring(L, msg.ptr, msg.len);
-                _ = lua_c.lua_pcallk(L, 1, 0, 0, 0, null);
+                const hook_status = lua_c.lua_pcallk(L, 1, 0, 0, 0, null);
+                if (hook_status != lua_c.LUA_OK) {
+                    // The hook itself failed; drop its error too so nothing
+                    // leaks on the stack (audit 2026-08-15).
+                    _ = lua_c.lua_pop(L, 1);
+                }
             } else {
                 _ = lua_c.lua_pop(L, 1);
             }
@@ -244,7 +254,6 @@ fn callGlobalFunction(name: [*:0]const u8) CallResult {
             serial.writeLine(" failed:");
             serial.writeLine(msg);
         }
-        _ = lua_c.lua_pop(L, 1);
         return .err;
     }
     return .ok;
@@ -260,9 +269,24 @@ pub fn callUpdate() CallResult {
     return callGlobalFunction("update");
 }
 
-/// Run a GC step within the frame budget (see spec/runtime.md §6).
+/// C function that runs one incremental GC step. Called under `lua_pcall` so a
+/// GC-time allocation failure raises a catchable Lua error instead of aborting
+/// the kernel (audit 2026-08-15: lua_gc outside a protected context would
+/// hit the default panic path on OOM).
+fn luaGcStepC(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    const budget: c_int = @intCast(lua_c.luaL_checkinteger(L, 1));
+    _ = lua_c.lua_gc(L, lua_c.LUA_GCSTEP, budget);
+    lua_c.lua_pushinteger(L, 0);
+    return 1;
+}
+
+/// Run a GC step within the frame budget (see spec/runtime.md §6). Protected:
+/// a GC-time OOM is a contained Lua error, never a kernel abort.
 pub fn gcStep(budget: usize) void {
     const L = lua_state orelse return;
     const b: c_int = @intCast(@min(budget, std.math.maxInt(c_int)));
-    _ = lua_c.lua_gc(L, lua_c.LUA_GCSTEP, b);
+    _ = lua_c.lua_pushcfunction(L, luaGcStepC);
+    _ = lua_c.lua_pushinteger(L, b);
+    _ = lua_c.lua_pcallk(L, 1, 0, 0, 0, null);
+    _ = lua_c.lua_pop(L, 1); // drop the error message, if any
 }

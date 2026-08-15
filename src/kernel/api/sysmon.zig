@@ -1,4 +1,5 @@
 const sys = @import("sys.zig");
+const validate = @import("validate.zig");
 const mem = @import("../mem/mem.zig");
 /// System metrics for the shell (RAM, CPU, ...). The shell reads them via
 /// bindings; the kernel never pulls data from Lua in the other direction.
@@ -16,7 +17,7 @@ pub fn init(memory_instance: *mem.Memory) void {
 }
 
 pub fn dispatch(args: sys.SyscallArgs) u64 {
-    const op: SysmonOp = @enumFromInt(args.a);
+    const op = validate.opEnum(SysmonOp, args.a) orelse return @intFromEnum(sys.KiStatus.NotSupported);
     return switch (op) {
         .ram_total_mb => ramTotalMb(),
         .ram_free_mb => ramFreeMb(),

@@ -8,7 +8,7 @@ pub const DebugOp = enum(u64) {
 };
 
 pub fn dispatch(args: sys.SyscallArgs) u64 {
-    const op: DebugOp = @enumFromInt(args.a);
+    const op = validate.opEnum(DebugOp, args.a) orelse return @intFromEnum(sys.KiStatus.NotSupported);
     return switch (op) {
         .write => {
             const checked = validate.checkPtr(args.b, u8) orelse return @intFromEnum(sys.KiStatus.InvalidArgument);

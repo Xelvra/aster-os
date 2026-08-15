@@ -1,11 +1,12 @@
 const sys = @import("sys.zig");
+const validate = @import("validate.zig");
 
 pub const PowerOp = enum(u64) {
     reboot = 0,
 };
 
 pub fn dispatch(args: sys.SyscallArgs) u64 {
-    const op: PowerOp = @enumFromInt(args.a);
+    const op = validate.opEnum(PowerOp, args.a) orelse return @intFromEnum(sys.KiStatus.NotSupported);
     return switch (op) {
         .reboot => reboot(),
     };

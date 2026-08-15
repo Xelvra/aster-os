@@ -83,7 +83,7 @@ pub fn spawn(opts: SpawnOptions) !Program {
 }
 
 pub fn dispatch(args: sys.SyscallArgs) u64 {
-    const op: RuntimeOp = @enumFromInt(args.a);
+    const op = validate.opEnum(RuntimeOp, args.a) orelse return @intFromEnum(sys.KiStatus.NotSupported);
     switch (op) {
         .spawn => {
             const opts = validate.checkPtr(args.b, SpawnOptions) orelse return @intFromEnum(sys.KiStatus.InvalidArgument);

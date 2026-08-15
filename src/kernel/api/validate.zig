@@ -23,3 +23,14 @@ pub fn checkPtrMut(addr: u64, comptime T: type) ?*T {
     if (addr % @alignOf(T) != 0) return null;
     return @ptrFromInt(@as(usize, @intCast(addr)));
 }
+
+/// Convert a raw KI op integer to its enum, returning null when the value is
+/// not a declared tag. The KI dispatchers use this instead of `@enumFromInt`,
+/// which panics the kernel on an out-of-range value (audit 2026-08-15); a
+/// garbage op then maps to `NotSupported` instead of a halt.
+pub fn opEnum(comptime T: type, value: u64) ?T {
+    inline for (@typeInfo(T).@"enum".fields) |f| {
+        if (value == f.value) return @enumFromInt(value);
+    }
+    return null;
+}

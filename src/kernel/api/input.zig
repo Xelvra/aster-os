@@ -34,7 +34,7 @@ pub const InputOp = enum(u64) {
 };
 
 pub fn dispatch(args: sys.SyscallArgs) u64 {
-    const op: InputOp = @enumFromInt(args.a);
+    const op = validate.opEnum(InputOp, args.a) orelse return @intFromEnum(sys.KiStatus.NotSupported);
     return switch (op) {
         .next_event => nextEvent(args.b),
         .peek_event => peekEvent(args.b),
@@ -45,7 +45,7 @@ pub fn dispatch(args: sys.SyscallArgs) u64 {
         .mouse_right => boolToU64(service.mouseRight()),
         .mouse_middle => boolToU64(service.mouseMiddle()),
         .set_layout => setLayoutOp(args.b),
-        .layout_name => layoutNameOp(args.b),
+        .layout_name => layoutNameOp(args.b, args.c),
     };
 }
 
@@ -57,14 +57,18 @@ fn setLayoutOp(name_ptr: u64) u64 {
     return if (ok) @intFromEnum(sys.KiStatus.Success) else @intFromEnum(sys.KiStatus.InvalidArgument);
 }
 
-/// input.layout_name(out_ptr) — copy the active layout name into the buffer.
-fn layoutNameOp(out_ptr: u64) u64 {
+/// input.layout_name(out_ptr, out_cap) — copy the active layout name into the
+/// caller's buffer, truncating (with NUL termination) to the given capacity so
+/// a longer future layout cannot overflow it (audit 2026-08-15).
+fn layoutNameOp(out_ptr: u64, out_cap: u64) u64 {
     const checked = validate.checkPtrMut(out_ptr, u8) orelse return @intFromEnum(sys.KiStatus.InvalidArgument);
+    if (out_cap == 0) return @intFromEnum(sys.KiStatus.InvalidArgument);
     const out: [*]u8 = @ptrCast(checked);
     const name = service.layoutName();
-    @memcpy(out[0..name.len], name);
-    out[name.len] = 0;
-    return name.len;
+    const copy = @min(name.len, @as(usize, @intCast(out_cap)) - 1);
+    @memcpy(out[0..copy], name[0..copy]);
+    out[copy] = 0;
+    return copy;
 }
 
 fn nextEvent(out_ptr: u64) u64 {

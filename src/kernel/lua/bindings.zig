@@ -250,6 +250,7 @@ fn inputLayoutName(L: ?*lua_c.lua_State) callconv(.c) c_int {
     const len = sys.dispatch(.Input, .{
         .a = @intFromEnum(api_input.InputOp.layout_name),
         .b = @intFromPtr(&buf),
+        .c = buf.len,
     });
     const name: [*c]const u8 = @ptrCast(&buf);
     _ = lua_c.lua_pushlstring(L, name, @intCast(len));

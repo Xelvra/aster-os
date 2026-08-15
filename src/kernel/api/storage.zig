@@ -110,7 +110,7 @@ fn errToStatus(err: ext2.Ext2Error) sys.KiStatus {
 
 pub fn dispatch(args: sys.SyscallArgs) u64 {
     const fs_ptr: *ext2.Ext2 = if (mounted) |*fs| fs else return fail(.NotFound);
-    const op: StorageOp = @enumFromInt(args.a);
+    const op = validate.opEnum(StorageOp, args.a) orelse return fail(.NotSupported);
     switch (op) {
         .open => {
             const checked = validate.checkPtr(args.b, u8) orelse return fail(.InvalidArgument);
