@@ -19,10 +19,9 @@ ed_saved = ed_saved or ""
 ed_glyph_w = 8
 ed_row_h = 18
 
--- Header text shown in the window title bar (two-space-separated segments).
--- A new/untitled buffer reads as "untitled"; the dirty marker (*) stays while
--- there are unsaved changes. Key hints are gone from the header — every
--- shortcut lives in the help popup (F1), so the header only points there.
+-- Header text shown in the window title bar: the context (path, dirty marker)
+-- on the left; "help F1" is right-aligned by win_render, so no key hints are
+-- stored here. The save-as prompt is functional (the cursor sits in it).
 local function editor_header()
     if ed_saveas then
         -- Two spaces after the path: the save-as cursor sits in the first one,
@@ -31,9 +30,9 @@ local function editor_header()
     end
     local path = ed_path or "untitled"
     if ed_dirty then
-        return path .. "* | help F1"
+        return path .. "*"
     end
-    return path .. " | help F1"
+    return path
 end
 
 -- Mark the buffer as edited unless its content matches the last saved/loaded

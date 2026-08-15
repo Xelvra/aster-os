@@ -63,9 +63,9 @@ local function add_line(s)
 end
 
 add_line(repl_banner())
--- Leading space: combined with the one-space gap after the window label this
--- makes "~ repl  help F1" — the only header with two spaces before the hint.
-set_window_header("repl", " help F1")
+-- Header is empty: the label "~ repl" and the right-aligned "help F1"
+-- (drawn by win_render) make up the title bar — no double space, no hints.
+set_window_header("repl", "")
 
 -- Persistent command history (/.repl_history on the mounted filesystem).
 -- The in-memory `history` table is rebuilt after boot and F5 hot reload,

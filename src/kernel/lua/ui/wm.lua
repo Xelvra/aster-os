@@ -326,10 +326,19 @@ local function win_render(w)
     gfx.draw_text(label, tx + 6, ty + (th - 16) // 2 + 1, title_color)
     local hdr = win_headers[w.title]
     if hdr then
-        gfx.draw_text(hdr, tx + 6 + (label:len() + 1) * 8, ty + (th - 16) // 2 + 1, theme.text_dim)
+        -- Context (path, dirty marker) on the left, right after the label.
+        local hx = tx + 6 + (label:len() + 1) * 8
+        gfx.draw_text(hdr, hx, ty + (th - 16) // 2 + 1, theme.text_dim)
         local cur = win_cursors[w.title]
         if cur then
-            gfx.draw_rect(tx + 6 + (label:len() + 1) * 8 + cur * 8, ty + (th - 16) // 2 + 1, 8, 16, theme.accent)
+            gfx.draw_rect(hx + cur * 8, ty + (th - 16) // 2 + 1, 8, 16, theme.accent)
+        end
+        -- "help F1" always right-aligned at the end of the title bar, so every
+        -- window points to the same help popup in the same place (no pipe, no
+        -- per-window key hints — see spec/desktop-ui.md §5).
+        local help_x = tx + w.w - 2 * theme.wm.border - 6 - ("help F1"):len() * 8
+        if help_x > hx + hdr:len() * 8 then
+            gfx.draw_text("help F1", help_x, ty + (th - 16) // 2 + 1, theme.text)
         end
     end
 end

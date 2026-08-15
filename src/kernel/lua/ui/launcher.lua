@@ -31,7 +31,7 @@ local mouse_was_down = false
 -- popup stays short and readable.
 local shortcuts_active = {
     { "Super+Enter", "terminal (REPL)" },
-    { "Super+T", "editor · Ctrl+S save", "F2 save as" },
+    { "Super+T", "editor · Ctrl+S", "F2 save as" },
     { "Super+Z", "settings" },
     { "Super+E", "file manager", "F4 edit" },
     { "Super+Q", "close window" },
@@ -44,6 +44,7 @@ local shortcuts_active = {
     { "Super+1/2/3", "workspace" },
     { "Super+S", "scratchpad (toggle app)" },
     { "Alt+Tab", "cycle windows" },
+    { "Esc", "files: up a level" },
     { "Esc Esc", "close editor / exit view" },
     { "F1", "help" },
     { "F5", "hot reload" },
@@ -87,9 +88,8 @@ local function launcher_render()
         local ly = theme.bar.height + 8 + math.max(math.floor((SH - theme.bar.height - 8 - lh) / 2), 0)
         gfx.draw_rect(lx, ly, lw, lh, theme.surface)
         gfx.rect_border(lx, ly, lw, lh, 1, theme.accent)
-        -- "help:" is white like the run prompt; the Esc hint is dimmed.
+        -- "help:" is white like the run prompt; Esc closes the popup.
         gfx.draw_text("help: ", lx + 8, ly + 8, theme.text)
-        gfx.draw_text("Esc back", lx + 8 + 6 * 8, ly + 8, theme.text_dim)
         local ty = ly + 30
         for _, s in ipairs(shortcuts_active) do
             gfx.draw_text(s[1], lx + 12, ty, theme.text)

@@ -32,19 +32,14 @@ local function join_path(p, name)
     return base .. "/" .. name
 end
 
--- Window title-bar header (segments joined by the theme separator, §7b): the
--- current path in the listing, or the full file path + cancel hint while
--- viewing. Key hints are gone from the header — every shortcut lives in the
--- help popup (F1), so the header only points there.
+-- Window title-bar header: the current path (or full file path while viewing)
+-- on the left; "help F1" is right-aligned by win_render, so no key hints are
+-- stored here. The path doubles as the click-to-go-up pointer.
 local function update_files_header()
     if fs_viewing then
-        set_window_header("files", join_path(fs_path, fs_view_name) .. " | help F1")
-    elseif fs_path == "/.trash" then
-        set_window_header("files", fs_path .. " | help F1")
-    elseif fs_path == "/" then
-        set_window_header("files", fs_path .. " | help F1")
+        set_window_header("files", join_path(fs_path, fs_view_name))
     else
-        set_window_header("files", fs_path .. " | help F1")
+        set_window_header("files", fs_path)
     end
 end
 

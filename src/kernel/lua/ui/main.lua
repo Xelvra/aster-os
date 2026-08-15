@@ -64,6 +64,9 @@ function render()
                 local sp = find_win(scratchpad_app)
                 if sp then render_window(sp) end
             end
+            -- The launcher (and its help popup via F1) is an overlay that must
+            -- stay visible over a fullscreen window too.
+            if launcher_open then launcher_render() end
             return
         else
             fullscreen_win = nil

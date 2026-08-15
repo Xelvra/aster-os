@@ -329,8 +329,8 @@ stavu neví.
 - **Banner a hlavička:** scrollback začíná skutečným Lua bannerem, čteným z
   globálu `_COPYRIGHT` (`LUA_COPYRIGHT` v `libs/lua-5.4/src/lua.h`, kernel ho
   vystavuje při startu runtime) — verze/copyright se bere přímo z vendored Lua,
-  nikde se neduplikuje; titulková lišta REPL ukazuje `~ repl  F5 reload`
-  (§7b, jediné místo se dvěma mezerami).
+  nikde se neduplikuje; titulková lišta REPL ukazuje `~ repl` + vpravo `help F1`
+  (§7b — bez dvojité mezery, konzistentní se všemi okny).
 
 - UTF-8 helpery (`cp_start`, `cp_end`, `prev_cp`, `next_cp`) — kurzor je byte offset,
   ale edituje se po code pointech, aby se neroztrhl vícebajtový znak.
@@ -625,8 +625,10 @@ okno, které bylo zavřeno (Super+Q), a přesune ho na aktuální workspace.
   (fullscreen).
 - **Alt+Tab — cyklus oken.** Cykluje focus přes **všechna** okna aktuálního
   workspace (tiled i floating) v pořadí `windows` listu, s wrapem.
-- **F1 — help.** Globální: otevře launcher v help módu (cheat sheet **aktivních**
-  zkratek s F-ekvivalenty). Stejná akce jako položka `help` v launcheru.
+- **F1 — help.** Globální a vždy dostupný: otevře launcher v help módu (cheat
+  sheet **aktivních** zkratek s F-ekvivalenty). Help popup je overlay — kreslí
+  se nad okny **i ve fullscreenu**, takže nápověda je vyvolatelná v jakémkoli
+  režimu a okně. Stejná akce jako položka `help` v launcheru.
   F1 = univerzální nápověda (zažitá konvence napříč aplikacemi).
 - **F2 — editor: save as.** Platí jen když je fokusovaný editor: otevře prompt
   „save as:" v titulkové liště **předvyplněný aktuální cestou** (nový buffer →
@@ -650,29 +652,29 @@ okno, které bylo zavřeno (Super+Q), a přesune ho na aktuální workspace.
 Konzistentní formátování textu v oknech WM — stejné pravidlo platí ve všech
 oknech (repl, editor, files, prohlížení), ať je klávesa jakákoli.
 
-- **Hlavička v titulkové liště:** kontext a klávesové hinty se kreslí do
-  titulkové lišty okna za název. **Název → kontext** odděluje **jedna mezera**
-  (žádná pipe); **pipe `|`** se používá jen jako oddělovač **kontext → hint**
-  (a mezi dvěma akcemi save-as promptu), vždy s **jednou mezerou** zleva i
-  zprava. Mezi klávesou a akcí uvnitř hintu je **jedna mezera** a klávesa má
-  **velké počáteční písmeno**. Název okna je `theme.text`, kontext a hinty
-  `theme.text_dim`:
+- **Hlavička v titulkové liště:** kontext (cesta, dirty marker) se kreslí do
+  titulkové lišty okna **za název** (jedna mezera mezi názvem a kontextem).
+  **`help F1` je vykresleno vždy vpravo zarovnané na konci lišty** (`win_render`),
+  bez pipe a bez jakýchkoli klávesových hintů — všechny zkratky jsou v help
+  popupu (F1), takže hlavička jen ukazuje cestu a ukazuje na help. **Pipe `|`**
+  zůstává jen uvnitř funkčního save-as promptu. Název a `help F1` jsou
+  `theme.text`, kontext `theme.text_dim`:
   ```
-  ~ repl  help F1                    (jediné místo se dvěma mezerami)
-  editor /wm/theme.lua | help F1     (čisté)
-  editor /wm/theme.lua* | help F1    (dirty — * za cestou)
-  files / | help F1                  (root)
-  files /apps | help F1              (podadresář)
-  files /wm/theme.lua | help F1      (prohlížení — cesta)
-  help: Esc back                     (launcher help popup, bílé jako run:)
+  ~ repl                 help F1     (žádná dvojitá mezera — konzistentní)
+  editor /wm/theme.lua   help F1     (čisté)
+  editor /wm/theme.lua*  help F1     (dirty — * za cestou)
+  files /                help F1     (root)
+  files /apps            help F1     (podadresář)
+  files /wm/theme.lua    help F1     (prohlížení — cesta)
+  help:                              (launcher help popup, jen "help:" jako run:)
   save as: <cesta>  Enter save | Esc cancel   (save-as prompt, funkční ne hint)
   ```
-  Žádné jiné počty mezer (3, 4, ...) ani malé „ctrl"/„esc" — mezerování je
-  součást vizuálního jazyka a musí být stejné napříč okny.
+  (Pozice výše je ilustrační; `help F1` se skutečně zarovná na pravý okraj okna.)
 - **Hlavička neobsahuje klávesové hinty** — všechny zkratky jsou v help popupu
-  (F1), takže hlavička jen ukazuje cestu/kontext a `| help F1`. Funkční prvky
-  zůstávají: dirty marker (`*`), save-as prompt a cesta (u files = ukazatel
-  cesty). Esc Esc / Ctrl+S / F2 / F4 se nevypisují do hlaviček — jsou v helpu.
+  (F1), takže hlavička jen ukazuje cestu/kontext a vpravo `help F1`. Funkční
+  prvky zůstávají: dirty marker (`*`), save-as prompt a cesta (u files =
+  ukazatel cesty). Esc Esc / Ctrl+S / F2 / F4 se nevypisují do hlaviček — jsou
+  v helpu.
 - **Žádné status řádky v obsahu:** obsah okna začíná rovnou daty (scrollback,
   buffer, list souborů). Info o cestě/klávesách patří jen do titulkové lišty,
   nikdy do obsahu (žádná duplicita mezi lištou a obsahem).
