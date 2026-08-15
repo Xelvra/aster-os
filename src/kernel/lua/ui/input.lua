@@ -5,6 +5,18 @@
 -- Only applies to file viewing; window close stays Super+Q (Hyprland).
 local esc_pending = false
 
+-- Switch to another workspace (Super+1/2/3 and the bar capsules). Clearing a
+-- fullscreen window that belongs to a different workspace is done here, not
+-- left to the render path as a side effect, so the state is always coherent.
+local function switch_workspace(ws)
+    current_ws = ws
+    local fs = find_win(fullscreen_win or "")
+    if fs and fs.ws ~= ws then fullscreen_win = nil end
+    focus_topmost(ws)
+    layout_pass()
+    gfx.invalidate()
+end
+
 local function is_in_header(w)
     local mx = input.mouse_x()
     local my = input.mouse_y()
@@ -74,10 +86,7 @@ local function handle_mouse()
             -- topmost window, so typing works right away.
             for _, c in ipairs(ws_capsules()) do
                 if mx >= c.x and mx <= c.x + c.w and my >= 0 and my <= theme.bar.height then
-                    current_ws = c.i
-                    focus_topmost(c.i)
-                    layout_pass()
-                    gfx.invalidate()
+                    switch_workspace(c.i)
                 end
             end
             -- Clicking the files title bar (the path header) navigates up one
@@ -188,13 +197,16 @@ local function handle_key(ev)
     --   Super+S         app picker (launcher run)
 
     -- Function keys: familiar F-key conventions as a design duality with the
-    -- Hyprland Super+... shortcuts (same action, second way in). F1 (help) is
-    -- global; F2 (save-as) and F4 (edit) act on the focused window. F3 and
-    -- F6..F12 are reserved — do not reuse them without re-evaluating (they
-    -- mirror Hyprland's reserved keybinding slots).
+    -- Hyprland Super+... shortcuts (same action, second way in). F1 (help) and
+    -- F3 (launcher/view) are global; F2 (save-as) and F4 (edit) act on the
+    -- focused window. F6..F12 are reserved — do not reuse them without
+    -- re-evaluating (they mirror Hyprland's reserved keybinding slots).
     if ev.pressed then
         if code == "f1" then
             launcher_open_mode("help")
+            return
+        elseif code == "f3" then
+            launcher_open_mode("run")
             return
         elseif code == "f2" and focused == "editor" and find_win("editor") then
             editor_save_as()
@@ -208,22 +220,31 @@ local function handle_key(ev)
 
     if ev.super and ev.pressed then
         if code == "digit_1" then
-            current_ws = 1
-            focus_topmost(1)
+            switch_workspace(1)
         elseif code == "digit_2" then
-            current_ws = 2
-            focus_topmost(2)
+            switch_workspace(2)
         elseif code == "digit_3" then
-            current_ws = 3
-            focus_topmost(3)
+            switch_workspace(3)
         elseif code == "enter" then
             -- Terminal: show the REPL on the current workspace and focus it.
-            -- The window is recreated if it was closed (Super+Q).
+            -- The window is recreated if it was closed (Super+Q). This is a
+            -- regular tiled terminal: if the REPL window was used as the
+            -- scratchpad (floating), return it to the tiling layout and clear
+            -- the scratchpad state, so Super+Enter never reopens a floating
+            -- "always on top" terminal by accident.
             local w = find_win("repl")
             if not w then
                 windows[#windows + 1] = window("repl", current_ws)
             else
                 w.ws = current_ws
+                if w.floating then
+                    w.floating = false
+                    w.x, w.y, w.w, w.h = 0, 0, 0, 0
+                end
+            end
+            if scratchpad_app == "repl" then
+                scratchpad_app = nil
+                scratchpad_open = false
             end
             repl_visible = true
             set_focus("repl")
@@ -338,6 +359,17 @@ local function handle_key(ev)
                     w.ws = tonumber(code:sub(-1))
                     w.floating = false
                     w.x, w.y, w.w, w.h = 0, 0, 0, 0
+                    -- Moving a fullscreen window to another workspace exits
+                    -- fullscreen deterministically (it no longer covers the
+                    -- current one); the render path must not clean this up
+                    -- as a side effect.
+                    if fullscreen_win == w.title then fullscreen_win = nil end
+                    -- A window that leaves the workspace can no longer be the
+                    -- active scratchpad; reset the state like close_window does.
+                    if scratchpad_app == w.title then
+                        scratchpad_app = nil
+                        scratchpad_open = false
+                    end
                     current_ws = w.ws
                     set_focus(w.title)
                 elseif code == "right" or code == "left" or code == "down" or code == "up" then
@@ -368,16 +400,20 @@ local function handle_key(ev)
             end
         elseif code == "left" or code == "right" or code == "up" or code == "down" then
             -- Focus in a direction among tiled windows on this workspace.
+            -- Floating windows are not addressed by arrows (Alt+Tab / click
+            -- cycle them), so if the focused window is floating, do nothing.
             local tiled = {}
             for _, w in ipairs(ws_windows(current_ws)) do
                 if not w.floating then tiled[#tiled + 1] = w end
             end
             if #tiled > 0 then
-                local idx = 1
+                local idx = nil
                 for i, w in ipairs(tiled) do if w.title == focused then idx = i break end end
-                local dir = (code == "right" or code == "down") and 1 or -1
-                local nxt = tiled[((idx - 1 + dir) % #tiled) + 1]
-                if nxt then set_focus(nxt.title) end
+                if idx ~= nil then
+                    local dir = (code == "right" or code == "down") and 1 or -1
+                    local nxt = tiled[((idx - 1 + dir) % #tiled) + 1]
+                    if nxt then set_focus(nxt.title) end
+                end
             end
         end
         layout_pass()

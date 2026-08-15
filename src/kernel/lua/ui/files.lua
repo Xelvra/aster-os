@@ -136,9 +136,13 @@ function files_remove(name)
         gfx.invalidate()
         return
     end
-    -- Refresh the listing after the entry is gone.
+    -- Refresh the listing after the entry is gone, keeping the selection
+    -- roughly at the removed row (clamped to the new list length) so deleting
+    -- several files in a row does not jump the cursor back to the top.
+    local removed_idx = fs_sel
     local was_viewing = fs_viewing
     files_open(fs_path)
+    fs_sel = math.max(1, math.min(removed_idx, #fs_entries))
     if was_viewing and fs_view_name == name then fs_viewing = false end
 end
 

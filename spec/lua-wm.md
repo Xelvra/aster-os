@@ -528,15 +528,17 @@ Vše v `handle_key` (`input.lua:118`). Super = `ev.super` (Hyprland konvence).
 | Alt+Tab | cyklovat okna workspace | `input.lua:298` |
 | F1 | help (launcher cheat sheet) | `input.lua` |
 | F2 | editor: save as | `input.lua` |
+| F3 | launcher / view (jako Super+Space) | `input.lua` |
 | F4 | files: edit vybraný soubor | `input.lua` |
 | F5 | hot reload (kernel, `main.zig:378`) | — |
-| F3, F6–F12 | **rezervované** (neobsazovat bez přehodnocení) | — |
+| F6–F12 | **rezervované** (neobsazovat bez přehodnocení) | — |
 
 > **F-klávesy = designová dualita s Hyprland zkratkami** (viz `spec/desktop-ui.md` §5):
 > dělají to samé jako odpovídající Super+... zkratka, ale druhou, zažitou cestou
-> (F1 = nápověda, F2 = save-as, F4 = editace, F5 = obnovení). Nejsou to konfliktní
+> (F1 = nápověda, F2 = save-as, F3 = launcher/view, F4 = editace, F5 = obnovení).
+> Nejsou to konfliktní
 > duplicity — každá F-klávesa je **druhá cesta ke stejné akci** a uživatel si zvolí,
-> kterou zná. F3 a F6–F12 jsou **rezervované** (jako Hyprland reserved slots):
+> kterou zná. F6–F12 jsou **rezervované** (jako Hyprland reserved slots):
 > nesmí se přiřadit jiné akci bez přehodnocení — rezervace platí od teď, ať se
 > při vývoji nepřidělí něčemu jinému.
 
@@ -630,6 +632,9 @@ okno, které bylo zavřeno (Super+Q), a přesune ho na aktuální workspace.
   se nad okny **i ve fullscreenu**, takže nápověda je vyvolatelná v jakémkoli
   režimu a okně. Stejná akce jako položka `help` v launcheru.
   F1 = univerzální nápověda (zažitá konvence napříč aplikacemi).
+- **F3 — launcher / view.** Globální: otevře launcher v run módu (search box +
+  seznam aplikací a akcí) — **stejná akce jako Super+Space**, druhá zažitá
+  cesta (F3 jako „najít/otevřít" v řadě aplikací).
 - **F2 — editor: save as.** Platí jen když je fokusovaný editor: otevře prompt
   „save as:" v titulkové liště **předvyplněný aktuální cestou** (nový buffer →
   prázdná cesta), Enter uloží pod novým jménem, Esc zruší. Doplňuje Ctrl+S

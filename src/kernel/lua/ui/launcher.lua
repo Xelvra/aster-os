@@ -35,7 +35,7 @@ local shortcuts_active = {
     { "Super+Z", "settings" },
     { "Super+E", "file manager", "F4 edit" },
     { "Super+Q", "close window" },
-    { "Super+Space", "launcher" },
+    { "Super+Space", "launcher", "F3" },
     { "Super+Alt+Space", "float toggle" },
     { "Super+F / D", "fullscreen" },
     { "Super+J", "togglesplit" },
