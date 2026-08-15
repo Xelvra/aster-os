@@ -177,8 +177,16 @@ argumentů** v paměti volajícího (`graphics.draw_rect` → `RectArgs`, `stora
 → `ReadArgs`, `runtime.spawn` → `SpawnOptions`), nebo **přímý pointer na buffer**
 (`debug.write` → string, `storage.open` → path). Struktura argumentů je `extern
 struct` — pořadí polí je součástí kontraktu. **Tato nekonzistence je známá a
-otevřená** (brief Task 6): sjednocení na jednu konvenci je na vlastníkovi
-repozitáře, ne řešeno zde.
+otevřená** (brief Task 6; vlastník: vlastník repozitáře, sledováno v
+`spec/roadmap.md` §M9). Stávající `api/*` moduly se **nepřepisují** a zůstávají
+v platnosti; nové KI moduly (síť ADR-022, USB, audio) se píšou **jednotně**:
+argumenty přes `args.b` = pointer na `extern struct` s explicitním polem `len`,
+bez inline skalárů a přímých buffer pointerů. Sjednocení stávajících modulů je
+**vynuceno Ring-3 transportem (ADR-018)** — §6.2 dělí kompletní povrch `api/*`
+na rozhraní + transport, takže každý modul porušující konvenci dnes projde
+transportem zítra — a probíhá průběžně při dotyku modulu. Nemá fixní milník:
+vazba na kalendářní datum by ze závazku udělala jen zdání pořádku, pokud by
+milník sklouzl.
 
 **Vlastnictví paměti:** buffery a struktury předané pointerem patří **volajícímu
 a jsou platné jen po dobu synchronního volání `dispatch()`**. Žádné KI volání

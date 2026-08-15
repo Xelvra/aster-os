@@ -521,6 +521,13 @@ triggerů / nových ADR.
       (ADR-020).
 - [ ] **WASI vrstva:** mapování WASI syscallů na KI pro cizí wasm aplikace
       (`runtime.md` §7.1) — začíná podmnožinou (stdout, argv, filesystem), ne plná WASI.
+- [ ] **Debt Task 6 — sjednocení konvence argumentů KI** (vlastník: vlastník
+      repozitáře): stávající `api/*` moduly porušující konvenci `args.b` = pointer
+      na `extern struct` s `len` (např. `graphics.width`, `draw_rect`, `debug.write`)
+      se sjednotí **před Ring-3 transportem (ADR-018)**. Nové KI moduly (síť, audio,
+      WASI) se píšou rovnou jednotně; sjednocení stávajících probíhá průběžně při
+      dotyku modulu a musí skončit dřív, než M10 důkaz ADR-018 přenese kompletní
+      povrch `api/*` na mailbox IPC (`kernel-interface.md` §3.7, §6).
 
 ### M10 — Adopce (real hardware, image, docs, komunita)
 
