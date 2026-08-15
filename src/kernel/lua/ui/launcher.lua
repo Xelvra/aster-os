@@ -125,9 +125,9 @@ local function launcher_render()
         gfx.draw_rect(lx, ly, lw, lh, theme.surface)
         gfx.rect_border(lx, ly, lw, lh, 1, theme.accent)
         -- The prompt is the window/app name ("global help:", "files:",
-        -- "editor:") in dim text like the descriptions — it labels the popup
-        -- and must not compete with the white shortcut keys; Esc closes it.
-        gfx.draw_text(title .. ": ", lx + 8, ly + 8, theme.text_dim)
+        -- "editor:") in the accent color like the run/scratchpad prompts —
+        -- it labels the popup consistently across modes; Esc closes it.
+        gfx.draw_text(title .. ": ", lx + 8, ly + 8, theme.accent)
         local ty = ly + 30
         for _, s in ipairs(items) do
             -- A string entry is a section heading (e.g. "view mode" of the
@@ -160,8 +160,11 @@ local function launcher_render()
     gfx.rect_border(lx, ly, lw, lh, 1, theme.accent)
     -- Search box. The scratchpad picker labels itself "scratchpad:" (it offers
     -- only applications), the run launcher "run:" (applications + actions).
+    -- The prompt label is accent-colored like the help popup titles; the
+    -- typed input stays white.
     local prompt = (launcher_mode == "scratchpad") and "scratchpad: " or "run: "
-    gfx.draw_text(prompt .. launcher_input, lx + 8, ly + 8, theme.text)
+    gfx.draw_text(prompt, lx + 8, ly + 8, theme.accent)
+    gfx.draw_text(launcher_input, lx + 8 + prompt:len() * 8, ly + 8, theme.text)
     local ty = ly + 30
     for i, a in ipairs(items) do
         local sel = (i == launcher_sel)
