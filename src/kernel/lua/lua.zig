@@ -287,6 +287,12 @@ pub fn gcStep(budget: usize) void {
     const b: c_int = @intCast(@min(budget, std.math.maxInt(c_int)));
     _ = lua_c.lua_pushcfunction(L, luaGcStepC);
     _ = lua_c.lua_pushinteger(L, b);
-    _ = lua_c.lua_pcallk(L, 1, 0, 0, 0, null);
-    _ = lua_c.lua_pop(L, 1); // drop the error message, if any
+    // nresults=0 discards the results, so on success the stack is back to its
+    // pre-push state — popping again would remove a live value and corrupt the
+    // shell's stack. Only the error path leaves a message to drop (audit
+    // 2026-08-15).
+    const status = lua_c.lua_pcallk(L, 1, 0, 0, 0, null);
+    if (status != lua_c.LUA_OK) {
+        _ = lua_c.lua_pop(L, 1);
+    }
 }
