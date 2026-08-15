@@ -518,6 +518,17 @@ triggerů / nových ADR.
       bootovatelnost zůstávají. Zásadní změna bootstrapu
       (`lua.zig` načítání + hot reload cesta), proto samostatný milník s vlastní
       verifikací — ne přidává se tiše k jiné práci.
+- [ ] **Debt — obnova smazaných `/wm/*` souborů z init** (vlastník: vlastník
+      repozitáře; součást Úrovně 2, ADR-025): kernel dnes **nepřibalí default
+      obsah `/wm/theme.lua`, `/wm/api.lua` a `/wm/README` do initrd**, takže
+      smazaný config se při bootu nepoužije (fallback na vestavěné defaulty
+      funguje vizuálně), ale **soubor se na disk nevrátí** — uživatel, který
+      smaže `/wm/*`, se nemůže vrátit do čistého stavu jinak než ručně. Tohle
+      je **vědomý architektonický dluh, ne hotová funkce**: obnova (initrd
+      default obsah + zápis chybějících souborů na disk při bootu) je **nutné
+      dokončit** v Úrovni 2, jinak zůstává model „smazání → obnova z init"
+      (ADR-025, spec/lua-wm.md §3.1) jen deklarací. Blokátor: default `/wm/*`
+      obsah není v initrd taru (`build.zig` `shell_files` balí jen moduly).
 
 ---
 

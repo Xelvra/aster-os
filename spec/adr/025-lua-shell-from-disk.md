@@ -92,9 +92,17 @@ automatickým hot reloadem — ne jen `theme.lua` jako dnes (Úroveň 1).
   souborů z init, (2) per-modul načítání z `/wm/`, (3) hot reload na uložení,
   (4) runtime testy + dokumentace.
 
+> **Vědomý dluh v Úrovni 1 (nutné dodělat):** obnova smazaných `/wm/*` souborů
+> z init **není dnes implementovaná** — default obsah `/wm/theme.lua`,
+> `/wm/api.lua` a `/wm/README` není přibalen do initrd taru, takže smazaný
+> config se při bootu sice nepoužije (fallback na vestavěné defaulty funguje),
+> ale soubor se na disk nevrátí. Model „smazání → obnova z init" zůstává v
+> Úrovni 1 jen deklarací; dokončení je zaznamenáno jako **debt položka
+> v `spec/roadmap.md` M8** a je nutné ho zrealizovat, ne jen proklamovat.
+
 ## Související
 - ADR-014 (deterministický build), ADR-016 (bootovatelný commit)
 - `spec/lua-wm.md` §3.1 (Úroveň 1 → 2), §5.1
 - `spec/runtime.md` §5a (config jako plný Lua kód, fallback)
-- `spec/roadmap.md` M8 (samostatný milník Úroveň 2)
+- `spec/roadmap.md` M8 (samostatný milník Úroveň 2 + debt položka obnovy)
 - Změna tohoto návrhu = nový ADR odkazující na tento.

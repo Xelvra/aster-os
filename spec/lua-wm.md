@@ -107,6 +107,13 @@ běhu a kernel se nepřestavuje (M6, `spec/roadmap.md`).
 > Dnes (Úroveň 1) je na disku v `/wm/` jen konfigurace (theme + README + api.lua);
 > shell moduly samotné žijí v initrd. Úroveň 2 je zásadní změna bootstrapu a dělá
 > se jako samostatný milník — viz roadmapa a ADR-025.
+>
+> **Vědomý dluh v Úrovni 1 (nutné dodělat):** obnova smazaných `/wm/*` souborů
+> z init **zatím není implementovaná** — default obsah `/wm/theme.lua`,
+> `/wm/api.lua`, `/wm/README` není v initrd taru, takže smazaný config se sice
+> nepoužije (fallback funguje), ale soubor se na disk nevrátí. Zaznamenáno jako
+> debt položka v `spec/roadmap.md` M8 a v ADR-025 — je nutné ji zrealizovat, ne
+> jen proklamovat.
 ```zig
 // build.zig:90  — pořadí je ZÁVAZNÉ a musí souhlasit s lua.zig:128
 const shell_files = [_][]const u8{
