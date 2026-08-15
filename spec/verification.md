@@ -159,6 +159,49 @@ Kontroluje se na produkčním optimize (`ReleaseSafe`).
 
 ---
 
+## 3a. Test čistého klonu (repo je kompletně klonovatelné)
+
+Záruka, že repozitář obsahuje **všechno** potřebné pro build z nuly (vendored `libs/`,
+`.zig-version`, `hooks/`, `.github/`, `boot-log.md`, `tools/test-disk-root/`) — nic se
+nečerpá z lokálních souborů mimo git.
+
+### Postup
+
+```bash
+git clone <repo> ~/tmp/aster-clone
+cd ~/tmp/aster-clone
+./tools/install-hooks.sh
+zig fmt --check .
+zig build
+zig build test
+./tools/qemu-smoke.sh
+./tools/capture-boot.sh --check
+./tools/sync-docs.sh --check
+./tools/verify-reproducible.sh
+```
+
+Klon se dělá z pracovní kopie na disku, ne přes síť — testuje se, že repozitář sám je
+úplný (smazat a naklonovat znovu), ne síťová dostupnost GitHubu.
+
+### Ověřeno (2026-08-15)
+
+| Kontrola | Výsledek |
+|---|---|
+| `zig fmt --check .` | ✅ OK |
+| `zig build` | ✅ OK |
+| `zig build test` | ✅ 123/123 |
+| `./tools/qemu-smoke.sh` | ✅ PASS |
+| `./tools/capture-boot.sh --check` | ✅ OK |
+| `./tools/sync-docs.sh --check` | ✅ OK |
+| Runtime test s diskem (`make-test-disk.sh` + `qemu-test.sh`) | ✅ PASS (exit 99) |
+| `./tools/verify-reproducible.sh` | ✅ hash shodný s originálem |
+| `./tools/bench.sh` | ✅ funguje |
+
+Hash z `verify-reproducible.sh` je v klonu **identický s originálem** — silný důkaz, že
+klon je úplný.
+
+---
+
 ## 4. Bootovatelný commit — ADR-016
 
 Pravidlo: **každý commit musí zanechat systém spustitelný v QEMU.**
