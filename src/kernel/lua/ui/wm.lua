@@ -15,6 +15,41 @@ local current_ws = 1
 local drag = nil     -- { title, dx, dy } while dragging a window header
 local layout_mode = "splith" -- "splith" (side by side) or "splitv" (stacked)
 local fullscreen_win = nil    -- title of a fullscreen window, if any
+-- Geometry of the window before it entered fullscreen, restored on exit so a
+-- floating window (e.g. the scratchpad) returns to its previous size/position.
+-- Tiled windows are repositioned by layout_pass, so only floating ones need
+-- the restore.
+local fullscreen_restore = nil
+
+-- Leave fullscreen and give a floating window its geometry back (tiled windows
+-- are repositioned by layout_pass). Shared by toggle_fullscreen, workspace
+-- switches and window move — every place that clears fullscreen_win.
+local function exit_fullscreen()
+    if fullscreen_win then
+        local w = find_win(fullscreen_win)
+        if fullscreen_restore and w and w.floating then
+            w.x, w.y, w.w, w.h = fullscreen_restore.x, fullscreen_restore.y, fullscreen_restore.w, fullscreen_restore.h
+        end
+        fullscreen_win = nil
+    end
+    fullscreen_restore = nil
+end
+
+-- Toggle fullscreen for a window (Super+F/D, F11, launcher "fullscreen"
+-- action). Stores the geometry before entering so exiting restores it — this
+-- is what keeps a floating scratchpad window from staying fullscreen-sized
+-- after the second Super+F/D.
+local function toggle_fullscreen(title)
+    if fullscreen_win == title then
+        exit_fullscreen()
+    else
+        local w = find_win(title)
+        if w then
+            fullscreen_restore = { x = w.x, y = w.y, w = w.w, h = w.h }
+            fullscreen_win = title
+        end
+    end
+end
 local z_counter = 0
 -- Real scratchpad state: Super+S toggles a dedicated window over anything
 -- (a fullscreen window or an empty workspace). The first Super+S picks which
@@ -107,7 +142,7 @@ local function close_window(title)
     for i, w in ipairs(windows) do
         if w.title == title then table.remove(windows, i) break end
     end
-    if fullscreen_win == title then fullscreen_win = nil end
+    if fullscreen_win == title then exit_fullscreen() end
     -- Closing the scratchpad window resets its state, so the next Super+S
     -- picks a new application instead of toggling a gone window.
     if scratchpad_app == title then

@@ -11,7 +11,7 @@ local esc_pending = false
 local function switch_workspace(ws)
     current_ws = ws
     local fs = find_win(fullscreen_win or "")
-    if fs and fs.ws ~= ws then fullscreen_win = nil end
+    if fs and fs.ws ~= ws then exit_fullscreen() end
     focus_topmost(ws)
     layout_pass()
     gfx.invalidate()
@@ -216,11 +216,7 @@ local function handle_key(ev)
             return
         elseif code == "f11" then
             -- Fullscreen toggle, same as Super+F/D.
-            if fullscreen_win == focused then
-                fullscreen_win = nil
-            elseif find_win(focused) then
-                fullscreen_win = focused
-            end
+            if find_win(focused) then toggle_fullscreen(focused) end
             return
         elseif code == "f3" and focused == "files" and find_win("files") then
             local e = fs_entries[fs_sel]
@@ -321,11 +317,7 @@ local function handle_key(ev)
             end
         elseif code == "f" or code == "d" then
             -- Fullscreen toggle.
-            if fullscreen_win == focused then
-                fullscreen_win = nil
-            elseif find_win(focused) then
-                fullscreen_win = focused
-            end
+            if find_win(focused) then toggle_fullscreen(focused) end
         elseif code == "j" then
             -- Toggle between side-by-side and stacked layout.
             layout_mode = (layout_mode == "splith") and "splitv" or "splith"

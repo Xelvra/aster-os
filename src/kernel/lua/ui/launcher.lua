@@ -229,11 +229,7 @@ local function launcher_run(id)
         launcher_sel = 1
         gfx.invalidate()
     elseif id == "fullscreen" then
-        if fullscreen_win == focused then
-            fullscreen_win = nil
-        elseif find_win(focused) then
-            fullscreen_win = focused
-        end
+        if find_win(focused) then toggle_fullscreen(focused) end
     elseif id == "close" then
         if find_win(focused) then close_window(focused) end
     end

@@ -602,9 +602,12 @@ okno, které bylo zavřeno (Super+Q), a přesune ho na aktuální workspace.
   Floating okna se vždy kreslí **nad** tiled (z-order), focus je nemíchá.
 - **Super+F / Super+D — fullscreen toggle.** Fokusované okno na aktuální ws
   se roztáhne na **celou obrazovku** (přes bar, přes ostatní okna); znovu
-  Super+F/D vrátí do předchozího režimu. Ve fullscreenu se kreslí jen toto
-  okno (+ obsah) a **otevřený scratchpad** (Super+S) nad ním. bar_render se
-  ve fullscreenu vynechává.
+  Super+F/D vrátí do předchozího režimu. **Geometrie okna se před vstupem
+  ukládá a při výstupu obnovuje** — tiled okna repositionuje `layout_pass`,
+  **floating okno (např. scratchpad) dostane zpět svou velikost/pozici**,
+  takže po ukončení fullscreenu nezůstane roztáhnuté přes celý framebuffer.
+  Ve fullscreenu se kreslí jen toto okno (+ obsah) a **otevřený scratchpad**
+  (Super+S) nad ním. bar_render se ve fullscreenu vynechává.
 - **Super+J — togglesplit.** Přepne layout workspace mezi **splith**
   (vedle sebe, fokus širší 60/40) a **splitv** (nad sebou). Okna se
   přerovnají bez ztráty stavu.
