@@ -3,6 +3,7 @@ const serial = @import("serial.zig");
 const input_service = @import("input/service.zig");
 const graphics = @import("api/graphics.zig");
 const mem = @import("mem/mem.zig");
+const sync = @import("sched/sync.zig");
 const build_options = @import("build_options");
 
 const debug_exit_port: u16 = 0x501;
@@ -545,6 +546,47 @@ fn testBlockingTaskSleep() void {
     expect(sleeper_resumed.load(.monotonic), "task resumes after its sleep deadline");
 }
 
+var sem_wait_ran = std.atomic.Value(bool).init(false);
+var sem: sync.Semaphore = sync.Semaphore.init(0);
+fn semWaiterTask() callconv(.c) noreturn {
+    sem.wait();
+    sem_wait_ran.store(true, .monotonic);
+    while (true) {
+        asm volatile ("hlt" ::: .{ .memory = true });
+    }
+}
+
+fn testSemaphore() void {
+    // A task that blocks on a semaphore must not run until another task
+    // signals; after the signal it resumes and records that it ran. Proves the
+    // blocking wait/wake path (ADR-017), not just time-based sleep.
+    const sched = @import("sched/task.zig");
+    const sync_mod = @import("sched/sync.zig");
+    sem = sync_mod.Semaphore.init(0);
+    sem_wait_ran.store(false, .monotonic);
+    _ = sched.spawnTask(semWaiterTask) catch {
+        expect(false, "scheduler spawns semaphore waiter");
+        return;
+    };
+
+    // Give the waiter a chance to run and block (waiter_count becomes 1).
+    var spins: usize = 0;
+    while (spins < 1000000) : (spins += 1) {
+        asm volatile ("hlt" ::: .{ .memory = true });
+        if (sem.waiter_count == 1) break;
+    }
+    expect(sem.waiter_count == 1, "semaphore waiter blocks");
+    expect(!sem_wait_ran.load(.monotonic), "blocked waiter does not run before signal");
+
+    sem.signal();
+    spins = 0;
+    while (!sem_wait_ran.load(.monotonic) and spins < 1000000) : (spins += 1) {
+        asm volatile ("hlt" ::: .{ .memory = true });
+    }
+    expect(sem_wait_ran.load(.monotonic), "semaphore waiter resumes after signal");
+    expect(sem.waiter_count == 0 and sem.count == 0, "signal handed the slot, count back to zero");
+}
+
 const tests = [_]Test{
     .{ .name = "timer tick + event queue", .func = testTimerTicks },
     .{ .name = "mouse event queue", .func = testMouseEvent },
@@ -563,6 +605,7 @@ const tests = [_]Test{
     .{ .name = "render throughput", .func = testRenderThroughput },
     .{ .name = "preemptive RR scheduler (two kernel tasks)", .func = testPreemptiveScheduler },
     .{ .name = "blocking sleep deschedules a task (M7)", .func = testBlockingTaskSleep },
+    .{ .name = "semaphore blocks and wakes a task (ADR-017)", .func = testSemaphore },
 };
 
 fn testFilesystem(alloc: std.mem.Allocator, memory: *mem.Memory) void {

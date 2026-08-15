@@ -436,8 +436,10 @@ se musí vyřešit **před** spuštěním dalších features, ne až na konci st
       **Částečné řešení M7 (2026-08-14):** instrukční rozpočet Lua (`LUA_MASKCOUNT`,
       brief Task 7b) — nekonečná smyčka vyvolá error containment/hot reload místo
       zamrznutí; plná per-program izolace zůstává otevřená.
-- [ ] **Blokující synchronizační primitiva** (ADR-017): semafor, mutex, event group,
-      message queue; **error handler úkolu** (`anyerror!void`).
+- [~] **Blokující synchronizační primitiva** (ADR-017): **semafor hotový**
+      (`sched/sync.zig`, `Semaphore` — wait/signal, čekatelé pod interrupt
+      maskou; runtime test „semaphore blocks and wakes a task"); **mutex, event
+      group, message queue a error handler úkolu** (`anyerror!void`) zůstávají.
 - [ ] Benchmark wasm vs Lua; metriky do tabulky.
 
 ### M7.1 — Zápis na disk + editor (ADR-023)

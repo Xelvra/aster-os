@@ -23,14 +23,16 @@ const stack_canary_magic: u64 = 0xA57E5CA42C4CA1AE; // "ASTERSTK"
 /// IF masked — the TCB manipulation in `schedPickNext` is therefore a natural
 /// critical section (no lock, no CAS; spec/invariants.md Architecture); the
 /// sleep bridge masks interrupts for the same reason. Task 0 is the kernel
-/// main context (event loop / runtime tests); `spawnTask` adds up to three
+/// main context (event loop / runtime tests); `spawnTask` adds up to four
 /// native kernel tasks, each resumed through a hand-assembled initial
 /// interrupt frame.
 ///
 /// No dynamic allocation: the TCB table and all task stacks are static
 /// (`.bss`). The kernel image is not reserved in the PFA bitmap, so task
-/// stacks must never come from `allocPages` (brief Task 7.1).
-pub const max_tasks = 4;
+/// stacks must never come from `allocPages` (brief Task 7.1). max_tasks = 5
+/// (one main + four spawnable) so the runtime test suite can hold all its
+/// task-spawning tests at once — tasks are never torn down.
+pub const max_tasks = 5;
 pub const TaskId = usize;
 
 const task_stack_size = 16384;
@@ -256,9 +258,31 @@ fn buildFakeFrame(id: TaskId, entry: *const fn () callconv(.c) noreturn) u64 {
 extern fn sched_sleep_switch(wake: u64) void;
 
 pub fn sleepMs(ms: u64) void {
-    const wake = time.ticks() + ms;
+    const wake_at = time.ticks() + ms;
     while (true) {
-        if (time.ticks() >= wake) return;
-        sched_sleep_switch(wake);
+        if (time.ticks() >= wake_at) return;
+        sched_sleep_switch(wake_at);
     }
+}
+
+/// Id of the currently running native task (blocking sync primitives register
+/// themselves as waiters by this id).
+pub fn currentId() TaskId {
+    return running;
+}
+
+/// Wake a blocked task: it becomes runnable and resumes at its sleep save
+/// area. No-op when the task is not blocked. Called under an interrupt guard
+/// by the sync primitives.
+pub fn wake(id: TaskId) void {
+    if (id >= task_count) return;
+    if (tasks[id].state == .blocked) tasks[id].state = .ready;
+}
+
+/// Block the current task until `wake` is called. Uses the sleep bridge with a
+/// never-firing deadline, so only an explicit wake resumes it (the scheduler's
+/// no-other-runnable self-switch fallback is handled by the caller re-checking
+/// its wait condition).
+pub fn blockUntilWoken() void {
+    sched_sleep_switch(std.math.maxInt(u64));
 }

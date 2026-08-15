@@ -162,6 +162,11 @@ This version tracks the milestone after M6 Storage was completed.
   entries are drawn in blue (`theme.trash`).
 * **Toggle hidden files:** **Ctrl+H** in the file manager shows/hides dotfiles
   (hidden by default-visible; the listing filters them in `load_listing`).
+* **Blocking semaphore (ADR-017):** new `sched/sync.zig` provides a counting
+  `Semaphore` — `wait()` blocks the current native kernel task until another
+  task `signal()`s, with the waiter list guarded by the RFLAGS interrupt mask
+  (single core, no lock). Verified by a new runtime test that spawns a waiter,
+  blocks it, signals it and confirms it resumes.
 * **QEMU mouse on Wayland:** the interactive `zig build run` display switched
   from GTK to **SDL**. GDK has no native pointer grab on Wayland (it emulates
   the grab by warping the cursor back), so `grab-on-hover` let the cursor
