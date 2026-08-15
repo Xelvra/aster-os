@@ -200,9 +200,9 @@ Cíl: btop/Noctalia sysmon widget v baru + okno.
 | Super+S | scratchpad (toggle vyhrazené app) |
 | Alt+Tab | cyklování oken |
 | F1 / Super+F1 | help — F1 kontextové (v okně) / Super+F1 globální WM help |
-| F2 | editor: save as |
+| F2 | editor: save as / files: rename |
 | F3 | files: view vybraný soubor |
-| F4 | files: edit vybraný soubor |
+| F4 | files: edit vybraný soubor / Shift+F4: nový soubor |
 | F5 | hot reload |
 | F11 | fullscreen (jako Super+F/D) |
 | F6–F10, F12 | **rezervované** (neobsazovat bez přehodnocení) |

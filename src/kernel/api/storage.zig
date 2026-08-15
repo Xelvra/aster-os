@@ -23,6 +23,7 @@ pub const StorageOp = enum(u64) {
     list = 5,
     remove = 6,
     create = 7,
+    rename = 8,
 };
 
 pub const ReadArgs = extern struct {
@@ -45,6 +46,14 @@ pub const ListArgs = extern struct {
     path_len: u64,
     out: u64,
     out_cap: u64,
+};
+
+/// Rename request: two absolute paths (old and new), each a pointer + length.
+pub const RenameArgs = extern struct {
+    old_path: u64,
+    old_len: u64,
+    new_path: u64,
+    new_len: u64,
 };
 
 /// Backing disk; only meaningful after a successful boot-time probe.
@@ -88,6 +97,7 @@ fn errToStatus(err: ext2.Ext2Error) sys.KiStatus {
     return switch (err) {
         error.NotFound => .NotFound,
         error.NotAFile, error.NotADirectory => .InvalidArgument,
+        error.NameTooLong => .InvalidArgument,
         error.IoError => .IoError,
         error.OutOfSpace => .NoMemory,
         error.FileExists => .InvalidArgument,
@@ -185,6 +195,18 @@ pub fn dispatch(args: sys.SyscallArgs) u64 {
             const path_ptr: [*]const u8 = @ptrCast(checked);
             const path = path_ptr[0..@as(usize, @intCast(args.c))];
             file.File.delete(fs_ptr, path) catch |err| return fail(errToStatus(err));
+            return ok(0);
+        },
+        .rename => {
+            const ra = validate.checkPtr(args.b, RenameArgs) orelse return fail(.InvalidArgument);
+            const old_checked = if (ra.old_path != 0) validate.checkPtr(ra.old_path, u8) else null;
+            const new_checked = if (ra.new_path != 0) validate.checkPtr(ra.new_path, u8) else null;
+            if (old_checked == null or new_checked == null) return fail(.InvalidArgument);
+            const old_path_ptr: [*]const u8 = @ptrCast(old_checked.?);
+            const new_path_ptr: [*]const u8 = @ptrCast(new_checked.?);
+            const old_path = old_path_ptr[0..@as(usize, @intCast(ra.old_len))];
+            const new_path = new_path_ptr[0..@as(usize, @intCast(ra.new_len))];
+            file.File.rename(fs_ptr, old_path, new_path) catch |err| return fail(errToStatus(err));
             return ok(0);
         },
     }

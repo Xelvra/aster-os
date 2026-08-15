@@ -486,6 +486,14 @@ triggerů / nových ADR.
       REPL ukazuje Lua banner (`LUA_COPYRIGHT`). **F1 v okně aplikace = kontextový
       help té aplikace; Super+F1 kdekoli = globální WM help** (viz `spec/lua-wm.md`
       §7.1), F5 hot reload zachován.
+- [x] **M7.1.12 Přejmenování ve files browseru:** `file.rename(old, new)` → KI
+      `storage.rename` → ext2 `rename` (přelinkování existujícího inode pod nový
+      název + smazání staré direntry — žádná kopie dat, stejný inode i bloky;
+      cílový název nesmí existovat). Files: **F2** = přejmenovat vybranou položku
+      (soubor i adresář v rámci aktuální složky; prompt „rename:" v titulkové
+      liště, Enter uloží / Esc zruší); **Shift+F4** = nový soubor (MC konvence,
+      otevře editor s prázdným bufferem). Rozšiřuje ext2 `rename`/`link` potřebné pro
+      budoucí koš (`/.trash`).
 - [ ] **Toggle skrytých souborů ve files browseru** — zobrazit/skrýt dotfiles (dnes se
       kreslí šedivě, vždy viditelné).
 - [ ] **Koš (`/.trash`)** — smazání je dnes trvalé (`file.remove`); cílová funkce:

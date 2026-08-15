@@ -198,9 +198,10 @@ local function handle_key(ev)
 
     -- Function keys: familiar F-key conventions as a design duality with the
     -- Hyprland Super+... shortcuts (same action, second way in). F1 (help)
-    -- is global; F2 (save-as), F3 (view, like Space in files) and F4 (edit)
-    -- act on the focused window. F6..F10 and F12 are reserved; F11 is
-    -- fullscreen (same as Super+F/D). Reusing a reserved key requires
+    -- is global; F2 (save-as in the editor / rename in the file manager),
+    -- F3 (view, like Space in files), F4 (edit) and Shift+F4 (new file,
+    -- like Super+T) act on the focused window. F6..F10 and F12 are reserved;
+    -- F11 is fullscreen (same as Super+F/D). Reusing a reserved key requires
     -- re-evaluating it (Hyprland reserved-slot pattern).
     if ev.pressed then
         if code == "f1" then
@@ -222,8 +223,26 @@ local function handle_key(ev)
             local e = fs_entries[fs_sel]
             if e and not e.dir then files_view(e.name) end
             return
+        elseif code == "f2" and focused == "files" and find_win("files") then
+            -- F2 in the file manager is rename (Windows/Total Commander
+            -- convention); F2 in the editor stays save-as — same key, per-window
+            -- action, consistent with the F-key duality (§7).
+            files_rename_start()
+            return
         elseif code == "f2" and focused == "editor" and find_win("editor") then
             editor_save_as()
+            return
+        elseif code == "f4" and ev.shift and focused == "files" and find_win("files") then
+            -- Shift+F4: new file (Midnight Commander convention) — open the
+            -- editor with a fresh untitled buffer; Ctrl+S then prompts save-as.
+            local w = find_win("editor")
+            if not w then
+                windows[#windows + 1] = window("editor", current_ws)
+            else
+                w.ws = current_ws
+            end
+            if not ed_open or not ed_dirty then editor_load(nil) end
+            set_focus("editor")
             return
         elseif code == "f4" and focused == "files" and find_win("files") then
             local e = fs_entries[fs_sel]
@@ -600,6 +619,25 @@ local function handle_key(ev)
     -- the file content; escape goes up one level / exits a view; clicking the
     -- path header also goes up.
     if focused == "files" and find_win("files") then
+        -- Rename mode (F2): text edits the new name in the title-bar header,
+        -- Enter commits, Esc cancels. Navigation keys are disabled.
+        if fs_renaming then
+            if code == "enter" then
+                files_rename_commit()
+            elseif code == "escape" then
+                files_rename_cancel()
+            elseif code == "backspace" then
+                fs_rename_name = string.sub(fs_rename_name, 1, -2)
+                fs_error = ""
+                update_files_header()
+            elseif ev.char then
+                fs_rename_name = fs_rename_name .. ev.char
+                fs_error = ""
+                update_files_header()
+            end
+            gfx.invalidate()
+            return
+        end
         if fs_viewing then
             -- View mode: navigate the hollow cursor like the editor, but with
             -- no editing. Up/Down move rows (and scroll), Left/Right columns,

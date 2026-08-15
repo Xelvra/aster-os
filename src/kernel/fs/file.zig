@@ -66,6 +66,12 @@ pub const File = struct {
         try backend.unlink(path);
     }
 
+    /// Rename a file or directory by absolute path: relink its inode under the
+    /// new name and drop the old directory entry (same inode, no data copy).
+    pub fn rename(backend: *ext2.Ext2, old_path: []const u8, new_path: []const u8) ext2.Ext2Error!void {
+        try backend.rename(old_path, new_path);
+    }
+
     pub fn close(self: *File) void {
         _ = self;
     }

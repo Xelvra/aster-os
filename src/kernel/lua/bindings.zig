@@ -354,6 +354,7 @@ const FileFuncs = [_]lua_c.luaL_Reg{
     .{ .name = "dir", .func = fileDir },
     .{ .name = "remove", .func = fileRemove },
     .{ .name = "create", .func = fileCreate },
+    .{ .name = "rename", .func = fileRename },
     .{ .name = null, .func = null },
 };
 
@@ -512,6 +513,27 @@ fn fileRemove(L: ?*lua_c.lua_State) callconv(.c) c_int {
         return 1;
     }
     pushError(L, "file.remove failed", .{});
+    return 2;
+}
+
+fn fileRename(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    const old_path = checkString(L, 1, "old_path") orelse return 2;
+    const new_path = checkString(L, 2, "new_path") orelse return 2;
+    const ra = api_storage.RenameArgs{
+        .old_path = @intFromPtr(old_path.ptr),
+        .old_len = old_path.len,
+        .new_path = @intFromPtr(new_path.ptr),
+        .new_len = new_path.len,
+    };
+    const result = sys.dispatch(.Storage, .{
+        .a = @intFromEnum(api_storage.StorageOp.rename),
+        .b = @intFromPtr(&ra),
+    });
+    if (storageResultOk(result)) {
+        lua_c.lua_pushinteger(L, 0);
+        return 1;
+    }
+    pushError(L, "file.rename failed", .{});
     return 2;
 }
 

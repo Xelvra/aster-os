@@ -14,6 +14,9 @@ fs_view_col = fs_view_col or 0
 fs_view_scroll = fs_view_scroll or 0
 fs_view_scroll_col = fs_view_scroll_col or 0
 fs_error = fs_error or ""
+fs_renaming = fs_renaming or false
+fs_rename_orig = fs_rename_orig or ""
+fs_rename_name = fs_rename_name or ""
 fs_row_h = 18
 fs_glyph_w = 8
 
@@ -36,18 +39,42 @@ end
 -- on the left; "help F1" is right-aligned by win_render, so no key hints are
 -- stored here. The path doubles as the click-to-go-up pointer.
 local function update_files_header()
-    if fs_viewing then
+    if fs_renaming then
+        set_window_header("files", "rename: " .. fs_rename_name)
+        -- The text cursor lives in the title-bar header, following the typed
+        -- name (same pattern as the editor's save-as prompt).
+        set_window_cursor("files", #"rename: " + #fs_rename_name)
+    elseif fs_viewing then
         set_window_header("files", join_path(fs_path, fs_view_name))
+        set_window_cursor("files", nil)
     else
         set_window_header("files", fs_path)
+        set_window_cursor("files", nil)
     end
+end
+
+-- Read and sort a directory listing: the ext2 `lost+found` directory always
+-- comes first, then directories, then files; each group alphabetically by
+-- name. ext2 returns direntries in on-disk order, which is not user-facing.
+-- Returns nil when the directory cannot be read.
+local function load_listing(path)
+    local entries = file.dir(path)
+    if not entries then return nil end
+    table.sort(entries, function(a, b)
+        local a_lf = a.name == "lost+found"
+        local b_lf = b.name == "lost+found"
+        if a_lf ~= b_lf then return a_lf end
+        if a.dir ~= b.dir then return a.dir end
+        return a.name < b.name
+    end)
+    return entries
 end
 
 function files_open(path)
     fs_path = norm_path(path)
     fs_viewing = false
     fs_sel = 1
-    local entries = file.dir(fs_path)
+    local entries = load_listing(fs_path)
     if not entries then
         fs_entries = {}
         fs_error = "cannot read " .. fs_path
@@ -56,17 +83,25 @@ function files_open(path)
         return
     end
     fs_error = ""
-    -- Sort the listing: the ext2 `lost+found` directory always comes first,
-    -- then directories, then files; each group alphabetically by name. ext2
-    -- returns direntries in on-disk order, which is not user-facing.
-    table.sort(entries, function(a, b)
-        local a_lf = a.name == "lost+found"
-        local b_lf = b.name == "lost+found"
-        if a_lf ~= b_lf then return a_lf end
-        if a.dir ~= b.dir then return a.dir end
-        return a.name < b.name
-    end)
     fs_entries = entries
+    update_files_header()
+    gfx.invalidate()
+end
+
+-- Re-read the current directory without leaving a view or the rename prompt,
+-- keeping the selection. Called when the editor saves a file into the shown
+-- directory (e.g. save-as), so a new entry appears immediately instead of on
+-- the next navigation.
+function files_refresh()
+    if fs_viewing or fs_renaming then return end
+    local w = find_win("files")
+    if not w or w.ws ~= current_ws then return end
+    local entries = load_listing(fs_path)
+    if not entries then return end
+    local was_idx = fs_sel
+    fs_error = ""
+    fs_entries = entries
+    fs_sel = math.max(1, math.min(was_idx, #fs_entries))
     update_files_header()
     gfx.invalidate()
 end
@@ -150,6 +185,74 @@ end
 -- Matched by name so it works wherever they live (/wm/.theme.bak, /.repl_history).
 local function is_read_only(name)
     return name == ".theme.bak" or name == ".repl_history"
+end
+
+-- F2: rename the selected entry. The title-bar header turns into a
+-- "rename: <name>" prompt (text cursor follows); Enter commits, Esc cancels.
+-- Renaming a file relinks its inode under the new name (file.rename) — the
+-- old name disappears, nothing is copied. Read-only files are refused, like
+-- the editor refuses to load them.
+function files_rename_start()
+    if fs_renaming or fs_viewing then return end
+    local e = fs_entries[fs_sel]
+    if not e then return end
+    if is_read_only(e.name) then
+        fs_error = e.name .. " is read-only (view with Space)"
+        gfx.invalidate()
+        return
+    end
+    fs_renaming = true
+    fs_rename_orig = e.name
+    fs_rename_name = e.name
+    update_files_header()
+    gfx.invalidate()
+end
+
+function files_rename_cancel()
+    fs_renaming = false
+    update_files_header()
+    gfx.invalidate()
+end
+
+-- Commit the rename prompt (Enter): rename within the current directory and
+-- refresh the listing, keeping the selection on the renamed entry. A name
+-- equal to the original just leaves the prompt.
+function files_rename_commit()
+    local name = fs_rename_name
+    local orig = fs_rename_orig
+    if name == "" then
+        fs_error = "name cannot be empty"
+        gfx.invalidate()
+        return
+    end
+    if name == "." or name == ".." or name:find("/") then
+        fs_error = "invalid name"
+        gfx.invalidate()
+        return
+    end
+    if name == orig then
+        fs_renaming = false
+        update_files_header()
+        gfx.invalidate()
+        return
+    end
+    if not file.rename(join_path(fs_path, orig), join_path(fs_path, name)) then
+        fs_error = "cannot rename " .. orig .. " (name already in use?)"
+        gfx.invalidate()
+        return
+    end
+    fs_renaming = false
+    local was_idx = fs_sel
+    files_open(fs_path)
+    local found = false
+    for i, e in ipairs(fs_entries) do
+        if e.name == name then
+            fs_sel = i
+            found = true
+            break
+        end
+    end
+    if not found then fs_sel = math.max(1, math.min(was_idx, #fs_entries)) end
 end
 
 -- Entry text color: selection highlight first, then read-only red, then other

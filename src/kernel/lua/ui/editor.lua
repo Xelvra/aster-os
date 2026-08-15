@@ -206,6 +206,9 @@ function editor_saveas_commit()
         gfx.invalidate()
         return
     end
+    -- The new file lands on disk; make it appear in the file browser right
+    -- away if it is showing the directory (files_refresh keeps the selection).
+    files_refresh()
     ed_path = path
     ed_saved = table.concat(ed_lines, "\n")
     ed_dirty = false

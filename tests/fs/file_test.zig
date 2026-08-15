@@ -195,3 +195,87 @@ test "create rejects an existing path and a missing parent" {
     try std.testing.expectError(ext2.Ext2Error.FileExists, fs.create("/hello.txt"));
     try std.testing.expectError(ext2.Ext2Error.NotFound, fs.create("/nope/file.txt"));
 }
+
+test "rename relinks a file: old name gone, same inode, content intact" {
+    var img = buildImage();
+    var mock = MockDisk{ .data = &img.data };
+    var fs = try ext2.Ext2.init(mount(&mock));
+
+    try file.File.rename(&fs, "/hello.txt", "/renamed.txt");
+
+    // The new name resolves to the same inode; the old one is gone (nothing
+    // was copied, the inode and its blocks stayed put).
+    try std.testing.expectEqual(@as(u32, 3), try fs.find("/renamed.txt"));
+    try std.testing.expectError(ext2.Ext2Error.NotFound, fs.find("/hello.txt"));
+
+    var f = try file.File.open(&fs, "/renamed.txt");
+    defer f.close();
+    var buf: [64]u8 = undefined;
+    const n = try f.read(&buf);
+    try std.testing.expectEqual(@as(usize, 5), n);
+    try std.testing.expect(std.mem.eql(u8, "hello", buf[0..5]));
+
+    // The new entry is in the root listing, the old one is gone.
+    var entries: [16]ext2.DirEntry = undefined;
+    const count = try fs.readDir(ext2.root_inode, &entries);
+    var found_new = false;
+    var found_old = false;
+    for (entries[0..count]) |e| {
+        const en = e.name[0..e.name_len];
+        if (std.mem.eql(u8, en, "renamed.txt")) found_new = true;
+        if (std.mem.eql(u8, en, "hello.txt")) found_old = true;
+    }
+    try std.testing.expect(found_new);
+    try std.testing.expect(!found_old);
+}
+
+test "rename moves a file into a subdirectory" {
+    var img = buildImage();
+    var mock = MockDisk{ .data = &img.data };
+    var fs = try ext2.Ext2.init(mount(&mock));
+
+    try file.File.rename(&fs, "/hello.txt", "/sub/moved.txt");
+    try std.testing.expectEqual(@as(u32, 3), try fs.find("/sub/moved.txt"));
+    try std.testing.expectError(ext2.Ext2Error.NotFound, fs.find("/hello.txt"));
+}
+
+test "rename a directory keeps its children reachable" {
+    var img = buildImage();
+    var mock = MockDisk{ .data = &img.data };
+    var fs = try ext2.Ext2.init(mount(&mock));
+
+    try file.File.rename(&fs, "/sub", "/dir");
+    try std.testing.expectEqual(@as(u32, 4), try fs.find("/dir"));
+    try std.testing.expectError(ext2.Ext2Error.NotFound, fs.find("/sub"));
+    try std.testing.expectEqual(@as(u32, 3), try fs.find("/dir/inner.txt"));
+}
+
+test "rename removes the old entry even when the new one landed earlier" {
+    // Same-directory rename where addDirEntry reuses a dead slot that sits
+    // before the old entry: without name matching, removeDirEntry would drop
+    // the freshly added entry (both share the inode). The old name must go.
+    const buildCreateImage = ext2_image.buildCreateImage;
+    var img = buildCreateImage();
+    var mock = MockDisk{ .data = &img.data };
+    var fs = try ext2.Ext2.init(mount(&mock));
+
+    // Root: hello.txt (ino 3), sub. Create a.txt (ino 11), then delete
+    // hello.txt — its slot stays as a dead record ahead of a.txt.
+    try std.testing.expectEqual(@as(u32, 11), try fs.create("/a.txt"));
+    try file.File.delete(&fs, "/hello.txt");
+
+    // Rename a.txt -> hello.txt reuses the dead slot in front of it.
+    try file.File.rename(&fs, "/a.txt", "/hello.txt");
+    try std.testing.expectEqual(@as(u32, 11), try fs.find("/hello.txt"));
+    try std.testing.expectError(ext2.Ext2Error.NotFound, fs.find("/a.txt"));
+}
+
+test "rename rejects an existing target and a missing source/parent" {
+    var img = buildImage();
+    var mock = MockDisk{ .data = &img.data };
+    var fs = try ext2.Ext2.init(mount(&mock));
+
+    try std.testing.expectError(ext2.Ext2Error.FileExists, file.File.rename(&fs, "/hello.txt", "/sub"));
+    try std.testing.expectError(ext2.Ext2Error.NotFound, file.File.rename(&fs, "/nope", "/also-nope"));
+    try std.testing.expectError(ext2.Ext2Error.NotFound, file.File.rename(&fs, "/hello.txt", "/missing-dir/file.txt"));
+}

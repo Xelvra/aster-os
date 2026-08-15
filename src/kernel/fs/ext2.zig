@@ -423,7 +423,7 @@ pub const Ext2 = struct {
 
         try self.freeBlocks(inode);
         try self.freeInode(ino);
-        try self.removeDirEntry(parent_ino, ino);
+        try self.removeDirEntry(parent_ino, ino, name);
     }
 
     /// Create a regular file at `path` and return its inode. The parent
@@ -446,6 +446,37 @@ pub const Ext2 = struct {
         try self.initInode(ino, inode_type_reg);
         try self.addDirEntry(parent_ino, ino, name, 1);
         return ino;
+    }
+
+    /// Rename `old_path` to `new_path` on the same filesystem: relink the
+    /// existing inode under the new name and drop the old directory entry —
+    /// no data copy, the inode and its blocks stay put. Works for regular
+    /// files and directories. Non-crash-safe best-effort like create/unlink
+    /// (no journal, ADR-023): the new entry is written first so a failure
+    /// leaves the old name intact; the target path must not already exist.
+    /// `removeDirEntry` matches the entry by inode *and* name, so the old
+    /// entry is dropped even when a rename links the same inode twice in one
+    /// directory.
+    pub fn rename(self: *Ext2, old_path: []const u8, new_path: []const u8) Ext2Error!void {
+        const old_parent_path = parentPath(old_path) orelse return Ext2Error.NotFound;
+        const old_parent = try self.find(old_parent_path);
+        const old_name = lastComponent(old_path) orelse return Ext2Error.NotFound;
+        const ino = (try self.lookupDir(old_parent, old_name)) orelse return Ext2Error.NotFound;
+        const inode = try self.readInode(ino);
+
+        const new_parent_path = parentPath(new_path) orelse return Ext2Error.NotFound;
+        const new_parent = try self.find(new_parent_path);
+        const new_name = lastComponent(new_path) orelse return Ext2Error.NotFound;
+        if (new_name.len > 255) return Ext2Error.NameTooLong;
+        const existing = self.find(new_path) catch |err| switch (err) {
+            error.NotFound => null,
+            else => return err,
+        };
+        if (existing != null) return Ext2Error.FileExists;
+
+        const file_type: u8 = if (inode.mode & inode_type_dir != 0) 2 else 1;
+        try self.addDirEntry(new_parent, ino, new_name, file_type);
+        try self.removeDirEntry(old_parent, ino, old_name);
     }
 
     /// Free the data blocks of `inode` (direct + single indirect) in the
@@ -544,8 +575,10 @@ pub const Ext2 = struct {
 
     /// Remove `ino` from the directory listing of `dir_ino` by zeroing its
     /// entry's inode field (the entry stays as a dead record; readDir skips
-    /// zero inodes).
-    fn removeDirEntry(self: *Ext2, dir_ino: u32, ino: u32) Ext2Error!void {
+    /// zero inodes). The entry is matched by inode *and* name so the old
+    /// entry is dropped even when the same inode is linked twice (a rename
+    /// that added a new entry first).
+    fn removeDirEntry(self: *Ext2, dir_ino: u32, ino: u32, name: []const u8) Ext2Error!void {
         const inode = try self.readInode(dir_ino);
         if (inode.mode & inode_type_dir == 0) return Ext2Error.NotADirectory;
         var block_buf: [4096]u8 = undefined;
@@ -556,7 +589,12 @@ pub const Ext2 = struct {
             const entry_inode = bytes.readU32(data, off);
             const rec_len = bytes.readU16(data, off + 4);
             if (rec_len == 0) break;
-            if (entry_inode == ino) {
+            const entry_name_len = data[off + 6];
+            const name_end = off + 8 + @as(usize, entry_name_len);
+            if (name_end > data.len) return Ext2Error.OutOfBounds;
+            if (entry_inode == ino and entry_name_len == name.len and
+                std.mem.eql(u8, data[off + 8 .. name_end], name))
+            {
                 bytes.writeU32(&block_buf, off, 0);
                 try self.writeBlock(inode.block[0], block_buf[0..self.block_size]);
                 return;

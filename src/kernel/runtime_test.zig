@@ -830,6 +830,64 @@ fn testFileCreate() void {
     _ = L.lua_pop(lua_state, 1);
 }
 
+fn testFileRename() void {
+    // file.rename relinks an existing file under a new name (no data copy):
+    // the old path resolves to nothing, the new path holds the same content,
+    // and renaming onto an existing path fails. Skipped when no disk.
+    const lua = @import("lua/lua.zig");
+    const storage = @import("api/storage.zig");
+    if (!storage.isMounted()) {
+        expect(true, "file.rename test skipped (no disk attached)");
+        return;
+    }
+    const L = @import("lua/cimport.zig").c;
+    const lua_state = lua.getState() orelse {
+        expect(false, "lua state exists");
+        return;
+    };
+    const script =
+        \\-- Start from a clean slate.
+        \\local h = file.open("/rename_src.txt")
+        \\if h then file.close(h) file.remove("/rename_src.txt") end
+        \\local g = file.open("/rename_dst.txt")
+        \\if g then file.close(g) file.remove("/rename_dst.txt") end
+        \\h = file.create("/rename_src.txt")
+        \\if not h then return "create-failed" end
+        \\file.write(h, "renamed content")
+        \\file.close(h)
+        \\file.rename("/rename_src.txt", "/rename_dst.txt")
+        \\local old = file.open("/rename_src.txt")
+        \\if old then file.close(old) return "old-still-there" end
+        \\h = file.open("/rename_dst.txt")
+        \\local content = file.read(h, 4096)
+        \\file.close(h)
+        \\-- Renaming onto an existing path must fail (FileExists).
+        \\h = file.create("/rename_src.txt")
+        \\if not h then return "recreate-failed" end
+        \\file.close(h)
+        \\local dup = file.rename("/rename_src.txt", "/rename_dst.txt")
+        \\-- Cleanup so later tests (file.dir listing) are unaffected.
+        \\file.remove("/rename_dst.txt")
+        \\file.remove("/rename_src.txt")
+        \\if content == "renamed content" and not dup then return "PASS" else return "FAIL" end
+    ;
+    const load_status = L.luaL_loadstring(lua_state, script);
+    expect(load_status == L.LUA_OK, "file.rename script compiles");
+    if (load_status != L.LUA_OK) return;
+    const run_status = L.lua_pcallk(lua_state, 0, 1, 0, 0, null);
+    expect(run_status == L.LUA_OK, "file.rename script runs");
+    if (run_status != L.LUA_OK) {
+        L.lua_pop(lua_state, 1);
+        return;
+    }
+    var len: usize = 0;
+    const str = L.lua_tolstring(lua_state, -1, &len);
+    const result: []const u8 = @as([*]const u8, @ptrCast(str))[0..len];
+    const ok = len == 4 and std.mem.eql(u8, result, "PASS");
+    expect(ok, "file.rename moves a file and rejects an existing target");
+    _ = L.lua_pop(lua_state, 1);
+}
+
 fn testEditorApp() void {
     // M7.1.5: the editor loads a file through file.*, saves it back and the
     // round trip matches the buffer. Skipped when no disk is attached.
@@ -1062,6 +1120,8 @@ pub fn runAll(alloc: std.mem.Allocator, memory: *mem.Memory) noreturn {
     testFileRemove();
     serial.writeLine("file.create new file (M7.1.11)");
     testFileCreate();
+    serial.writeLine("file.rename relink inode (rename)");
+    testFileRename();
     serial.writeLine("editor app (M7.1.5)");
     testEditorApp();
     serial.writeLine("file.dir listing (M7.1.5)");

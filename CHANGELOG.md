@@ -53,6 +53,20 @@ This version tracks the milestone after M6 Storage was completed.
   storage KI (`storage.create`) and the Lua `file.create` binding; covered by
   host and in-QEMU runtime tests.
 
+* **ext2 file.rename + files browser F2 rename:** a file or directory can be
+  renamed — `file.rename` relinks the existing inode under the new name (no
+  data copy, the old directory entry is dropped) and rejects an existing
+  target. Exposed through the storage KI (`storage.rename`) and the Lua
+  `file.rename` binding. The file manager's **F2** turns the title-bar header
+  into a `rename:` prompt (text cursor follows, Enter commits, Esc cancels) and
+  refreshes the listing with the selection on the renamed entry; read-only
+  files are refused like the editor refuses them. **Shift+F4** starts a new
+  file from the file manager (Midnight Commander convention): the editor opens
+  an untitled buffer, Ctrl+S then prompts save-as. The file browser also
+  refreshes itself when the editor saves a new file into the shown directory
+  (save-as), so a new entry appears immediately instead of on the next
+  navigation. Covered by host and in-QEMU runtime tests.
+
 * **Editor workflow:** Super+T (and the launcher's `editor` entry) opens a
   fresh untitled buffer (a dirty buffer is kept so edits survive); Ctrl+S on a
   new buffer shows a `save as:` prompt in the window title bar (with a text

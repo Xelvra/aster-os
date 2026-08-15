@@ -534,9 +534,9 @@ Vše v `handle_key` (`input.lua:118`). Super = `ev.super` (Hyprland konvence).
 | Super+S | scratchpad (toggle vyhrazené app) | `input.lua:324` |
 | Alt+Tab | cyklovat okna workspace | `input.lua:434` |
 | F1 / Super+F1 | help — F1 kontextové (v okně) / Super+F1 globální WM help | `input.lua:206` |
-| F2 | editor: save as | `input.lua:225` |
+| F2 | editor: save as / files: rename | `input.lua:225/229` |
 | F3 | files: view vybraný soubor (jako Space) | `input.lua:221` |
-| F4 | files: edit vybraný soubor | `input.lua:228` |
+| F4 | files: edit vybraný soubor / Shift+F4: nový soubor | `input.lua:228/235` |
 | F5 | hot reload (kernel, `main.zig:378`) | — |
 | F11 | fullscreen (jako Super+F/D) | `input.lua:217` |
 | F6–F10, F12 | **rezervované** (neobsazovat bez přehodnocení) | — |
@@ -657,14 +657,23 @@ okno, které bylo zavřeno (Super+Q), a přesune ho na aktuální workspace.
   Space na souboru). Na rozdíl od F4/Enter **neotvírá editor** — jen prohlíží
   (kurzor je hollow, viz §7b). Adresáře se neotvírají (Enter/F4 je navigace/
   editace). F3 = zažitá konvence „view" z řady aplikací.
-- **F2 — editor: save as.** Platí jen když je fokusovaný editor: otevře prompt
+- **F2 — editor: save as / files: rename.** Editor: otevře prompt
   „save as:" v titulkové liště **předvyplněný aktuální cestou** (nový buffer →
   prázdná cesta), Enter uloží pod novým jménem, Esc zruší. Doplňuje Ctrl+S
   (který u existujícího bufferu uloží na místo, u nového otevře save-as);
-  F2 vždy otevře save-as prompt bez ohledu na cestu.
+  F2 vždy otevře save-as prompt bez ohledu na cestu. Files browser: otevře
+  prompt **„rename:"** v titulkové liště **předvyplněný názvem vybrané
+  položky** (kurzor ve slova, Enter uloží nový název, Esc zruší) —
+  `file.rename` přejmenuje soubor i adresář v rámci aktuální složky
+  (stejný inode, žádná kopie dat); read-only soubory odmítá jako editor.
+  F2 = zažitá konvence „rename" ve správcích souborů (Windows/Total Commander).
 - **F4 — files: edit vybraný soubor.** Platí jen když je fokusovaný files
   browser: otevře **vybraný soubor v editoru** (stejná akce jako Enter na
   souboru). Adresáře se neotevírají (Enter je pro navigaci dovnitř).
+- **Shift+F4 — files: nový soubor.** Midnight Commander konvence: otevře
+  **editor s prázdným bufferem** (stejná akce jako Super+T / launcher
+  `editor`); Ctrl+S u nového bufferu vyvolá save-as prompt, kde se soubor
+  pojmenuje. Názvy neexistujícího souboru se nevytváří předem.
 - **F5 — hot reload.** Kernel zavře a znovu vytvoří `lua_State`, znovu načte
   celý shell z initrd + aplikuje `/wm/theme.lua`. Uživatelský stav, který má
   přežít, žije v **globálních proměnných** (`x = x or ...` idiom) — REPL
@@ -785,7 +794,9 @@ Navigační konvence:
   **Ctrl+S** = uložit (`file.write`). Nový buffer (bez cesty) přepne Ctrl+S na
   prompt **„save as:"** v titulkové liště: píše se cesta, **Enter** uloží —
   neexistující soubor se vytvoří (`file.create`, ext2 create), **Esc** zruší
-  (prompt neobsahuje žádné hinty — jak uložit je v help popupu, F1). Dirty
+  (prompt neobsahuje žádné hinty — jak uložit je v help popupu, F1). Uložení
+  pod novým jménem **ihned osvěží files browser** (`files_refresh`), pokud
+  zrovna ukazuje tu složku — nový soubor se objeví bez další navigace. Dirty
   marker se maže i tehdy, když uživatel
   všechny změny vrátí zpět — buffer se porovnává s posledním uloženým stavem
   (`ed_saved`), takže Ctrl+S se nabízí jen pro skutečně jiný obsah.
@@ -800,11 +811,14 @@ Navigační konvence:
   načíst).
 - **Files browser (`files.lua`):** Up/Down = výběr, **Enter** = otevřít
   (adresář → dovnitř, soubor → **editace v editoru**),
-  **Space** = rychlý náhled obsahu (read-only), **Delete** = smazat soubor
-  (`file.remove`), **Escape** = o úroveň výš / ven z náhledu, **Super+E** =
+  **Space** = rychlý náhled obsahu (read-only), **F2** = přejmenovat vybranou
+  položku (`file.rename`, prompt „rename:" v titulkové liště; soubor i adresář
+  v rámci aktuální složky), **Delete** = smazat soubor
+  (`file.remove`), **Shift+F4** = nový soubor (otevře editor s prázdným
+  bufferem, MC konvence), **Escape** = o úroveň výš / ven z náhledu, **Super+E** =
   otevřít v kořenu. **Read-only soubory** (`/wm/.theme.bak`, `/.repl_history`,
   červené) se otevírají **jen Space náhledem** — Enter ani klik u nich editor
-  nespouští (uložit se stejně nedají). Cesta je v **titulkové liště** okna (root = `/`);
+  nespouští a F2 je odmítá přejmenovat (uložit se stejně nedají). Cesta je v **titulkové liště** okna (root = `/`);
   **klik na titulkovou lištu** jde o úroveň výš / ven z náhledu (lišta =
   ukazatel cesty). Hlavička ukazuje cestu + vpravo zarovnané **`help F1`**
   (klávesové hinty jsou v help popupu; i v rootu ukazuje help F1). Konvence je „Enter otevře,
