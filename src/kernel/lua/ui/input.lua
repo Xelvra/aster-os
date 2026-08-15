@@ -197,16 +197,26 @@ local function handle_key(ev)
     --   Super+S         app picker (launcher run)
 
     -- Function keys: familiar F-key conventions as a design duality with the
-    -- Hyprland Super+... shortcuts (same action, second way in). F1 (help) and
-    -- F3 (launcher/view) are global; F2 (save-as) and F4 (edit) act on the
-    -- focused window. F6..F12 are reserved — do not reuse them without
-    -- re-evaluating (they mirror Hyprland's reserved keybinding slots).
+    -- Hyprland Super+... shortcuts (same action, second way in). F1 (help)
+    -- is global; F2 (save-as), F3 (view, like Space in files) and F4 (edit)
+    -- act on the focused window. F6..F10 and F12 are reserved; F11 is
+    -- fullscreen (same as Super+F/D). Reusing a reserved key requires
+    -- re-evaluating it (Hyprland reserved-slot pattern).
     if ev.pressed then
         if code == "f1" then
             launcher_open_mode("help")
             return
-        elseif code == "f3" then
-            launcher_open_mode("run")
+        elseif code == "f11" then
+            -- Fullscreen toggle, same as Super+F/D.
+            if fullscreen_win == focused then
+                fullscreen_win = nil
+            elseif find_win(focused) then
+                fullscreen_win = focused
+            end
+            return
+        elseif code == "f3" and focused == "files" and find_win("files") then
+            local e = fs_entries[fs_sel]
+            if e and not e.dir then files_view(e.name) end
             return
         elseif code == "f2" and focused == "editor" and find_win("editor") then
             editor_save_as()
@@ -219,11 +229,11 @@ local function handle_key(ev)
     end
 
     if ev.super and ev.pressed then
-        if code == "digit_1" then
+        if not ev.shift and code == "digit_1" then
             switch_workspace(1)
-        elseif code == "digit_2" then
+        elseif not ev.shift and code == "digit_2" then
             switch_workspace(2)
-        elseif code == "digit_3" then
+        elseif not ev.shift and code == "digit_3" then
             switch_workspace(3)
         elseif code == "enter" then
             -- Terminal: show the REPL on the current workspace and focus it.

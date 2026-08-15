@@ -528,17 +528,18 @@ Vše v `handle_key` (`input.lua:118`). Super = `ev.super` (Hyprland konvence).
 | Alt+Tab | cyklovat okna workspace | `input.lua:298` |
 | F1 | help (launcher cheat sheet) | `input.lua` |
 | F2 | editor: save as | `input.lua` |
-| F3 | launcher / view (jako Super+Space) | `input.lua` |
+| F3 | files: view vybraný soubor (jako Space) | `input.lua` |
 | F4 | files: edit vybraný soubor | `input.lua` |
 | F5 | hot reload (kernel, `main.zig:378`) | — |
-| F6–F12 | **rezervované** (neobsazovat bez přehodnocení) | — |
+| F11 | fullscreen (jako Super+F/D) | `input.lua` |
+| F6–F10, F12 | **rezervované** (neobsazovat bez přehodnocení) | — |
 
 > **F-klávesy = designová dualita s Hyprland zkratkami** (viz `spec/desktop-ui.md` §5):
-> dělají to samé jako odpovídající Super+... zkratka, ale druhou, zažitou cestou
-> (F1 = nápověda, F2 = save-as, F3 = launcher/view, F4 = editace, F5 = obnovení).
-> Nejsou to konfliktní
+> dělají to samé jako odpovídající zkratka, ale druhou, zažitou cestou
+> (F1 = nápověda, F2 = save-as, F3 = view, F4 = editace, F5 = obnovení,
+> F11 = fullscreen). Nejsou to konfliktní
 > duplicity — každá F-klávesa je **druhá cesta ke stejné akci** a uživatel si zvolí,
-> kterou zná. F6–F12 jsou **rezervované** (jako Hyprland reserved slots):
+> kterou zná. F6–F10 a F12 jsou **rezervované** (jako Hyprland reserved slots):
 > nesmí se přiřadit jiné akci bez přehodnocení — rezervace platí od teď, ať se
 > při vývoji nepřidělí něčemu jinému.
 
@@ -632,9 +633,11 @@ okno, které bylo zavřeno (Super+Q), a přesune ho na aktuální workspace.
   se nad okny **i ve fullscreenu**, takže nápověda je vyvolatelná v jakémkoli
   režimu a okně. Stejná akce jako položka `help` v launcheru.
   F1 = univerzální nápověda (zažitá konvence napříč aplikacemi).
-- **F3 — launcher / view.** Globální: otevře launcher v run módu (search box +
-  seznam aplikací a akcí) — **stejná akce jako Super+Space**, druhá zažitá
-  cesta (F3 jako „najít/otevřít" v řadě aplikací).
+- **F3 — files: view vybraný soubor.** Platí jen když je fokusovaný files
+  browser: otevře **read-only náhled vybraného souboru** (stejná akce jako
+  Space na souboru). Na rozdíl od F4/Enter **neotvírá editor** — jen prohlíží
+  (kurzor je hollow, viz §7b). Adresáře se neotvírají (Enter/F4 je navigace/
+  editace). F3 = zažitá konvence „view" z řady aplikací.
 - **F2 — editor: save as.** Platí jen když je fokusovaný editor: otevře prompt
   „save as:" v titulkové liště **předvyplněný aktuální cestou** (nový buffer →
   prázdná cesta), Enter uloží pod novým jménem, Esc zruší. Doplňuje Ctrl+S
@@ -649,6 +652,9 @@ okno, které bylo zavřeno (Super+Q), a přesune ho na aktuální workspace.
   historie, editor buffer, files cesta, workspace, theme. F5 se používá pro
   vyčistění / obnovení po chybě; běžná změna vzhledu jde bez F5 (Ctrl+S na
   configu spustí auto-reload).
+- **F11 — fullscreen.** Přepne fokusované okno mezi normálním a fullscreen
+  režimem — **stejná akce jako Super+F/D**, druhá zažitá cesta (F11 jako
+  univerzální fullscreen napříč aplikacemi i prohlížeči).
 
 ---
 
