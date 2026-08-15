@@ -24,8 +24,8 @@ This version tracks the milestone after M6 Storage was completed.
 * **WM configuration directory on the disk (`/wm/`):** the disk config that
   used to sit loose at the filesystem root now lives in a dedicated `/wm/`
   directory — `/wm/theme.lua` (colors and geometry, hot-reloaded on save),
-  `/wm/README` (user documentation), `/wm/api.lua` (Lua API reference) and
-  `/wm/.theme.bak` (last valid theme backup). The root stays clean (only
+  `/wm/api.lua` (Lua API reference) and `/wm/.theme.bak` (last valid theme
+  backup); the user guide is the root `/README`. The root stays clean (only
   `apps/`, `.trash/`, `README`, `.repl_history`). Moving the full Lua shell
   from the initrd into `/wm/` is planned as a later milestone (Úroveň 2,
   `spec/roadmap.md` M8, `spec/lua-wm.md` §3.1).

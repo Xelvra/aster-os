@@ -94,7 +94,7 @@ automatickým hot reloadem — ne jen `theme.lua` jako dnes (Úroveň 1).
 
 > **Vědomý dluh v Úrovni 1 (nutné dodělat):** obnova smazaných `/wm/*` souborů
 > z init **není dnes implementovaná** — default obsah `/wm/theme.lua`,
-> `/wm/api.lua` a `/wm/README` není přibalen do initrd taru, takže smazaný
+> `/wm/api.lua` a root `/README` není přibalen do initrd taru, takže smazaný
 > config se při bootu sice nepoužije (fallback na vestavěné defaulty funguje),
 > ale soubor se na disk nevrátí. Model „smazání → obnova z init" zůstává v
 > Úrovni 1 jen deklarací; dokončení je zaznamenáno jako **debt položka

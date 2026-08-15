@@ -110,7 +110,7 @@ běhu a kernel se nepřestavuje (M6, `spec/roadmap.md`).
 >
 > **Vědomý dluh v Úrovni 1 (nutné dodělat):** obnova smazaných `/wm/*` souborů
 > z init **zatím není implementovaná** — default obsah `/wm/theme.lua`,
-> `/wm/api.lua`, `/wm/README` není v initrd taru, takže smazaný config se sice
+> `/wm/api.lua` a root `/README` není v initrd taru, takže smazaný config se sice
 > nepoužije (fallback funguje), ale soubor se na disk nevrátí. Zaznamenáno jako
 > debt položka v `spec/roadmap.md` M8 a v ADR-025 — je nutné ji zrealizovat, ne
 > jen proklamovat.
@@ -221,10 +221,10 @@ Role jednotlivých souborů:
 Jediný modul bez závislostí. Definuje globální tabulku `theme` (viz `theme.lua:4`):
 
 > **Umístění configu na disku:** on-disk kopie žije v `/wm/theme.lua` (adresář WM na
-> disku; vedle něj `/wm/README` — uživatelská dokumentace, `/wm/api.lua` — reference
-> Lua API, `/wm/.theme.bak` — ruční záloha posledního Ctrl+S, **nikdy se nenačítá**
-> jako config — fallback je vždy initrd default, ADR-025). Shell moduly (kód WM)
-> zůstávají v initrd
+> disku; vedle něj `/wm/api.lua` — reference Lua API, `/wm/.theme.bak` — ruční
+> záloha posledního Ctrl+S, **nikdy se nenačítá** jako config — fallback je vždy
+> initrd default, ADR-025; uživatelská dokumentace je root `/README`). Shell moduly
+> (kód WM) zůstávají v initrd
 > (Úroveň 1); přesun do `/wm/` je plánovaná Úroveň 2 (§3.1).
 
 ```lua

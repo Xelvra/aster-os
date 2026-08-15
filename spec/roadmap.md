@@ -527,7 +527,7 @@ triggerů / nových ADR.
       verifikací — ne přidává se tiše k jiné práci.
 - [ ] **Debt — obnova smazaných `/wm/*` souborů z init** (vlastník: vlastník
       repozitáře; součást Úrovně 2, ADR-025): kernel dnes **nepřibalí default
-      obsah `/wm/theme.lua`, `/wm/api.lua` a `/wm/README` do initrd**, takže
+      obsah `/wm/theme.lua`, `/wm/api.lua` a root `/README` do initrd**, takže
       smazaný config se při bootu nepoužije (fallback na vestavěné defaulty
       funguje vizuálně), ale **soubor se na disk nevrátí** — uživatel, který
       smaže `/wm/*`, se nemůže vrátit do čistého stavu jinak než ručně. Tohle

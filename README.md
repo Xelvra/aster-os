@@ -75,8 +75,8 @@ zig build run -Ddisk=disk.img        # boot with the disk attached
 ```
 
 The shell's user guide (editor, file browser, WM config) lives on the disk in
-**`/wm/README`** — open it with Super+E in the OS, or read
-`tools/test-disk-root/wm/README` here. The launcher (**Super+Space**) lists
+**`/README`** — open it with Super+E in the OS, or read
+`tools/test-disk-root/README` here. The launcher (**Super+Space**) lists
 every shortcut and **F1** shows per-window help.
 
 Verification tools (see [`spec/verification.md`](spec/verification.md)):

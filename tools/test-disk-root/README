@@ -1,3 +1,50 @@
 Aster OS test disk
 
 Deterministic image built by tools/make-test-disk.sh (GPT + ext2 read-only, ^dir_index).
+
+The disk carries the user-facing configuration surface for the desktop shell.
+The whole shell is written in Lua and lives inside the kernel; these files
+customize it at runtime (loaded from the disk, applied live).
+
+/wm/ directory (window manager configuration)
+  theme.lua    colors and geometry (hot-reloadable, see below)
+  api.lua      the Lua API reference the shell exposes
+  .theme.bak   manual backup of the last Ctrl+S (read-only, never loaded)
+
+Hot reload
+  Edit /wm/theme.lua and save it (Ctrl+S in the editor, Super+Z opens it) —
+  the desktop repaints immediately, no F5 and no kernel rebuild. If the new
+  theme does not parse or run, the change is reported in the REPL and the
+  shell keeps the built-in defaults; the system never crashes. To restore a
+  previous save, view .theme.bak (Space in the file browser) and copy its
+  content back into theme.lua manually — backups are never loaded
+  automatically. Deleting /wm/theme.lua and /wm/.theme.bak is safe — the
+  shell falls back to the built-in defaults, so the environment never breaks.
+
+Using the shell
+  The WM follows Hyprland conventions — shortcuts, buttons and navigation
+  behave the same as in Hyprland.
+
+  Super+T  editor: fresh empty buffer each time. Arrows move the cursor/line,
+           Ctrl+S saves (an unsaved buffer asks for a path and the file is
+           created), unsaved edits survive Super+T, Esc Esc closes the editor
+           when there are no unsaved changes.
+  Super+Z  settings: opens /wm/theme.lua; saving it repaints the shell live.
+  Super+E  file browser at the root: Up/Down select, Enter opens/edits a
+           regular file, Space previews, Delete removes it, Escape or a click
+           on the title bar goes up a level. Hidden dotfiles are shown dim,
+           read-only files like .theme.bak in red. F2 renames the selected
+           entry, Shift+F4 starts a new file, and a file saved from the editor
+           appears in the listing right away.
+  Super+Space  launcher; its "help" entry lists every shortcut. F1 inside a
+           window shows that app's cheat sheet, Super+F1 (anywhere) the global
+           WM help; Alt+Tab cycles windows.
+
+  Deletion is permanent for now — /.trash exists as the future trash location
+  (empty-trash is planned, not wired yet).
+
+Changing window behaviour
+  theme.lua controls colors and geometry (what the shell draws). To change
+  which windows exist, the keybindings, the launcher entries or the taskbar,
+  the WM exposes its Lua API — see api.lua and the shell source modules
+  (wm.lua, input.lua, launcher.lua) for the hooks you can call from Lua.
