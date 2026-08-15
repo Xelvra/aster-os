@@ -191,10 +191,12 @@ nevyhladověla klávesy/Lua) → event loop. Producenti i konzumenti jdou přes
   kurzorem, pohyb vykreslí jen 12×19 px místo celé obrazovky. Kurzor je privilegovaná
   graphics overlay vrstva (mimo Renderer), ne součást input subsystemu — `service.zig`
   o framebufferu neví (`spec/graphics.md` §7).
-- **Citlivost kurzoru:** konstanta `cursor_speed` v `render/mouse_cursor.zig` násobí
-  PS/2 delty. Default `2` — QEMU SDL na Waylandu doručuje menší delty, takže 1:1 by
-  bylo zpomalené (viz `spec/troubleshooting.md` C43). Na jiném hostu si ji vývojář
-  upraví podle pocitu (1 = stock 1:1, vyšší = rychlejší kurzor).
+- **Citlivost kurzoru:** konstanta `cursor_speed` v `src/kernel/main.zig` (event
+  loop) násobí PS/2 delty před `mouse_cursor.move`. Default `2` — QEMU SDL na
+  Waylandu doručuje menší delty, takže 1:1 by bylo zpomalené (viz
+  `spec/troubleshooting.md` C43). `mouse_cursor.move` zůstává čisté 1:1 (host
+  testy). Na jiném hostu si ji vývojář upraví podle pocitu (1 = stock 1:1,
+  vyšší = rychlejší kurzor).
 - **Absolutní souřadnice:** počítá kernel (clamp na framebuffer); shell čte přes §6.
 
 ---

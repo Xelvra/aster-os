@@ -373,6 +373,13 @@ fn testKiDispatch() bool {
 /// starve the keyboard/Lua update.
 const max_mouse_per_poll: usize = 64;
 
+/// Cursor speed multiplier applied in the input event loop. Some hosts report
+/// PS/2 deltas scaled down (e.g. QEMU SDL on Wayland delivers small relative
+/// deltas), so a 1:1 cursor feels sluggish. A named constant so it can be
+/// tuned without magic numbers; ±127 * this stays well inside i16. The cursor
+/// overlay itself (mouse_cursor.move) stays pure 1:1 so it is host-testable.
+const cursor_speed: i16 = 2;
+
 fn eventLoop(display: *DisplayState) noreturn {
     while (true) {
         poll(display);
@@ -439,7 +446,7 @@ fn poll(display: *DisplayState) void {
             .timer_tick, .key => unreachable, // not valid in the mouse queue
             .mouse => |m| {
                 _ = input_service.popMouseEvent();
-                display.mouse_cursor.move(renderTarget(display), m.dx, m.dy);
+                display.mouse_cursor.move(renderTarget(display), m.dx * cursor_speed, m.dy * cursor_speed);
                 input_service.setMouseState(.{
                     .x = display.mouse_cursor.x,
                     .y = display.mouse_cursor.y,

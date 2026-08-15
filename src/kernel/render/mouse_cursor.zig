@@ -4,12 +4,6 @@ const fb_mod = @import("../fb/framebuffer.zig");
 const cursor_w: u32 = 12;
 const cursor_h: u32 = 19;
 
-/// Cursor speed multiplier. Some hosts report PS/2 deltas scaled down (e.g.
-/// QEMU SDL on Wayland delivers small relative deltas), so a 1:1 cursor feels
-/// sluggish. A named constant so it can be tuned without magic numbers; it
-/// applies to every move, and ±127 * this stays well inside i16.
-const cursor_speed: i16 = 2;
-
 /// The mouse cursor is drawn by the kernel as an overlay, not by the Lua
 /// render loop. This keeps the pointer smooth: moving the mouse only
 /// restores the saved pixels under the old position and draws the sprite
@@ -28,10 +22,12 @@ pub const MouseCursor = struct {
     }
 
     /// Move the cursor by a relative delta, restoring the old pixels first.
+    /// Pure 1:1 geometry — the input event loop applies any speed multiplier
+    /// before calling this (main.zig), so the overlay stays testable.
     pub fn move(self: *MouseCursor, fb: *fb_mod.Framebuffer, dx: i16, dy: i16) void {
         if (self.valid) self.restore(fb);
-        self.x +|= dx * cursor_speed;
-        self.y +|= dy * cursor_speed;
+        self.x +|= dx;
+        self.y +|= dy;
         const max_x: i32 = @as(i32, @intCast(fb.width)) - @as(i32, @intCast(cursor_w));
         const max_y: i32 = @as(i32, @intCast(fb.height)) - @as(i32, @intCast(cursor_h));
         self.x = std.math.clamp(self.x, 0, @max(max_x, 0));
