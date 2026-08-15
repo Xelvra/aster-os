@@ -62,21 +62,25 @@ function editor_load(path)
         gfx.invalidate()
         return
     end
-    ed_saveas = false
-    ed_saveas_path = ""
-    ed_open = true
-    ed_path = path
-    ed_row = 1
-    ed_col = 0
-    ed_scroll_col = 0
-    ed_dirty = false
     if path == nil or path == "" then
+        -- Fresh untitled buffer.
+        ed_saveas = false
+        ed_saveas_path = ""
+        ed_open = true
+        ed_path = nil
+        ed_row = 1
+        ed_col = 0
+        ed_scroll_col = 0
+        ed_dirty = false
         ed_lines = { "" }
         ed_saved = ""
         update_editor_header()
         gfx.invalidate()
         return
     end
+    -- Read the file first and commit the buffer only after a successful open,
+    -- so a failed load never leaves stale content under the new path (audit
+    -- 2026-08-15).
     local h = file.open(path)
     if not h then
         wm_error("editor", "file.open failed: " .. path)
@@ -99,10 +103,32 @@ function editor_load(path)
         t[#t + 1] = line
     end
     if #t == 0 then t = { "" } end
+    ed_saveas = false
+    ed_saveas_path = ""
+    ed_open = true
+    ed_path = path
+    ed_row = 1
+    ed_col = 0
+    ed_scroll_col = 0
+    ed_dirty = false
     ed_lines = t
     ed_saved = table.concat(t, "\n")
     update_editor_header()
     gfx.invalidate()
+end
+
+-- Open a file in the editor, refusing to discard unsaved changes — the same
+-- invariant Super+T keeps ("a dirty buffer is kept so unsaved edits are never
+-- lost"). files_edit and Super+Z route through this so opening another file
+-- cannot silently drop the buffer (audit 2026-08-15).
+function editor_load_safe(path)
+    if ed_open and ed_dirty then
+        wm_error("editor", "unsaved changes — save first (Ctrl+S)")
+        gfx.invalidate()
+        return false
+    end
+    editor_load(path)
+    return true
 end
 
 -- Persist `content` to `path`. /wm/theme.lua is validated live; a broken
@@ -248,11 +274,14 @@ local function editor_render()
     if ed_row > content_rows then first = ed_row - content_rows + 1 end
     for i = first, math.min(#ed_lines, first + content_rows - 1) do
         local text = ed_lines[i]
-        -- Slice the visible part of the line when horizontally scrolled.
-        local shown = text
-        if ed_scroll_col > 0 and i == ed_row then
-            shown = string.sub(text, ed_scroll_col + 1)
-        elseif i ~= ed_row then
+        -- Slice the visible part of the line: the focused row starts at the
+        -- scroll offset, every other row at the start; always cap to the
+        -- window width so a long line never bleeds over the window edge or a
+        -- neighbour (audit 2026-08-15).
+        local shown
+        if i == ed_row then
+            shown = string.sub(text, ed_scroll_col + 1, ed_scroll_col + max_chars)
+        else
             shown = string.sub(text, 1, max_chars)
         end
         gfx.draw_text(shown, tx, ty, theme.text)

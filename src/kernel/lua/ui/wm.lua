@@ -285,6 +285,22 @@ local function close_button_rect(w)
     }
 end
 
+-- Right edge of the title-bar content (label + header). Shared by win_render
+-- and the close-button hit test so a long header hides the button in both
+-- places — an invisible corner click must not close the window (audit
+-- 2026-08-15).
+local function header_content_end(w)
+    local label = w.title
+    if w.title == "repl" then
+        label = "~ repl"
+    elseif w.title == "sysmon" then
+        label = "sysmon"
+    end
+    local hdr = win_headers[w.title]
+    local hx = w.x + theme.wm.border + 6 + (label:len() + 1) * 8
+    return hx + (hdr and hdr:len() or 0) * 8
+end
+
 local function bar_render()
     if fullscreen_win then return end
     local bar_h = theme.bar.height
@@ -388,13 +404,11 @@ local function win_render(w)
             gfx.draw_rect(hx + cur * 8, ty + (th - 16) // 2 + 1, 8, 16, theme.accent)
         end
     end
-    -- Close button (top-right "x"): closes the window like Super+Q. Only the
-    -- focused window shows it. The button is a subtle inset fill (darker than
-    -- the title bar), so it reads as a plastic control that recedes into the
-    -- background instead of a bright frame that breaks the window's look.
-    local content_end = hx + (hdr and hdr:len() or 0) * 8
+    -- Close button (top-right, subtle inset "x"): closes the window like
+    -- Super+Q. Only the focused window shows it; skipped when a long header
+    -- path would collide (header_content_end is shared with the hit test).
     local cb = close_button_rect(w)
-    if active and cb.x > content_end then
+    if active and cb.x > header_content_end(w) then
         gfx.draw_rect(cb.x, cb.y, cb.w, cb.h, blend(theme.surface_alt, 0.7))
         gfx.draw_text("x", cb.x + (cb.w - 8) // 2, cb.y + (cb.h - 16) // 2, theme.text)
     end

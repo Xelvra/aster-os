@@ -134,7 +134,8 @@ function files_view(name)
 end
 
 -- Edit an entry in the editor window (Enter on a file). The editor window is
--- created/raised like Super+T, then loaded with the selected file.
+-- created/raised like Super+T, then loaded with the selected file. Unsaved
+-- editor changes are never discarded (editor_load_safe).
 function files_edit(name)
     local w = find_win("editor")
     if not w then
@@ -142,7 +143,7 @@ function files_edit(name)
     else
         w.ws = current_ws
     end
-    editor_load(join_path(fs_path, name))
+    if not editor_load_safe(join_path(fs_path, name)) then return end
     set_focus("editor")
 end
 
@@ -292,14 +293,16 @@ local function files_render()
         elseif fs_view_col - fs_view_scroll_col >= max_chars then
             fs_view_scroll_col = fs_view_col - max_chars + 1
         end
-        -- Scroll so the cursor row is always visible.
+        -- Scroll so the cursor row is always visible. Rows are always capped
+        -- to the window width so a long line cannot bleed over a neighbour
+        -- (audit 2026-08-15).
         local first = fs_view_scroll + 1
         for i = first, math.min(#lines, first + content_rows - 1) do
-            local shown = lines[i]
-            if i == fs_view_row and fs_view_scroll_col > 0 then
-                shown = string.sub(shown, fs_view_scroll_col + 1)
-            elseif i ~= fs_view_row then
-                shown = string.sub(shown, 1, max_chars)
+            local shown
+            if i == fs_view_row then
+                shown = string.sub(lines[i], fs_view_scroll_col + 1, fs_view_scroll_col + max_chars)
+            else
+                shown = string.sub(lines[i], 1, max_chars)
             end
             gfx.draw_text(shown, tx, ty, theme.text)
             if i == fs_view_row then

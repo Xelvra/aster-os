@@ -101,13 +101,13 @@ local function handle_mouse()
             table.sort(z_order, function(a, b) return a.z > b.z end)
             for _, w in ipairs(z_order) do
                 if is_in_window(w) then
-                    -- The close "x" is drawn only on the focused window, so it
-                    -- must have been focused *before* this click: clicking the
-                    -- corner of an inactive window only focuses it.
+                    -- The close "x" is drawn only on the focused window and
+                    -- only when a long header does not collide, so the hit
+                    -- test must match the drawn button exactly.
                     local was_focused = (w.title == focused)
                     set_focus(w.title)
                     local cb = close_button_rect(w)
-                    if was_focused and mx >= cb.x and mx <= cb.x + cb.w and my >= cb.y and my <= cb.y + cb.h then
+                    if was_focused and cb.x > header_content_end(w) and mx >= cb.x and mx <= cb.x + cb.w and my >= cb.y and my <= cb.y + cb.h then
                         close_window(w.title)
                         gfx.invalidate()
                         -- Consume the click: without this, the held button is
@@ -134,8 +134,11 @@ local function handle_mouse()
             end
             -- Clicking the files title bar (the path header) navigates up one
             -- level — or exits the current view — the header mirrors the path.
+            -- Skipped when the same click started dragging a floating files
+            -- window, so dragging and navigating cannot happen together (audit
+            -- 2026-08-15).
             local fw = find_win("files")
-            if fw and fw.ws == current_ws then
+            if fw and fw.ws == current_ws and drag == nil then
                 local hy = fw.y + theme.wm.border
                 if mx >= fw.x + theme.wm.border and mx <= fw.x + fw.w - theme.wm.border and
                    my >= hy and my <= hy + theme.wm.title_h then
@@ -346,14 +349,15 @@ local function handle_key(ev)
             set_focus("editor")
         elseif code == "z" then
             -- Settings (spec/lua-wm.md: Super+Z -> settings): the theme
-            -- config lives in /wm/theme.lua, opened in the editor.
+            -- config lives in /wm/theme.lua, opened in the editor. Unsaved
+            -- editor changes are never discarded.
             local w = find_win("editor")
             if not w then
                 windows[#windows + 1] = window("editor", current_ws)
             else
                 w.ws = current_ws
             end
-            editor_load("/wm/theme.lua")
+            editor_load_safe("/wm/theme.lua")
             set_focus("editor")
         elseif code == "e" then
             -- File manager (spec/lua-wm.md: Super+E -> files), opened at root.
