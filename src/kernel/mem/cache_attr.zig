@@ -28,9 +28,10 @@ fn walkPageTable(cr3: u64, vaddr: u64) ?u64 {
     const pml4_entry = readEntry(cr3 + pml4_index * 8) orelse return null;
     const pml4_addr = pml4_entry & 0x000FFFFFFFFFF000;
     const pdpt_entry = readEntry(pml4_addr + pdpt_index * 8) orelse return null;
+    if (pdpt_entry & (1 << 7) != 0) return pdpt_entry; // 1 GiB huge page
     const pdpt_addr = pdpt_entry & 0x000FFFFFFFFFF000;
     const pd_entry = readEntry(pdpt_addr + pd_index * 8) orelse return null;
-    if (pd_entry & (1 << 7) != 0) return pd_entry;
+    if (pd_entry & (1 << 7) != 0) return pd_entry; // 2 MiB huge page
 
     const pd_addr = pd_entry & 0x000FFFFFFFFFF000;
     const pt_entry = readEntry(pd_addr + pt_index * 8) orelse return null;

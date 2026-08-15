@@ -232,6 +232,66 @@ fn testErrorContainment() void {
     expect(true, "shell reloaded after error containment");
 }
 
+fn testLuaBindingAdversarial() void {
+    // Audit 2026-08-15: these single-line Lua inputs used to panic the kernel
+    // (unchecked @intCast in the bindings, framebuffer negative coordinates,
+    // libc strtod/vsnprintf overflow). They must now be contained — either a
+    // Lua error or a clamped value — never a kernel halt. Each statement is
+    // wrapped in pcall where a binding returns nil+error.
+    const lua = @import("lua/lua.zig");
+    const L = @import("lua/cimport.zig").c;
+    const lua_state = lua.getState() orelse {
+        expect(false, "lua state exists");
+        return;
+    };
+    const script =
+        \\-- Each statement must not panic the kernel; a contained Lua error
+        \\-- (pcall) is just as good as a returned value. Reaching "PASS" proves
+        \\-- the kernel survived all of them.
+        \\pcall(function() gfx.draw_rect(0, 0, -5, 2, 0) end)
+        \\pcall(function() gfx.draw_rect(0, 0, 4294967296, 2, 0) end)
+        \\pcall(function() gfx.fill_screen(4294967296) end)
+        \\pcall(function() gfx.round_rect(-1, 0, 10, 10, 2, 0) end)
+        \\pcall(function() gfx.gradient_border(-5, 0, 10, 10, 2, 0, 0) end)
+        \\pcall(function() file.read(-1, -1) end)
+        \\pcall(function() file.truncate(-1, -1) end)
+        \\pcall(function() file.close(-1) end)
+        \\pcall(function() tonumber("1e9999999999") end)
+        \\pcall(function() string.format("%.2147483648f", 0) end)
+        \\pcall(function() string.format("%18446744073709551615d", 5) end)
+        \\return "PASS"
+    ;
+    const load_status = L.luaL_loadstring(lua_state, script);
+    expect(load_status == L.LUA_OK, "adversarial binding script compiles");
+    if (load_status != L.LUA_OK) return;
+    const run_status = L.lua_pcallk(lua_state, 0, 1, 0, 0, null);
+    expect(run_status == L.LUA_OK, "adversarial binding script runs");
+    if (run_status != L.LUA_OK) {
+        var status_buf: [16]u8 = undefined;
+        const status_line = std.fmt.bufPrint(&status_buf, "adversarial status: {d}", .{run_status}) catch "adversarial status";
+        serial.writeLine(status_line);
+        var err_len: usize = 0;
+        const msg = L.lua_tolstring(lua_state, -1, &err_len);
+        if (msg) |m| {
+            serial.write("adversarial error: ");
+            serial.writeLine(std.mem.span(m));
+        } else {
+            serial.writeLine("adversarial error: <non-string>");
+        }
+        L.lua_pop(lua_state, 1);
+        return;
+    }
+    var len: usize = 0;
+    const str = L.lua_tolstring(lua_state, -1, &len);
+    const result: []const u8 = @as([*]const u8, @ptrCast(str))[0..len];
+    if (len != 4 or !std.mem.eql(u8, result, "PASS")) {
+        serial.write("adversarial result: ");
+        serial.writeLine(result);
+    }
+    expect(len == 4 and std.mem.eql(u8, result, "PASS"), "kernel survives adversarial binding inputs");
+    _ = L.lua_pop(lua_state, 1);
+}
+
 fn testInfiniteLoopContainment() void {
     // An infinite loop in the shell must not freeze the system: the
     // instruction budget (lua.zig, LUA_MASKCOUNT) raises a Lua error that
@@ -498,6 +558,7 @@ const tests = [_]Test{
     .{ .name = "live theme change (render stays healthy)", .func = testLiveThemeChange },
     .{ .name = "reload from Lua is deferred, state survives", .func = testLuaTriggeredReload },
     .{ .name = "error containment (lua error)", .func = testErrorContainment },
+    .{ .name = "adversarial binding inputs contained", .func = testLuaBindingAdversarial },
     .{ .name = "infinite loop containment (instruction budget)", .func = testInfiniteLoopContainment },
     .{ .name = "render throughput", .func = testRenderThroughput },
     .{ .name = "preemptive RR scheduler (two kernel tasks)", .func = testPreemptiveScheduler },

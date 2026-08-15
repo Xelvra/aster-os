@@ -116,3 +116,17 @@ test "pixelColor encodes RGB24 to RGBA" {
     try std.testing.expectEqual(@as(u32, 0x00FF0000), ctx.fb.pixelColor(0xFF0000));
     try std.testing.expectEqual(@as(u32, 0x0000FF00), ctx.fb.pixelColor(0x00FF00));
 }
+
+test "roundRect and gradientBorder tolerate negative coordinates" {
+    // Audit 2026-08-15: negative coordinates used to panic the kernel (u32
+    // @intCast on a negative i32). They must clip and draw nothing/partially,
+    // never crash.
+    var ctx: Context = undefined;
+    initFb(&ctx);
+    ctx.fb.roundRect(-5, -5, 10, 10, 2, 0xFFFFFF);
+    ctx.fb.gradientBorder(-5, 0, 10, 10, 2, 0x000000, 0xFFFFFF);
+    ctx.fb.gradientBorder(0, -5, 10, 10, 2, 0x000000, 0xFFFFFF);
+    // A fully visible shape still draws (regression guard).
+    ctx.fb.gradientBorder(0, 0, 10, 10, 2, 0x000000, 0xFFFFFF);
+    try std.testing.expectEqual(@as(u32, 0), readColor(&ctx, 0, 0));
+}

@@ -87,9 +87,11 @@ pub fn parseEntries(buf: []const u8, header: GptHeader, out: []PartitionEntry) G
     var count: usize = 0;
     var i: usize = 0;
     while (i < header.num_entries) : (i += 1) {
-        if (count == out.len) return GptError.BufferTooSmall;
         const entry = buf[i * entry_size .. i * entry_size + entry_size];
         if (allZero(entry[0..16])) break;
+        // Only fail when a real entry does not fit — an exactly-full buffer of
+        // used entries is valid (audit 2026-08-15).
+        if (count == out.len) return GptError.BufferTooSmall;
         var type_guid: [16]u8 = undefined;
         var unique_guid: [16]u8 = undefined;
         for (0..16) |j| {

@@ -152,9 +152,13 @@ var mouse_byte_idx: u8 = 0;
 fn initMouse() void {
     // Drain any stale bytes left in the output buffer (e.g. the keyboard's
     // ACK to 0xF4 from initKeyboard) so the port-2 test result below is not
-    // confused with leftover data.
+    // confused with leftover data. Bounded so a stuck controller cannot hang
+    // boot (audit 2026-08-15).
+    var drain_spins: u32 = 0;
     while (io.in8(ps2_status) & status_output_full != 0) {
         _ = io.in8(ps2_data);
+        drain_spins += 1;
+        if (drain_spins > 100000) return;
     }
 
     // Test whether a device is present on port 2 before touching it.

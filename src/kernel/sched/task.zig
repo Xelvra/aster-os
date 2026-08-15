@@ -99,6 +99,7 @@ fn checkCanary(owner: []const u8, base: usize) void {
     var buf: [160]u8 = undefined;
     const line = std.fmt.bufPrint(&buf, "STACK OVERFLOW: {s} canary clobbered (base {x})", .{ owner, base }) catch "STACK OVERFLOW";
     serial.writeLine(line);
+    asm volatile ("cli" ::: .{ .memory = true });
     while (true) asm volatile ("hlt" ::: .{ .memory = true });
 }
 

@@ -46,6 +46,7 @@ fn checkBlock(block: *BlockHeader) void {
     var cb: [128]u8 = undefined;
     const line = std.fmt.bufPrint(&cb, "HEAP CORRUPTION at block {x:0>12}", .{@intFromPtr(block)}) catch "HEAP CORRUPTION";
     serial.writeLine(line);
+    asm volatile ("cli" ::: .{ .memory = true });
     while (true) asm volatile ("hlt" ::: .{ .memory = true });
 }
 
@@ -113,6 +114,9 @@ pub const HeapAllocator = struct {
     fn rawAlloc(self: *HeapAllocator, len: usize, alignment: std.mem.Alignment) ![*]u8 {
         const guard = irq.begin();
         defer guard.end();
+        // Reject a size whose block overhead would overflow usize (audit
+        // 2026-08-15).
+        if (len > std.math.maxInt(usize) - @sizeOf(BlockHeader) - @sizeOf(BlockFooter)) return error.OutOfMemory;
         const need = len + @sizeOf(BlockHeader) + @sizeOf(BlockFooter);
         if (self.free_list == null) try self.grow(need);
         var found = self.findBlock(need, alignment);
