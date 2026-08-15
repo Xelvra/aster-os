@@ -199,7 +199,7 @@ Cíl: btop/Noctalia sysmon widget v baru + okno.
 | Super+1/2/3 | workspace |
 | Super+S | scratchpad (toggle vyhrazené app) |
 | Alt+Tab | cyklování oken |
-| F1 | help — kontextové (v okně) / globální (mimo okno) |
+| F1 / Super+F1 | help — F1 kontextové (v okně) / Super+F1 globální WM help |
 | F2 | editor: save as |
 | F3 | files: view vybraný soubor |
 | F4 | files: edit vybraný soubor |

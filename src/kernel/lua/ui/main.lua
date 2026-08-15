@@ -32,6 +32,7 @@ register_app_help("files", {
     { "Page Up / Page Down", "page scroll" },
     { "Space / Enter", "exit view" },
     { "Esc Esc", "exit view" },
+    { "Super+F1", "global help" },
 })
 register_app_help("editor", {
     { "Ctrl+S", "save" },
@@ -41,6 +42,7 @@ register_app_help("editor", {
     "save-as prompt",
     { "Enter", "confirm path" },
     { "Esc", "cancel, back to buffer" },
+    { "Super+F1", "global help" },
 })
 register_app_help("repl", {
     { "Enter", "run code" },
@@ -48,6 +50,7 @@ register_app_help("repl", {
     { "Arrow left / right", "move cursor" },
     { "Home / End", "line start / end" },
     { "Backspace / Delete", "delete char" },
+    { "Super+F1", "global help" },
 })
 
 function update()

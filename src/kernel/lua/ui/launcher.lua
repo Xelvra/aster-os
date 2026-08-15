@@ -46,7 +46,7 @@ local shortcuts_active = {
     { "Super+Shift+1/2/3", "move window to ws" },
     { "Super+S", "scratchpad (toggle app)" },
     { "Alt+Tab", "cycle windows" },
-    { "F1", "this help" },
+    { "F1 / Super+F1", "this help" },
     { "F5", "hot reload" },
     { "click header", "drag floating window" },
     { "click capsule", "switch workspace" },
@@ -107,7 +107,9 @@ local function launcher_render()
     -- Reserved shortcuts are not shown (they live in the spec).
     if launcher_mode == "help" then
         local items = launcher_help_app and app_help[launcher_help_app] or shortcuts_active
-        local title = launcher_help_app or "help"
+        -- The global WM cheat sheet labels itself "global help:" (Super+F1);
+        -- an app sheet labels itself with the app name ("files:", ...).
+        local title = launcher_help_app or "global help"
         local row_h = 18
         -- Column width: descriptions are left-aligned at a fixed gutter, so
         -- the popup must be wide enough for the longest entry either column.

@@ -205,11 +205,13 @@ local function handle_key(ev)
     if ev.pressed then
         if code == "f1" then
             -- Contextual help: F1 inside a window shows that app's own cheat
-            -- sheet (files/editor/repl); F1 elsewhere shows the global WM help.
-            if find_win(focused) and (focused == "files" or focused == "editor" or focused == "repl") then
-                launcher_open_app_help(focused)
-            else
+            -- sheet (files/editor/repl); F1 elsewhere shows the global WM
+            -- help. Super+F1 always shows the global WM help, so any app help
+            -- can point the user to it (e.g. "how do I kill the REPL?").
+            if ev.super or not (find_win(focused) and (focused == "files" or focused == "editor" or focused == "repl")) then
                 launcher_open_mode("help")
+            else
+                launcher_open_app_help(focused)
             end
             return
         elseif code == "f11" then
