@@ -54,12 +54,17 @@ pre-push hook and CI verify it never drifts from the code
 | M4 | Lua       | 336 KiB | ≈ 60 ms |
 | M5 | UI        | 371 KiB | ≈ 24 ms |
 | M6 | Storage   | 362 KiB | ≈ 26 ms |
-| M7 | Runtime   | 425 KiB | ≈ 150 ms |
+| M7* | Runtime | 425 KiB | ≈ 150 ms |
 
 Boot times from `tools/bench.sh` (measured 2026-08-15): the M0–M3 rows are
 approximated kernel-only times (the bootloader is subtracted); M4+ are
 kernel-only on KVM. The current kernel is **425 KiB** (see `spec/roadmap.md`
 for the full metrics table).
+
+\* M7 numbers are **not from an optimization pass** — they are the current
+mid-milestone measurements after the audit fixes (which added safety checks
+and parsing hardening), so they are not directly comparable with the
+optimized M0–M6 rows.
 
 ## Quick start
 
