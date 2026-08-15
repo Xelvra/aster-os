@@ -335,10 +335,11 @@ local function win_render(w)
         end
         -- "help F1" always right-aligned at the end of the title bar, so every
         -- window points to the same help popup in the same place (no pipe, no
-        -- per-window key hints — see spec/desktop-ui.md §5).
+        -- per-window key hints — see spec/desktop-ui.md §5). It is dimmed like
+        -- the rest of the header text.
         local help_x = tx + w.w - 2 * theme.wm.border - 6 - ("help F1"):len() * 8
         if help_x > hx + hdr:len() * 8 then
-            gfx.draw_text("help F1", help_x, ty + (th - 16) // 2 + 1, theme.text)
+            gfx.draw_text("help F1", help_x, ty + (th - 16) // 2 + 1, theme.text_dim)
         end
     end
 end

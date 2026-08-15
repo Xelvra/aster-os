@@ -21,12 +21,11 @@ ed_row_h = 18
 
 -- Header text shown in the window title bar: the context (path, dirty marker)
 -- on the left; "help F1" is right-aligned by win_render, so no key hints are
--- stored here. The save-as prompt is functional (the cursor sits in it).
+-- stored here. The save-as prompt is functional (the cursor sits in it) but
+-- carries no key hints either — how to save lives in the help popup (F1).
 local function editor_header()
     if ed_saveas then
-        -- Two spaces after the path: the save-as cursor sits in the first one,
-        -- so it stays separated from "Enter save" by a visible space.
-        return "save as: " .. ed_saveas_path .. "  Enter save | Esc cancel"
+        return "save as: " .. ed_saveas_path
     end
     local path = ed_path or "untitled"
     if ed_dirty then

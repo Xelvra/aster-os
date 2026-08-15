@@ -656,9 +656,8 @@ oknech (repl, editor, files, prohlížení), ať je klávesa jakákoli.
   titulkové lišty okna **za název** (jedna mezera mezi názvem a kontextem).
   **`help F1` je vykresleno vždy vpravo zarovnané na konci lišty** (`win_render`),
   bez pipe a bez jakýchkoli klávesových hintů — všechny zkratky jsou v help
-  popupu (F1), takže hlavička jen ukazuje cestu a ukazuje na help. **Pipe `|`**
-  zůstává jen uvnitř funkčního save-as promptu. Název a `help F1` jsou
-  `theme.text`, kontext `theme.text_dim`:
+  popupu (F1), takže hlavička jen ukazuje cestu a ukazuje na help. Celá
+  hlavička (kontext i `help F1`) je `theme.text_dim` — nic nevyčnívá:
   ```
   ~ repl                 help F1     (žádná dvojitá mezera — konzistentní)
   editor /wm/theme.lua   help F1     (čisté)
@@ -666,13 +665,14 @@ oknech (repl, editor, files, prohlížení), ať je klávesa jakákoli.
   files /                help F1     (root)
   files /apps            help F1     (podadresář)
   files /wm/theme.lua    help F1     (prohlížení — cesta)
+  save as: <cesta>       help F1     (save-as prompt — jen cesta, žádné hinty)
   help:                              (launcher help popup, jen "help:" jako run:)
-  save as: <cesta>  Enter save | Esc cancel   (save-as prompt, funkční ne hint)
   ```
   (Pozice výše je ilustrační; `help F1` se skutečně zarovná na pravý okraj okna.)
 - **Hlavička neobsahuje klávesové hinty** — všechny zkratky jsou v help popupu
   (F1), takže hlavička jen ukazuje cestu/kontext a vpravo `help F1`. Funkční
-  prvky zůstávají: dirty marker (`*`), save-as prompt a cesta (u files =
+  prvky zůstávají: dirty marker (`*`), save-as prompt (jen text `save as:
+  <cesta>` + kurzor, **bez** „Enter save / Esc cancel") a cesta (u files =
   ukazatel cesty). Esc Esc / Ctrl+S / F2 / F4 se nevypisují do hlaviček — jsou
   v helpu.
 - **Žádné status řádky v obsahu:** obsah okna začíná rovnou daty (scrollback,
@@ -756,7 +756,8 @@ Navigační konvence:
   **Ctrl+S** = uložit (`file.write`). Nový buffer (bez cesty) přepne Ctrl+S na
   prompt **„save as:"** v titulkové liště: píše se cesta, **Enter** uloží —
   neexistující soubor se vytvoří (`file.create`, ext2 create), **Esc** zruší
-  (akce v promptu odděluje `|`). Dirty marker se maže i tehdy, když uživatel
+  (prompt neobsahuje žádné hinty — jak uložit je v help popupu, F1). Dirty
+  marker se maže i tehdy, když uživatel
   všechny změny vrátí zpět — buffer se porovnává s posledním uloženým stavem
   (`ed_saved`), takže Ctrl+S se nabízí jen pro skutečně jiný obsah.
   **Esc Esc** (jen u čistého bufferu bez neuložených změn) zavře editor jako
