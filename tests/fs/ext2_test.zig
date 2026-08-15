@@ -288,3 +288,33 @@ test "truncate shrinks a file size (M7.1.3)" {
     try std.testing.expectEqual(@as(usize, 2), n);
     try std.testing.expect(std.mem.eql(u8, "he", out[0..2]));
 }
+
+test "regression: groupDescriptor survives an overflowing blocks_count (fuzz C1)" {
+    // Fuzz regression: a corrupt superblock with a huge blocks_count and a
+    // small blocks_per_group used to overflow the u32 groups_count arithmetic
+    // (integer overflow panic in ext2.zig). The group table of the 64 KiB
+    // fixture fits in one GDT block, so a valid descriptor is still readable.
+    var img = buildWriteImage();
+    ext2_image.writeU32(&img.data, 1024 + 4, 0xFFFF_FFFF); // blocks_count
+    ext2_image.writeU32(&img.data, 1024 + 32, 8); // blocks_per_group
+    var mock = MockDisk{ .data = &img.data };
+    const fs = try ext2.Ext2.init(mount(&mock));
+    _ = fs.readInode(2) catch |err| switch (err) {
+        // A huge blocks_count may legitimately fail bounds checks downstream;
+        // the invariant is only that the arithmetic does not panic.
+        else => {},
+    };
+}
+
+test "regression: adjustFreeBlocks saturates a zero free_blocks_count (fuzz C2)" {
+    // Fuzz regression: a corrupt group descriptor with free_blocks == 0 made
+    // the decrement underflow past u16 (integer overflow panic in ext2.zig).
+    // The count must saturate at zero instead of crashing the kernel.
+    var img = buildWriteImage();
+    ext2_image.writeU32(&img.data, 2048 + 12, 0); // GDT free_blocks_count = 0
+    var mock = MockDisk{ .data = &img.data };
+    var fs = try ext2.Ext2.init(mount(&mock));
+    fs.writeAt(3, 4096, "grow into a fresh block") catch |err| switch (err) {
+        else => {},
+    };
+}

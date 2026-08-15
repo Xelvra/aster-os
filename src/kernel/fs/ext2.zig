@@ -354,7 +354,7 @@ pub const Ext2 = struct {
     fn allocBlock(self: *Ext2) Ext2Error!u32 {
         const bpg = self.super.blocks_per_group;
         if (bpg == 0) return Ext2Error.CorruptSuperblock;
-        const groups_count = (self.super.blocks_count - self.super.first_data_block + bpg - 1) / bpg;
+        const groups_count = (@as(u64, self.super.blocks_count) - self.super.first_data_block + bpg - 1) / bpg;
         var g: usize = 0;
         while (g < groups_count) : (g += 1) {
             const desc = try self.groupDescriptor(g);
@@ -387,13 +387,13 @@ pub const Ext2 = struct {
         var block_buf: [4096]u8 = undefined;
         try self.readBlock(gdt_block, block_buf[0..self.block_size]);
         const free = bytes.readU16(&block_buf, off + 12);
-        bytes.writeU16(&block_buf, off + 12, @intCast(@as(i32, free) + delta));
+        bytes.writeU16(&block_buf, off + 12, @intCast(@max(@as(i32, free) + delta, 0)));
         try self.writeBlock(gdt_block, block_buf[0..self.block_size]);
 
         var sb: [1024]u8 = undefined;
         try readDiskOffset(self.disk, superblock_offset, &sb);
         const sb_free = bytes.readU32(&sb, 12);
-        bytes.writeU32(&sb, 12, @intCast(@as(i64, sb_free) + delta));
+        bytes.writeU32(&sb, 12, @intCast(@max(@as(i64, sb_free) + delta, 0)));
         try writeDiskOffset(self.disk, superblock_offset, &sb);
     }
 
@@ -647,8 +647,8 @@ pub const Ext2 = struct {
     fn groupDescriptor(self: Ext2, group: usize) Ext2Error!BlockGroup {
         if (self.super.blocks_per_group == 0) return Ext2Error.CorruptSuperblock;
         if (self.super.blocks_count < self.super.first_data_block) return Ext2Error.CorruptSuperblock;
-        const groups_count = (self.super.blocks_count - self.super.first_data_block + self.super.blocks_per_group - 1) / self.super.blocks_per_group;
-        if (group >= groups_count) return Ext2Error.CorruptSuperblock;
+        const groups_count = (@as(u64, self.super.blocks_count) - self.super.first_data_block + self.super.blocks_per_group - 1) / self.super.blocks_per_group;
+        if (@as(u64, group) >= groups_count) return Ext2Error.CorruptSuperblock;
 
         // The group descriptor table can span several blocks (one 32-byte
         // descriptor per group). The group's descriptor lives in the table
