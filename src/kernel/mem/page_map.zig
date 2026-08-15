@@ -2,6 +2,7 @@ const io = @import("../cpu/io.zig");
 const pfa = @import("pfa.zig");
 const present: u64 = 1 << 0;
 pub const rw: u64 = 1 << 1;
+const ps: u64 = 1 << 7; // huge-page (PDE 2 MiB / PDPTE 1 GiB) bit
 const addr_mask: u64 = 0x000FFFFFFFFFF000;
 
 var hhdm_offset: u64 = 0;
@@ -22,9 +23,11 @@ pub fn mapPage(virtual: u64, physical: u64, flags: u64) void {
     const pt_idx: usize = @intCast((virtual >> 12) & 0x1FF);
 
     const pml4 = cr3;
-    const pdpt = ensureTable(alloc, pml4, pml4_idx);
-    const pd = ensureTable(alloc, pdpt, pdpt_idx);
-    const pt = ensureTable(alloc, pd, pd_idx);
+    // Bail out on any table-level failure instead of writing a PTE at the
+    // direct-map base (audit 2026-08-15).
+    const pdpt = ensureTable(alloc, pml4, pml4_idx) orelse return;
+    const pd = ensureTable(alloc, pdpt, pdpt_idx) orelse return;
+    const pt = ensureTable(alloc, pd, pd_idx) orelse return;
 
     const pte_addr = pt + pt_idx * 8;
     const pte_ptr: [*]volatile u64 = @ptrFromInt(pte_addr + hhdm_offset);
@@ -32,13 +35,16 @@ pub fn mapPage(virtual: u64, physical: u64, flags: u64) void {
     flushTlb(virtual);
 }
 
-fn ensureTable(alloc: *pfa.PageFrameAllocator, parent_phys: u64, index: usize) u64 {
+fn ensureTable(alloc: *pfa.PageFrameAllocator, parent_phys: u64, index: usize) ?u64 {
     const entry_ptr: [*]volatile u64 = @ptrFromInt(parent_phys + hhdm_offset + index * 8);
     const entry = entry_ptr[0];
     if (entry & present != 0) {
+        // A huge-page entry (PS set) is data, not a table pointer — walking it
+        // as entries would corrupt memory (audit 2026-08-15).
+        if (entry & ps != 0) return null;
         return entry & addr_mask;
     }
-    const new_table_phys = alloc.allocPage(true) catch return 0;
+    const new_table_phys = alloc.allocPage(true) catch return null;
     entry_ptr[0] = new_table_phys | present | rw;
     return new_table_phys;
 }

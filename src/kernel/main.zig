@@ -147,7 +147,8 @@ fn kernelMain() !void {
     bootlog.ok("interrupts", "idt · pic");
     sched.init(@intFromPtr(&kernel_stack));
 
-    var memory = try mem.Memory.init(&info);
+    var memory: mem.Memory = undefined;
+    try memory.init(&info);
     sysmon.init(&memory);
 
     const alloc = memory.allocator();

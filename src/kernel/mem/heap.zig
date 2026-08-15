@@ -32,6 +32,10 @@ const BlockHeader = struct {
     /// `grow_pages` (e.g. 5 pages), so a fixed window would over-read into
     /// whatever follows the region (a framebuffer back buffer caused a #GP).
     grow_end: usize,
+    /// Start (inclusive) of the grow region this block belongs to. Bounds the
+    /// backward merge so adjacent free blocks in one region merge instead of
+    /// fragmenting permanently (audit 2026-08-15).
+    grow_start: usize,
 };
 
 /// Stop with a clear marker when a block header does not carry the canary —
@@ -50,12 +54,14 @@ const BlockFooter = struct {
 };
 
 pub const HeapAllocator = struct {
-    pfa: pfa.PageFrameAllocator,
+    /// Pointer to the single PFA, so growing the heap mutates the real
+    /// free_pages/next_free_hint instead of a stale copy (audit 2026-08-15).
+    pfa: *pfa.PageFrameAllocator,
     free_list: ?*BlockHeader,
 
     pub fn init(alloc_pfa: *pfa.PageFrameAllocator) HeapAllocator {
         return .{
-            .pfa = alloc_pfa.*,
+            .pfa = alloc_pfa,
             .free_list = null,
         };
     }
@@ -164,6 +170,7 @@ pub const HeapAllocator = struct {
             .prev_free = null,
             .next_free = null,
             .grow_end = grow_end,
+            .grow_start = virtual,
         };
         self.writeFooter(block);
         self.link(block);
@@ -190,6 +197,7 @@ pub const HeapAllocator = struct {
             .prev_free = null,
             .next_free = null,
             .grow_end = block.grow_end,
+            .grow_start = block.grow_start,
         };
         self.writeFooter(remainder);
         block.size = aligned_size;
@@ -200,14 +208,16 @@ pub const HeapAllocator = struct {
     fn coalesce(self: *HeapAllocator, block_in: *BlockHeader) *BlockHeader {
         var block = block_in;
         checkBlock(block);
-        const page_start = @intFromPtr(block) & ~(pfa.page_size - 1);
 
         // backward merge — read the footer of the PREVIOUS block, not the
-        // size of the current one (a boundary tag gives the true previous size)
-        if (@intFromPtr(block) >= page_start + @sizeOf(BlockFooter)) {
+        // size of the current one (a boundary tag gives the true previous
+        // size). Bounded by the grow-region start so adjacent free blocks in
+        // one region merge; the old per-page bound left multi-page free
+        // neighbours permanently fragmented (audit 2026-08-15).
+        if (@intFromPtr(block) >= block.grow_start + @sizeOf(BlockFooter)) {
             const prev_footer: *BlockFooter = @ptrFromInt(@intFromPtr(block) - @sizeOf(BlockFooter));
             const prev: *BlockHeader = @ptrFromInt(@intFromPtr(block) - prev_footer.size);
-            if (@intFromPtr(prev) >= page_start and prev.free) {
+            if (@intFromPtr(prev) >= block.grow_start and prev.free) {
                 checkBlock(prev);
                 self.unlink(prev);
                 prev.size += block.size;

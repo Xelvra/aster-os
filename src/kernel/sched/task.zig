@@ -1,5 +1,6 @@
 const std = @import("std");
 const idt = @import("../cpu/idt.zig");
+const irq = @import("../cpu/irq.zig");
 const time = @import("../time.zig");
 const serial = @import("../serial.zig");
 
@@ -186,10 +187,11 @@ pub const SpawnError = error{TaskTableFull};
 /// Create a new native kernel task with a fake initial interrupt frame on its
 /// own static stack. Must be called from normal context (interrupts enabled),
 /// never from an ISR: the TCB table is a critical section and is guarded by
-/// `cli`/`sti` here.
+/// the RFLAGS-based interrupt guard so a caller that already masked
+/// interrupts is not wrongly re-enabled (audit 2026-08-15).
 pub fn spawnTask(entry: *const fn () callconv(.c) noreturn) SpawnError!TaskId {
-    asm volatile ("cli" ::: .{ .memory = true });
-    defer asm volatile ("sti" ::: .{ .memory = true });
+    const guard = irq.begin();
+    defer guard.end();
 
     if (task_count >= max_tasks) return error.TaskTableFull;
     const id = task_count;
