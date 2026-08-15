@@ -7,12 +7,17 @@ ISO="${1:-}"
 if [[ -z "$ISO" ]]; then
     echo "building ISO..."
     zig build iso
-    ISO="$(find .zig-cache -name aster.iso -printf '%T@ %p\n' | sort -rn | head -1 | cut -d' ' -f2-)"
+    ISO="zig-out/aster.iso"  # fixed output path (audit 2026-08-15)
 fi
 
 MARKER="${SMOKE_MARKER:-ASTER BOOT OK}"
 TIMEOUT="${SMOKE_TIMEOUT:-30}"
 DISK="${SMOKE_DISK:-}"
+
+if ! command -v qemu-system-x86_64 >/dev/null 2>&1; then
+    echo "smoke: qemu-system-x86_64 not found" >&2
+    exit 1
+fi
 
 echo "smoke: booting $ISO"
 echo "smoke: waiting for marker '$MARKER' (timeout ${TIMEOUT}s)"
@@ -21,6 +26,7 @@ if [[ -n "$DISK" ]]; then
 fi
 
 tmpdir="$(mktemp -d)"
+trap 'rm -rf "$tmpdir"' EXIT
 mkfifo "$tmpdir/serial.in" "$tmpdir/serial.out"
 
 read -r -a ACCEL <<< "$(./tools/qemu-accel.sh)"
@@ -47,8 +53,10 @@ timeout "$TIMEOUT" qemu-system-x86_64 \
 qemu_pid=$!
 
 found=""
+log=""
 while IFS= read -r line; do
     clean="$(sed $'s/\x1b\[[0-9;]*m//g' <<<"$line")"
+    log+="$clean"$'\n'
     if grep -qF "$MARKER" <<<"$clean"; then
         found="$clean"
         break
@@ -57,12 +65,12 @@ done <"$tmpdir/serial.out"
 
 kill "$qemu_pid" 2>/dev/null || true
 wait "$qemu_pid" 2>/dev/null || true
-rm -rf "$tmpdir"
 
 if [[ -n "$found" ]]; then
     echo "smoke: PASS ($MARKER found)"
     exit 0
 else
     echo "smoke: FAIL (marker '$MARKER' not found)"
+    printf '%s' "$log" | tail -n 20
     exit 1
 fi

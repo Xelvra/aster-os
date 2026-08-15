@@ -22,7 +22,7 @@ jobs:
       - name: Install QEMU and ISO tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y qemu-system-x86 xorriso mtools
+          sudo apt-get install -y qemu-system-x86 xorriso mtools parted e2fsprogs
 
       - name: Format check
         run: zig fmt --check .
@@ -33,13 +33,16 @@ jobs:
       - name: Host unit tests
         run: zig build test
 
+      - name: Deterministic build (ADR-014)
+        run: ./tools/verify-reproducible.sh
+
       - name: Boot smoke test (QEMU, TCG on CI runners)
-        run: ./tools/qemu-smoke.sh
+        run: SMOKE_TIMEOUT=60 ./tools/qemu-smoke.sh
 
       - name: Storage boot smoke test (virtio-blk disk attached)
         run: |
           dd if=/dev/zero of=/tmp/aster-storage.img bs=1M count=16 status=none
-          SMOKE_DISK=/tmp/aster-storage.img SMOKE_MARKER='[ OK ] storage' ./tools/qemu-smoke.sh
+          SMOKE_TIMEOUT=60 SMOKE_DISK=/tmp/aster-storage.img SMOKE_MARKER='[ OK ] storage' ./tools/qemu-smoke.sh
 
       - name: In-QEMU runtime tests
         run: QEMU_TEST_TIMEOUT=90 ./tools/qemu-test.sh
@@ -50,7 +53,7 @@ jobs:
           QEMU_TEST_TIMEOUT=90 QEMU_TEST_DISK=/tmp/aster-test-disk.img ./tools/qemu-test.sh
 
       - name: Boot log must match the code (proof of work stays current)
-        run: ./tools/capture-boot.sh --check
+        run: BOOT_LOG_TIMEOUT=60 ./tools/capture-boot.sh --check
 
       - name: Docs must be synced with their spec sources (14 days)
         run: ./tools/sync-docs.sh --check

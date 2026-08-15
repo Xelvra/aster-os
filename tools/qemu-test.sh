@@ -7,7 +7,7 @@ ISO="${1:-}"
 if [[ -z "$ISO" ]]; then
     echo "building ISO with runtime tests..."
     zig build iso -Druntime-tests=true
-    ISO="$(find .zig-cache -name aster.iso -printf '%T@ %p\n' | sort -rn | head -1 | cut -d' ' -f2-)"
+    ISO="zig-out/aster.iso"  # fixed output path (audit 2026-08-15)
 fi
 
 PASS_CODE="99"
@@ -27,6 +27,11 @@ if [[ -n "$DISK" ]]; then
     disk_args=(-drive "file=$DISK,format=raw,if=none,id=hd0" -device virtio-blk-pci,drive=hd0,disable-legacy=on)
 fi
 
+# Keep the serial stream so a failure is diagnosable (audit 2026-08-15).
+tmpdir="$(mktemp -d)"
+trap 'rm -rf "$tmpdir"' EXIT
+serial_log="$tmpdir/serial.log"
+
 set +e
 timeout "$TIMEOUT" qemu-system-x86_64 \
     "${ACCEL[@]}" \
@@ -39,7 +44,7 @@ timeout "$TIMEOUT" qemu-system-x86_64 \
     -boot order=d \
     -no-reboot \
     -display none \
-    >/dev/null 2>&1
+    >"$serial_log" 2>&1
 exit_code=$?
 set -e
 
@@ -48,5 +53,7 @@ if [[ "$exit_code" -eq "$PASS_CODE" ]]; then
     exit 0
 else
     echo "qemu-test: FAIL (exit $exit_code, expected $PASS_CODE)"
+    echo "qemu-test: last serial output:"
+    tail -n 40 "$serial_log"
     exit 1
 fi

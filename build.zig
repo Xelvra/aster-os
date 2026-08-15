@@ -10,6 +10,22 @@ fn kvmAvailable() bool {
 }
 
 pub fn build(b: *std.Build) void {
+    // ADR-013: pin the exact Zig version. A mismatch would produce a subtly
+    // different kernel and silently desync CI and the reproducible gate
+    // (audit 2026-08-15).
+    const pinned = std.mem.trim(u8, @embedFile(".zig-version"), " \n\r");
+    const expected = std.SemanticVersion.parse(pinned) catch {
+        std.debug.print("build: cannot parse .zig-version '{s}'\n", .{pinned});
+        std.process.exit(1);
+    };
+    const current = builtin.zig_version;
+    if (current.major != expected.major or current.minor != expected.minor or current.patch != expected.patch) {
+        std.debug.print("build: this project requires Zig {s}, running {d}.{d}.{d}\n", .{
+            pinned, current.major, current.minor, current.patch,
+        });
+        std.process.exit(1);
+    }
+
     const target = b.standardTargetOptions(.{ .default_target = .{
         .cpu_arch = .x86_64,
         .os_tag = .freestanding,
@@ -98,6 +114,13 @@ pub fn build(b: *std.Build) void {
     // the archive would stay stale forever.)
     const tar_cmd = b.addSystemCommand(&.{ "tar", "-cf" });
     const initfs_path = tar_cmd.addOutputFileArg("initfs.tar");
+    // Deterministic archive so the ISO is reproducible (audit 2026-08-15,
+    // ADR-014): stable entry order, zeroed mtime/uid/gid.
+    tar_cmd.addArg("--sort=name");
+    tar_cmd.addArg("--mtime=@0");
+    tar_cmd.addArg("--owner=0");
+    tar_cmd.addArg("--group=0");
+    tar_cmd.addArg("--numeric-owner");
     // The kernel looks files up by their flat name (no directory prefix), so
     // strip the absolute source path from the archive entries.
     tar_cmd.addArg("--transform");
@@ -161,6 +184,12 @@ pub fn build(b: *std.Build) void {
     bios_install.step.dependOn(&limine_tool.step);
     const iso_step = b.step("iso", "Build bootable ISO image");
     iso_step.dependOn(&bios_install.step);
+    // Install the built ISO at a fixed path (zig-out/aster.iso) so the tools
+    // and CI can use a deterministic location instead of guessing by mtime
+    // among the many cached ISOs (audit 2026-08-15).
+    const iso_install = b.addInstallFileWithDir(iso_path, .{ .custom = "" }, "aster.iso");
+    iso_install.step.dependOn(&bios_install.step);
+    iso_step.dependOn(&iso_install.step);
 
     const run_cmd = b.addSystemCommand(&.{"qemu-system-x86_64"});
     if (use_kvm) run_cmd.addArg("-enable-kvm");

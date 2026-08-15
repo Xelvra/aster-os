@@ -17,7 +17,7 @@ if [[ "$MODE" != "generate" && "$MODE" != "--check" && "$MODE" != "check" ]]; th
 fi
 
 zig build iso >/dev/null
-ISO="$(find .zig-cache -name aster.iso -printf '%T@ %p\n' | sort -rn | head -1 | cut -d' ' -f2-)"
+ISO="zig-out/aster.iso"  # fixed output path (audit 2026-08-15)
 
 tmpdir="$(mktemp -d)"
 serial_file="$tmpdir/boot.serial"

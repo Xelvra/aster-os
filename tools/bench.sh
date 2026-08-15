@@ -7,17 +7,23 @@ ISO="${1:-}"
 if [[ -z "$ISO" ]]; then
     echo "building ISO..."
     zig build iso
-    ISO="$(find .zig-cache -name aster.iso -printf '%T@ %p\n' | sort -rn | head -1 | cut -d' ' -f2-)"
+    ISO="zig-out/aster.iso"  # fixed output path (audit 2026-08-15)
 fi
 
 BOOT_MARKER="ASTER KERNEL ENTRY"
 ENTRY_MARKER="ASTER FIRST FRAME"
 TIMEOUT="${BENCH_TIMEOUT:-30}"
 
+if ! command -v qemu-system-x86_64 >/dev/null 2>&1; then
+    echo "bench: qemu-system-x86_64 not found" >&2
+    exit 1
+fi
+
 echo "bench: booting $ISO"
 echo "bench: waiting for '$BOOT_MARKER' then '$ENTRY_MARKER' (timeout ${TIMEOUT}s)"
 
 tmpdir="$(mktemp -d)"
+trap 'rm -rf "$tmpdir"' EXIT
 mkfifo "$tmpdir/serial.in" "$tmpdir/serial.out"
 
 start_ns="$(date +%s%N)"
@@ -52,7 +58,6 @@ done <"$tmpdir/serial.out"
 
 kill "$qemu_pid" 2>/dev/null || true
 wait "$qemu_pid" 2>/dev/null || true
-rm -rf "$tmpdir"
 
 if [[ -z "$entry_ns" ]]; then
     echo "bench: FAIL (markers '$BOOT_MARKER'/'$ENTRY_MARKER' not found)"
