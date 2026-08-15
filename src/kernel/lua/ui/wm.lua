@@ -21,6 +21,13 @@ local fullscreen_win = nil    -- title of a fullscreen window, if any
 -- the restore.
 local fullscreen_restore = nil
 
+local function find_win(title)
+    for _, w in ipairs(windows) do
+        if w.title == title then return w end
+    end
+    return nil
+end
+
 -- Leave fullscreen and give a floating window its geometry back (tiled windows
 -- are repositioned by layout_pass). Shared by toggle_fullscreen, workspace
 -- switches and window move — every place that clears fullscreen_win.
@@ -88,13 +95,6 @@ end
 windows[#windows + 1] = window("repl", 1)
 windows[#windows + 1] = window("sysmon", 1)
 local repl_visible = true
-
-local function find_win(title)
-    for _, w in ipairs(windows) do
-        if w.title == title then return w end
-    end
-    return nil
-end
 
 local function set_focus(title)
     local w = find_win(title)
