@@ -99,11 +99,13 @@ the same as in Hyprland (`spec/desktop-ui.md` §5).
 
 The WM configuration lives in the `/wm/` directory on the disk:
 `/wm/theme.lua` (colors and geometry), `/wm/README` (user documentation),
-`/wm/api.lua` (Lua API reference) and `/wm/.theme.bak` (last valid backup).
+`/wm/api.lua` (Lua API reference) and `/wm/.theme.bak` (manual backup of the
+last Ctrl+S).
 `theme.lua` is full Lua code (not a data format), so you can tweak colors and
 geometry or rewrite window behavior — the shell applies it atomically on
-save. A broken config is reported in the REPL and the last valid look stays:
-`/wm/.theme.bak` holds the last working version as a read-only editor backup.
+save. A broken config is reported in the REPL and the shell keeps the
+built-in defaults; `/wm/.theme.bak` holds the previous save as a read-only
+manual backup that is never loaded automatically.
 Deleting `/wm/theme.lua` and `/wm/.theme.bak` is safe — the shell falls back to
 the built-in defaults, so the environment never breaks.
 

@@ -939,8 +939,8 @@ fn testFileDir() void {
 
 fn testAutoReload() void {
     // M7.1.6: a valid /wm/theme.lua applies live; a broken one must not crash —
-    // apply_disk_theme reports the error, the live look stays on the last
-    // valid version and .theme.bak is untouched.
+    // apply_disk_theme reports the error, the live look stays on the built-in
+    // default (the disk backup is a manual Ctrl+S backup, never loaded).
     const lua = @import("lua/lua.zig");
     const storage = @import("api/storage.zig");
     if (!storage.isMounted()) {
@@ -953,35 +953,20 @@ fn testAutoReload() void {
         return;
     };
     const script =
-        \\-- seed the working copy and the last-valid backup with the same
-        \\-- good config so a broken working copy is detectable (a successful
-        \\-- Ctrl+S would put the previous working copy into .theme.bak)
+        \\-- seed the working copy with a good config
         \\local s = file.open("/wm/theme.lua")
         \\file.truncate(s, 0)
         \\file.write(s, "theme.background = 0x112233")
         \\file.close(s)
-        \\local s2 = file.open("/wm/.theme.bak")
-        \\file.truncate(s2, 0)
-        \\file.write(s2, "theme.background = 0x112233")
-        \\file.close(s2)
         \\local ok = apply_disk_theme() == nil and theme.background == 0x112233
-        \\-- broken working copy: the error is returned, the live look stays on
-        \\-- the last valid version and .theme.bak is untouched
+        \\-- broken working copy: the error is returned and the disk backup is
+        \\-- never loaded — the live look stays on the last applied value
         \\local w = file.open("/wm/theme.lua")
         \\file.truncate(w, 0)
         \\file.write(w, "theme.background = 0xZZZZZZ")
         \\file.close(w)
         \\local err = apply_disk_theme()
         \\ok = ok and err ~= nil and theme.background == 0x112233
-        \\local b2 = file.open("/wm/.theme.bak")
-        \\local bak2 = ""
-        \\while true do
-        \\    local c = file.read(b2, 4096)
-        \\    if not c or c == "" then break end
-        \\    bak2 = bak2 .. c
-        \\end
-        \\file.close(b2)
-        \\ok = ok and bak2 == "theme.background = 0x112233"
         \\-- restore the working copy for later tests
         \\local w2 = file.open("/wm/theme.lua")
         \\file.truncate(w2, 0)
@@ -1002,7 +987,7 @@ fn testAutoReload() void {
     const str = L.lua_tolstring(lua_state, -1, &len);
     const result: []const u8 = @as([*]const u8, @ptrCast(str))[0..len];
     const ok = len == 4 and std.mem.eql(u8, result, "PASS");
-    expect(ok, "config applies live, broken config falls back to .theme.bak, backup intact");
+    expect(ok, "config applies live, broken config reports error and keeps last applied value");
     _ = L.lua_pop(lua_state, 1);
 }
 

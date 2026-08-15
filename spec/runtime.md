@@ -234,8 +234,9 @@ Bezpečnostní model zůstává jednouživatelský SASOS bez izolace domén
 > **Úroveň 2 (ADR-025):** cíl je rozšířit „kód je systém" z configu na **celý WM
 > shell** — moduly se načítají z `/wm/` (ne jen theme). **Fallback pravidlo:**
 > rozbitý/chybějící uživatelský modul se nikdy nepoužije; aplikuje se vestavěný
-> initrd default (stejný vzor jako `/wm/.theme.bak` dnes). Determinismus
-> (ADR-014) a bootovatelnost (ADR-016) tak zůstávají v platnosti.
+> initrd default. `.bak` soubory (theme.bak / api.bak) jsou **jen ruční záloha
+> posledního Ctrl+S** a nikdy se nenačítají jako konfigurace (ADR-025).
+> Determinismus (ADR-014) a bootovatelnost (ADR-016) tak zůstávají v platnosti.
 
 ### 5a.2 Fallback a chybové hlášení configu
 
@@ -244,18 +245,20 @@ Chybný config **nesmí shodit shell ani nechat polorozkreslený vzhled**:
 - `apply_theme_content(content)` aplikuje config **atomicky**: `load` chytí syntax
   chyby, `pcall` na **klonu** `theme` tabulky chytí runtime chyby; při jakékoli chybě
   se stará `theme` tabulka vrátí (rollback) a vrátí se chybová zpráva.
-- `apply_disk_theme()` aplikuje `/wm/theme.lua`; když neprojde, použije poslední platnou
-  verzi **`/wm/.theme.bak`** a chybu vrátí volajícímu.
+- `apply_disk_theme()` aplikuje `/wm/theme.lua`; když neprojde (rozbitý nebo chybí),
+  **nepoužije se žádná záloha** — live `theme` zůstane na vestavěném initrd defaultu
+  (rollback v `apply_theme_content`) a chyba se vrátí volajícímu. `/wm/.theme.bak`
+  se **nikdy nenačítá jako config** — je to jen ruční záloha posledního Ctrl+S
+  (ADR-025).
 - Chyba se **vždy vypíše do REPL scrollbacku** (`main.lua` po bootu/F5, `editor_save`
   po Ctrl+S) — uživatel vidí, že config je rozbitý, i když soubor neotevře.
 - Editor (`editor_save`) **validuje před zápisem**: rozbitý config se do `/wm/theme.lua`
   zapíše (working copy zůstává editovatelná), ale **`/wm/.theme.bak` se nemění** — drží
-  poslední platný config a live vzhled na něm zůstává, dokud uživatel neuloží platnou
-  verzi. Platný config se zapíše do `/wm/theme.lua` a **předchozí working copy** se
-  uloží do `/wm/.theme.bak` (záloha **nezrcadlí** nový obsah — vrací se k ní chybný
-  příští save). Validace jako `theme.lua` se týká **jen** souboru `/wm/theme.lua`;
-  ostatní soubory se zapisují jako plain text. **Nový soubor** (save-as u
-  prázdného bufferu) se vytvoří přes `file.create` (ext2 create, M7.1.11).
+  zálohu posledního platného Ctrl+S. Platný config se zapíše do `/wm/theme.lua` a
+  **předchozí working copy** se uloží do `/wm/.theme.bak` (záloha **nezrcadlí** nový
+  obsah — vrací se k ní předchozí uložení). Validace jako `theme.lua` se týká **jen**
+  souboru `/wm/theme.lua`; ostatní soubory se zapisují jako plain text. **Nový soubor**
+  (save-as u prázdného bufferu) se vytvoří přes `file.create` (ext2 create, M7.1.11).
 - **`/wm/.theme.bak` je read-only pro editor**: `editor_load` ho (i `.repl_history`)
   odmítne načíst — jdou jen prohlížet Spacem ve files browseru, editor je nikdy
   nepřepíše (žádný Ctrl+S guard není potřeba). Zálohu plní jen `editor_write`

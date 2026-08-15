@@ -512,8 +512,10 @@ triggerů / nových ADR.
       `launcher.lua`, ...) se načítají za běhu z `/wm/` místo z initrd taru, uživatel
       je může editovat a přidávat s automatickým hot reloadem (dnes to jde jen pro
       `/wm/theme.lua`). **Fallback (ADR-025):** rozbitý/chybějící uživatelský modul
-      se nahradí vestavěným initrd defaultem (jako `/wm/.theme.bak` dnes), takže
-      determinismus a bootovatelnost zůstávají. Zásadní změna bootstrapu
+      se nahradí vestavěným initrd defaultem (chyba se hlásí do REPL), chybějící
+      soubor se obnoví klonem z init; **`.bak` soubory jsou jen ruční záloha
+      posledního Ctrl+S a nikdy se nenačítají jako config** — determinismus a
+      bootovatelnost zůstávají. Zásadní změna bootstrapu
       (`lua.zig` načítání + hot reload cesta), proto samostatný milník s vlastní
       verifikací — ne přidává se tiše k jiné práci.
 

@@ -100,8 +100,10 @@ běhu a kernel se nepřestavuje (M6, `spec/roadmap.md`).
 > načítaly za běhu z `/wm/` a uživatel by je mohl editovat/přidávat s automatickým
 > hot reloadem (stejně jako dnes `/wm/theme.lua`). **Fallback (ADR-025):** rozbitý
 > nebo chybějící uživatelský modul se nikdy nepoužije — místo něj se aplikuje
-> vestavěný initrd default (stejný vzor jako `/wm/.theme.bak` dnes), takže
-> determinismus (ADR-014) a bootovatelnost (ADR-016) zůstávají v platnosti.
+> vestavěný initrd default (chyba se hlásí do REPL), takže determinismus
+> (ADR-014) a bootovatelnost (ADR-016) zůstávají v platnosti. **`.bak` soubory
+> jsou jen ruční záloha posledního Ctrl+S a nikdy se nenačítají jako konfigurace**
+> (ADR-025); chybějící soubor se obnoví klonem z init.
 > Dnes (Úroveň 1) je na disku v `/wm/` jen konfigurace (theme + README + api.lua);
 > shell moduly samotné žijí v initrd. Úroveň 2 je zásadní změna bootstrapu a dělá
 > se jako samostatný milník — viz roadmapa a ADR-025.
@@ -213,7 +215,9 @@ Jediný modul bez závislostí. Definuje globální tabulku `theme` (viz `theme.
 
 > **Umístění configu na disku:** on-disk kopie žije v `/wm/theme.lua` (adresář WM na
 > disku; vedle něj `/wm/README` — uživatelská dokumentace, `/wm/api.lua` — reference
-> Lua API, `/wm/.theme.bak` — fallback). Shell moduly (kód WM) zůstávají v initrd
+> Lua API, `/wm/.theme.bak` — ruční záloha posledního Ctrl+S, **nikdy se nenačítá**
+> jako config — fallback je vždy initrd default, ADR-025). Shell moduly (kód WM)
+> zůstávají v initrd
 > (Úroveň 1); přesun do `/wm/` je plánovaná Úroveň 2 (§3.1).
 
 ```lua
@@ -656,8 +660,9 @@ Navigační konvence:
 **Smazání config souborů je bezpečné:** `/wm/.theme.bak` nemá žádnou ochranu proti
 smazání — systém na diskovém configu nezávisí. Když `/wm/theme.lua` i
 `/wm/.theme.bak` smažeš, `apply_disk_theme()` najde `nil` a použijí se vestavěné
-defaulty z initrd. `/wm/.theme.bak` je tedy jen komfortní záloha poslední platné
-verze pro editor, ne kritický fallback stability.
+defaulty z initrd (chybějící soubor se při Úrovni 2 obnoví klonem z init,
+ADR-025). `/wm/.theme.bak` je tedy jen ruční záloha posledního Ctrl+S pro
+editor, ne kritický fallback stability — fallback je vždy initrd default.
 
 Mezi okny: Alt+Tab (cyklus), Super+šipky (focus ve směru), Super+Space
 (launcher). Zavření fokusovaného okna: Super+Q.

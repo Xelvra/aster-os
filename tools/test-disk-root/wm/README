@@ -8,13 +8,16 @@ Layout:
   README       this file — how the WM is configured and extended
   theme.lua    colors and geometry (hot-reloadable, see below)
   api.lua      the Lua API reference the shell exposes
-  .theme.bak   last valid theme, used as a fallback when theme.lua breaks
+  .theme.bak   manual backup of the last Ctrl+S (read-only, never loaded)
 
 Hot reload
   Edit /wm/theme.lua and save it (Ctrl+S in the editor, Super+Z opens it) —
   the desktop repaints immediately, no F5 and no kernel rebuild. If the new
   theme does not parse or run, the change is reported in the REPL and the
-  last valid look (.theme.bak) stays active; the system never crashes.
+  shell keeps the built-in defaults; the system never crashes. To restore a
+  previous save, view .theme.bak (Space in the file browser) and copy its
+  content back into theme.lua manually — backups are never loaded
+  automatically.
 
 Opening files
   Super+E opens the file browser at the root. Enter opens a file, Space views

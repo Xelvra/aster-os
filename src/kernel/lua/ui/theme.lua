@@ -44,8 +44,9 @@
 --   theme.bar.height = 40               -- taller taskbar
 --
 -- The on-disk copy is /wm/theme.lua (applied at boot, on F5 and after every
--- editor save). The last valid version is kept in /wm/.theme.bak and is used
--- as a fallback whenever the working copy does not parse or run.
+-- editor save). A broken or missing working copy falls back to the built-in
+-- initrd defaults; /wm/.theme.bak keeps the previous Ctrl+S as a read-only
+-- manual backup that is never loaded automatically (ADR-025).
 
 theme = {
     background = 0x111826,
@@ -121,18 +122,14 @@ end
 
 -- Apply the persistent disk config (/wm/theme.lua) if present: the config is
 -- Lua code that overrides the theme table — there is no separate config
--- format (spec/runtime.md §5a trigger 2). When the working copy fails to
--- parse or run, the last valid version (/wm/.theme.bak) is applied instead
--- and the working copy's error is returned for the caller to report. Returns
--- nil when no config is present (defaults stand) or when it applied cleanly.
+-- format (spec/runtime.md §5a trigger 2). A broken or missing working copy is
+-- never used: the error is returned for the caller to report and the live
+-- theme stays on the built-in initrd default (rollback inside
+-- apply_theme_content). /wm/.theme.bak is only a manual backup of the last
+-- Ctrl+S — it is never loaded as configuration (ADR-025). Returns nil when
+-- no config is present (defaults stand) or when it applied cleanly.
 function apply_disk_theme()
     local content = read_file("/wm/theme.lua")
     if content == nil then return nil end
-    local err = apply_theme_content(content)
-    if err == nil then return nil end
-    local backup = read_file("/wm/.theme.bak")
-    if backup ~= nil then
-        apply_theme_content(backup)
-    end
-    return err
+    return apply_theme_content(content)
 end
