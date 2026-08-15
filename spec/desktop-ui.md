@@ -130,7 +130,7 @@ Pravá část baru je dnes placeholder, ale **má správné rozložení** (widge
 - Textový editor: šipky, Home/End, Enter, Backspace/Delete, **Ctrl+S** uloží
   (`file.write`); nový buffer nabídne **save as:** v titulkové liště a soubor
   vytvoří (`file.create`). **Esc Esc** zavře editor jen u čistého bufferu.
-- **Super+Z** otevře settings (`/theme.lua`); uložení configu spouští auto-reload.
+- **Super+Z** otevře settings (`/wm/theme.lua`); uložení configu spouští auto-reload.
 - Detail navigace viz `spec/lua-wm.md` §7a.4.
 
 ### 4.6b Files — správce souborů (✅ hotovo, M7.1)
@@ -177,7 +177,7 @@ Cíl: btop/Noctalia sysmon widget v baru + okno.
 |---|---|
 | Super+Enter | terminál (REPL) |
 | Super+T | editor (prázdný buffer) |
-| Super+Z | settings (`/theme.lua`) |
+| Super+Z | settings (`/wm/theme.lua`) |
 | Super+E | file manager |
 | Super+Q | zavřít fokusované okno |
 | Super+Space | launcher |

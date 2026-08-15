@@ -174,7 +174,7 @@ local function handle_key(ev)
     -- SUPER = mainMod (Hyprland convention). Window management:
     --   Super+Enter     terminal (REPL dropdown)
     --   Super+T         editor (untitled buffer)
-    --   Super+Z         settings (/theme.lua)
+    --   Super+Z         settings (/wm/theme.lua)
     --   Super+E         file manager
     --   Super+Q         close focused window
     --   Super+Space     launcher
@@ -221,14 +221,14 @@ local function handle_key(ev)
             set_focus("editor")
         elseif code == "z" then
             -- Settings (spec/lua-wm.md: Super+Z -> settings): the theme
-            -- config lives in /theme.lua, opened in the editor.
+            -- config lives in /wm/theme.lua, opened in the editor.
             local w = find_win("editor")
             if not w then
                 windows[#windows + 1] = window("editor", current_ws)
             else
                 w.ws = current_ws
             end
-            editor_load("/theme.lua")
+            editor_load("/wm/theme.lua")
             set_focus("editor")
         elseif code == "e" then
             -- File manager (spec/lua-wm.md: Super+E -> files), opened at root.

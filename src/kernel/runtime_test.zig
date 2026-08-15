@@ -523,23 +523,23 @@ fn testFilesystem(alloc: std.mem.Allocator, memory: *mem.Memory) void {
     var fs = storage.mounted.?;
     expect(true, "ext2 mounted at boot");
 
-    const ino = fs.find("/theme.lua") catch {
-        expect(false, "lookup finds /theme.lua");
+    const ino = fs.find("/wm/theme.lua") catch {
+        expect(false, "lookup finds /wm/theme.lua");
         return;
     };
-    expect(ino > 0, "lookup finds /theme.lua");
+    expect(ino > 0, "lookup finds /wm/theme.lua");
 
-    var f = file.File.open(&fs, "/theme.lua") catch {
-        expect(false, "open /theme.lua");
+    var f = file.File.open(&fs, "/wm/theme.lua") catch {
+        expect(false, "open /wm/theme.lua");
         return;
     };
     defer f.close();
     var buf: [4096]u8 = undefined;
     const n = f.read(&buf) catch {
-        expect(false, "read /theme.lua");
+        expect(false, "read /wm/theme.lua");
         return;
     };
-    expect(n > 0, "read /theme.lua returns data");
+    expect(n > 0, "read /wm/theme.lua returns data");
     expect(std.mem.indexOf(u8, buf[0..n], "theme = {") != null, "read returns the theme config table");
     expect(f.eof(), "read reaches EOF");
 
@@ -623,7 +623,7 @@ fn testStorageKi() void {
         expect(true, "storage KI test skipped (no disk attached)");
         return;
     }
-    const path = "/theme.lua";
+    const path = "/wm/theme.lua";
     const open_result = storage.dispatch(.{
         .a = @intFromEnum(storage.StorageOp.open),
         .b = @intFromPtr(path.ptr),
@@ -699,12 +699,12 @@ fn testFileBindings() void {
     _ = L.lua_pop(lua_state, 1);
 
     const script =
-        \\local h = file.open("/theme.lua")
+        \\local h = file.open("/wm/theme.lua")
         \\if not h then return "open-failed" end
         \\file.truncate(h, 0)
         \\file.write(h, "lua=ok")
         \\file.close(h)
-        \\h = file.open("/theme.lua")
+        \\h = file.open("/wm/theme.lua")
         \\if not h then return "reopen-failed" end
         \\local content = file.read(h, 128)
         \\file.close(h)
@@ -728,7 +728,7 @@ fn testFileBindings() void {
 
 fn testFileRemove() void {
     // M7.1.9: file.remove deletes a file (dir entry + data gone) and the
-    // config backup .theme.bak is protected while /theme.lua is broken.
+    // config backup /wm/.theme.bak is protected while /wm/theme.lua is broken.
     const lua = @import("lua/lua.zig");
     const storage = @import("api/storage.zig");
     if (!storage.isMounted()) {
@@ -845,10 +845,10 @@ fn testEditorApp() void {
         return;
     };
     const script =
-        \\editor_load("/theme.lua")
+        \\editor_load("/wm/theme.lua")
         \\local before = table.concat(ed_lines, "\n")
         \\editor_save()
-        \\local h = file.open("/theme.lua")
+        \\local h = file.open("/wm/theme.lua")
         \\local after = file.read(h, 4096) or ""
         \\file.close(h)
         \\return (before == after) and #before
@@ -883,13 +883,19 @@ fn testFileDir() void {
     const script =
         \\local entries = file.dir("/")
         \\if not entries then return nil end
-        \\local found = 0
-        \\local has_dir = false
+        \\local wm_dir = false
+        \\local has_apps = false
         \\for _, e in ipairs(entries) do
-        \\    if e.name == "theme.lua" and not e.dir then found = found + 1 end
-        \\    if e.name == "apps" and e.dir then has_dir = true end
+        \\    if e.name == "wm" and e.dir then wm_dir = true end
+        \\    if e.name == "apps" and e.dir then has_apps = true end
         \\end
-        \\return found == 1 and has_dir
+        \\local wm_entries = file.dir("/wm")
+        \\if not wm_entries then return nil end
+        \\local theme_in_wm = false
+        \\for _, e in ipairs(wm_entries) do
+        \\    if e.name == "theme.lua" and not e.dir then theme_in_wm = true end
+        \\end
+        \\return wm_dir and has_apps and theme_in_wm
     ;
     const load_status = L.luaL_loadstring(lua_state, script);
     expect(load_status == L.LUA_OK, "file.dir script compiles");
@@ -932,7 +938,7 @@ fn testFileDir() void {
 }
 
 fn testAutoReload() void {
-    // M7.1.6: a valid /theme.lua applies live; a broken one must not crash —
+    // M7.1.6: a valid /wm/theme.lua applies live; a broken one must not crash —
     // apply_disk_theme reports the error, the live look stays on the last
     // valid version and .theme.bak is untouched.
     const lua = @import("lua/lua.zig");
@@ -950,24 +956,24 @@ fn testAutoReload() void {
         \\-- seed the working copy and the last-valid backup with the same
         \\-- good config so a broken working copy is detectable (a successful
         \\-- Ctrl+S would put the previous working copy into .theme.bak)
-        \\local s = file.open("/theme.lua")
+        \\local s = file.open("/wm/theme.lua")
         \\file.truncate(s, 0)
         \\file.write(s, "theme.background = 0x112233")
         \\file.close(s)
-        \\local s2 = file.open("/.theme.bak")
+        \\local s2 = file.open("/wm/.theme.bak")
         \\file.truncate(s2, 0)
         \\file.write(s2, "theme.background = 0x112233")
         \\file.close(s2)
         \\local ok = apply_disk_theme() == nil and theme.background == 0x112233
         \\-- broken working copy: the error is returned, the live look stays on
         \\-- the last valid version and .theme.bak is untouched
-        \\local w = file.open("/theme.lua")
+        \\local w = file.open("/wm/theme.lua")
         \\file.truncate(w, 0)
         \\file.write(w, "theme.background = 0xZZZZZZ")
         \\file.close(w)
         \\local err = apply_disk_theme()
         \\ok = ok and err ~= nil and theme.background == 0x112233
-        \\local b2 = file.open("/.theme.bak")
+        \\local b2 = file.open("/wm/.theme.bak")
         \\local bak2 = ""
         \\while true do
         \\    local c = file.read(b2, 4096)
@@ -977,7 +983,7 @@ fn testAutoReload() void {
         \\file.close(b2)
         \\ok = ok and bak2 == "theme.background = 0x112233"
         \\-- restore the working copy for later tests
-        \\local w2 = file.open("/theme.lua")
+        \\local w2 = file.open("/wm/theme.lua")
         \\file.truncate(w2, 0)
         \\file.write(w2, "theme.background = 0x112233")
         \\file.close(w2)

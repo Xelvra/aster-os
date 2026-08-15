@@ -21,6 +21,15 @@ This version tracks the milestone after M6 Storage was completed.
 
 ### Added
 
+* **WM configuration directory on the disk (`/wm/`):** the disk config that
+  used to sit loose at the filesystem root now lives in a dedicated `/wm/`
+  directory — `/wm/theme.lua` (colors and geometry, hot-reloaded on save),
+  `/wm/README` (user documentation), `/wm/api.lua` (Lua API reference) and
+  `/wm/.theme.bak` (last valid theme backup). The root stays clean (only
+  `apps/`, `.trash/`, `README`, `.repl_history`). Moving the full Lua shell
+  from the initrd into `/wm/` is planned as a later milestone (Úroveň 2,
+  `spec/roadmap.md` M8, `spec/lua-wm.md` §3.1).
+
 * **Preemptive round-robin scheduler for native kernel tasks (audit §3.5, Task 7):**
   new `sched/task.zig` runs multiple kernel tasks on one core, preempted by the
   APIC timer IRQ (vector 0x20). TCB table and all task stacks are static (no
@@ -49,7 +58,7 @@ This version tracks the milestone after M6 Storage was completed.
   new buffer shows a `save as:` prompt in the window title bar (with a text
   cursor) and creates the file via `file.create`; the dirty marker clears when
   every change is reverted; Esc Esc closes the editor only when clean.
-  Super+Z opens the settings file `/theme.lua`.
+  Super+Z opens the settings file `/wm/theme.lua`.
 
 * **Unified window headers (§7b):** context and key hints moved into the title
   bar (`~ repl  F5 reload`, `editor /path | Ctrl+s save*`,

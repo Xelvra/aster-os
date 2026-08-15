@@ -1,0 +1,28 @@
+Aster OS window manager (WM) configuration
+
+This directory holds everything that customizes the desktop shell at runtime.
+The whole shell is written in Lua and lives inside the kernel; these files are
+the user-facing configuration surface (loaded from the disk, applied live).
+
+Layout:
+  README       this file — how the WM is configured and extended
+  theme.lua    colors and geometry (hot-reloadable, see below)
+  api.lua      the Lua API reference the shell exposes
+  .theme.bak   last valid theme, used as a fallback when theme.lua breaks
+
+Hot reload
+  Edit /wm/theme.lua and save it (Ctrl+S in the editor, Super+Z opens it) —
+  the desktop repaints immediately, no F5 and no kernel rebuild. If the new
+  theme does not parse or run, the change is reported in the REPL and the
+  last valid look (.theme.bak) stays active; the system never crashes.
+
+Opening files
+  Super+E opens the file browser at the root. Enter opens a file, Space views
+  it read-only, Delete removes it. Super+T opens the editor with a fresh
+  buffer; Super+Z opens /wm/theme.lua directly.
+
+Changing window behaviour
+  theme.lua controls colors and geometry (what the shell draws). To change
+  which windows exist, the keybindings, the launcher entries or the taskbar,
+  the WM exposes its Lua API — see api.lua and the shell source modules
+  (wm.lua, input.lua, launcher.lua) for the hooks you can call from Lua.

@@ -75,7 +75,7 @@ Persistent disk (M7.1): without a disk the filesystem is not mounted and the
 editor/file browser cannot open anything.
 
 ```bash
-./tools/make-test-disk.sh disk.img   # 16 MiB GPT + ext2 test disk (theme.lua, README, apps/)
+./tools/make-test-disk.sh disk.img   # 16 MiB GPT + ext2 test disk (wm/ config, apps/, README)
 zig build run -Ddisk=disk.img        # boot with the disk attached
 ```
 
@@ -83,13 +83,13 @@ In the shell: **Super+T** opens the editor with a fresh empty buffer each time
 (arrows move the cursor/line, **Ctrl+S** saves — an unsaved buffer asks for a
 path and the file is created, unsaved edits survive Super+T;
 **Esc Esc** closes the editor as long as there are no unsaved changes);
-**Super+Z** opens the settings file `theme.lua`, saving it
+**Super+Z** opens the settings file `/wm/theme.lua`, saving it
 repaints the shell live; **Super+E** opens the file browser at the root
 (Up/Down select, **Enter** opens/edits a regular file,
 **Space** previews, **Delete** removes it, Escape or a click on the window
 title bar goes up a level; hidden
-dotfiles are shown dim, read-only files like the `.theme.bak` config backup in
-red). Deletion
+dotfiles are shown dim, read-only files like the `/wm/.theme.bak` config backup
+in red). Deletion
 is permanent for now — `/.trash` exists as the future trash location (its
 header shows an empty-trash hint that is not wired up yet).
 **Super+Space** opens the launcher, whose `help` entry lists every shortcut;
@@ -97,12 +97,15 @@ Alt+Tab cycles windows. The WM follows
 **Hyprland conventions strictly** — shortcuts, buttons and navigation behave
 the same as in Hyprland (`spec/desktop-ui.md` §5).
 
+The WM configuration lives in the `/wm/` directory on the disk:
+`/wm/theme.lua` (colors and geometry), `/wm/README` (user documentation),
+`/wm/api.lua` (Lua API reference) and `/wm/.theme.bak` (last valid backup).
 `theme.lua` is full Lua code (not a data format), so you can tweak colors and
 geometry or rewrite window behavior — the shell applies it atomically on
 save. A broken config is reported in the REPL and the last valid look stays:
-`.theme.bak` holds the last working version as a read-only editor backup.
-Deleting `theme.lua` and `.theme.bak` is safe — the shell falls back to the
-built-in defaults, so the environment never breaks.
+`/wm/.theme.bak` holds the last working version as a read-only editor backup.
+Deleting `/wm/theme.lua` and `/wm/.theme.bak` is safe — the shell falls back to
+the built-in defaults, so the environment never breaks.
 
 Verification tools (see [`spec/verification.md`](spec/verification.md)):
 

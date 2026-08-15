@@ -19,7 +19,7 @@ local z_counter = 0
 
 -- Per-window header text drawn after the title (separated by two spaces, the
 -- §7b convention): the app sets context and key hints so every window shows
--- the same layout (e.g. "editor /theme.lua | Ctrl+s save*"). `local` here is
+-- the same layout (e.g. "editor /wm/theme.lua | Ctrl+s save*"). `local` here is
 -- visible across the whole concatenated shell chunk (wm.lua loads first).
 local win_headers = {}
 

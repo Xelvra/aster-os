@@ -4,7 +4,7 @@
 -- the buffer.
 
 -- Super+T opens a fresh (untitled) buffer; Super+Z opens the settings file
--- /theme.lua. A buffer without a path saves through the "save as:" prompt.
+-- /wm/theme.lua. A buffer without a path saves through the "save as:" prompt.
 ed_path = ed_path or nil
 ed_lines = ed_lines or { "" }
 ed_row = ed_row or 1
@@ -57,11 +57,11 @@ local function update_editor_header()
 end
 
 function editor_load(path)
-    -- Read-only files (.theme.bak, .repl_history) are view-only in the files
-    -- browser (Space); the editor refuses to load them so they can never be
-    -- overwritten with Ctrl+S. Checked first so a refused load leaves the
+    -- Read-only files (/wm/.theme.bak, /.repl_history) are view-only in the
+    -- files browser (Space); the editor refuses to load them so they can never
+    -- be overwritten with Ctrl+S. Checked first so a refused load leaves the
     -- current buffer untouched.
-    if path == "/.theme.bak" or path == "/.repl_history" then
+    if path == "/wm/.theme.bak" or path == "/.repl_history" then
         wm_error("editor", path .. " is read-only (view only)")
         gfx.invalidate()
         return
@@ -109,14 +109,15 @@ function editor_load(path)
     gfx.invalidate()
 end
 
--- Persist `content` to `path`. /theme.lua is validated live; a broken config
--- is still written to the working copy (the user keeps fixing) while .theme.bak
--- stays at the last valid (previous) version. A valid config backs up the
--- PREVIOUS working copy to .theme.bak, then writes the new version — the backup
--- never mirrors the just-saved content. Any other path is a plain rewrite; a
--- missing file is created (ext2 create). Returns nil on success or an error.
+-- Persist `content` to `path`. /wm/theme.lua is validated live; a broken
+-- config is still written to the working copy (the user keeps fixing) while
+-- /wm/.theme.bak stays at the last valid (previous) version. A valid config
+-- backs up the PREVIOUS working copy to /wm/.theme.bak, then writes the new
+-- version — the backup never mirrors the just-saved content. Any other path
+-- is a plain rewrite; a missing file is created (ext2 create). Returns nil on
+-- success or an error.
 local function editor_write(path, content)
-    if path == "/theme.lua" then
+    if path == "/wm/theme.lua" then
         local err = apply_theme_content(content)
         if err then
             -- Broken config: keep the working copy editable, never touch the
@@ -129,11 +130,12 @@ local function editor_write(path, content)
             end
             return err
         end
-        -- Valid config: .theme.bak gets the previous working copy (the fallback
-        -- for a future broken save), then /theme.lua gets the new version.
+        -- Valid config: /wm/.theme.bak gets the previous working copy (the
+        -- fallback for a future broken save), then /wm/theme.lua gets the
+        -- new version.
         local prev = read_file(path)
         if prev ~= nil then
-            local b = file.open("/.theme.bak")
+            local b = file.open("/wm/.theme.bak")
             if b then
                 file.truncate(b, 0)
                 file.write(b, prev)
@@ -186,7 +188,7 @@ function editor_saveas_commit()
         gfx.invalidate()
         return
     end
-    if path == "/.theme.bak" or path == "/.repl_history" then
+    if path == "/wm/.theme.bak" or path == "/.repl_history" then
         wm_error("editor", path .. " is read-only (view only)")
         gfx.invalidate()
         return

@@ -95,6 +95,13 @@ Shell moduly se **nekompilují do binárky** (`@embedFile`), ale balí do **tar 
 (`initfs.tar`), který Limine nahraje jako modul (initrd). Důvod: moduly lze měnit za
 běhu a kernel se nepřestavuje (M6, `spec/roadmap.md`).
 
+> **Výhled (Úroveň 2, viz `spec/roadmap.md` §M7.2):** cíl je přesunout **kompletní
+> Lua shell** z initrd **na disk do `/wm/`** — WM moduly (`wm.lua`, `input.lua`,
+> `launcher.lua`, ...) by se načítaly za běhu z `/wm/` a uživatel by je mohl
+> editovat/přidávat s automatickým hot reloadem (stejně jako dnes `/wm/theme.lua`).
+> Dnes (Úroveň 1) je na disku v `/wm/` jen konfigurace (theme + README + api.lua);
+> shell moduly samotné žijí v initrd. Úroveň 2 je zásadní změna bootstrapu a dělá
+> se jako samostatný milník — viz roadmapa.
 ```zig
 // build.zig:90  — pořadí je ZÁVAZNÉ a musí souhlasit s lua.zig:128
 const shell_files = [_][]const u8{
@@ -200,6 +207,11 @@ Role jednotlivých souborů:
 ### 5.1 `theme.lua` — vzhled jako data
 
 Jediný modul bez závislostí. Definuje globální tabulku `theme` (viz `theme.lua:4`):
+
+> **Umístění configu na disku:** on-disk kopie žije v `/wm/theme.lua` (adresář WM na
+> disku; vedle něj `/wm/README` — uživatelská dokumentace, `/wm/api.lua` — reference
+> Lua API, `/wm/.theme.bak` — fallback). Shell moduly (kód WM) zůstávají v initrd
+> (Úroveň 1); přesun do `/wm/` je plánovaná Úroveň 2 (§3.1).
 
 ```lua
 theme = {
@@ -484,7 +496,7 @@ Vše v `handle_key` (`input.lua:118`). Super = `ev.super` (Hyprland konvence).
 |---|---|---|
 | Super+Enter | zobraz + zaostřit REPL | `input.lua:183` |
 | Super+T | editor (prázdný buffer) | `input.lua` |
-| Super+Z | settings (`/theme.lua` v editoru) | `input.lua` |
+| Super+Z | settings (`/wm/theme.lua` v editoru) | `input.lua` |
 | Super+E | file manager (otevře files v kořenu) | `input.lua` |
 | Super+Q | zavřít fokusované okno | `input.lua:187` |
 | Super+Space | launcher toggle | `input.lua:211` |
@@ -515,11 +527,11 @@ oknech (repl, editor, files, prohlížení), ať je klávesa jakákoli.
   `theme.text_dim`:
   ```
   ~ repl  F5 reload                   (jediné místo se dvěma mezerami)
-  editor /theme.lua | Esc cancel | Ctrl+s save   (čisté)
-  editor /theme.lua | Ctrl+s save*   (dirty — Esc cancel zmizí, * za save)
+  editor /wm/theme.lua | Esc cancel | Ctrl+s save   (čisté)
+  editor /wm/theme.lua | Ctrl+s save*   (dirty — Esc cancel zmizí, * za save)
   files /                             (root — bez hintu, Esc nejde výš)
   files /apps | Esc up                (podadresář — Esc jde o úroveň výš)
-  files /theme.lua | Esc cancel       (prohlížení — cesta + hint)
+  files /wm/theme.lua | Esc cancel       (prohlížení — cesta + hint)
   help: Esc back                      (launcher help popup, bílé jako run:)
   save as: <cesta>  Enter save | Esc cancel   (kurzor sedí v první mezeře)
   ```
@@ -549,7 +561,7 @@ prvků). Platí „přidá se, až to jde" — ne „placeholder v UI".
 ### 7a.1 Klávesové zkratky (rezervované, `binds.lua`)
 
 **Splněno (přesunuto do §7):** Super+T → editor, Super+E → file manager
-(files okno), Super+Z → settings (`/theme.lua` v editoru). Zbývající rezervované:
+(files okno), Super+Z → settings (`/wm/theme.lua` v editoru). Zbývající rezervované:
 
 | Kombinace | Upstream akce | Backend, který to odblokuje |
 |---|---|---|
@@ -613,16 +625,16 @@ Navigační konvence:
   prohlížení; s neuloženými změnami je Esc blokován, takže se změny nemůžou
   ztratit. Hlavička proto ukazuje **`| Esc cancel | Ctrl+s save`** jen u
   čistého bufferu; jakmile se objeví dirty marker (`save*`), hint `Esc cancel`
-  zmizí (Esc je blokován) a po uložení se vrátí. Konfigurace (`/theme.lua`) se
+  zmizí (Esc je blokován) a po uložení se vrátí. Konfigurace (`/wm/theme.lua`) se
   otevírá přes **Super+Z** (settings);
   uložení configu spouští auto-reload (`spec/runtime.md` §5a, trigger 2).
-  `.theme.bak` a `.repl_history` jsou read-only (`editor_load` je odmítne
+  `/wm/.theme.bak` a `/.repl_history` jsou read-only (`editor_load` je odmítne
   načíst).
 - **Files browser (`files.lua`):** Up/Down = výběr, **Enter** = otevřít
   (adresář → dovnitř, soubor → **editace v editoru**),
   **Space** = rychlý náhled obsahu (read-only), **Delete** = smazat soubor
   (`file.remove`), **Escape** = o úroveň výš / ven z náhledu, **Super+E** =
-  otevřít v kořenu. **Read-only soubory** (`.theme.bak`, `.repl_history`,
+  otevřít v kořenu. **Read-only soubory** (`/wm/.theme.bak`, `/.repl_history`,
   červené) se otevírají **jen Space náhledem** — Enter ani klik u nich editor
   nespouští (uložit se stejně nedají). Cesta je v **titulkové liště** okna (root = `/`);
   **klik na titulkovou lištu** jde o úroveň výš / ven z náhledu (lišta =
@@ -638,11 +650,11 @@ Navigační konvence:
   (`roadmap.md`): buď ext2 `rename`/`link` (přesun místo mazání), nebo
   iterace `file.remove` nad obsahem.
 
-**Smazání config souborů je bezpečné:** `.theme.bak` nemá žádnou ochranu proti
-smazání — systém na diskovém configu nezávisí. Když `/theme.lua` i `.theme.bak`
-smažeš, `apply_disk_theme()` najde `nil` a použijí se vestavěné defaulty z initrd.
-`.theme.bak` je tedy jen komfortní záloha poslední platné verze pro editor, ne
-kritický fallback stability.
+**Smazání config souborů je bezpečné:** `/wm/.theme.bak` nemá žádnou ochranu proti
+smazání — systém na diskovém configu nezávisí. Když `/wm/theme.lua` i
+`/wm/.theme.bak` smažeš, `apply_disk_theme()` najde `nil` a použijí se vestavěné
+defaulty z initrd. `/wm/.theme.bak` je tedy jen komfortní záloha poslední platné
+verze pro editor, ne kritický fallback stability.
 
 Mezi okny: Alt+Tab (cyklus), Super+šipky (focus ve směru), Super+Space
 (launcher). Zavření fokusovaného okna: Super+Q.

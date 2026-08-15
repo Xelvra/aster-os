@@ -467,8 +467,9 @@ triggerů / nových ADR.
       → ext2 `unlink` (uvolní data bloky + inode, smaže direntry). Files: **Delete** =
       smazat. **Files konvence (Hyprland):**
       Enter = otevřít/upravit, Space = náhled, Delete = smazat, **klik na titulkovou
-      lištu (cestu)** = o úroveň výš; root = `/` bez `..` položky. Smazání `/theme.lua` i
-      `.theme.bak` je bezpečné — systém použije defaulty z initrd (žádný delete guard).
+      lištu (cestu)** = o úroveň výš; root = `/` bez `..` položky. Smazání
+      `/wm/theme.lua` i `/wm/.theme.bak` je bezpečné — systém použije defaulty
+      z initrd (žádný delete guard).
 - [x] **M7.1.10 Help v launcheru:** `help` položka v akcích otevře přehled zkratek
       (`launcher_mode = "help"`). Aktivní zkratky normální barvou,
       rezervované (neaktivované) šedivě (`spec/lua-wm.md` §7a); Esc launcher zavře.
@@ -478,10 +479,10 @@ triggerů / nových ADR.
       ADR-023). **Super+T** otevírá prázdný editor (čistý buffer se resetuje na
       nový prázdný, dirty se zachová), Ctrl+S u nového bufferu vyvolá
       „save as:" (nový soubor se vytvoří `file.create`); **Super+Z** otevírá settings
-      (`/theme.lua`). **Esc Esc** v editoru zavře okno jako prohlížení, jen pokud
+      (`/wm/theme.lua`). **Esc Esc** v editoru zavře okno jako prohlížení, jen pokud
       nejsou neuložené změny (jinak blokováno). **Jednotné hlavičky oken:** kontext a
       klávesové hinty jsou v titulkové liště (`~ repl  F5 reload`,
-      `editor /theme.lua | Ctrl+s save*`,
+      `editor /wm/theme.lua | Ctrl+s save*`,
       `files /cesta | Esc cancel` — `spec/lua-wm.md` §7b: název→kontext
       jedna mezera, pipe jen kontext→hint), obsah začíná rovnou daty;
       REPL ukazuje Lua banner (`LUA_COPYRIGHT`). **Super+F1** odstraněn (help zůstává
@@ -506,6 +507,12 @@ triggerů / nových ADR.
       comptime dispatch, IRQ routing) — implementuje se až tady, ne dřív.
 - [ ] Nové features (zvuk/audio, síť M9, prohlížeč v Luay) se přidávají podle
       **ADR-020** — jako nové KI moduly na konec enumu, bez úpravy existujících.
+- [ ] **Úroveň 2 — přesun Lua shellu z initrd na disk do `/wm/`** (cíl dokumentovaný
+      v `spec/lua-wm.md` §3.1): WM moduly (`wm.lua`, `input.lua`, `launcher.lua`, ...)
+      se načítají za běhu z `/wm/` místo z initrd taru, uživatel je může editovat a
+      přidávat s automatickým hot reloadem (dnes to jde jen pro `/wm/theme.lua`).
+      Zásadní změna bootstrapu (`lua.zig` načítání + hot reload cesta), proto
+      samostatný milník s vlastní verifikací — ne přidává se tiše k jiné práci.
 
 ---
 

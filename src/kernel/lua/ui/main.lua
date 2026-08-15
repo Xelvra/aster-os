@@ -3,7 +3,7 @@
 
 -- Apply the persistent disk config once the whole shell (incl. repl print)
 -- is loaded. Any config error is reported in the REPL scrollback, so a
--- broken /theme.lua is visible after boot and after F5.
+-- broken /wm/theme.lua is visible after boot and after F5.
 local config_error = apply_disk_theme()
 if config_error then
     wm_error("theme", config_error)

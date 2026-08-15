@@ -123,8 +123,8 @@ function files_up()
 end
 
 -- Delete the selected file (Delete key). The system never depends on the
--- disk config: if /theme.lua and .theme.bak are gone, the built-in defaults
--- (initrd) are used, so any file can be removed freely.
+-- disk config: if /wm/theme.lua and /wm/.theme.bak are gone, the built-in
+-- defaults (initrd) are used, so any file can be removed freely.
 function files_remove(name)
     local full = join_path(fs_path, name)
     if not file.remove(full) then
@@ -139,6 +139,7 @@ function files_remove(name)
 end
 
 -- Files the editor refuses to overwrite (spec/runtime.md §5a): read-only.
+-- Matched by name so it works wherever they live (/wm/.theme.bak, /.repl_history).
 local function is_read_only(name)
     return name == ".theme.bak" or name == ".repl_history"
 end

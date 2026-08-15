@@ -33,7 +33,7 @@
 -- Workspaces:
 --   theme.ws = { "1", "2", "3" }   capsule labels; length = workspace count
 --
--- Examples — edit /theme.lua and press Ctrl+S to apply live:
+-- Examples — edit /wm/theme.lua and press Ctrl+S to apply live:
 --   theme.accent = 0xFF5544             -- warm accent color
 --   theme.wm.border = 4                 -- thicker window borders
 --   theme.wm.gap_out = 8                -- gap to the screen edge
@@ -43,9 +43,9 @@
 --   theme.ws = { "1", "2", "3", "4" }   -- add a fourth workspace
 --   theme.bar.height = 40               -- taller taskbar
 --
--- The on-disk copy is /theme.lua (applied at boot, on F5 and after every
--- editor save). The last valid version is kept in .theme.bak and is used as
--- a fallback whenever the working copy does not parse or run.
+-- The on-disk copy is /wm/theme.lua (applied at boot, on F5 and after every
+-- editor save). The last valid version is kept in /wm/.theme.bak and is used
+-- as a fallback whenever the working copy does not parse or run.
 
 theme = {
     background = 0x111826,
@@ -119,18 +119,18 @@ function read_file(path)
     return content
 end
 
--- Apply the persistent disk config (/theme.lua) if present: the config is
+-- Apply the persistent disk config (/wm/theme.lua) if present: the config is
 -- Lua code that overrides the theme table — there is no separate config
 -- format (spec/runtime.md §5a trigger 2). When the working copy fails to
--- parse or run, the last valid version (.theme.bak) is applied instead and
--- the working copy's error is returned for the caller to report. Returns nil
--- when no config is present (defaults stand) or when it applied cleanly.
+-- parse or run, the last valid version (/wm/.theme.bak) is applied instead
+-- and the working copy's error is returned for the caller to report. Returns
+-- nil when no config is present (defaults stand) or when it applied cleanly.
 function apply_disk_theme()
-    local content = read_file("/theme.lua")
+    local content = read_file("/wm/theme.lua")
     if content == nil then return nil end
     local err = apply_theme_content(content)
     if err == nil then return nil end
-    local backup = read_file("/.theme.bak")
+    local backup = read_file("/wm/.theme.bak")
     if backup ~= nil then
         apply_theme_content(backup)
     end
