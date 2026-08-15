@@ -17,8 +17,7 @@ Runtime). Newer versions are listed first.
 
 ## [0.7.0-alpha.1] — Milestone M7 — Runtime (in progress)
 
-This version tracks the milestone after M6 Storage was completed. No additions
-yet.
+This version tracks the milestone after M6 Storage was completed.
 
 ### Added
 
@@ -33,11 +32,11 @@ yet.
 * **I/O APIC discovery from ACPI (audit §3.7):** new `cpu/acpi.zig` parses
   RSDP (handed by Limine) → RSDT/XSDT → MADT and reads the I/O APIC address
   from the MADT entry instead of hardcoding `0xFEC00000` for QEMU. The legacy
-  address stays as a fallback default; the boot log reports a plain
-  `page tables · apic timer` when discovery succeeds and appends
-  `(ioapic: fallback)` otherwise. Every read table is checksum-
-  validated and any parse failure degrades to `null` → fallback (no panic on
-  malformed firmware data).
+  address stays as a fallback default; the boot log reports the I/O APIC
+  source on the `cpu` line — `· ioapic: madt` when discovery succeeds,
+  `· ioapic: fallback, <reason>` otherwise (brief Q5). Every read table is
+  checksum-validated and any parse failure degrades to `null` → fallback (no
+  panic on malformed firmware data).
 
 * **ext2 file.create (M7.1.11):** the write path can now create new files —
   `file.create` allocates and initializes an inode and links a directory entry

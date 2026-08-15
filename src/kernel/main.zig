@@ -164,7 +164,7 @@ fn kernelMain() !void {
     } else null;
     apic.init(info.hhdm_offset, ioapic_override);
     const ioapic_note: []const u8 = if (ioapic_result) |r| switch (r) {
-        .found => "",
+        .found => " · ioapic: madt",
         .bad_checksum => " · ioapic: fallback, bad-checksum",
         .no_madt => " · ioapic: fallback, no-madt",
         .no_ioapic_entry => " · ioapic: fallback, no-ioapic-entry",
