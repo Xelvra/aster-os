@@ -321,27 +321,33 @@ fn probeStorage(alloc: std.mem.Allocator, memory: *mem.Memory) void {
     const n = fs.readDir(ext2.root_inode, &entries) catch return;
     // Listing (variant A): real entries only (no "." / ".."), no repeated
     // prefix; the theme.lua config value is read through the thin file API
-    // (M6.1.4) and printed after its name.
+    // (M6.1.4) and printed after its name. Directories come before files
+    // (ext2 file_type: 2 = directory, 1 = regular).
     const column: usize = 22;
     const config_name = "theme.lua";
-    for (entries[0..n]) |e| {
-        const name = e.name[0..e.name_len];
-        if (std.mem.eql(u8, name, ".") or std.mem.eql(u8, name, "..")) continue;
-        serial.write("  ");
-        serial.write(name);
-        if (std.mem.eql(u8, name, config_name)) {
-            var fh = file.File.open(&fs, name) catch null;
-            if (fh) |*f| {
-                var fbuf: [128]u8 = undefined;
-                const m = f.read(&fbuf) catch 0;
-                if (m > 0) {
-                    var pad: usize = name.len + 2;
-                    while (pad < column) : (pad += 1) serial.write(" ");
-                    serial.write(fbuf[0..m]);
+    for (0..2) |pass| {
+        for (entries[0..n]) |e| {
+            const name = e.name[0..e.name_len];
+            if (std.mem.eql(u8, name, ".") or std.mem.eql(u8, name, "..")) continue;
+            const is_dir = e.file_type == 2;
+            if (pass == 0 and !is_dir) continue;
+            if (pass == 1 and is_dir) continue;
+            serial.write("  ");
+            serial.write(name);
+            if (std.mem.eql(u8, name, config_name)) {
+                var fh = file.File.open(&fs, name) catch null;
+                if (fh) |*f| {
+                    var fbuf: [128]u8 = undefined;
+                    const m = f.read(&fbuf) catch 0;
+                    if (m > 0) {
+                        var pad: usize = name.len + 2;
+                        while (pad < column) : (pad += 1) serial.write(" ");
+                        serial.write(fbuf[0..m]);
+                    }
                 }
             }
+            serial.writeLine("");
         }
-        serial.writeLine("");
     }
 }
 

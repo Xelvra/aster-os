@@ -132,10 +132,12 @@ local function editor_write(path, content)
         end
         -- Valid config: /wm/.theme.bak gets the previous working copy (the
         -- manual backup of the last Ctrl+S — never loaded automatically,
-        -- ADR-025), then /wm/theme.lua gets the new version.
+        -- ADR-025), then /wm/theme.lua gets the new version. The backup is
+        -- created on the first Ctrl+S (file.open fails on a missing file).
         local prev = read_file(path)
         if prev ~= nil then
             local b = file.open("/wm/.theme.bak")
+            if not b then b = file.create("/wm/.theme.bak") end
             if b then
                 file.truncate(b, 0)
                 file.write(b, prev)

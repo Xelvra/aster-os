@@ -62,6 +62,12 @@ function files_open(path)
         return
     end
     fs_error = ""
+    -- Sort the listing: directories first, then files; each group alphabetically
+    -- by name. ext2 returns direntries in on-disk order, which is not user-facing.
+    table.sort(entries, function(a, b)
+        if a.dir ~= b.dir then return a.dir end
+        return a.name < b.name
+    end)
     fs_entries = entries
     update_files_header()
     gfx.invalidate()
