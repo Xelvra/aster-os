@@ -33,6 +33,17 @@ local function is_in_window(w)
     return mx >= w.x and mx <= w.x + w.w and my >= w.y and my <= w.y + w.h
 end
 
+-- Open the help that F1 would: the focused app's own cheat sheet (files,
+-- editor, repl) inside a window, the global WM help elsewhere. Shared by the
+-- F1 key and a click on the bar's "Help F1" hint, so both always agree.
+local function open_contextual_help()
+    if find_win(focused) and (focused == "files" or focused == "editor" or focused == "repl") then
+        launcher_open_app_help(focused)
+    else
+        launcher_open_mode("help")
+    end
+end
+
 local function handle_mouse()
     local mx = input.mouse_x()
     local my = input.mouse_y()
@@ -40,6 +51,15 @@ local function handle_mouse()
 
     if launcher_open then
         if left and not mouse_was_down then
+            -- The close "x" (top-right of the popup) closes the launcher by
+            -- mouse, so the help sheet never forces an Esc.
+            local cr = launcher_close_rect()
+            if mx >= cr.x and mx <= cr.x + cr.w and my >= cr.y and my <= cr.y + cr.h then
+                launcher_open = false
+                gfx.invalidate()
+                mouse_was_down = left
+                return
+            end
             -- Clicking an item runs it; click outside closes. Help switches to
             -- the cheat sheet instead of closing the launcher.
             if launcher_mode == "help" then
@@ -73,7 +93,22 @@ local function handle_mouse()
             for i = #windows, 1, -1 do
                 local w = windows[i]
                 if is_in_window(w) then
+                    -- The close "x" is drawn only on the focused window, so it
+                    -- must have been focused *before* this click: clicking the
+                    -- corner of an inactive window only focuses it.
+                    local was_focused = (w.title == focused)
                     set_focus(w.title)
+                    local cb = close_button_rect(w)
+                    if was_focused and mx >= cb.x and mx <= cb.x + cb.w and my >= cb.y and my <= cb.y + cb.h then
+                        close_window(w.title)
+                        gfx.invalidate()
+                        -- Consume the click: without this, the held button is
+                        -- re-processed next frame — after the tiled neighbour
+                        -- expands into the freed space, the cursor would land
+                        -- on its close "x" and close that window too.
+                        mouse_was_down = left
+                        return
+                    end
                     -- Only floating windows can be dragged; a click on a
                     -- tiled window's header only focuses it.
                     if is_in_header(w) and w.floating then
@@ -125,6 +160,14 @@ local function handle_mouse()
             -- Clicking the launcher button (the ">" chevron) opens the launcher.
             if mx >= 8 and mx <= 28 and my >= 0 and my <= theme.bar.height then
                 launcher_open_mode("run")
+                gfx.invalidate()
+            end
+            -- Clicking the bar's "Help F1" hint opens the contextual help
+            -- (the focused window's cheat sheet, or the global WM help) —
+            -- the same action as the F1 key.
+            local hr = help_f1_rect()
+            if mx >= hr.x and mx <= hr.x + hr.w and my >= hr.y and my <= hr.y + hr.h then
+                open_contextual_help()
                 gfx.invalidate()
             end
         end
@@ -209,10 +252,10 @@ local function handle_key(ev)
             -- sheet (files/editor/repl); F1 elsewhere shows the global WM
             -- help. Super+F1 always shows the global WM help, so any app help
             -- can point the user to it (e.g. "how do I kill the REPL?").
-            if ev.super or not (find_win(focused) and (focused == "files" or focused == "editor" or focused == "repl")) then
+            if ev.super then
                 launcher_open_mode("help")
             else
-                launcher_open_app_help(focused)
+                open_contextual_help()
             end
             return
         elseif code == "f11" then

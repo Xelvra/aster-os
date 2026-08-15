@@ -101,29 +101,56 @@ function launcher_open_app_help(app)
     gfx.invalidate()
 end
 
-local function launcher_render()
-    -- Help mode: a cheat sheet of keybindings. With launcher_help_app set it
-    -- shows that app's contextual help; otherwise the global WM cheat sheet.
-    -- Reserved shortcuts are not shown (they live in the spec).
+-- Launcher popup geometry for the current mode (help vs run): launcher_render
+-- draws it and handle_mouse hit-tests it, so the click targets can never
+-- drift from the drawn popup. Returns lx, ly, lw, lh.
+local function launcher_popup()
+    local row_h = (launcher_mode == "help") and 18 or 20
+    local lw, lh
     if launcher_mode == "help" then
+        local items = launcher_help_app and app_help[launcher_help_app] or shortcuts_active
+        lw = 460
+        for _, s in ipairs(items) do
+            local d = s[2] or ""
+            if #d * 8 + 200 > lw then lw = #d * 8 + 200 + 12 end
+        end
+        lh = 40 + (#items + 2) * row_h
+    else
+        local items = launcher_filtered()
+        lw = 320
+        lh = 40 + math.max(#items, 1) * row_h
+    end
+    local lx = math.floor((SW - lw) / 2)
+    local ly = theme.bar.height + 8 + math.max(math.floor((SH - theme.bar.height - 8 - lh) / 2), 0)
+    return lx, ly, lw, lh
+end
+
+-- Close "x" rect in the popup's top-right corner: drawn by launcher_render,
+-- hit-tested by handle_mouse (closes the launcher by mouse, so the help sheet
+-- does not force an Esc).
+local function launcher_close_rect()
+    local lx, ly, lw = launcher_popup()
+    local size = 20
+    return { x = lx + lw - size - 8, y = ly + 4, w = size, h = size }
+end
+
+local function launcher_render()
+    local lx, ly, lw, lh = launcher_popup()
+    gfx.draw_rect(lx, ly, lw, lh, theme.surface)
+    gfx.rect_border(lx, ly, lw, lh, 1, theme.accent)
+    -- Close "x" (top-right): clicking it closes the launcher by mouse, so the
+    -- help sheet never forces an Esc.
+    local cr = launcher_close_rect()
+    gfx.draw_text("x", cr.x + (cr.w - 8) // 2, cr.y + (cr.h - 16) // 2, theme.text_dim)
+    if launcher_mode == "help" then
+        -- Help mode: a cheat sheet of keybindings. With launcher_help_app set
+        -- it shows that app's contextual help; otherwise the global WM cheat
+        -- sheet. Reserved shortcuts are not shown (they live in the spec).
         local items = launcher_help_app and app_help[launcher_help_app] or shortcuts_active
         -- The global WM cheat sheet labels itself "global help:" (Super+F1);
         -- an app sheet labels itself with the app name ("files:", ...).
         local title = launcher_help_app or "global help"
         local row_h = 18
-        -- Column width: descriptions are left-aligned at a fixed gutter, so
-        -- the popup must be wide enough for the longest entry either column.
-        local desc_x = 200
-        local lw = 460
-        for _, s in ipairs(items) do
-            local d = s[2] or ""
-            if #d * 8 + desc_x > lw then lw = #d * 8 + desc_x + 12 end
-        end
-        local lh = 40 + (#items + 2) * row_h
-        local lx = math.floor((SW - lw) / 2)
-        local ly = theme.bar.height + 8 + math.max(math.floor((SH - theme.bar.height - 8 - lh) / 2), 0)
-        gfx.draw_rect(lx, ly, lw, lh, theme.surface)
-        gfx.rect_border(lx, ly, lw, lh, 1, theme.accent)
         -- The prompt is the window/app name ("global help:", "files:",
         -- "editor:") in the accent color like the run/scratchpad prompts —
         -- it labels the popup consistently across modes; Esc closes it.
@@ -153,11 +180,6 @@ local function launcher_render()
     -- Run mode: a centered popup with a search box and the filtered app list.
     local items = launcher_filtered()
     local row_h = 20
-    local lw, lh = 320, 40 + math.max(#items, 1) * row_h
-    local lx = math.floor((SW - lw) / 2)
-    local ly = theme.bar.height + 8 + math.max(math.floor((SH - theme.bar.height - 8 - lh) / 2), 0)
-    gfx.draw_rect(lx, ly, lw, lh, theme.surface)
-    gfx.rect_border(lx, ly, lw, lh, 1, theme.accent)
     -- Search box. The scratchpad picker labels itself "scratchpad:" (it offers
     -- only applications), the run launcher "run:" (applications + actions).
     -- The prompt label is accent-colored like the help popup titles; the

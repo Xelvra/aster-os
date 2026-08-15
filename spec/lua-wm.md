@@ -706,15 +706,25 @@ oknech (repl, editor, files, prohlížení), ať je klávesa jakákoli.
   ```
 - **`Help F1` je jediný prvek bar lišty** (pravá strana, `theme.text`, bez
   placeholderu). Každé okno má svůj kontextový help: F1 uvnitř okna otevře
-  help daného okna, mimo okna globální WM help. Bar lišta ukazuje jen jeden
-  nápis `Help F1`, takže se neduplikuje do každého okna a minimalismu to
-  neruší.
+  help daného okna, mimo okna globální WM help. **Klik na nápis `Help F1`
+  udělá totéž co F1** (sdílený `open_contextual_help` v `input.lua`). Bar
+  lišta ukazuje jen jeden nápis `Help F1`, takže se neduplikuje do každého
+  okna a minimalismu to neruší.
 - **Hlavička neobsahuje klávesové hinty** — všechny zkratky jsou v help popupu
   (F1), takže hlavička jen ukazuje cestu/kontext. Funkční
   prvky zůstávají: dirty marker (`*`), save-as prompt (jen text `save as:
   <cesta>` + kurzor, **bez** „Enter save / Esc cancel") a cesta (u files =
   ukazatel cesty). Esc Esc / Ctrl+S / F2 / F4 se nevypisují do hlaviček — jsou
   v helpu.
+- **Zavírací křížek v hlavičce okna:** vpravo nahoře **fokusovaného** okna se
+  kreslí malý **`x` v jemně zatmaveném tlačítku** (`close_button_rect` v
+  `wm.lua`, plocha tmavší než hlavička přes `blend`, bez svítícího rámečku),
+  klik zavře okno (stejná akce jako Super+Q). Křížek je vidět **jen na aktivním
+  okně** — neaktivní okna ho nemají (klik do rohu neaktivního okna ho jen
+  fokusuje). Vynechá se, pokud by kolidoval s dlouhou cestou v hlavičce.
+  Launcher popup (help i run) má stejný křížek vpravo nahoře
+  (`launcher_close_rect` v `launcher.lua`) — help sheet se zavře myší, ne jen
+  Esc.
 - **Žádné status řádky v obsahu:** obsah okna začíná rovnou daty (scrollback,
   buffer, list souborů). Info o cestě/klávesách patří jen do titulkové lišty,
   nikdy do obsahu (žádná duplicita mezi lištou a obsahem).

@@ -264,12 +264,31 @@ local function ws_capsules()
     return list
 end
 
+-- Shared "Help F1" bar-rect geometry: bar_render draws the hint and
+-- handle_mouse hit-tests it, one source of truth so the click target can
+-- never drift from the drawn text.
+local function help_f1_rect()
+    local text = "Help F1"
+    return { x = SW - 8 - text:len() * 8, y = 0, w = text:len() * 8, h = theme.bar.height }
+end
+
+-- Close-button rect in a window's title bar (top-right): win_render draws the
+-- "x" and handle_mouse hit-tests it, one source of truth so the click target
+-- never drifts from the drawn glyph.
+local function close_button_rect(w)
+    local size = 20
+    return {
+        x = w.x + w.w - theme.wm.border - size - 4,
+        y = w.y + theme.wm.border + (theme.wm.title_h - size) // 2,
+        w = size,
+        h = size,
+    }
+end
+
 local function bar_render()
     if fullscreen_win then return end
     local bar_h = theme.bar.height
-    gfx.draw_rect(0, 0, SW, bar_h, theme.surface)
-
-    local x = 8
+    gfx.draw_rect(0, 0, SW, bar_h, theme.surface)    local x = 8
     -- Launcher button (a square with a double chevron, evokes "open menu").
     local bx = x
     gfx.draw_rect(bx, (bar_h - 20) // 2, 20, 20, theme.accent)
@@ -300,10 +319,10 @@ local function bar_render()
     gfx.draw_text(win_label, math.floor((SW - win_label:len() * 8) / 2), (bar_h - 16) // 2 + 1, theme.text_dim)
 
     -- Right side: the single "Help F1" hint. Help lives in the bar, not in
-    -- window title bars, so it never duplicates across side-by-side windows.
-    local right = SW - 8
-    local help = "Help F1"
-    gfx.draw_text(help, right - help:len() * 8, (bar_h - 16) // 2 + 1, theme.text)
+    -- window title bars, so it never duplicates across side-by-side windows;
+    -- clicking it opens the contextual help (handle_mouse, same as F1).
+    local hr = help_f1_rect()
+    gfx.draw_text("Help F1", hr.x, (bar_h - 16) // 2 + 1, theme.text)
 end
 
 -- ---------------------------------------------------------------------------
@@ -360,14 +379,24 @@ local function win_render(w)
     local title_color = active and theme.text or theme.text_dim
     gfx.draw_text(label, tx + 6, ty + (th - 16) // 2 + 1, title_color)
     local hdr = win_headers[w.title]
+    local hx = tx + 6 + (label:len() + 1) * 8
     if hdr then
         -- Context (path, dirty marker) on the left, right after the label.
-        local hx = tx + 6 + (label:len() + 1) * 8
         gfx.draw_text(hdr, hx, ty + (th - 16) // 2 + 1, theme.text_dim)
         local cur = win_cursors[w.title]
         if cur then
             gfx.draw_rect(hx + cur * 8, ty + (th - 16) // 2 + 1, 8, 16, theme.accent)
         end
+    end
+    -- Close button (top-right "x"): closes the window like Super+Q. Only the
+    -- focused window shows it. The button is a subtle inset fill (darker than
+    -- the title bar), so it reads as a plastic control that recedes into the
+    -- background instead of a bright frame that breaks the window's look.
+    local content_end = hx + (hdr and hdr:len() or 0) * 8
+    local cb = close_button_rect(w)
+    if active and cb.x > content_end then
+        gfx.draw_rect(cb.x, cb.y, cb.w, cb.h, blend(theme.surface_alt, 0.7))
+        gfx.draw_text("x", cb.x + (cb.w - 8) // 2, cb.y + (cb.h - 16) // 2, theme.text)
     end
 end
 
