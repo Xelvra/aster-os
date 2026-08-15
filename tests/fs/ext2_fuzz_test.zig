@@ -136,11 +136,27 @@ fn corruptBitmap(rng: *SplitMix64, data: []u8) void {
     data[byte] = @truncate(rng.next());
 }
 
+/// Corrupt several superblock counts together (blocks_count, inodes_count,
+/// blocks_per_group, inodes_per_group). The bitmap-OOB / inode-table-overflow
+/// bugs need such paired extremes, which single-field mutations cannot reach
+/// (audit 2026-08-15).
+fn corruptSuperblockPaired(rng: *SplitMix64, data: []u8) void {
+    for ([_]u32{ 0, 4, 32, 40 }) |off| {
+        const value: u32 = switch (rng.next() % 4) {
+            0 => 0,
+            1 => std.math.maxInt(u32),
+            2 => 1,
+            else => 0x100000,
+        };
+        ext2_image.writeU32(data, 1024 + off, value);
+    }
+}
+
 /// Apply 1..4 structured mutations to a copy of a valid image.
 fn mutate(rng: *SplitMix64, img: *ext2_image.Image) void {
     const count = 1 + (rng.next() % 4);
     for (0..count) |_| {
-        switch (rng.next() % 8) {
+        switch (rng.next() % 9) {
             0 => corruptSuperblock(rng, &img.data),
             1 => corruptMagic(rng, &img.data),
             2 => corruptInodeSize(rng, &img.data),
@@ -148,7 +164,8 @@ fn mutate(rng: *SplitMix64, img: *ext2_image.Image) void {
             4 => corruptGroupDescriptor(rng, &img.data),
             5 => corruptInodeTable(rng, &img.data),
             6 => corruptDirEntry(rng, &img.data),
-            else => corruptBitmap(rng, &img.data),
+            7 => corruptBitmap(rng, &img.data),
+            else => corruptSuperblockPaired(rng, &img.data),
         }
     }
 }
@@ -163,8 +180,18 @@ fn exerciseRead(rng: *SplitMix64, img: *ext2_image.Image) void {
     _ = fs.readDir(ext2.root_inode, &dir_buf) catch return;
     var file_buf: [128]u8 = undefined;
     _ = fs.readFile(3, &file_buf) catch return;
-    _ = fs.find("/hello.txt") catch return;
-    _ = fs.find("/sub/inner.txt") catch return;
+    // Follow find() results into readInode so a mutated directory-entry inode
+    // number reaches inodeTableLocation (the overflow class that was not
+    // exercised before, audit 2026-08-15).
+    if (fs.find("/hello.txt")) |ino| {
+        _ = fs.readInode(ino) catch return;
+    } else |_| {}
+    if (fs.find("/sub/inner.txt")) |ino| {
+        _ = fs.readInode(ino) catch return;
+    } else |_| {}
+    // Exercise the single-indirect read path (block 13 is past the 12 direct
+    // blocks) when the mutated inode points at an indirect block.
+    _ = fs.readAt(3, 13 * 1024, &file_buf) catch return;
     // Exercise a second mount from the (possibly write-mutated) image when the
     // RNG picks an extra pass — cheap extra coverage of re-init on dirty data.
     if (rng.next() % 3 == 0) {
@@ -186,6 +213,9 @@ fn exerciseWrite(rng: *SplitMix64, img: *ext2_image.Image) void {
     if (rng.next() % 2 == 0) {
         fs.writeAt(3, 4096, &payload) catch return;
     }
+    // Exercise the single-indirect write path (block 13 is past the 12 direct
+    // blocks); the indirect allocator was never covered (audit 2026-08-15).
+    fs.writeAt(3, 13 * 1024, &payload) catch return;
 }
 
 test "fuzz: structured corruption never crashes the ext2 parser (read path)" {

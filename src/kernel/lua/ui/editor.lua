@@ -19,6 +19,36 @@ ed_saved = ed_saved or ""
 ed_glyph_w = 8
 ed_row_h = 18
 
+-- Code-point aware helpers for horizontal scrolling: the cursor position and
+-- the scroll offset are byte offsets, but the visible window is a character
+-- count — mixing the two can split a multi-byte UTF-8 sequence and misplace
+-- the cursor (audit 2026-08-15). The cp_* helpers live in repl.lua (shared
+-- chunk scope).
+
+-- Number of code points from 0-based byte offset `from` up to (not including)
+-- `to` within `s`; both must be code-point boundaries.
+local function cp_count(s, from, to)
+    local n = 0
+    local i = from
+    while i < to do
+        i = next_cp(s, i)
+        n = n + 1
+    end
+    return n
+end
+
+-- Slice `s` starting at 0-based byte offset `from` (a code-point boundary) for
+-- at most `count` code points; returns the substring and the 0-based end byte
+-- offset.
+local function cp_slice(s, from, count)
+    local i = from
+    for _ = 1, count do
+        if i >= #s then break end
+        i = next_cp(s, i)
+    end
+    return string.sub(s, from + 1, i), i
+end
+
 -- Header text shown in the window title bar: the context (path, dirty marker)
 -- on the left; no key hints are stored here (help F1 lives in the bar, §7b).
 -- The save-as prompt is functional (the cursor sits in it) but
@@ -261,34 +291,41 @@ local function editor_render()
     if content_rows < 1 then content_rows = 1 end
     local max_chars = math.max(math.floor((w.w - 2 * theme.wm.border - 12) / ed_glyph_w), 1)
     -- Keep the cursor visible horizontally: ed_scroll_col is the byte offset
-    -- of the first visible column; scroll it only when the cursor leaves the
-    -- window (like vertical scrolling, but along the line).
+    -- of the first visible code point; scroll it only when the cursor leaves
+    -- the window (code-point aware, so a UTF-8 sequence is never split).
     local line_len = #ed_lines[ed_row]
     if ed_col < ed_scroll_col then
         ed_scroll_col = ed_col
-    elseif ed_col - ed_scroll_col >= max_chars then
-        ed_scroll_col = ed_col - max_chars + 1
+    elseif cp_count(ed_lines[ed_row], ed_scroll_col, ed_col) >= max_chars then
+        -- Walk the scroll forward so the cursor sits max_chars-1 code points
+        -- from the left edge.
+        local target = ed_col
+        for _ = 1, max_chars - 1 do
+            if target == 0 then break end
+            target = prev_cp(ed_lines[ed_row], target)
+        end
+        ed_scroll_col = target
     end
     -- Scroll so the cursor row is always visible.
     local first = 1
     if ed_row > content_rows then first = ed_row - content_rows + 1 end
     for i = first, math.min(#ed_lines, first + content_rows - 1) do
         local text = ed_lines[i]
-        -- Slice the visible part of the line: the focused row starts at the
-        -- scroll offset, every other row at the start; always cap to the
-        -- window width so a long line never bleeds over the window edge or a
-        -- neighbour (audit 2026-08-15).
+        -- Slice the visible part of the line by code points: the focused row
+        -- starts at the scroll offset, every other row at the start; always
+        -- capped to the window width so a long line never bleeds over the
+        -- window edge or a neighbour (audit 2026-08-15).
         local shown
         if i == ed_row then
-            shown = string.sub(text, ed_scroll_col + 1, ed_scroll_col + max_chars)
+            shown = cp_slice(text, ed_scroll_col, max_chars)
         else
-            shown = string.sub(text, 1, max_chars)
+            shown = cp_slice(text, 0, max_chars)
         end
         gfx.draw_text(shown, tx, ty, theme.text)
         -- The solid block marks the text cursor — except during the save-as
         -- prompt, when the cursor moved to the title bar.
         if i == ed_row and not ed_saveas then
-            gfx.draw_rect(tx + (ed_col - ed_scroll_col) * ed_glyph_w, ty, ed_glyph_w, 16, theme.accent)
+            gfx.draw_rect(tx + cp_count(text, ed_scroll_col, ed_col) * ed_glyph_w, ty, ed_glyph_w, 16, theme.accent)
         end
         ty = ty + ed_row_h
     end

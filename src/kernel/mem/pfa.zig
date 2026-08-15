@@ -62,6 +62,10 @@ pub const PageFrameAllocator = struct {
 
         for (memory_entries) |entry| {
             if (entry.type == .usable) {
+                // Limine entries are page-aligned by protocol; a misaligned
+                // entry would free partial pages and could overlap a reserved
+                // region, so skip it defensively (audit 2026-08-15).
+                if (entry.base % page_size != 0 or entry.length % page_size != 0) continue;
                 const first_page = entry.base / page_size;
                 const page_count = entry.length / page_size;
                 for (first_page..first_page + page_count) |i| {

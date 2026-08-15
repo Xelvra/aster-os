@@ -209,6 +209,13 @@ fn waitOutput() ?u8 {
 }
 
 fn mouseCommand(cmd: u8) ?u8 {
+    return mouseCommandRetry(cmd, 0);
+}
+
+/// Send a mouse command, resending a bounded number of times on 0xFE so a
+/// device that never ACKs cannot recurse forever (the old "retry once" comment
+/// did not match the unbounded recursion — audit 2026-08-15).
+fn mouseCommandRetry(cmd: u8, attempt: u32) ?u8 {
     // Write a command to the mouse: prefix with 0xD4 (write to port 2).
     sendCommand(0xD4);
     sendData(cmd);
@@ -218,7 +225,8 @@ fn mouseCommand(cmd: u8) ?u8 {
         if (io.in8(ps2_status) & status_output_full != 0) {
             const b = io.in8(ps2_data);
             if (b == ps2_resend) {
-                return mouseCommand(cmd); // retry once
+                if (attempt >= 2) return null;
+                return mouseCommandRetry(cmd, attempt + 1);
             }
             return b;
         }

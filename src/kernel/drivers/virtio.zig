@@ -136,7 +136,21 @@ const VirtQueue = struct {
     next_desc: u16,
     last_seen_used: u16,
     notify_off: u16,
+
+    /// Read the used ring's idx through a volatile pointer: the device writes
+    /// it by DMA, so the compiler must not cache it across a completion spin
+    /// loop (audit 2026-08-15).
+    fn usedIndex(self: *const VirtQueue) u16 {
+        const idx_ptr: *const volatile u16 = @ptrFromInt(@intFromPtr(self.used) + 2); // VirtqUsed.idx
+        return idx_ptr.*;
+    }
 };
+
+/// Read a device-written completion byte through a volatile pointer (audit
+/// 2026-08-15): the device DMA-writes status before updating the used ring.
+fn volatileU8(ptr: *u8) u8 {
+    return @as(*const volatile u8, @ptrCast(ptr)).*;
+}
 
 pub const VirtioBlk = struct {
     allocator: std.mem.Allocator,
@@ -159,7 +173,10 @@ pub const VirtioBlk = struct {
 
         const caps_offset = pci.readConfig8(device.bus, device.slot, device.func, 0x34);
         var cap_offset: u8 = caps_offset;
-        while (cap_offset != 0) {
+        // Bound the capability chain walk so a cyclic cap_next cannot spin the
+        // CPU forever (audit 2026-08-15).
+        var cap_iter: u32 = 0;
+        while (cap_offset != 0 and cap_iter < 256) : (cap_iter += 1) {
             const id = pci.readConfig8(device.bus, device.slot, device.func, cap_offset);
             if (id == cap_vndr) {
                 const cap = readCap(device, cap_offset);
@@ -208,7 +225,11 @@ pub const VirtioBlk = struct {
     pub fn setupQueue(self: *VirtioBlk) VirtioError!void {
         const common = self.common;
         common.device_status = 0;
-        while (common.device_status != 0) {
+        // Bound the reset wait so a misbehaving device cannot hang boot
+        // (audit 2026-08-15).
+        var reset_spins: u32 = 0;
+        while (common.device_status != 0) : (reset_spins += 1) {
+            if (reset_spins > 1_000_000) return VirtioError.IoError;
             std.atomic.spinLoopHint();
         }
 
@@ -332,13 +353,13 @@ pub const VirtioBlk = struct {
         @as(*volatile u16, @ptrFromInt(notify_addr)).* = 0;
 
         var spins: usize = 0;
-        while (self.queue.used.idx == self.queue.last_seen_used) : (spins += 1) {
+        while (self.queue.usedIndex() == self.queue.last_seen_used) : (spins += 1) {
             if (spins > 100_000_000) return error.IoError;
             std.atomic.spinLoopHint();
         }
-        self.queue.last_seen_used = self.queue.used.idx;
+        self.queue.last_seen_used = self.queue.usedIndex();
 
-        if (status_byte.* != 0) return error.IoError;
+        if (volatileU8(status_byte) != 0) return error.IoError;
     }
 
     /// Read one 512-byte sector into out. A heap-backed buffer is used for
@@ -396,13 +417,13 @@ pub const VirtioBlk = struct {
         @as(*volatile u16, @ptrFromInt(notify_addr)).* = 0;
 
         var spins: usize = 0;
-        while (self.queue.used.idx == self.queue.last_seen_used) : (spins += 1) {
+        while (self.queue.usedIndex() == self.queue.last_seen_used) : (spins += 1) {
             if (spins > 100_000_000) return error.IoError;
             std.atomic.spinLoopHint();
         }
-        self.queue.last_seen_used = self.queue.used.idx;
+        self.queue.last_seen_used = self.queue.usedIndex();
 
-        if (status_byte.* != 0) return error.IoError;
+        if (volatileU8(status_byte) != 0) return error.IoError;
         @memcpy(out, data);
     }
 };

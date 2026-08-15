@@ -287,28 +287,34 @@ local function files_render()
         local content_rows = rows
         if content_rows < 1 then content_rows = 1 end
         local max_chars = math.max(math.floor((w.w - 2 * theme.wm.border - 12) / fs_glyph_w), 1)
-        -- Keep the cursor visible horizontally.
+        -- Keep the cursor visible horizontally (code-point aware, so a UTF-8
+        -- sequence is never split; audit 2026-08-15).
         if fs_view_col < fs_view_scroll_col then
             fs_view_scroll_col = fs_view_col
-        elseif fs_view_col - fs_view_scroll_col >= max_chars then
-            fs_view_scroll_col = fs_view_col - max_chars + 1
+        elseif cp_count(lines[fs_view_row], fs_view_scroll_col, fs_view_col) >= max_chars then
+            local target = fs_view_col
+            for _ = 1, max_chars - 1 do
+                if target == 0 then break end
+                target = prev_cp(lines[fs_view_row], target)
+            end
+            fs_view_scroll_col = target
         end
         -- Scroll so the cursor row is always visible. Rows are always capped
-        -- to the window width so a long line cannot bleed over a neighbour
-        -- (audit 2026-08-15).
+        -- to the window width by code points so a long line cannot bleed over
+        -- a neighbour (audit 2026-08-15).
         local first = fs_view_scroll + 1
         for i = first, math.min(#lines, first + content_rows - 1) do
             local shown
             if i == fs_view_row then
-                shown = string.sub(lines[i], fs_view_scroll_col + 1, fs_view_scroll_col + max_chars)
+                shown = cp_slice(lines[i], fs_view_scroll_col, max_chars)
             else
-                shown = string.sub(lines[i], 1, max_chars)
+                shown = cp_slice(lines[i], 0, max_chars)
             end
             gfx.draw_text(shown, tx, ty, theme.text)
             if i == fs_view_row then
                 -- Hollow cursor (outline only) marks view mode — the solid
                 -- accent block is reserved for the editor.
-                gfx.rect_border(tx + (fs_view_col - fs_view_scroll_col) * fs_glyph_w, ty, fs_glyph_w, 16, 1, theme.accent)
+                gfx.rect_border(tx + cp_count(lines[i], fs_view_scroll_col, fs_view_col) * fs_glyph_w, ty, fs_glyph_w, 16, 1, theme.accent)
             end
             ty = ty + fs_row_h
         end
