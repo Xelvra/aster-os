@@ -53,10 +53,11 @@ yet.
   Super+Z opens the settings file `/theme.lua`.
 
 * **Unified window headers (§7b):** context and key hints moved into the title
-  bar (`~ repl  F5 reload`, `editor  /path  Ctrl+s save*`,
-  `files  /path  Esc cancel`), window content starts with the data; the REPL
-  shows the real Lua banner. Super+F1 was dropped (help stays in the launcher),
-  F5 hot reload stays.
+  bar (`~ repl  F5 reload`, `editor /path | Ctrl+s save*`,
+  `files /path | Esc cancel` — one space label→context, a pipe only
+  context→hint; the REPL header is the only two-space spot), window content
+  starts with the data; the REPL shows the real Lua banner. Super+F1 was
+  dropped (help stays in the launcher), F5 hot reload stays.
 
 * **Trash directory (`/.trash`):** the image ships an empty `/.trash`
   directory as the future trash location; its files-browser header shows the

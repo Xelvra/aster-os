@@ -61,7 +61,9 @@ local function add_line(s)
 end
 
 add_line(repl_banner())
-set_window_header("repl", "F5 reload")
+-- Leading space: combined with the one-space gap after the window label this
+-- makes "~ repl  F5 reload" — the only header with two spaces before the hint.
+set_window_header("repl", " F5 reload")
 
 -- Persistent command history (/.repl_history on the mounted filesystem).
 -- The in-memory `history` table is rebuilt after boot and F5 hot reload,

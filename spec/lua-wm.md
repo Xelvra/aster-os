@@ -297,13 +297,13 @@ stavu neví.
   `repl_save_history` v `repl.lua`), takže šipky Up/Down vybaví příkazy napříč
   restartem shellu i systému (obdoba `.bash_history`). Ukládá se posledních **100**
   příkazů (novější na konci); bez disku je historie jen v paměti. Soubor je
-  **read-only** (view ve files browseru, Ctrl+S ho odmítne uložit) a jako dotfile se
-  ve files browseru kreslí šedivě.
+  **read-only** — `editor_load` ho odmítne načíst, prohlíží se jen Spacem ve
+  files browseru; ve files browseru se kreslí červeně jako `.theme.bak` (§7a.4).
 
 - **Banner a hlavička:** scrollback začíná skutečným Lua bannerem
   (`Lua 5.4.8  Copyright (C) 1994-2025 Lua.org, PUC-Rio` — `LUA_COPYRIGHT`
   v `libs/lua-5.4/src/lua.h`); titulková lišta REPL ukazuje `~ repl  F5 reload`
-  (§7b).
+  (§7b, jediné místo se dvěma mezerami).
 
 - UTF-8 helpery (`cp_start`, `cp_end`, `prev_cp`, `next_cp`) — kurzor je byte offset,
   ale edituje se po code pointech, aby se neroztrhl vícebajtový znak.
@@ -499,14 +499,21 @@ Konzistentní formátování textu v oknech WM — stejné pravidlo platí ve v�
 oknech (repl, editor, files, prohlížení), ať je klávesa jakákoli.
 
 - **Hlavička v titulkové liště:** kontext a klávesové hinty se kreslí do
-  titulkové lišty okna, za název, segmenty oddělené přesně **dvěma mezerami**;
-  mezi klávesou a akcí je **jedna mezera** a klávesa má **velké počáteční
-  písmeno**. Název okna je `theme.text`, kontext a hinty `theme.text_dim`:
+  titulkové lišty okna za název. **Název → kontext** odděluje **jedna mezera**
+  (žádná pipe); **pipe `|`** se používá jen jako oddělovač **kontext → hint**
+  (a mezi dvěma akcemi save-as promptu), vždy s **jednou mezerou** zleva i
+  zprava. Mezi klávesou a akcí uvnitř hintu je **jedna mezera** a klávesa má
+  **velké počáteční písmeno**. Název okna je `theme.text`, kontext a hinty
+  `theme.text_dim`:
   ```
-  ~ repl  F5 reload
-  editor  /theme.lua  Ctrl+s save*    (dirty marker = suffix na konci hintu)
-  files  /                             (list — cesta)
-  files  /theme.lua  Esc cancel        (prohlížení — cesta + hint)
+  ~ repl  F5 reload                   (jediné místo se dvěma mezerami)
+  editor /theme.lua | Esc cancel | Ctrl+s save   (čisté)
+  editor /theme.lua | Ctrl+s save*   (dirty — Esc cancel zmizí, * za save)
+  files /                             (root — bez hintu, Esc nejde výš)
+  files /apps | Esc up                (podadresář — Esc jde o úroveň výš)
+  files /theme.lua | Esc cancel       (prohlížení — cesta + hint)
+  help: Esc back                      (launcher help popup, bílé jako run:)
+  save as: <cesta>  Enter save | Esc cancel   (kurzor sedí v první mezeře)
   ```
   Žádné jiné počty mezer (3, 4, ...) ani malé „ctrl"/„esc" — mezerování je
   součást vizuálního jazyka a musí být stejné napříč okny.
@@ -596,23 +603,30 @@ Navigační konvence:
   (`ed_saved`), takže Ctrl+S se nabízí jen pro skutečně jiný obsah.
   **Esc Esc** (jen u čistého bufferu bez neuložených změn) zavře editor jako
   prohlížení; s neuloženými změnami je Esc blokován, takže se změny nemůžou
-  ztratit. Konfigurace (`/theme.lua`) se otevírá přes **Super+Z** (settings);
+  ztratit. Hlavička proto ukazuje **`| Esc cancel | Ctrl+s save`** jen u
+  čistého bufferu; jakmile se objeví dirty marker (`save*`), hint `Esc cancel`
+  zmizí (Esc je blokován) a po uložení se vrátí. Konfigurace (`/theme.lua`) se
+  otevírá přes **Super+Z** (settings);
   uložení configu spouští auto-reload (`spec/runtime.md` §5a, trigger 2).
-  `.theme.bak` a `.repl_history` jsou read-only.
+  `.theme.bak` a `.repl_history` jsou read-only (`editor_load` je odmítne
+  načíst).
 - **Files browser (`files.lua`):** Up/Down = výběr, **Enter** = otevřít
   (adresář → dovnitř, soubor → **editace v editoru**),
   **Space** = rychlý náhled obsahu (read-only), **Delete** = smazat soubor
   (`file.remove`), **Escape** = o úroveň výš / ven z náhledu, **Super+E** =
-  otevřít v kořenu. Cesta je v **titulkové liště** okna (root = `/`);
+  otevřít v kořenu. **Read-only soubory** (`.theme.bak`, `.repl_history`,
+  červené) se otevírají **jen Space náhledem** — Enter ani klik u nich editor
+  nespouští (uložit se stejně nedají). Cesta je v **titulkové liště** okna (root = `/`);
   **klik na titulkovou lištu** jde o úroveň výš / ven z náhledu (lišta =
-  ukazatel cesty). Konvence je „Enter otevře,
+  ukazatel cesty). Hlavička v podadresáři přidává hint **`| Esc up`** (root ho
+  nemá — Esc nejde výš). Konvence je „Enter otevře,
   Space prohlíží, Delete maže, klik na cestu jde nahoru" — v duchu Hyprland
   (Enter = otevřít soubor v příslušné aplikaci), ne Midnight Commander (F3/F4).
 - **Koš (`/.trash`):** smazání souborů je zatím **trvalé** (`file.remove` →
   ext2 `unlink`; do `lost+found` nic nejde — to je jen prostor pro `fsck`
   po havárii). Adresář `/.trash` existuje v image jako cíl budoucího koše;
-  při vstupu do něj ukazuje hlavička placeholder **`Ctrl+Delete empty`** —
-  kombinace zatím není propojená. Vymazání obsahu koše je plánované
+  hlavička v koši ukazuje **`| Esc up | Ctrl+Delete empty`** — empty kombinace
+  zatím není propojená. Vymazání obsahu koše je plánované
   (`roadmap.md`): buď ext2 `rename`/`link` (přesun místo mazání), nebo
   iterace `file.remove` nad obsahem.
 

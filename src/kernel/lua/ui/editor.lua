@@ -25,10 +25,17 @@ ed_row_h = 18
 -- save-as prompt replaces the path and hint while it is active.
 local function editor_header()
     if ed_saveas then
-        return "save as: " .. ed_saveas_path .. "  Enter save  |  Esc cancel"
+        -- Two spaces after the path: the save-as cursor sits in the first one,
+        -- so it stays separated from "Enter save" by a visible space.
+        return "save as: " .. ed_saveas_path .. "  Enter save | Esc cancel"
     end
     local path = ed_path or "untitled"
-    return path .. "  Ctrl+s save" .. (ed_dirty and "*" or "")
+    if ed_dirty then
+        -- Unsaved changes: Esc Esc is blocked, so the "Esc cancel" hint is
+        -- hidden too (only the dirty marker and the save hint remain).
+        return path .. " | Ctrl+s save*"
+    end
+    return path .. " | Esc cancel | Ctrl+s save"
 end
 
 -- Mark the buffer as edited unless its content matches the last saved/loaded
@@ -50,6 +57,15 @@ local function update_editor_header()
 end
 
 function editor_load(path)
+    -- Read-only files (.theme.bak, .repl_history) are view-only in the files
+    -- browser (Space); the editor refuses to load them so they can never be
+    -- overwritten with Ctrl+S. Checked first so a refused load leaves the
+    -- current buffer untouched.
+    if path == "/.theme.bak" or path == "/.repl_history" then
+        print("config error: " .. path .. " is read-only (view only)")
+        gfx.invalidate()
+        return
+    end
     ed_saveas = false
     ed_saveas_path = ""
     ed_open = true
@@ -95,25 +111,42 @@ function editor_load(path)
     gfx.invalidate()
 end
 
--- Persist `content` to `path`. /theme.lua is validated live and refreshes the
--- .theme.bak backup (a broken config is still written to the working copy, but
--- the backup keeps the last valid look). Any other path is a plain rewrite; a
+-- Persist `content` to `path`. /theme.lua is validated live; a broken config
+-- is still written to the working copy (the user keeps fixing) while .theme.bak
+-- stays at the last valid (previous) version. A valid config backs up the
+-- PREVIOUS working copy to .theme.bak, then writes the new version — the backup
+-- never mirrors the just-saved content. Any other path is a plain rewrite; a
 -- missing file is created (ext2 create). Returns nil on success or an error.
 local function editor_write(path, content)
     if path == "/theme.lua" then
         local err = apply_theme_content(content)
+        if err then
+            -- Broken config: keep the working copy editable, never touch the
+            -- last-valid backup.
+            local h = file.open(path)
+            if h then
+                file.truncate(h, 0)
+                file.write(h, content)
+                file.close(h)
+            end
+            return "theme.lua config error: " .. err
+        end
+        -- Valid config: .theme.bak gets the previous working copy (the fallback
+        -- for a future broken save), then /theme.lua gets the new version.
+        local prev = read_file(path)
+        if prev ~= nil then
+            local b = file.open("/.theme.bak")
+            if b then
+                file.truncate(b, 0)
+                file.write(b, prev)
+                file.close(b)
+            end
+        end
         local h = file.open(path)
         if h then
             file.truncate(h, 0)
             file.write(h, content)
             file.close(h)
-        end
-        if err then return "theme.lua config error: " .. err end
-        local b = file.open("/.theme.bak")
-        if b then
-            file.truncate(b, 0)
-            file.write(b, content)
-            file.close(b)
         end
         return nil
     end
@@ -127,19 +160,11 @@ local function editor_write(path, content)
 end
 
 function editor_save()
-    -- Backups and the REPL history are read-only: you can view them in the
-    -- file browser, but never overwrite them with Ctrl+S (.theme.bak must
-    -- keep holding the last valid config).
     if ed_path == nil or ed_path == "" then
         -- New buffer: Ctrl+S switches into the "save as:" prompt.
         ed_saveas = true
         ed_saveas_path = ""
         update_editor_header()
-        gfx.invalidate()
-        return
-    end
-    if ed_path == "/.theme.bak" or ed_path == "/.repl_history" then
-        print("config error: " .. ed_path .. " is read-only (view only)")
         gfx.invalidate()
         return
     end

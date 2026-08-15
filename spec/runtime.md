@@ -243,17 +243,22 @@ Chybný config **nesmí shodit shell ani nechat polorozkreslený vzhled**:
 - Editor (`editor_save`) **validuje před zápisem**: rozbitý config se do `/theme.lua`
   zapíše (working copy zůstává editovatelná), ale **`.theme.bak` se nemění** — drží
   poslední platný config a live vzhled na něm zůstává, dokud uživatel neuloží platnou
-  verzi. Validace jako `theme.lua` se týká **jen** souboru `/theme.lua`; ostatní
-  soubory se zapisují jako plain text. **Nový soubor** (save-as u prázdného bufferu)
-  se vytvoří přes `file.create` (ext2 create, M7.1.11).
-- **`.theme.bak` je read-only pro editor** (view ve files browseru, Ctrl+S ho odmítne
-  uložit): záloha musí vždy zůstat poslední platná verze. Skryté soubory (vedoucí
-  tečka) se ve files browseru kreslí šedivě. **Delete guard neexistuje** — smazání
+  verzi. Platný config se zapíše do `/theme.lua` a **předchozí working copy** se
+  uloží do `.theme.bak` (záloha **nezrcadlí** nový obsah — vrací se k ní chybný
+  příští save). Validace jako `theme.lua` se týká **jen** souboru `/theme.lua`;
+  ostatní soubory se zapisují jako plain text. **Nový soubor** (save-as u
+  prázdného bufferu) se vytvoří přes `file.create` (ext2 create, M7.1.11).
+- **`.theme.bak` je read-only pro editor**: `editor_load` ho (i `.repl_history`)
+  odmítne načíst — jdou jen prohlížet Spacem ve files browseru, editor je nikdy
+  nepřepíše (žádný Ctrl+S guard není potřeba). Zálohu plní jen `editor_write`
+  po validním save `/theme.lua`. Skryté soubory (vedoucí
+  tečka) se ve files browseru kreslí šedivě — **read-only soubory** (`.theme.bak`,
+  `.repl_history`) červeně (`theme.red`). **Delete guard neexistuje** — smazání
   `/theme.lua` i `.theme.bak` je bezpečné: `apply_disk_theme()` najde `nil` a použijí
   se vestavěné defaulty z initrd, takže prostředí se nikdy nerozbije.
 - Diskový `.theme.bak` musí existovat v image; `make-test-disk.sh` ho vkládá
-  z `tools/test-disk-root/.theme.bak` (ext2 `create` existuje od M7.1.11, ale editor
-  záměrně `.theme.bak` nikdy nepřepisuje).
+  z `tools/test-disk-root/.theme.bak` (editor ho přepisuje jen předchozí working
+  copy po validním save `/theme.lua`).
 
 ---
 

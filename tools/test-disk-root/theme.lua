@@ -36,6 +36,7 @@ theme = {
     accent_b   = 0x00AA84,
     accent_dark = 0x007D6F,
     inactive   = 0x798BB2,
+    red        = 0xFF6B6B, -- read-only files (files browser), error
 
     wm = {
         gap_out = 0,

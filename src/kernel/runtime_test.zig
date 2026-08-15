@@ -948,7 +948,8 @@ fn testAutoReload() void {
     };
     const script =
         \\-- seed the working copy and the last-valid backup with the same
-        \\-- good config (mirrors editor_save after a successful Ctrl+S)
+        \\-- good config so a broken working copy is detectable (a successful
+        \\-- Ctrl+S would put the previous working copy into .theme.bak)
         \\local s = file.open("/theme.lua")
         \\file.truncate(s, 0)
         \\file.write(s, "theme.background = 0x112233")

@@ -32,16 +32,20 @@ local function join_path(p, name)
     return base .. "/" .. name
 end
 
--- Window title-bar header (two-space-separated segments, §7b): the current
--- path in the listing, or the full file path + cancel hint while viewing. The
--- trash directory gets an empty-trash hint (placeholder — not wired yet).
+-- Window title-bar header (segments joined by the theme separator, §7b): the
+-- current path in the listing, or the full file path + cancel hint while
+-- viewing. Inside any subdirectory (Esc goes up) the header adds an "Esc up"
+-- hint — but never at the root, where there is nothing to go up to. The trash
+-- directory keeps its empty-trash hint (placeholder — not wired yet).
 local function update_files_header()
     if fs_viewing then
-        set_window_header("files", join_path(fs_path, fs_view_name) .. "  Esc cancel")
+        set_window_header("files", join_path(fs_path, fs_view_name) .. " | Esc cancel")
     elseif fs_path == "/.trash" then
-        set_window_header("files", fs_path .. "  Ctrl+Delete empty")
-    else
+        set_window_header("files", fs_path .. " | Esc up | Ctrl+Delete empty")
+    elseif fs_path == "/" then
         set_window_header("files", fs_path)
+    else
+        set_window_header("files", fs_path .. " | Esc up")
     end
 end
 
@@ -134,6 +138,20 @@ function files_remove(name)
     if was_viewing and fs_view_name == name then fs_viewing = false end
 end
 
+-- Files the editor refuses to overwrite (spec/runtime.md §5a): read-only.
+local function is_read_only(name)
+    return name == ".theme.bak" or name == ".repl_history"
+end
+
+-- Entry text color: selection highlight first, then read-only red, then other
+-- hidden files dim, regular files normal.
+local function entry_color(e, selected)
+    if selected then return theme.accent end
+    if is_read_only(e.name) then return theme.red end
+    if e.name:sub(1, 1) == "." then return theme.text_dim end
+    return theme.text
+end
+
 local function files_render()
     local w = find_win("files")
     if not w or w.ws ~= current_ws then return end
@@ -182,21 +200,13 @@ local function files_render()
         return
     end
     -- List mode: the path lives in the window title bar (header), the scrollable
-    -- entries follow. Hidden files (leading dot, e.g. the .theme.bak config
-    -- backup) are shown in the dim color so it is visually clear they are not
-    -- regular editable files.
+    -- entries follow. Read-only files (.theme.bak, .repl_history) are red so it
+    -- is clear they cannot be edited; other hidden files are dim.
     local first = 1
     if fs_sel > rows then first = fs_sel - rows + 1 end
     for i = first, math.min(#fs_entries, first + rows - 1) do
         local e = fs_entries[i]
-        local color
-        if i == fs_sel then
-            color = theme.accent
-        elseif e.name:sub(1, 1) == "." then
-            color = theme.text_dim
-        else
-            color = theme.text
-        end
+        local color = entry_color(e, i == fs_sel)
         local label = e.name
         if e.dir then label = label .. "/" end
         gfx.draw_text(label, tx, ty, color)

@@ -19,7 +19,7 @@ local z_counter = 0
 
 -- Per-window header text drawn after the title (separated by two spaces, the
 -- §7b convention): the app sets context and key hints so every window shows
--- the same layout (e.g. "editor  /theme.lua  Ctrl+s save*"). `local` here is
+-- the same layout (e.g. "editor /theme.lua | Ctrl+s save*"). `local` here is
 -- visible across the whole concatenated shell chunk (wm.lua loads first).
 local win_headers = {}
 
@@ -312,10 +312,10 @@ local function win_render(w)
     gfx.draw_text(label, tx + 6, ty + (th - 16) // 2 + 1, title_color)
     local hdr = win_headers[w.title]
     if hdr then
-        gfx.draw_text(hdr, tx + 6 + (label:len() + 2) * 8, ty + (th - 16) // 2 + 1, theme.text_dim)
+        gfx.draw_text(hdr, tx + 6 + (label:len() + 1) * 8, ty + (th - 16) // 2 + 1, theme.text_dim)
         local cur = win_cursors[w.title]
         if cur then
-            gfx.draw_rect(tx + 6 + (label:len() + 2) * 8 + cur * 8, ty + (th - 16) // 2 + 1, 8, 16, theme.accent)
+            gfx.draw_rect(tx + 6 + (label:len() + 1) * 8 + cur * 8, ty + (th - 16) // 2 + 1, 8, 16, theme.accent)
         end
     end
 end

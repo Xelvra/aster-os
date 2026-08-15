@@ -462,7 +462,7 @@ triggerů / nových ADR.
 - [x] **M7.1.7 Perzistentní REPL historie (`/.repl_history`):** posledních 100 příkazů
       se ukládá do skrytého read-only souboru (`repl_load_history`/`repl_save_history`,
       obdoba `.bash_history`); šipky Up/Down je vybaví i po F5 a rebootu. Stejná logika
-      jako `.theme.bak` (dotfile, šedivý ve files, Ctrl+S odmítne uložit).
+      jako `.theme.bak` (dotfile, červený ve files jako read-only, Ctrl+S odmítne uložit).
 - [x] **M7.1.9 Mazání souborů ve files browseru:** `file.remove(path)` → KI `storage.remove`
       → ext2 `unlink` (uvolní data bloky + inode, smaže direntry). Files: **Delete** =
       smazat. **Files konvence (Hyprland):**
@@ -481,8 +481,9 @@ triggerů / nových ADR.
       (`/theme.lua`). **Esc Esc** v editoru zavře okno jako prohlížení, jen pokud
       nejsou neuložené změny (jinak blokováno). **Jednotné hlavičky oken:** kontext a
       klávesové hinty jsou v titulkové liště (`~ repl  F5 reload`,
-      `editor  /theme.lua  Ctrl+s save*`,
-      `files  /cesta  Esc cancel` — `spec/lua-wm.md` §7b), obsah začíná rovnou daty;
+      `editor /theme.lua | Ctrl+s save*`,
+      `files /cesta | Esc cancel` — `spec/lua-wm.md` §7b: název→kontext
+      jedna mezera, pipe jen kontext→hint), obsah začíná rovnou daty;
       REPL ukazuje Lua banner (`LUA_COPYRIGHT`). **Super+F1** odstraněn (help zůstává
       v launcheru), F5 hot reload zachován.
 - [ ] **Toggle skrytých souborů ve files browseru** — zobrazit/skrýt dotfiles (dnes se

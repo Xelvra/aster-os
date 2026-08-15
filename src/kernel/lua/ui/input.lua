@@ -104,6 +104,8 @@ local function handle_mouse()
                     if e then
                         if e.dir then
                             files_open(join_path(fs_path, e.name))
+                        elseif is_read_only(e.name) then
+                            print(e.name .. " is read-only (view with Space)")
                         else
                             files_edit(e.name)
                         end
@@ -565,6 +567,8 @@ local function handle_key(ev)
                 if e then
                     if e.dir then
                         files_open(join_path(fs_path, e.name))
+                    elseif is_read_only(e.name) then
+                        print(e.name .. " is read-only (view with Space)")
                     else
                         files_edit(e.name)
                     end
