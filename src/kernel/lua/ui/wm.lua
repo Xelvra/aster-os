@@ -68,8 +68,7 @@ scratchpad_open = scratchpad_open or false
 
 -- Per-window header text drawn after the title (separated by two spaces, the
 -- §7b convention): the app sets context, and the header points to the help
--- popup (F1) instead of listing key hints (e.g. "editor /wm/theme.lua |
--- help F1"). `local` here is visible across the whole concatenated shell chunk
+-- popup (F1) instead of listing key hints (e.g. "editor /wm/theme.lua"). `local` here is visible across the whole concatenated shell chunk
 -- (wm.lua loads first).
 local win_headers = {}
 
@@ -300,10 +299,11 @@ local function bar_render()
     local win_label = focused or ""
     gfx.draw_text(win_label, math.floor((SW - win_label:len() * 8) / 2), (bar_h - 16) // 2 + 1, theme.text_dim)
 
-    -- Right side: volume placeholder.
+    -- Right side: the single "Help F1" hint. Help lives in the bar, not in
+    -- window title bars, so it never duplicates across side-by-side windows.
     local right = SW - 8
-    local vol = "Vol 100%"
-    gfx.draw_text(vol, right - vol:len() * 8, (bar_h - 16) // 2 + 1, theme.text)
+    local help = "Help F1"
+    gfx.draw_text(help, right - help:len() * 8, (bar_h - 16) // 2 + 1, theme.text)
 end
 
 -- ---------------------------------------------------------------------------
@@ -349,8 +349,8 @@ local function win_render(w)
     gfx.draw_rect(tx, ty + th, w.w - 2 * theme.wm.border, w.h - 2 * theme.wm.border - th, blend(theme.surface, opacity))
 
     -- Title text: the window label plus its status header (two-space gap).
-    -- The label keeps the window name; the header (path, dirty marker, key
-    -- hints) is app-provided via set_window_header and dimmed.
+    -- The label keeps the window name; the header (path, dirty marker) is
+    -- app-provided via set_window_header and dimmed.
     local label = w.title
     if w.title == "repl" then
         label = "~ repl"
@@ -367,14 +367,6 @@ local function win_render(w)
         local cur = win_cursors[w.title]
         if cur then
             gfx.draw_rect(hx + cur * 8, ty + (th - 16) // 2 + 1, 8, 16, theme.accent)
-        end
-        -- "help F1" always right-aligned at the end of the title bar, so every
-        -- window points to the same help popup in the same place (no pipe, no
-        -- per-window key hints — see spec/desktop-ui.md §5). It is dimmed like
-        -- the rest of the header text.
-        local help_x = tx + w.w - 2 * theme.wm.border - 6 - ("help F1"):len() * 8
-        if help_x > hx + hdr:len() * 8 then
-            gfx.draw_text("help F1", help_x, ty + (th - 16) // 2 + 1, theme.text_dim)
         end
     end
 end

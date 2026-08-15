@@ -298,7 +298,7 @@ Geometrie (`wm`/`bar`/`ws`) se rovněž od M5 nezměnila.
   kapslí; render (bar_render) i hit-testing (input.lua) ji sdílí, takže se nemohou
   rozejít.
 - `bar_render()` (`wm.lua:184`) — taskbar (launcher, hodiny, ws kapsle, active_window
-  uprostřed, volume vpravo).
+  uprostřed, `Help F1` vpravo).
 - `win_render(w)` (`wm.lua:259`) — dekorace okna; `blend()` (`wm.lua:245`) — opacity
   směrem k barvě pozadí.
 
@@ -329,8 +329,8 @@ stavu neví.
 - **Banner a hlavička:** scrollback začíná skutečným Lua bannerem, čteným z
   globálu `_COPYRIGHT` (`LUA_COPYRIGHT` v `libs/lua-5.4/src/lua.h`, kernel ho
   vystavuje při startu runtime) — verze/copyright se bere přímo z vendored Lua,
-  nikde se neduplikuje; titulková lišta REPL ukazuje `~ repl` + vpravo `help F1`
-  (§7b — bez dvojité mezery, konzistentní se všemi okny).
+  nikde se neduplikuje; titulková lišta REPL ukazuje `~ repl`
+  (§7b — bez dvojité mezery, konzistentní se všemi okny; `Help F1` je v bar liště).
 
 - UTF-8 helpery (`cp_start`, `cp_end`, `prev_cp`, `next_cp`) — kurzor je byte offset,
   ale edituje se po code pointech, aby se neroztrhl vícebajtový znak.
@@ -693,22 +693,24 @@ oknech (repl, editor, files, prohlížení), ať je klávesa jakákoli.
 
 - **Hlavička v titulkové liště:** kontext (cesta, dirty marker) se kreslí do
   titulkové lišty okna **za název** (jedna mezera mezi názvem a kontextem).
-  **`help F1` je vykresleno vždy vpravo zarovnané na konci lišty** (`win_render`),
-  bez pipe a bez jakýchkoli klávesových hintů — všechny zkratky jsou v help
-  popupu (F1), takže hlavička jen ukazuje cestu a ukazuje na help. Celá
-  hlavička (kontext i `help F1`) je `theme.text_dim` — nic nevyčnívá:
+  Hlavička je `theme.text_dim` — nic nevyčnívá. Žádné klávesové hinty ani
+  `help F1` se do hlaviček nepíší (všechny zkratky jsou v help popupu, F1):
   ```
-  ~ repl                 help F1     (žádná dvojitá mezera — konzistentní)
-  editor /wm/theme.lua   help F1     (čisté)
-  editor /wm/theme.lua*  help F1     (dirty — * za cestou)
-  files /                help F1     (root)
-  files /apps            help F1     (podadresář)
-  files /wm/theme.lua    help F1     (prohlížení — cesta)
-  save as: <cesta>       help F1     (save-as prompt — jen cesta, žádné hinty)
+  ~ repl                (žádná dvojitá mezera — konzistentní)
+  editor /wm/theme.lua  (čisté)
+  editor /wm/theme.lua* (dirty — * za cestou)
+  files /               (root)
+  files /apps           (podadresář)
+  files /wm/theme.lua   (prohlížení — cesta)
+  save as: <cesta>      (save-as prompt — jen cesta, žádné hinty)
   ```
-  (Pozice výše je ilustrační; `help F1` se skutečně zarovná na pravý okraj okna.)
+- **`Help F1` je jediný prvek bar lišty** (pravá strana, `theme.text`, bez
+  placeholderu). Každé okno má svůj kontextový help: F1 uvnitř okna otevře
+  help daného okna, mimo okna globální WM help. Bar lišta ukazuje jen jeden
+  nápis `Help F1`, takže se neduplikuje do každého okna a minimalismu to
+  neruší.
 - **Hlavička neobsahuje klávesové hinty** — všechny zkratky jsou v help popupu
-  (F1), takže hlavička jen ukazuje cestu/kontext a vpravo `help F1`. Funkční
+  (F1), takže hlavička jen ukazuje cestu/kontext. Funkční
   prvky zůstávají: dirty marker (`*`), save-as prompt (jen text `save as:
   <cesta>` + kurzor, **bez** „Enter save / Esc cancel") a cesta (u files =
   ukazatel cesty). Esc Esc / Ctrl+S / F2 / F4 se nevypisují do hlaviček — jsou
@@ -802,8 +804,8 @@ Navigační konvence:
   (`ed_saved`), takže Ctrl+S se nabízí jen pro skutečně jiný obsah.
   **Esc Esc** (jen u čistého bufferu bez neuložených změn) zavře editor jako
   prohlížení; s neuloženými změnami je Esc blokován, takže se změny nemůžou
-  ztratit. Hlavička ukazuje cestu + vpravo zarovnané **`help F1`** (klávesové
-  hinty jsou v help popupu); dirty marker **`*`** za cestou značí neuložené změny.
+  ztratit. Hlavička ukazuje cestu (klávesové hinty jsou v help popupu,
+  `Help F1` je v bar liště); dirty marker **`*`** za cestou značí neuložené změny.
   Konfigurace (`/wm/theme.lua`) se
   otevírá přes **Super+Z** (settings);
   uložení configu spouští auto-reload (`spec/runtime.md` §5a, trigger 2).
@@ -820,8 +822,8 @@ Navigační konvence:
   červené) se otevírají **jen Space náhledem** — Enter ani klik u nich editor
   nespouští a F2 je odmítá přejmenovat (uložit se stejně nedají). Cesta je v **titulkové liště** okna (root = `/`);
   **klik na titulkovou lištu** jde o úroveň výš / ven z náhledu (lišta =
-  ukazatel cesty). Hlavička ukazuje cestu + vpravo zarovnané **`help F1`**
-  (klávesové hinty jsou v help popupu; i v rootu ukazuje help F1). Konvence je „Enter otevře,
+  ukazatel cesty). Hlavička ukazuje cestu (klávesové hinty jsou v help popupu,
+  `Help F1` je v bar liště). Konvence je „Enter otevře,
   Space prohlíží, Delete maže, klik na cestu jde nahoru" — v duchu Hyprland
   (Enter = otevřít soubor v příslušné aplikaci), ne Midnight Commander (F3/F4).
   Z náhledu se vystupuje **Esc Esc** (jednou = zpět, podruhé = z náhledu ven) —
@@ -830,7 +832,7 @@ Navigační konvence:
 - **Koš (`/.trash`):** smazání souborů je zatím **trvalé** (`file.remove` →
   ext2 `unlink`; do `lost+found` nic nejde — to je jen prostor pro `fsck`
   po havárii). Adresář `/.trash` existuje v image jako cíl budoucího koše;
-  jeho hlavička ukazuje jen cestu + `help F1` jako každé jiné files okno
+  jeho hlavička ukazuje jen cestu jako každé jiné files okno
   (empty-trash kombinace není propojená). Vymazání obsahu koše je plánované
   (`roadmap.md`): buď ext2 `rename`/`link` (přesun místo mazání), nebo
   iterace `file.remove` nad obsahem.

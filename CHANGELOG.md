@@ -140,6 +140,12 @@ This version tracks the milestone after M6 Storage was completed.
   workspace (Super+Shift+1/2/3) or switching workspaces while a window is
   fullscreen now clears fullscreen/scratchpad state deterministically in the
   input path, not as a render side effect.
+* **Single `Help F1` hint in the bar:** the right-aligned `help F1` was drawn
+  into every window's title bar, so it duplicated across side-by-side windows.
+  It now lives once on the bar's right side (`Help F1`, `theme.text`) and the
+  placeholder `Vol 100%` is gone — window headers keep only the context (path,
+  dirty marker). F1 still opens the focused window's help inside a window and
+  the global help outside (see `spec/lua-wm.md` §7b).
 
 ---
 

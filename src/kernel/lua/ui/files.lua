@@ -36,8 +36,8 @@ local function join_path(p, name)
 end
 
 -- Window title-bar header: the current path (or full file path while viewing)
--- on the left; "help F1" is right-aligned by win_render, so no key hints are
--- stored here. The path doubles as the click-to-go-up pointer.
+-- on the left; no key hints are stored here (help F1 lives in the bar, §7b).
+-- The path doubles as the click-to-go-up pointer.
 local function update_files_header()
     if fs_renaming then
         set_window_header("files", "rename: " .. fs_rename_name)

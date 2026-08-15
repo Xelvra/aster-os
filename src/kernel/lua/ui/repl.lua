@@ -63,8 +63,8 @@ local function add_line(s)
 end
 
 add_line(repl_banner())
--- Header is empty: the label "~ repl" and the right-aligned "help F1"
--- (drawn by win_render) make up the title bar — no double space, no hints.
+-- Header is empty: the label "~ repl" makes up the title bar — no double
+-- space, no hints (help F1 lives in the bar, §7b).
 set_window_header("repl", "")
 
 -- Persistent command history (/.repl_history on the mounted filesystem).

@@ -481,7 +481,7 @@ triggerů / nových ADR.
       „save as:" (nový soubor se vytvoří `file.create`); **Super+Z** otevírá settings
       (`/wm/theme.lua`). **Esc Esc** v editoru zavře okno jako prohlížení, jen pokud
       nejsou neuložené změny (jinak blokováno). **Jednotné hlavičky oken:** kontext
-      (cesta, dirty marker) vlevo, vpravo zarovnané dim `help F1` — žádné klávesové
+      (cesta, dirty marker) vlevo, dim `Help F1` v bar liště — žádné klávesové
       hinty v hlavičce (`spec/lua-wm.md` §7b), obsah začíná rovnou daty;
       REPL ukazuje Lua banner (`LUA_COPYRIGHT`). **F1 v okně aplikace = kontextový
       help té aplikace; Super+F1 kdekoli = globální WM help** (viz `spec/lua-wm.md`
