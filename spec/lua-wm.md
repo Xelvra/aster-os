@@ -95,13 +95,16 @@ Shell moduly se **nekompilují do binárky** (`@embedFile`), ale balí do **tar 
 (`initfs.tar`), který Limine nahraje jako modul (initrd). Důvod: moduly lze měnit za
 běhu a kernel se nepřestavuje (M6, `spec/roadmap.md`).
 
-> **Výhled (Úroveň 2, viz `spec/roadmap.md` §M7.2):** cíl je přesunout **kompletní
-> Lua shell** z initrd **na disk do `/wm/`** — WM moduly (`wm.lua`, `input.lua`,
-> `launcher.lua`, ...) by se načítaly za běhu z `/wm/` a uživatel by je mohl
-> editovat/přidávat s automatickým hot reloadem (stejně jako dnes `/wm/theme.lua`).
+> **Výhled (Úroveň 2, ADR-025):** cíl je přesunout **kompletní Lua shell** z initrd
+> **na disk do `/wm/`** — WM moduly (`wm.lua`, `input.lua`, `launcher.lua`, ...) by se
+> načítaly za běhu z `/wm/` a uživatel by je mohl editovat/přidávat s automatickým
+> hot reloadem (stejně jako dnes `/wm/theme.lua`). **Fallback (ADR-025):** rozbitý
+> nebo chybějící uživatelský modul se nikdy nepoužije — místo něj se aplikuje
+> vestavěný initrd default (stejný vzor jako `/wm/.theme.bak` dnes), takže
+> determinismus (ADR-014) a bootovatelnost (ADR-016) zůstávají v platnosti.
 > Dnes (Úroveň 1) je na disku v `/wm/` jen konfigurace (theme + README + api.lua);
 > shell moduly samotné žijí v initrd. Úroveň 2 je zásadní změna bootstrapu a dělá
-> se jako samostatný milník — viz roadmapa.
+> se jako samostatný milník — viz roadmapa a ADR-025.
 ```zig
 // build.zig:90  — pořadí je ZÁVAZNÉ a musí souhlasit s lua.zig:128
 const shell_files = [_][]const u8{

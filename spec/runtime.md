@@ -231,6 +231,12 @@ umožňuje REPL (`repl.lua` `run()`); `/wm/theme.lua` je jen jeho perzistentní 
 Bezpečnostní model zůstává jednouživatelský SASOS bez izolace domén
 (`spec/non-goals.md`, `SECURITY.md`) — plný kód v configu to nemění.
 
+> **Úroveň 2 (ADR-025):** cíl je rozšířit „kód je systém" z configu na **celý WM
+> shell** — moduly se načítají z `/wm/` (ne jen theme). **Fallback pravidlo:**
+> rozbitý/chybějící uživatelský modul se nikdy nepoužije; aplikuje se vestavěný
+> initrd default (stejný vzor jako `/wm/.theme.bak` dnes). Determinismus
+> (ADR-014) a bootovatelnost (ADR-016) tak zůstávají v platnosti.
+
 ### 5a.2 Fallback a chybové hlášení configu
 
 Chybný config **nesmí shodit shell ani nechat polorozkreslený vzhled**:

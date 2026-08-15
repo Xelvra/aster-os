@@ -507,12 +507,15 @@ triggerů / nových ADR.
       comptime dispatch, IRQ routing) — implementuje se až tady, ne dřív.
 - [ ] Nové features (zvuk/audio, síť M9, prohlížeč v Luay) se přidávají podle
       **ADR-020** — jako nové KI moduly na konec enumu, bez úpravy existujících.
-- [ ] **Úroveň 2 — přesun Lua shellu z initrd na disk do `/wm/`** (cíl dokumentovaný
-      v `spec/lua-wm.md` §3.1): WM moduly (`wm.lua`, `input.lua`, `launcher.lua`, ...)
-      se načítají za běhu z `/wm/` místo z initrd taru, uživatel je může editovat a
-      přidávat s automatickým hot reloadem (dnes to jde jen pro `/wm/theme.lua`).
-      Zásadní změna bootstrapu (`lua.zig` načítání + hot reload cesta), proto
-      samostatný milník s vlastní verifikací — ne přidává se tiše k jiné práci.
+- [ ] **Úroveň 2 — přesun Lua shellu z initrd na disk do `/wm/`** (ADR-025, cíl
+      dokumentovaný v `spec/lua-wm.md` §3.1): WM moduly (`wm.lua`, `input.lua`,
+      `launcher.lua`, ...) se načítají za běhu z `/wm/` místo z initrd taru, uživatel
+      je může editovat a přidávat s automatickým hot reloadem (dnes to jde jen pro
+      `/wm/theme.lua`). **Fallback (ADR-025):** rozbitý/chybějící uživatelský modul
+      se nahradí vestavěným initrd defaultem (jako `/wm/.theme.bak` dnes), takže
+      determinismus a bootovatelnost zůstávají. Zásadní změna bootstrapu
+      (`lua.zig` načítání + hot reload cesta), proto samostatný milník s vlastní
+      verifikací — ne přidává se tiše k jiné práci.
 
 ---
 

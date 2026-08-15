@@ -34,6 +34,8 @@ samostatný soubor. Pravidla:
 | [021](021-extended-rendering-primitives.md) | Rozšířená renderovací primitiva pro UI (roundRect, border, gradient) | Přijato |
 | [022](022-network.md) | Síť jako KI modul `net.*` — minimální stack (virtio-net, ARP/IPv4/ICMP/UDP), M9 | Přijato |
 | [023](023-filesystem-ext2-non-posix.md) | Persistence: ext2 backend (read-only), non-POSIX sémantika, tenké rozhraní | Přijato |
+| [024](024-keyboard-layout-registry.md) | Registr klávesových rozložení (per-session layout) | Přijato |
+| [025](025-lua-shell-from-disk.md) | Lua shell z disku do `/wm/` s initrd fallbackem (Úroveň 2) | Přijato |
 
 ## Šablona nového ADR
 
