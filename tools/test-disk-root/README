@@ -40,8 +40,9 @@ Using the shell
            window shows that app's cheat sheet, Super+F1 (anywhere) the global
            WM help; Alt+Tab cycles windows.
 
-  Deletion is permanent for now — /.trash exists as the future trash location
-  (empty-trash is planned, not wired yet).
+  Deletion moves files to /.trash (the undo zone); inside /.trash, Delete
+  removes the selected item permanently and Ctrl+Delete empties the whole
+  trash. Files in the trash are shown in blue.
 
 Changing window behaviour
   theme.lua controls colors and geometry (what the shell draws). To change

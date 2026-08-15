@@ -764,6 +764,9 @@ local function handle_key(ev)
             elseif code == "space" then
                 local e = fs_entries[fs_sel]
                 if e and not e.dir then files_view(e.name) end
+            elseif code == "delete" and ev.ctrl then
+                -- Ctrl+Delete inside /.trash empties the whole trash.
+                files_empty_trash()
             elseif code == "delete" then
                 local e = fs_entries[fs_sel]
                 if e then files_remove(e.name) end

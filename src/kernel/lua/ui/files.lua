@@ -162,12 +162,44 @@ function files_up()
     files_open(parent)
 end
 
--- Delete the selected file (Delete key). The system never depends on the
--- disk config: if /wm/theme.lua and /wm/.theme.bak are gone, the built-in
--- defaults (initrd) are used, so any file can be removed freely.
+-- Files the editor refuses to overwrite (spec/runtime.md §5a): read-only.
+-- Matched by name so it works wherever they live (/wm/.theme.bak, /.repl_history).
+local function is_read_only(name)
+    return name == ".theme.bak" or name == ".repl_history"
+end
+
+-- System directories that must never be deleted, moved or renamed: the trash
+-- itself (moving /.trash into itself makes no sense) and ext2's lost+found
+-- (fsck scratch space). Matched by name (they only exist at the root).
+local function is_protected(name)
+    return name == ".trash" or name == "lost+found"
+end
+
+-- Delete the selected entry (Delete key). Outside the trash this MOVES the
+-- file into /.trash (ext2 rename — no data copy, the trash is the undo zone);
+-- inside /.trash it permanently deletes the selected item. Ctrl+Delete empties
+-- the whole trash. The system never depends on the disk config: if
+-- /wm/theme.lua and /wm/.theme.bak are gone, the built-in defaults (initrd)
+-- are used, so any file can be moved/removed freely.
 function files_remove(name)
+    if is_protected(name) then
+        fs_error = name .. " is protected"
+        gfx.invalidate()
+        return
+    end
     local full = join_path(fs_path, name)
-    if not file.remove(full) then
+    local removed
+    if fs_path == "/.trash" then
+        removed = file.remove(full)
+    else
+        removed = file.rename(full, "/.trash/" .. name)
+        if not removed then
+            fs_error = "cannot move " .. name .. " to trash (name in use?)"
+            gfx.invalidate()
+            return
+        end
+    end
+    if not removed then
         fs_error = "cannot delete " .. name
         gfx.invalidate()
         return
@@ -182,10 +214,14 @@ function files_remove(name)
     if was_viewing and fs_view_name == name then fs_viewing = false end
 end
 
--- Files the editor refuses to overwrite (spec/runtime.md §5a): read-only.
--- Matched by name so it works wherever they live (/wm/.theme.bak, /.repl_history).
-local function is_read_only(name)
-    return name == ".theme.bak" or name == ".repl_history"
+-- Empty the whole trash (Ctrl+Delete inside /.trash): permanently remove every
+-- entry in the current listing.
+function files_empty_trash()
+    if fs_path ~= "/.trash" then return end
+    for _, e in ipairs(fs_entries) do
+        file.remove(join_path(fs_path, e.name))
+    end
+    files_open(fs_path)
 end
 
 -- F2: rename the selected entry. The title-bar header turns into a
@@ -197,6 +233,11 @@ function files_rename_start()
     if fs_renaming or fs_viewing then return end
     local e = fs_entries[fs_sel]
     if not e then return end
+    if is_protected(e.name) then
+        fs_error = e.name .. " is protected"
+        gfx.invalidate()
+        return
+    end
     if is_read_only(e.name) then
         fs_error = e.name .. " is read-only (view with Space)"
         gfx.invalidate()
@@ -256,11 +297,13 @@ function files_rename_commit()
     if not found then fs_sel = math.max(1, math.min(was_idx, #fs_entries)) end
 end
 
--- Entry text color: selection highlight first, then read-only red, then other
--- hidden files dim, regular files normal.
+-- Entry text color: selection highlight first, then read-only red, then the
+-- trash (the /.trash directory and everything inside it) in blue, then hidden
+-- files dim, regular files normal.
 local function entry_color(e, selected)
     if selected then return theme.accent end
     if is_read_only(e.name) then return theme.red end
+    if fs_path == "/.trash" or (fs_path == "/" and e.name == ".trash") then return theme.trash end
     if e.name:sub(1, 1) == "." then return theme.text_dim end
     return theme.text
 end

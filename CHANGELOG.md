@@ -154,6 +154,12 @@ This version tracks the milestone after M6 Storage was completed.
   launcher popup (help and run modes) has the same close `x` in its top-right
   corner, so the help sheet can be dismissed with the mouse instead of forcing
   an Esc (see `spec/lua-wm.md` §7b).
+* **Trash (`/.trash`):** the file manager's **Delete** now moves a file or
+  directory into `/.trash` (ext2 `rename`, no data copy — the undo zone);
+  inside the trash Delete removes the selected item permanently and
+  **Ctrl+Delete** empties the whole trash. The trash directory and ext2's
+  `lost+found` are protected (cannot be deleted/moved/renamed), and trash
+  entries are drawn in blue (`theme.trash`).
 * **QEMU mouse on Wayland:** the interactive `zig build run` display switched
   from GTK to **SDL**. GDK has no native pointer grab on Wayland (it emulates
   the grab by warping the cursor back), so `grab-on-hover` let the cursor

@@ -825,8 +825,9 @@ Navigační konvence:
   (adresář → dovnitř, soubor → **editace v editoru**),
   **Space** = rychlý náhled obsahu (read-only), **F2** = přejmenovat vybranou
   položku (`file.rename`, prompt „rename:" v titulkové liště; soubor i adresář
-  v rámci aktuální složky), **Delete** = smazat soubor
-  (`file.remove`), **Shift+F4** = nový soubor (otevře editor s prázdným
+  v rámci aktuální složky), **Delete** = přesunout do koše (mimo `/.trash`)
+  resp. trvale smazat (uvnitř `/.trash`), **Ctrl+Delete** = vyprázdnit koš
+  (uvnitř `/.trash`), **Shift+F4** = nový soubor (otevře editor s prázdným
   bufferem, MC konvence), **Escape** = o úroveň výš / ven z náhledu, **Super+E** =
   otevřít v kořenu. **Read-only soubory** (`/wm/.theme.bak`, `/.repl_history`,
   červené) se otevírají **jen Space náhledem** — Enter ani klik u nich editor
@@ -834,18 +835,18 @@ Navigační konvence:
   **klik na titulkovou lištu** jde o úroveň výš / ven z náhledu (lišta =
   ukazatel cesty). Hlavička ukazuje cestu (klávesové hinty jsou v help popupu,
   `Help F1` je v bar liště). Konvence je „Enter otevře,
-  Space prohlíží, Delete maže, klik na cestu jde nahoru" — v duchu Hyprland
+  Space prohlíží, Delete do koše, klik na cestu jde nahoru" — v duchu Hyprland
   (Enter = otevřít soubor v příslušné aplikaci), ne Midnight Commander (F3/F4).
   Z náhledu se vystupuje **Esc Esc** (jednou = zpět, podruhé = z náhledu ven) —
   vědomá odchylka od Hyprlandu (dvojitý stisk jako pojistka, viz
   `spec/desktop-ui.md` §5 a §7.1).
-- **Koš (`/.trash`):** smazání souborů je zatím **trvalé** (`file.remove` →
-  ext2 `unlink`; do `lost+found` nic nejde — to je jen prostor pro `fsck`
-  po havárii). Adresář `/.trash` existuje v image jako cíl budoucího koše;
-  jeho hlavička ukazuje jen cestu jako každé jiné files okno
-  (empty-trash kombinace není propojená). Vymazání obsahu koše je plánované
-  (`roadmap.md`): buď ext2 `rename`/`link` (přesun místo mazání), nebo
-  iterace `file.remove` nad obsahem.
+- **Koš (`/.trash`):** **Delete** mimo koš **přesune** soubor/adresář do
+  `/.trash` (ext2 `rename`, žádná kopie dat — koš je zóna „undo"); uvnitř
+  `/.trash` **Delete** trvale smaže vybranou položku a **Ctrl+Delete**
+  vyprázdní celý koš (iterace `file.remove`). Přejmenování na existující název
+  v koši se hlásí chybou (rename → `FileExists`). **Ochraněné systémové
+  adresáře:** `/.trash` a `lost+found` nelze smazat, přesunout ani přejmenovat
+  (`is_protected`). Položky koše se kreslí modře (`theme.trash`).
 
 **Smazání config souborů je bezpečné:** `/wm/.theme.bak` nemá žádnou ochranu proti
 smazání — systém na diskovém configu nezávisí. Když `/wm/theme.lua` i

@@ -503,11 +503,11 @@ triggerů / nových ADR.
       budoucí koš (`/.trash`).
 - [ ] **Toggle skrytých souborů ve files browseru** — zobrazit/skrýt dotfiles (dnes se
       kreslí šedivě, vždy viditelné).
-- [ ] **Koš (`/.trash`)** — smazání je dnes trvalé (`file.remove`); cílová funkce:
-      Delete přesune soubor do `/.trash` místo mazání (vyžaduje ext2 `rename`/`link`),
-      `Ctrl+Delete` uvnitř koše smaže celý obsah. Dnes je v hlavičce koše jen
-      placeholder „Ctrl+Delete empty" (`spec/lua-wm.md` §7a.4), kombinace není
-      propojená.
+- [x] **M7.1.13 Koš (`/.trash`)** — Delete mimo koš přesune soubor/adresář do
+      `/.trash` (ext2 `rename`, žádná kopie dat); uvnitř koše Delete trvale
+      smaže vybranou položku a `Ctrl+Delete` vyprázdní celý koš (iterace
+      `file.remove`). `/.trash` a `lost+found` jsou ochráněné (nelze smazat/
+      přesunout/přejmenovat); položky koše se kreslí modře (`theme.trash`).
 
 ### M8 — Stabilizace
 
