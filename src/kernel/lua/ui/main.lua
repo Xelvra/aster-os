@@ -24,6 +24,30 @@ function update()
     end
 end
 
+-- Draw the content of a window whose frame was just rendered. Every content
+-- function resolves its own window (find_win) and returns early when the
+-- window is absent or on another workspace, so calling it per-window in
+-- z-order keeps each content on top of the windows below it (a stacked window
+-- must not show through the one above).
+local function render_window_content(title)
+    if title == "repl" and repl_visible then
+        repl_render()
+    elseif title == "sysmon" then
+        sysmon_render()
+    elseif title == "editor" then
+        editor_render()
+    elseif title == "files" then
+        files_render()
+    end
+end
+
+-- Draw a window frame and its content together, so content cannot leak out
+-- of z-order (a lower window's text must never paint over a higher one).
+local function render_window(w)
+    win_render(w)
+    render_window_content(w.title)
+end
+
 function render()
     gfx.fill_screen(theme.background)
     layout_pass()
@@ -34,16 +58,7 @@ function render()
     if fullscreen_win then
         local fs = find_win(fullscreen_win)
         if fs and fs.ws == current_ws then
-            win_render(fs)
-            if fs.title == "repl" and repl_visible then
-                repl_render()
-            elseif fs.title == "sysmon" then
-                sysmon_render()
-            elseif fs.title == "editor" then
-                editor_render()
-            elseif fs.title == "files" then
-                files_render()
-            end
+            render_window(fs)
             return
         else
             fullscreen_win = nil
@@ -58,11 +73,7 @@ function render()
     end
     table.sort(tiled, function(a, b) return a.z < b.z end)
     table.sort(floating, function(a, b) return a.z < b.z end)
-    for _, w in ipairs(tiled) do win_render(w) end
-    for _, w in ipairs(floating) do win_render(w) end
-    if repl_visible then repl_render() end
-    sysmon_render()
-    editor_render()
-    files_render()
+    for _, w in ipairs(tiled) do render_window(w) end
+    for _, w in ipairs(floating) do render_window(w) end
     if launcher_open then launcher_render() end
 end
