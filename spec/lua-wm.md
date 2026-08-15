@@ -525,6 +525,92 @@ Vše v `handle_key` (`input.lua:118`). Super = `ev.super` (Hyprland konvence).
 | Alt+Tab | cyklovat okna workspace | `input.lua:298` |
 | F5 | hot reload (kernel, `main.zig:378`) | — |
 
+### 7.1 Detailní chování zkratek
+
+Co se přesně děje po stisku — vedlejší efekty, stav okna, interakce se
+workspace a z-orderem. Platí Hyprland konvence: zkratka vždy **znovu vytvoří**
+okno, které bylo zavřeno (Super+Q), a přesune ho na aktuální workspace.
+
+- **Super+Enter — REPL terminál.** Pokud okno `repl` neexistuje (zavřeno
+  Super+Q), vytvoří se; jinak se **přesune na aktuální workspace** (okno může
+  žít na jiném ws). Nastaví `repl_visible = true` a **zaostří** REPL. Klávesy
+  pak jdou do REPL: psaní edituje prompt, **Enter** spustí kód
+  (`load` + `pcall`), **Up/Down** listuje historií (`/.repl_history`, posledních
+  100 příkazů). REPL je okno, takže sdílí tiling jako každé jiné.
+- **Super+T — editor.** Otevře **prázdný buffer** (bez cesty) a zaostří editor.
+  Klíčové chování opakovaného stisku: **čistý** buffer se resetuje na nový
+  prázdný dokument, **dirty** (neuložený) se **zachová** — změny se nikdy
+  neztratí dalším Super+T. Editor: šipky/Home/End/Enter/Backspace/Delete,
+  **Ctrl+S** uloží; u nového bufferu přepne na prompt „save as:" v titulkové
+  liště (Enter uloží + vytvoří soubor, Esc zruší). **Esc Esc** zavře editor jen
+  u čistého bufferu; s neuloženými změnami je Esc blokován (nelze ztratit
+  práci). Viz §7a.4.
+- **Super+Z — settings.** Otevře **`/wm/theme.lua`** v editoru (config).
+  **Uložení configu (Ctrl+S) spouští automatický hot reload** — desktop se
+  přerenderuje s novými barvami/geometrií bez F5 a bez rebuildu kernelu.
+  Rozbitý config se hlásí do REPL a live vzhled zůstává na initrd defaultu
+  (ADR-025); `/wm/.theme.bak` je ruční záloha posledního Ctrl+S, nikdy se
+  nenačítá automaticky.
+- **Super+E — file manager.** Otevře files okno **v kořenu** (`/`) a zaostří.
+  Navigace: Up/Down výběr, **Enter** otevře (adresář → dovnitř, soubor →
+  **editace v editoru**), **Space** = read-only náhled, **Delete** = smazat,
+  **Esc** o úroveň výš / ven z náhledu; **klik na titulkovou lištu** (cesta)
+  jde nahoru. Read-only soubory (`.theme.bak`, `.repl_history`) jdou jen Space
+  náhledem. Vždy **lost+found** první, pak adresáře, pak soubory.
+- **Super+Q — zavřít okno.** Zavře **fokusované** okno (odstraní z `windows`),
+  zruší fullscreen, pokud patřil jemu, a **refokusuje topmost** okno aktuálního
+  workspace. Pokud se zavírá scratchpad okno, **resetuje se scratchpad výběr**
+  (příští Super+S vybere novou app). Zavření je trvalé — okno se znovu
+  vytvoří až příslušnou zkratkou (Super+Enter/T/E/Z).
+- **Super+Space — launcher.** Otevře popup `run:` s vyhledávacím polem;
+  psaní filtruje aplikace, **šipky** mění výběr, **Enter** spustí, **Esc**
+  zavře. Položky: aplikace (repl, sysmon, files, editor) + akce (help, toggle
+  fullscreen, close). Další Super+Space (nebo Esc) zavře. Launcher je overlay —
+  kreslí se nad okny, vždy uprostřed.
+- **Super+Alt+Space — float toggle.** Přepne **fokusované** okno mezi
+  plovoucím a tiled. Plovoucí okno se **vycentruje** (50 % šířka, 60 % výška
+  prostoru pod barem) a drží si manuální pozici (lze táhnout hlavičkou);
+  tiled okno se vrátí do tiling rozložení (pozice `0,0,0,0` → layout_pass).
+  Floating okna se vždy kreslí **nad** tiled (z-order), focus je nemíchá.
+- **Super+F / Super+D — fullscreen toggle.** Fokusované okno na aktuální ws
+  se roztáhne na **celou obrazovku** (přes bar, přes ostatní okna); znovu
+  Super+F/D vrátí do předchozího režimu. Ve fullscreenu se kreslí jen toto
+  okno (+ obsah) a **otevřený scratchpad** (Super+S) nad ním. bar_render se
+  ve fullscreenu vynechává.
+- **Super+J — togglesplit.** Přepne layout workspace mezi **splith**
+  (vedle sebe, fokus širší 60/40) a **splitv** (nad sebou). Okna se
+  přerovnají bez ztráty stavu.
+- **Super+šipky — focus směr.** Posune focus mezi **tiled** okny aktuálního
+  workspace ve směru šipky s **wrapem** (z konce na začátek). Floating okna
+  se neadresují šipkami (jen Alt+Tab / klik). Focus se nehýbe s layoutem
+  (list pořadí je tiling order, `z` je jen focus).
+- **Super+Shift+šipky — swap.** Prohodí fokusované okno se sousedem v tiling
+  **pořadí** (ne prostorově nutně): levá/horní šipka = směrem na začátek
+  listu, pravá/dolní = na konec. Přerovná `windows` list (změní tiling order).
+- **Super+1/2/3 — workspace.** Přepne `current_ws` a **refokusuje topmost**
+  okno tam. Workspace jsou nezávislé sady oken; okno patří právě jednomu ws.
+- **Super+Shift+1/2/3 — přesun okna.** Přesune **fokusované** okno na daný
+  workspace (vynuluje floating → tiled), přepne `current_ws` na cíl a zaostří
+  okno. Okno se tím přesune „s tebou" mezi workspace.
+- **Super+S — scratchpad.** **Stavový toggle vyhrazené aplikace**, ne alias
+  jiné zkratky. **První** Super+S otevře launcher a vybereš, která aplikace
+  se stane scratchpadem (repl/sysmon/files/editor — vybrané okno se zobrazí
+  vycentrované, floating). **Další** Super+S jen **show/hide** to okno přes
+  **cokoli** — fullscreen i prázdný workspace (vždy se kreslí na vrchu).
+  Skryté okno se parkuje na ws 0 (nikdy se nezobrazuje); ukázané se vrátí na
+  aktuální ws, vycentrované, floating. Zavření scratchpad okna (Super+Q)
+  **resetuje výběr** — příští Super+S vybere novou app. Liší se od Super+Space
+  (launcher otevře a nechá app tiled), Super+Alt+Space (float toggle
+  fokusovaného okna) a Super+F/D (fullscreen).
+- **Alt+Tab — cyklus oken.** Cykluje focus přes **všechna** okna aktuálního
+  workspace (tiled i floating) v pořadí `windows` listu, s wrapem.
+- **F5 — hot reload.** Kernel zavře a znovu vytvoří `lua_State`, znovu načte
+  celý shell z initrd + aplikuje `/wm/theme.lua`. Uživatelský stav, který má
+  přežít, žije v **globálních proměnných** (`x = x or ...` idiom) — REPL
+  historie, editor buffer, files cesta, workspace, theme. F5 se používá pro
+  vyčistění / obnovení po chybě; běžná změna vzhledu jde bez F5 (Ctrl+S na
+  configu spustí auto-reload).
+
 ---
 
 ## 7b. UI textové konvence (normativní)

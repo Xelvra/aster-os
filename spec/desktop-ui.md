@@ -191,6 +191,11 @@ Cíl: btop/Noctalia sysmon widget v baru + okno.
 | Alt+Tab | cyklování oken |
 | F5 | hot reload |
 
+> **Detailní popis chování každé zkratky** — co se přesně stane (vedlejší efekty,
+> stav okna, workspace, z-order, jak se chová opakovaný stisk, jak okno interaguje
+> se zkratkou) je v `spec/lua-wm.md` §7.1. Tahle tabulka je jen rychlý seznam;
+> chování je popsáno tam.
+
 ---
 
 ## 6. Co portovat nejde (technické limity)
