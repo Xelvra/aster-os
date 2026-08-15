@@ -124,15 +124,17 @@ local function launcher_render()
         local ly = theme.bar.height + 8 + math.max(math.floor((SH - theme.bar.height - 8 - lh) / 2), 0)
         gfx.draw_rect(lx, ly, lw, lh, theme.surface)
         gfx.rect_border(lx, ly, lw, lh, 1, theme.accent)
-        -- The prompt is the window/app name ("help:", "files:", "editor:")
-        -- in white like the run prompt; Esc closes the popup.
-        gfx.draw_text(title .. ": ", lx + 8, ly + 8, theme.text)
+        -- The prompt is the window/app name ("global help:", "files:",
+        -- "editor:") in dim text like the descriptions — it labels the popup
+        -- and must not compete with the white shortcut keys; Esc closes it.
+        gfx.draw_text(title .. ": ", lx + 8, ly + 8, theme.text_dim)
         local ty = ly + 30
         for _, s in ipairs(items) do
             -- A string entry is a section heading (e.g. "view mode" of the
-            -- file manager), drawn as a subheading between the rows.
+            -- file manager), drawn dim so it does not compete with the white
+            -- shortcut keys around it.
             if type(s) == "string" then
-                gfx.draw_text(s, lx + 12, ty, theme.accent)
+                gfx.draw_text(s, lx + 12, ty, theme.text_dim)
                 ty = ty + row_h
             else
                 gfx.draw_text(s[1], lx + 12, ty, theme.text)

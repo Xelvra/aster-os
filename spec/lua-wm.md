@@ -693,7 +693,6 @@ oknech (repl, editor, files, prohlížení), ať je klávesa jakákoli.
   files /apps            help F1     (podadresář)
   files /wm/theme.lua    help F1     (prohlížení — cesta)
   save as: <cesta>       help F1     (save-as prompt — jen cesta, žádné hinty)
-  help:                              (launcher help popup, jen "help:" jako run:)
   ```
   (Pozice výše je ilustrační; `help F1` se skutečně zarovná na pravý okraj okna.)
 - **Hlavička neobsahuje klávesové hinty** — všechny zkratky jsou v help popupu
