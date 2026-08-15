@@ -62,9 +62,13 @@ function files_open(path)
         return
     end
     fs_error = ""
-    -- Sort the listing: directories first, then files; each group alphabetically
-    -- by name. ext2 returns direntries in on-disk order, which is not user-facing.
+    -- Sort the listing: the ext2 `lost+found` directory always comes first,
+    -- then directories, then files; each group alphabetically by name. ext2
+    -- returns direntries in on-disk order, which is not user-facing.
     table.sort(entries, function(a, b)
+        local a_lf = a.name == "lost+found"
+        local b_lf = b.name == "lost+found"
+        if a_lf ~= b_lf then return a_lf end
         if a.dir ~= b.dir then return a.dir end
         return a.name < b.name
     end)

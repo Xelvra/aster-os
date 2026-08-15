@@ -321,17 +321,23 @@ fn probeStorage(alloc: std.mem.Allocator, memory: *mem.Memory) void {
     const n = fs.readDir(ext2.root_inode, &entries) catch return;
     // Listing (variant A): real entries only (no "." / ".."), no repeated
     // prefix; the theme.lua config value is read through the thin file API
-    // (M6.1.4) and printed after its name. Directories come before files
-    // (ext2 file_type: 2 = directory, 1 = regular).
+    // (M6.1.4) and printed after its name. Order: the ext2 `lost+found`
+    // directory first, then the remaining directories, then files (ext2
+    // file_type: 2 = directory, 1 = regular).
     const column: usize = 22;
     const config_name = "theme.lua";
-    for (0..2) |pass| {
+    for (0..3) |pass| {
         for (entries[0..n]) |e| {
             const name = e.name[0..e.name_len];
             if (std.mem.eql(u8, name, ".") or std.mem.eql(u8, name, "..")) continue;
             const is_dir = e.file_type == 2;
-            if (pass == 0 and !is_dir) continue;
-            if (pass == 1 and is_dir) continue;
+            const is_lost_found = std.mem.eql(u8, name, "lost+found");
+            const in_pass = switch (pass) {
+                0 => is_lost_found,
+                1 => is_dir and !is_lost_found,
+                else => !is_dir,
+            };
+            if (!in_pass) continue;
             serial.write("  ");
             serial.write(name);
             if (std.mem.eql(u8, name, config_name)) {
