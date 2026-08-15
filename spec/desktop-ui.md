@@ -164,14 +164,24 @@ Cíl: btop/Noctalia sysmon widget v baru + okno.
 
 ---
 
-## 5. Zkratky (Hyprland standard — ✅ hotovo)
+## 5. Zkratky (Hyprland standard + vědomé odchylky — ✅ hotovo)
 
-> **Konvence ovládání = Hyprland.** Aster WM dodržuje **striktně Hyprland
-> konvence pro klávesové zkratky, tlačítka a navigaci**: pokud znáš Hyprland,
+> **Konvence ovládání = Hyprland jako základ.** Aster WM vychází z **Hyprland
+> konvencí pro klávesové zkratky, tlačítka a navigaci**: pokud znáš Hyprland,
 > víš, jak se v Asteru ovládá okenní manažer. Zkratky jsou **data** (`input.lua`),
 > ne rozházený kód — přidávají se na jedno místo a fungují stejně. Žádné
-> MC/Total Commander konvence (F3/F4) — soubory se otevírají Enterem (jako
-> dvojklik v Hyprland file manageru), prohlížejí Spacem a mažou Delete.
+> MC/Total Commander konvence (F3/F4) jako náhrada — soubory se otevírají
+> Enterem (jako dvojklik v Hyprland file manageru), prohlížejí Spacem a mažou
+> Delete.
+>
+> **Vědomé odchylky od striktního Hyprlandu** (zdokumentované, ne tiché):
+>
+> - **Esc Esc zavře editor / vystoupí z náhledu** (jen u čistého bufferu,
+>   neuložené změny blokují). Hyprland nemá žádnou „dvojitý Esc" konvenci —
+>   ESC je tam jednorázový výstup z klávesového režimu (submap) a okna se
+>   zavírají jen dispatcherem (Super+Q). Dvojitý stisk je zde **pojistka proti
+>   nechtěnému zavření** (v duchu vim/terminálů) a je to konvence Asteru, ne
+>   Hyprlandu. Více viz `spec/lua-wm.md` §7.1 (Esc Esc).
 
 | Kombinace | Akce |
 |---|---|

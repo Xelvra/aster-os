@@ -545,7 +545,10 @@ okno, které bylo zavřeno (Super+Q), a přesune ho na aktuální workspace.
   **Ctrl+S** uloží; u nového bufferu přepne na prompt „save as:" v titulkové
   liště (Enter uloží + vytvoří soubor, Esc zruší). **Esc Esc** zavře editor jen
   u čistého bufferu; s neuloženými změnami je Esc blokován (nelze ztratit
-  práci). Viz §7a.4.
+  práci). **Vědomá odchylka od Hyprlandu** (viz `spec/desktop-ui.md` §5):
+  Hyprland nemá „dvojitý Esc" — ESC je tam jednorázový výstup z režimu a okna
+  se zavírají Super+Q; dvojitý stisk je zde pojistka proti nechtěnému zavření
+  (vim/terminálový vzor). Viz §7a.4.
 - **Super+Z — settings.** Otevře **`/wm/theme.lua`** v editoru (config).
   **Uložení configu (Ctrl+S) spouští automatický hot reload** — desktop se
   přerenderuje s novými barvami/geometrií bez F5 a bez rebuildu kernelu.
@@ -746,6 +749,9 @@ Navigační konvence:
   nemá — Esc nejde výš). Konvence je „Enter otevře,
   Space prohlíží, Delete maže, klik na cestu jde nahoru" — v duchu Hyprland
   (Enter = otevřít soubor v příslušné aplikaci), ne Midnight Commander (F3/F4).
+  Z náhledu se vystupuje **Esc Esc** (jednou = zpět, podruhé = z náhledu ven) —
+  vědomá odchylka od Hyprlandu (dvojitý stisk jako pojistka, viz
+  `spec/desktop-ui.md` §5 a §7.1).
 - **Koš (`/.trash`):** smazání souborů je zatím **trvalé** (`file.remove` →
   ext2 `unlink`; do `lost+found` nic nejde — to je jen prostor pro `fsck`
   po havárii). Adresář `/.trash` existuje v image jako cíl budoucího koše;
