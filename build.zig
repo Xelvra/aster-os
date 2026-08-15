@@ -177,14 +177,15 @@ pub fn build(b: *std.Build) void {
         run_cmd.addArg("-device");
         run_cmd.addArg("virtio-blk-pci,drive=hd0,disable-legacy=on");
     }
+    // SDL display: on Wayland this is the only reliable input path. GDK has no
+    // native pointer grab on Wayland (it emulates the grab by warping the
+    // cursor back), and even GTK-forced-to-X11 (XWayland) let the cursor
+    // escape in a windowed mode and failed on a second monitor. SDL uses the
+    // native Wayland relative-pointer lock, so the mouse reaches every edge of
+    // the 800x600 framebuffer in a window and in fullscreen, on every monitor,
+    // with no X11→Wayland translation latency. Grab/release: Ctrl+Alt+G.
     run_cmd.addArg("-display");
-    // Scale the 800x600 window to fit the host screen (the kernel draws at
-    // its native framebuffer resolution; zoom-to-fit only affects the QEMU
-    // window, not the framebuffer or the mouse coordinate space).
-    // grab-on-hover: as soon as the pointer is over the window QEMU captures
-    // keyboard and mouse, so Alt+Tab reaches the guest (not the host WM) and
-    // the cursor cannot escape the window. Ctrl+Alt+G still toggles the grab.
-    run_cmd.addArg("gtk,zoom-to-fit=on,grab-on-hover=on");
+    run_cmd.addArg("sdl");
     run_cmd.addArg("-serial");
     run_cmd.addArg("stdio");
     run_cmd.addArg("-boot");

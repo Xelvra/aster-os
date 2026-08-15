@@ -145,7 +145,24 @@ This version tracks the milestone after M6 Storage was completed.
   It now lives once on the bar's right side (`Help F1`, `theme.text`) and the
   placeholder `Vol 100%` is gone — window headers keep only the context (path,
   dirty marker). F1 still opens the focused window's help inside a window and
-  the global help outside (see `spec/lua-wm.md` §7b).
+  the global help outside, and **clicking the bar's `Help F1` hint does the
+  same** (see `spec/lua-wm.md` §7b).
+* **Close button in every window header:** a small **`x`** in the top-right of
+  each window's title bar closes the window with the mouse (the same action as
+  Super+Q); it is skipped when it would overlap a long header path. The
+  launcher popup (help and run modes) has the same close `x` in its top-right
+  corner, so the help sheet can be dismissed with the mouse instead of forcing
+  an Esc (see `spec/lua-wm.md` §7b).
+* **QEMU mouse on Wayland:** the interactive `zig build run` display switched
+  from GTK to **SDL**. GDK has no native pointer grab on Wayland (it emulates
+  the grab by warping the cursor back), so `grab-on-hover` let the cursor
+  escape the window and the guest cursor stopped short of the framebuffer
+  edges — the mouse could not reach the corners/`Help F1` and failed entirely
+  on a second monitor, even in fullscreen; forcing `GDK_BACKEND=x11` (XWayland)
+  only helped fullscreen and added input latency. SDL uses the native Wayland
+  relative-pointer lock, so the mouse reaches every edge of the 800x600
+  framebuffer in a window, fullscreen and on every monitor (Ctrl+Alt+G grabs/
+  releases; see `spec/troubleshooting.md` C43).
 
 ---
 
