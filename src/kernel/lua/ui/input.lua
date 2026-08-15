@@ -438,6 +438,11 @@ local function handle_key(ev)
             elseif ed_esc_pending then
                 close_window("editor")
                 ed_esc_pending = false
+                -- The key that closed the editor must not be processed further:
+                -- focus moves to the next window here (focus_topmost inside
+                -- close_window), so a trailing files/repl handler would consume
+                -- this same Esc (e.g. files_up -> root) and surprise the user.
+                return
             else
                 ed_esc_pending = true
             end

@@ -922,8 +922,11 @@ fn testFileDir() void {
         \\    if e.name == ".." then no_dotdot = false end
         \\end
         \\local path_ok = join_path("/", "apps") == "/apps" and join_path("/apps", "x") == "/apps/x"
+        \\-- editing a file must not reset the current files directory
+        \\files_edit("hello.lua")
+        \\local stayed = fs_path == "/apps"
         \\files_open("/")
-        \\return no_dotdot and path_ok
+        \\return no_dotdot and path_ok and stayed
     ;
     const load2 = L.luaL_loadstring(lua_state, script2);
     expect(load2 == L.LUA_OK, "files convention script compiles");
