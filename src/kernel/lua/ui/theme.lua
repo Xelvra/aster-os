@@ -87,10 +87,36 @@ local function clone(t)
     return c
 end
 
+-- Validate the structure of a theme table: a syntactically valid config can
+-- still be semantically broken (e.g. `theme.wm = {}`), and applying it would
+-- crash the next layout_pass and loop the hot reload forever. Every field the
+-- shell arithmetic relies on must have the right type before the theme is
+-- swapped in (audit 2026-08-15).
+local function theme_valid(t)
+    if type(t) ~= "table" then return false end
+    local numeric = {
+        "background", "surface", "surface_alt", "text", "text_dim",
+        "accent", "accent_b", "accent_dark", "inactive", "red",
+    }
+    for _, k in ipairs(numeric) do
+        if type(t[k]) ~= "number" then return false end
+    end
+    if type(t.wm) ~= "table" then return false end
+    local wm_numeric = { "gap_out", "gap_in", "border", "title_h", "opacity_active", "opacity_inactive" }
+    for _, k in ipairs(wm_numeric) do
+        if type(t.wm[k]) ~= "number" then return false end
+    end
+    if type(t.bar) ~= "table" or type(t.bar.height) ~= "number" then return false end
+    if type(t.ws) ~= "table" or #t.ws == 0 then return false end
+    return true
+end
+
 -- Apply a Lua config chunk to the live theme atomically. Returns nil on
 -- success or an error string. load() catches syntax errors; the chunk then
 -- runs under pcall on a clone so a runtime error (e.g. a bad type) rolls
--- back to the previous theme instead of leaving a half-applied config.
+-- back to the previous theme instead of leaving a half-applied config. The
+-- result is validated structurally (theme_valid) so a semantically broken
+-- config is rejected the same way and the shell never hot-reloads it forever.
 function apply_theme_content(content)
     local cfg, err = load(content)
     if not cfg then return err end
@@ -100,6 +126,10 @@ function apply_theme_content(content)
     if not ok then
         theme = saved
         return res
+    end
+    if not theme_valid(theme) then
+        theme = saved
+        return "invalid theme: missing or wrong-typed field"
     end
     gfx.invalidate()
     return nil

@@ -145,6 +145,8 @@ pub const Framebuffer = struct {
                     .{ x + @as(i32, @intCast(w)) - 1 - cx, y + @as(i32, @intCast(h)) - 1 - cy },
                 };
                 for (corners) |corner| {
+                    if (corner[0] < 0 or corner[1] < 0 or
+                        corner[0] >= @as(i32, @intCast(self.width)) or corner[1] >= @as(i32, @intCast(self.height))) continue;
                     self.setPixel(@intCast(corner[0]), @intCast(corner[1]), color);
                 }
             }
@@ -200,9 +202,12 @@ pub const Framebuffer = struct {
     /// Fill a horizontal run of the gradient border with per-pixel colours
     /// interpolated along the top-left -> bottom-right diagonal.
     fn gradRow(self: *Framebuffer, x0: i32, x1: i32, py: i32, rect_x: i32, rect_y: i32, total: i32, ar: i32, ag: i32, ab: i32, br: i32, bg: i32, bb: i32) void {
-        if (x0 >= x1) return;
-        var px = x0;
-        while (px < x1) : (px += 1) {
+        if (py < 0 or py >= @as(i32, @intCast(self.height))) return;
+        const x0c = @max(x0, 0);
+        const x1c = @min(x1, @as(i32, @intCast(self.width)));
+        if (x0c >= x1c) return;
+        var px = x0c;
+        while (px < x1c) : (px += 1) {
             const t_frac = @divTrunc((px - rect_x + (py - rect_y)) * 1000, total);
             const rr: u32 = @intCast(ar + @divTrunc((br - ar) * t_frac, 1000));
             const gg: u32 = @intCast(ag + @divTrunc((bg - ag) * t_frac, 1000));

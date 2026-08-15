@@ -41,6 +41,15 @@ fn checkString(L: ?*lua_c.lua_State, index: c_int, comptime name: []const u8) ?[
     return ptr[0..len];
 }
 
+/// Cast a Lua integer to a binding field type, returning null (with a Lua
+/// error) when it is out of range. Guards the kernel against @intCast panics
+/// that would halt it in ReleaseSafe (audit 2026-08-15, Critical).
+fn castChecked(L: ?*lua_c.lua_State, comptime T: type, v: lua_c.lua_Integer, comptime name: []const u8) ?T {
+    if (std.math.cast(T, v)) |val| return val;
+    pushError(L, "integer out of range for '{s}'", .{name});
+    return null;
+}
+
 const RectArgs = extern struct {
     x: i32,
     y: i32,
@@ -88,7 +97,7 @@ fn makeGfxOp(comptime op: graphics.GraphicsOp, comptime Args: type) fn (?*lua_c.
             var args: Args = undefined;
             inline for (std.meta.fields(Args), 1..) |field, i| {
                 const v = checkInteger(L, @intCast(i), field.name) orelse return 2;
-                @field(args, field.name) = @intCast(v);
+                @field(args, field.name) = castChecked(L, field.type, v, field.name) orelse return 2;
             }
             _ = sys.dispatch(.Graphics, .{
                 .a = @intFromEnum(op),
@@ -116,9 +125,9 @@ fn gfxDrawText(L: ?*lua_c.lua_State) callconv(.c) c_int {
     var t = TextArgs{
         .text = @intFromPtr(text.ptr),
         .len = text.len,
-        .x = @intCast(x),
-        .y = @intCast(y),
-        .color = @intCast(color),
+        .x = castChecked(L, i32, x, "x") orelse return 2,
+        .y = castChecked(L, i32, y, "y") orelse return 2,
+        .color = castChecked(L, u32, color, "color") orelse return 2,
     };
     _ = sys.dispatch(.Graphics, .{
         .a = @intFromEnum(graphics.GraphicsOp.draw_text),
@@ -132,7 +141,7 @@ fn gfxFillScreen(L: ?*lua_c.lua_State) callconv(.c) c_int {
     const color = checkInteger(L, 1, "color") orelse return 2;
     _ = sys.dispatch(.Graphics, .{
         .a = @intFromEnum(graphics.GraphicsOp.fill_screen),
-        .b = @intCast(color),
+        .b = castChecked(L, u32, color, "color") orelse return 2,
     });
     lua_c.lua_pushinteger(L, 0);
     return 1;
@@ -397,9 +406,9 @@ fn fileRead(L: ?*lua_c.lua_State) callconv(.c) c_int {
     const handle = checkInteger(L, 1, "handle") orelse return 2;
     const len = checkInteger(L, 2, "len") orelse return 2;
     var buf: [4096]u8 = undefined;
-    const cap: u64 = @min(@as(u64, @intCast(len)), buf.len);
+    const cap: u64 = @min(@as(u64, @intCast(@max(len, 0))), buf.len);
     const ra = api_storage.ReadArgs{
-        .handle = @intCast(handle),
+        .handle = castChecked(L, u64, handle, "handle") orelse return 2,
         .buf = @intFromPtr(&buf),
         .len = cap,
     };
@@ -421,7 +430,7 @@ fn fileWrite(L: ?*lua_c.lua_State) callconv(.c) c_int {
     const handle = checkInteger(L, 1, "handle") orelse return 2;
     const data = checkString(L, 2, "data") orelse return 2;
     const wa = api_storage.WriteArgs{
-        .handle = @intCast(handle),
+        .handle = castChecked(L, u64, handle, "handle") orelse return 2,
         .data = @intFromPtr(data.ptr),
         .len = data.len,
     };
@@ -441,7 +450,7 @@ fn fileClose(L: ?*lua_c.lua_State) callconv(.c) c_int {
     const handle = checkInteger(L, 1, "handle") orelse return 2;
     _ = sys.dispatch(.Storage, .{
         .a = @intFromEnum(api_storage.StorageOp.close),
-        .b = @intCast(handle),
+        .b = castChecked(L, u64, handle, "handle") orelse return 2,
     });
     lua_c.lua_pushinteger(L, 0);
     return 1;
@@ -452,8 +461,8 @@ fn fileTruncate(L: ?*lua_c.lua_State) callconv(.c) c_int {
     const new_size = checkInteger(L, 2, "size") orelse return 2;
     const result = sys.dispatch(.Storage, .{
         .a = @intFromEnum(api_storage.StorageOp.truncate),
-        .b = @intCast(handle),
-        .c = @intCast(new_size),
+        .b = castChecked(L, u64, handle, "handle") orelse return 2,
+        .c = castChecked(L, u64, new_size, "size") orelse return 2,
     });
     if (storageResultOk(result)) {
         lua_c.lua_pushinteger(L, 0);
