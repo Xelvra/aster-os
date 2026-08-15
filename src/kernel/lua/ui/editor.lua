@@ -181,6 +181,15 @@ function editor_save()
     gfx.invalidate()
 end
 
+-- F2: "save as" — open the save-as prompt prefilled with the current path
+-- (or empty for a new buffer), so the user can save under a new name.
+function editor_save_as()
+    ed_saveas = true
+    ed_saveas_path = ed_path or ""
+    update_editor_header()
+    gfx.invalidate()
+end
+
 -- Commit the "save as:" prompt (Enter): write to the typed path, creating the
 -- file when it does not exist yet, and adopt the path as the active buffer.
 function editor_saveas_commit()

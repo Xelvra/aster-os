@@ -524,7 +524,19 @@ Vše v `handle_key` (`input.lua:118`). Super = `ev.super` (Hyprland konvence).
 | Super+Shift+1/2/3 | přesunout okno na workspace | `input.lua:247` |
 | Super+S | scratchpad (toggle vyhrazené app) | `input.lua:227` |
 | Alt+Tab | cyklovat okna workspace | `input.lua:298` |
+| F1 | help (launcher cheat sheet) | `input.lua` |
+| F2 | editor: save as | `input.lua` |
+| F4 | files: edit vybraný soubor | `input.lua` |
 | F5 | hot reload (kernel, `main.zig:378`) | — |
+| F3, F6–F12 | **rezervované** (neobsazovat bez přehodnocení) | — |
+
+> **F-klávesy = designová dualita s Hyprland zkratkami** (viz `spec/desktop-ui.md` §5):
+> dělají to samé jako odpovídající Super+... zkratka, ale druhou, zažitou cestou
+> (F1 = nápověda, F2 = save-as, F4 = editace, F5 = obnovení). Nejsou to konfliktní
+> duplicity — každá F-klávesa je **druhá cesta ke stejné akci** a uživatel si zvolí,
+> kterou zná. F3 a F6–F12 jsou **rezervované** (jako Hyprland reserved slots):
+> nesmí se přiřadit jiné akci bez přehodnocení — rezervace platí od teď, ať se
+> při vývoji nepřidělí něčemu jinému.
 
 ### 7.1 Detailní chování zkratek
 
@@ -611,6 +623,17 @@ okno, které bylo zavřeno (Super+Q), a přesune ho na aktuální workspace.
   (fullscreen).
 - **Alt+Tab — cyklus oken.** Cykluje focus přes **všechna** okna aktuálního
   workspace (tiled i floating) v pořadí `windows` listu, s wrapem.
+- **F1 — help.** Globální: otevře launcher v help módu (cheat sheet všech
+  zkratek, aktivní + rezervované). Stejná akce jako položka `help` v launcheru.
+  F1 = univerzální nápověda (zažitá konvence napříč aplikacemi).
+- **F2 — editor: save as.** Platí jen když je fokusovaný editor: otevře prompt
+  „save as:" v titulkové liště **předvyplněný aktuální cestou** (nový buffer →
+  prázdná cesta), Enter uloží pod novým jménem, Esc zruší. Doplňuje Ctrl+S
+  (který u existujícího bufferu uloží na místo, u nového otevře save-as);
+  F2 vždy otevře save-as prompt bez ohledu na cestu.
+- **F4 — files: edit vybraný soubor.** Platí jen když je fokusovaný files
+  browser: otevře **vybraný soubor v editoru** (stejná akce jako Enter na
+  souboru). Adresáře se neotevírají (Enter je pro navigaci dovnitř).
 - **F5 — hot reload.** Kernel zavře a znovu vytvoří `lua_State`, znovu načte
   celý shell z initrd + aplikuje `/wm/theme.lua`. Uživatelský stav, který má
   přežít, žije v **globálních proměnných** (`x = x or ...` idiom) — REPL

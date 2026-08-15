@@ -186,6 +186,26 @@ local function handle_key(ev)
     --   Super+1/2/3     workspace
     --   Super+Shift+1/2/3   move window to workspace
     --   Super+S         app picker (launcher run)
+
+    -- Function keys: familiar F-key conventions as a design duality with the
+    -- Hyprland Super+... shortcuts (same action, second way in). F1 (help) is
+    -- global; F2 (save-as) and F4 (edit) act on the focused window. F3 and
+    -- F6..F12 are reserved — do not reuse them without re-evaluating (they
+    -- mirror Hyprland's reserved keybinding slots).
+    if ev.pressed then
+        if code == "f1" then
+            launcher_open_mode("help")
+            return
+        elseif code == "f2" and focused == "editor" and find_win("editor") then
+            editor_save_as()
+            return
+        elseif code == "f4" and focused == "files" and find_win("files") then
+            local e = fs_entries[fs_sel]
+            if e and not e.dir then files_edit(e.name) end
+            return
+        end
+    end
+
     if ev.super and ev.pressed then
         if code == "digit_1" then
             current_ws = 1

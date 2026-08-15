@@ -199,7 +199,17 @@ Cíl: btop/Noctalia sysmon widget v baru + okno.
 | Super+1/2/3 | workspace |
 | Super+S | scratchpad (toggle vyhrazené app) |
 | Alt+Tab | cyklování oken |
+| F1 | help (cheat sheet) |
+| F2 | editor: save as |
+| F4 | files: edit vybraný soubor |
 | F5 | hot reload |
+| F3, F6–F12 | **rezervované** (neobsazovat bez přehodnocení) |
+
+> **F-klávesy = designová dualita** s Hyprland zkratkami (ne konfliktní duplicity):
+> F1/F2/F4/F5 dělají totéž co odpovídající Super+... / Ctrl+S zkratka, ale druhou,
+> zažitou cestou — uživatel si zvolí, kterou zná. **F3 a F6–F12 jsou rezervované**
+> (Hyprland reserved slots): od teď platí, že se nesmí přiřadit jiné akci bez
+> přehodnocení, ať se při vývoji nepoužijí omylem na něco jiného.
 
 > **Detailní popis chování každé zkratky** — co se přesně stane (vedlejší efekty,
 > stav okna, workspace, z-order, jak se chová opakovaný stisk, jak okno interaguje
