@@ -356,9 +356,11 @@ stavu neví.
   řadí před akcemi (ergonomicky: soubory/files častěji než editor).
 - `launcher_filtered()` — jednoduché substring filtrování (case-insensitive).
 - `launcher_render()` — centrovany popup 320 px: vyhledávací pole + list; **help mód**
-  (přes `help` položku) kreslí širší popup s přehledem zkratek:
-  **aktivní** zkratky normální barvou, **rezervované** (neaktivované, §7a) šedivě —
-  vizuálně oddělené, ale viditelné jako cíl. Esc v help módu launcher zavře.
+  (přes `help` položku) kreslí širší popup s přehledem **aktivních** zkratek:
+  zkratka **bíle**, popis **šedivě**, a za popisem **bíle** případná F-zkratka
+  (designová dualita — druhá cesta ke stejné akci, např. `Super+T  editor  F2
+  save as`). Rezervované zkratky se v popupu **neukazují** — jsou v tabulkách
+  spec (§7, §7a), aby popup zůstal stručný. Esc v help módu launcher zavře.
 - `launcher_open_mode(mode)` — otevře launcher v módu `"run"` (Super+Space,
   chevron; aplikace + akce), `"scratchpad"` (Super+S; jen aplikace, prompt
   `scratchpad:`) nebo `"help"` (help položka).
@@ -623,8 +625,8 @@ okno, které bylo zavřeno (Super+Q), a přesune ho na aktuální workspace.
   (fullscreen).
 - **Alt+Tab — cyklus oken.** Cykluje focus přes **všechna** okna aktuálního
   workspace (tiled i floating) v pořadí `windows` listu, s wrapem.
-- **F1 — help.** Globální: otevře launcher v help módu (cheat sheet všech
-  zkratek, aktivní + rezervované). Stejná akce jako položka `help` v launcheru.
+- **F1 — help.** Globální: otevře launcher v help módu (cheat sheet **aktivních**
+  zkratek s F-ekvivalenty). Stejná akce jako položka `help` v launcheru.
   F1 = univerzální nápověda (zažitá konvence napříč aplikacemi).
 - **F2 — editor: save as.** Platí jen když je fokusovaný editor: otevře prompt
   „save as:" v titulkové liště **předvyplněný aktuální cestou** (nový buffer →

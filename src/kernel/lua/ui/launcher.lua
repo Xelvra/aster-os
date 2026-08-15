@@ -23,13 +23,17 @@ local launcher_sel = 1
 local launcher_mode = "run" -- "run" (app list) or "help" (keybinding cheat sheet)
 local mouse_was_down = false
 
--- Keybinding cheat sheet. "active" is shown normally, "reserved" dimmed:
--- the shortcuts are planned but not wired yet (spec/lua-wm.md §7a).
+-- Keybinding cheat sheet (help popup). Each entry: { key, description, alt }.
+-- `alt` is optional and drawn as white text right after the grey description —
+-- a familiar F-key that reaches the same action a second way (F2 = save as in
+-- the editor, F4 = edit in the files browser). Reserved shortcuts are NOT
+-- listed here: they live in the spec tables (spec/lua-wm.md §7/§7a) so the
+-- popup stays short and readable.
 local shortcuts_active = {
     { "Super+Enter", "terminal (REPL)" },
-    { "Super+T", "editor" },
+    { "Super+T", "editor", "F2 save as" },
     { "Super+Z", "settings" },
-    { "Super+E", "file manager" },
+    { "Super+E", "file manager", "F4 edit" },
     { "Super+Q", "close window" },
     { "Super+Space", "launcher" },
     { "Super+Alt+Space", "float toggle" },
@@ -41,26 +45,7 @@ local shortcuts_active = {
     { "Super+S", "scratchpad (toggle app)" },
     { "Alt+Tab", "cycle windows" },
     { "F1", "help" },
-    { "F2", "editor: save as" },
-    { "F4", "files: edit file" },
     { "F5", "hot reload" },
-}
-local shortcuts_reserved = {
-    { "F3", "search (reserved)" },
-    { "F6", "reserved" },
-    { "F7", "reserved" },
-    { "F8", "reserved" },
-    { "F9", "reserved" },
-    { "F10", "reserved" },
-    { "F11", "reserved" },
-    { "F12", "reserved" },
-    { "Super+C", "calculator" },
-    { "Super+W", "browser" },
-    { "Super+X", "control center" },
-    { "Super+V", "clipboard" },
-    { "Super+A", "notifications" },
-    { "Super+P", "color picker" },
-    { "Print", "screenshot" },
 }
 
 local function launcher_filtered()
@@ -92,11 +77,11 @@ local function launcher_open_mode(mode)
 end
 
 local function launcher_render()
-    -- Help mode: a cheat sheet of active and reserved keybindings, wider than
-    -- the run popup.
+    -- Help mode: a cheat sheet of the active keybindings, wider than the run
+    -- popup. Reserved shortcuts are not shown here (they live in the spec).
     if launcher_mode == "help" then
         local row_h = 18
-        local lw, lh = 460, 40 + (#shortcuts_active + #shortcuts_reserved + 2) * row_h
+        local lw, lh = 460, 40 + (#shortcuts_active + 2) * row_h
         local lx = math.floor((SW - lw) / 2)
         local ly = theme.bar.height + 8 + math.max(math.floor((SH - theme.bar.height - 8 - lh) / 2), 0)
         gfx.draw_rect(lx, ly, lw, lh, theme.surface)
@@ -107,12 +92,13 @@ local function launcher_render()
         local ty = ly + 30
         for _, s in ipairs(shortcuts_active) do
             gfx.draw_text(s[1], lx + 12, ty, theme.text)
-            gfx.draw_text(s[2], lx + 200, ty, theme.text_dim)
-            ty = ty + row_h
-        end
-        for _, s in ipairs(shortcuts_reserved) do
-            gfx.draw_text(s[1], lx + 12, ty, theme.text_dim)
-            gfx.draw_text(s[2], lx + 200, ty, theme.text_dim)
+            local desc_x = lx + 200
+            gfx.draw_text(s[2], desc_x, ty, theme.text_dim)
+            -- An F-key that reaches the same action a second way (design
+            -- duality) is drawn white right after the grey description.
+            if s[3] then
+                gfx.draw_text("  " .. s[3], desc_x + s[2]:len() * 8, ty, theme.text)
+            end
             ty = ty + row_h
         end
         return
