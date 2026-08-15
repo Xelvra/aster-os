@@ -38,7 +38,7 @@ local shortcuts_active = {
     { "Super+arrows", "focus direction" },
     { "Super+Shift+arrows", "move window" },
     { "Super+1/2/3", "workspace" },
-    { "Super+S", "apps (launcher)" },
+    { "Super+S", "scratchpad (toggle app)" },
     { "Alt+Tab", "cycle windows" },
     { "F5", "hot reload" },
 }
@@ -129,6 +129,7 @@ end
 -- Launcher actions: map an app id to a shell action.
 -- ---------------------------------------------------------------------------
 local function launcher_run(id)
+    local app_win = nil
     if id == "repl" then
         local w = find_win("repl")
         if not w then
@@ -137,6 +138,7 @@ local function launcher_run(id)
             w.ws = current_ws
         end
         repl_visible = true
+        app_win = find_win("repl")
         set_focus("repl")
     elseif id == "sysmon" then
         local w = find_win("sysmon")
@@ -145,6 +147,7 @@ local function launcher_run(id)
             w = windows[#windows]
         end
         w.ws = current_ws
+        app_win = w
         set_focus("sysmon")
     elseif id == "files" then
         local w = find_win("files")
@@ -154,6 +157,7 @@ local function launcher_run(id)
             w.ws = current_ws
         end
         files_open("/")
+        app_win = find_win("files")
         set_focus("files")
     elseif id == "editor" then
         local w = find_win("editor")
@@ -165,6 +169,7 @@ local function launcher_run(id)
         -- Like Super+T: a clean buffer starts a fresh untitled document, a
         -- dirty buffer is kept so unsaved edits are never lost.
         if not ed_open or not ed_dirty then editor_load(nil) end
+        app_win = find_win("editor")
         set_focus("editor")
     elseif id == "help" then
         launcher_mode = "help"
@@ -179,6 +184,18 @@ local function launcher_run(id)
         end
     elseif id == "close" then
         if find_win(focused) then close_window(focused) end
+    end
+    -- The first Super+S asked the launcher to pick the scratchpad app: the
+    -- chosen window becomes the scratchpad (shown centered, floating, on top).
+    if scratchpad_picking and app_win then
+        scratchpad_app = app_win.title
+        scratchpad_picking = false
+        app_win.floating = true
+        app_win.w = math.floor(SW * 0.6)
+        app_win.h = math.floor((SH - theme.bar.height) * 0.6)
+        app_win.x = math.floor((SW - app_win.w) / 2)
+        app_win.y = theme.bar.height + math.floor(((SH - theme.bar.height) - app_win.h) / 2)
+        scratchpad_open = true
     end
     layout_pass()
 end

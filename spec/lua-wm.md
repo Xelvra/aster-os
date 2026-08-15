@@ -521,7 +521,7 @@ Vše v `handle_key` (`input.lua:118`). Super = `ev.super` (Hyprland konvence).
 | Super+Shift+šipky | swap s okolím v tiling pořadí | `input.lua:253` |
 | Super+1/2/3 | přepnout workspace | `input.lua:174` |
 | Super+Shift+1/2/3 | přesunout okno na workspace | `input.lua:247` |
-| Super+S | aplikace (launcher run — vyber si app) | `input.lua:227` |
+| Super+S | scratchpad (toggle vyhrazené app) | `input.lua:227` |
 | Alt+Tab | cyklovat okna workspace | `input.lua:298` |
 | F5 | hot reload (kernel, `main.zig:378`) | — |
 
@@ -947,7 +947,7 @@ Viz také `spec/invariants.md` (Safety / Performance / Architecture) a
 | D5 | Vzhled jako data (`theme`), hot reload F5 | config formát, recompile | „živá transformace", kernel se nikdy nepřestavuje (`spec/runtime.md` §5a) |
 | D6 | Myš jako stav (poll), klávesy jako eventy | myš jako eventy, klávesy jako stav | overlay potřebuje hladký pohyb bez Lua round-tripu; klávesy jsou řídké, eventy stačí (`spec/input.md` §6) |
 | D7 | Složené argumenty pointerem (extern struct) | kopie, marshalling do registry | žádná kopie velkých struktur; wire formát KI (§10) |
-| D8 | Super+S = aplikace (launcher run), Super+Alt+Space = float toggle | Super+S otevírá vyhrazený scratchpad | aplikace je častější potřeba než konkrétní scratchpad; vybrané okno se floatuje Super+Alt+Space / fullscreen Super+F/D |
+| D8 | Skutečný scratchpad (toggle vyhrazené app) | Super+S = launcher / Super+S = float toggle | scratchpad = **stavový toggle**: první Super+S vybere app (launcher), další Super+S jen show/hide to okno přes cokoli (i fullscreen/prázdný ws). Není alias Super+Space (launcher) ani Super+Alt+Space (float) — každá zkratka dělá jinou věc. |
 | D9 | Bindingy vracejí `nil, err` místo panic | pcall + log, ignore | marshalling je bezpečnostní hranice; kernel nesmí shodit skript |
 | D10 | REPL stav v globálu přeživším reload | stav v userdata kernelu | uživatelské data nepřežívají `lua_State` (invariant use-after-free); globál je čistě Lua doména |
 

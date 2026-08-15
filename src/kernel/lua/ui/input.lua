@@ -271,12 +271,42 @@ local function handle_key(ev)
             -- Toggle between side-by-side and stacked layout.
             layout_mode = (layout_mode == "splith") and "splitv" or "splith"
         elseif code == "s" then
-            -- Application picker (scratchpad convention): Super+S opens the
-            -- launcher in run mode so the user picks any application. The
-            -- chosen window can then be floated with Super+Alt+Space or
-            -- fullscreened with Super+F/D. (This mirrors Hyprland, where the
-            -- scratchpad is a quickly toggled application.)
-            launcher_open_mode("run")
+            -- Real scratchpad (Hyprland convention): Super+S toggles a
+            -- dedicated window over anything — a fullscreen window or an empty
+            -- workspace. The first Super+S picks which application becomes the
+            -- scratchpad (launcher run mode, scratchpad_picking set); afterwards
+            -- Super+S only shows/hides that window. This is a stateful toggle,
+            -- not an alias of Super+Space (launcher) or Super+Alt+Space (float).
+            if not scratchpad_app then
+                scratchpad_picking = true
+                launcher_open_mode("run")
+            elseif scratchpad_open then
+                -- Hide: park the window off-screen (workspace 0 is never shown).
+                local w = find_win(scratchpad_app)
+                if w then
+                    w.ws = 0
+                    w.floating = false
+                    w.x, w.y, w.w, w.h = 0, 0, 0, 0
+                end
+                scratchpad_open = false
+                focus_topmost(current_ws)
+            else
+                -- Show: place on the current workspace, centered, floating.
+                local w = find_win(scratchpad_app)
+                if not w then
+                    windows[#windows + 1] = window(scratchpad_app, current_ws)
+                    w = windows[#windows]
+                else
+                    w.ws = current_ws
+                end
+                w.floating = true
+                w.w = math.floor(SW * 0.6)
+                w.h = math.floor((SH - theme.bar.height) * 0.6)
+                w.x = math.floor((SW - w.w) / 2)
+                w.y = theme.bar.height + math.floor(((SH - theme.bar.height) - w.h) / 2)
+                scratchpad_open = true
+                set_focus(scratchpad_app)
+            end
         elseif ev.shift then
             -- Super+Shift+1/2/3 moves the focused window to that workspace;
             -- Super+Shift+arrows swaps it with its neighbour in the layout.
