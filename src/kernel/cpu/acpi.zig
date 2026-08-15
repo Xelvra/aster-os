@@ -105,6 +105,7 @@ fn findMadt(rsdp: *align(1) const RsdpV1, hhdm_offset: u64) MadtResult {
         const v2: *align(1) const RsdpV2 = @ptrCast(rsdp);
         const xsdt_ptr: [*]const u8 = @ptrFromInt(@as(usize, @intCast(v2.xsdt_address + hhdm_offset)));
         const header: *align(1) const AcpiHeader = @ptrCast(xsdt_ptr);
+        if (!headerLengthValid(header)) return .no_madt;
         if (!checksumOk(@as([*]const u8, @ptrCast(header))[0..header.length])) return .bad_checksum;
         const entries = @as([*]const u8, @ptrCast(header))[acpi_header_size..header.length];
         const table_count = (header.length - acpi_header_size) / @sizeOf(u64);
@@ -119,6 +120,7 @@ fn findMadt(rsdp: *align(1) const RsdpV1, hhdm_offset: u64) MadtResult {
 
     const rsdt_ptr: [*]const u8 = @ptrFromInt(@as(usize, @intCast(rsdp.rsdt_address + hhdm_offset)));
     const header: *align(1) const AcpiHeader = @ptrCast(rsdt_ptr);
+    if (!headerLengthValid(header)) return .no_madt;
     if (!checksumOk(@as([*]const u8, @ptrCast(header))[0..header.length])) return .bad_checksum;
     const entries = @as([*]const u8, @ptrCast(header))[acpi_header_size..header.length];
     const table_count = (header.length - acpi_header_size) / @sizeOf(u32);
@@ -138,21 +140,33 @@ const IoApicEntryResult = union(enum) {
 };
 
 fn ioApicAddress(madt: *align(1) const AcpiHeader) IoApicEntryResult {
+    if (!headerLengthValid(madt) or madt.length < acpi_header_size + madt_local_apic_and_flags_size) return .no_ioapic_entry;
     if (!checksumOk(@as([*]const u8, @ptrCast(madt))[0..madt.length])) return .bad_checksum;
     const entries = @as([*]const u8, @ptrCast(madt))[acpi_header_size + madt_local_apic_and_flags_size .. madt.length];
     var offset: usize = 0;
-    while (offset < entries.len) {
+    while (offset + 1 < entries.len) {
         const entry_type = entries[offset];
         const entry_length = entries[offset + 1];
         if (entry_length == 0) return .no_ioapic_entry;
         if (offset + entry_length > entries.len) return .no_ioapic_entry;
         if (entry_type == madt_io_apic_type) {
+            // An I/O APIC entry is 12 bytes (header 2 + id/reserved 2 + 8-byte
+            // address); a shorter entry cannot carry a valid address.
+            if (offset + 12 > entries.len) return .no_ioapic_entry;
             const addr: u32 = std.mem.readInt(u32, entries[offset + 4 ..][0..4], .little);
             return .{ .found = addr };
         }
         offset += entry_length;
     }
     return .no_ioapic_entry;
+}
+
+/// An ACPI table is at least its 36-byte header; nothing legitimate comes
+/// anywhere near 1 MiB. Rejecting absurd lengths stops a corrupt `length`
+/// field from walking the checksum/slices into unmapped memory (audit
+/// 2026-08-15).
+fn headerLengthValid(header: *align(1) const AcpiHeader) bool {
+    return header.length >= acpi_header_size and header.length <= 1024 * 1024;
 }
 
 fn checksumOk(bytes: []const u8) bool {

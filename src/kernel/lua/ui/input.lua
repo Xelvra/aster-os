@@ -89,9 +89,17 @@ local function handle_mouse()
 
     if left then
         if not mouse_was_down then
-            -- Find window under the cursor (topmost first).
-            for i = #windows, 1, -1 do
-                local w = windows[i]
+            -- Find the window under the cursor: the visible (highest z) window
+            -- first. The windows list is the tiling order, not the z-order
+            -- (set_focus bumps z without reordering it), so a floating window
+            -- overlapping a later tiled one would be mis-hit without the sort
+            -- (audit 2026-08-15).
+            local z_order = {}
+            for _, w in ipairs(windows) do
+                if w.ws == current_ws then z_order[#z_order + 1] = w end
+            end
+            table.sort(z_order, function(a, b) return a.z > b.z end)
+            for _, w in ipairs(z_order) do
                 if is_in_window(w) then
                     -- The close "x" is drawn only on the focused window, so it
                     -- must have been focused *before* this click: clicking the

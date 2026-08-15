@@ -11,6 +11,11 @@ const apic_eoi: u32 = 0xB0;
 const apic_svr: u32 = 0xF0;
 
 const ioapic_default_phys: u64 = 0xFEC00000;
+/// The I/O APIC MMIO window the chipset puts at 0xFEC00xxx (reserved, not
+/// RAM). A MADT-supplied address outside this window is corrupt and must not
+/// be mapped/written (audit 2026-08-15).
+const ioapic_window_start: u64 = 0xFEC00000;
+const ioapic_window_end: u64 = 0xFEC01000;
 const ioapic_regsel: u32 = 0x00;
 const ioapic_win: u32 = 0x10;
 const ioapic_redtbl: u32 = 0x10;
@@ -32,7 +37,10 @@ pub fn init(hhdm_offset: u64, ioapic_override: ?u64) void {
     apic_base = apic_phys + hhdm_offset;
 
     page_map.mapPage(apic_base, apic_phys, 0x1A);
-    const ioapic_phys = ioapic_override orelse ioapic_default_phys;
+    var ioapic_phys = ioapic_override orelse ioapic_default_phys;
+    if (ioapic_phys < ioapic_window_start or ioapic_phys >= ioapic_window_end) {
+        ioapic_phys = ioapic_default_phys;
+    }
     ioapic_base = ioapic_phys + hhdm_offset;
     page_map.mapPage(ioapic_base, ioapic_phys, 0x1A);
 

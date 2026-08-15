@@ -202,6 +202,24 @@ test "findIoApic returns no-rsdp on wrong RSDP signature" {
     try std.testing.expectEqual(acpi.IoApicResult.no_rsdp, acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset()));
 }
 
+test "findIoApic rejects a MADT with a corrupt length" {
+    var l = Layout{};
+    _ = l.writeHeader(madt_phys, "APIC", 8); // length below the 36-byte header
+    l.fixChecksum(madt_phys, 9, 8);
+    l.writeRoot(false, &.{madt_phys});
+    l.writeRsdp();
+    try std.testing.expectEqual(acpi.IoApicResult.no_ioapic_entry, acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset()));
+}
+
+test "findIoApic rejects an I/O APIC entry with a too-short length" {
+    var l = Layout{};
+    var short_entry = [_]u8{ 1, 6, 0, 0, 0, 0 }; // type 1, length 6 (< the 12-byte entry)
+    l.writeMadt(&.{&short_entry});
+    l.writeRoot(false, &.{madt_phys});
+    l.writeRsdp();
+    try std.testing.expectEqual(acpi.IoApicResult.no_ioapic_entry, acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset()));
+}
+
 test "findIoApic returns bad-checksum on bad RSDT checksum" {
     var l = Layout{};
     l.writeMadt(&.{&Layout.ioApicEntry()});
