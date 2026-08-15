@@ -83,11 +83,11 @@ local function update_editor_header()
 end
 
 function editor_load(path)
-    -- Read-only files (/wm/.theme.bak, /.repl_history) are view-only in the
-    -- files browser (Space); the editor refuses to load them so they can never
-    -- be overwritten with Ctrl+S. Checked first so a refused load leaves the
-    -- current buffer untouched.
-    if path == "/wm/.theme.bak" or path == "/.repl_history" then
+    -- Read-only files (every `*.bak` backup plus /.repl_history) are view-only
+    -- in the files browser (Space); the editor refuses to load them so they
+    -- can never be overwritten with Ctrl+S. Checked first so a refused load
+    -- leaves the current buffer untouched.
+    if path:sub(-4) == ".bak" or path == "/.repl_history" then
         wm_error("editor", path .. " is read-only (view only)")
         gfx.invalidate()
         return

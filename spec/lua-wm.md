@@ -819,8 +819,9 @@ Navigační konvence:
   Konfigurace (`/wm/theme.lua`) se
   otevírá přes **Super+Z** (settings);
   uložení configu spouští auto-reload (`spec/runtime.md` §5a, trigger 2).
-  `/wm/.theme.bak` a `/.repl_history` jsou read-only (`editor_load` je odmítne
-  načíst).
+  Každý soubor končící `.bak` (např. `/wm/.theme.bak`) a `/.repl_history` jsou
+  read-only (`editor_load` je odmítne načíst); `.bak` zálohy vznikají **jen
+  ručním Ctrl+S**, nikdy při startu ani z testů.
 - **Files browser (`files.lua`):** Up/Down = výběr, **Enter** = otevřít
   (adresář → dovnitř, soubor → **editace v editoru**),
   **Space** = rychlý náhled obsahu (read-only), **F2** = přejmenovat vybranou
@@ -830,9 +831,9 @@ Navigační konvence:
   (uvnitř `/.trash`), **Ctrl+H** = přepnout skryté (dot) soubory,
   **Shift+F4** = nový soubor (otevře editor s prázdným
   bufferem, MC konvence), **Escape** = o úroveň výš / ven z náhledu, **Super+E** =
-  otevřít v kořenu. **Read-only soubory** (`/wm/.theme.bak`, `/.repl_history`,
+  otevřít v kořenu. **Read-only soubory** (každý `*.bak`, `/.repl_history`,
   červené) se otevírají **jen Space náhledem** — Enter ani klik u nich editor
-  nespouští a F2 je odmítá přejmenovat (uložit se stejně nedají). Cesta je v **titulkové liště** okna (root = `/`);
+  nespouští a F2 je odmítá přejmenovat (uložit se stejně nedají; smazat je lze). Cesta je v **titulkové liště** okna (root = `/`);
   **klik na titulkovou lištu** jde o úroveň výš / ven z náhledu (lišta =
   ukazatel cesty). Hlavička ukazuje cestu (klávesové hinty jsou v help popupu,
   `Help F1` je v bar liště). Konvence je „Enter otevře,

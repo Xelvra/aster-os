@@ -1010,6 +1010,10 @@ fn testEditorApp() void {
         \\editor_load("/wm/theme.lua")
         \\local before = table.concat(ed_lines, "\n")
         \\editor_save()
+        \\-- Saving /wm/theme.lua backs up the previous working copy to
+        \\-- /wm/.theme.bak; the test must not leave it behind — a .bak appears
+        \\-- on the disk only after a manual Ctrl+S, never from the test suite.
+        \\file.remove("/wm/.theme.bak")
         \\local h = file.open("/wm/theme.lua")
         \\local after = file.read(h, 4096) or ""
         \\file.close(h)

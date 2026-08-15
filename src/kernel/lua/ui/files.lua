@@ -171,10 +171,12 @@ function files_up()
     files_open(parent)
 end
 
--- Files the editor refuses to overwrite (spec/runtime.md §5a): read-only.
--- Matched by name so it works wherever they live (/wm/.theme.bak, /.repl_history).
+-- Files the editor refuses to overwrite: read-only. Matched by name so it
+-- works wherever they live — every `*.bak` backup (e.g. .theme.bak, and any
+-- future api.lua.bak) plus the persistent /.repl_history. They are red in the
+-- browser, deletable, but never editable — only viewable.
 local function is_read_only(name)
-    return name == ".theme.bak" or name == ".repl_history"
+    return name:sub(-4) == ".bak" or name == ".repl_history"
 end
 
 -- System directories that must never be deleted, moved or renamed: the trash
