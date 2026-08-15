@@ -185,7 +185,7 @@ local function handle_key(ev)
     --   Super+Shift+arrows  move window (swap position)
     --   Super+1/2/3     workspace
     --   Super+Shift+1/2/3   move window to workspace
-    --   Super+S         toggle special (scratchpad)
+    --   Super+S         app picker (launcher run)
     if ev.super and ev.pressed then
         if code == "digit_1" then
             current_ws = 1
@@ -198,16 +198,13 @@ local function handle_key(ev)
             focus_topmost(3)
         elseif code == "enter" then
             -- Terminal: show the REPL on the current workspace and focus it.
-            -- The window is recreated if it was closed (Super+Q). This is a
-            -- regular terminal, not the scratchpad, so clear the scratchpad
-            -- gate (Super+S opened/parked the same REPL window).
+            -- The window is recreated if it was closed (Super+Q).
             local w = find_win("repl")
             if not w then
                 windows[#windows + 1] = window("repl", current_ws)
             else
                 w.ws = current_ws
             end
-            scratchpad_open = false
             repl_visible = true
             set_focus("repl")
         elseif code == "t" then
@@ -274,39 +271,12 @@ local function handle_key(ev)
             -- Toggle between side-by-side and stacked layout.
             layout_mode = (layout_mode == "splith") and "splitv" or "splith"
         elseif code == "s" then
-            -- Scratchpad: a window that Super+S always opens over anything —
-            -- an empty workspace or a fullscreen window (Hyprland scratchpad
-            -- convention). The REPL console is the scratchpad window. Another
-            -- Super+S closes it. Float toggle stays on Super+Alt+Space.
-            scratchpad_open = not scratchpad_open
-            if scratchpad_open then
-                local w = find_win("repl")
-                if not w then
-                    windows[#windows + 1] = window("repl", current_ws)
-                    w = windows[#windows]
-                else
-                    w.ws = current_ws
-                end
-                w.floating = true
-                w.w = math.floor(SW * 0.6)
-                w.h = math.floor((SH - theme.bar.height) * 0.6)
-                w.x = math.floor((SW - w.w) / 2)
-                w.y = theme.bar.height + math.floor(((SH - theme.bar.height) - w.h) / 2)
-                repl_visible = true
-                set_focus("repl")
-            else
-                -- Closing the scratchpad: park the REPL window off-screen
-                -- (workspace 0 is never shown), so it stops rendering without
-                -- needing a render gate. The window itself is kept so a later
-                -- Super+S reopens it in place.
-                local w = find_win("repl")
-                if w then
-                    w.ws = 0
-                    w.floating = false
-                    w.x, w.y, w.w, w.h = 0, 0, 0, 0
-                end
-                focus_topmost(current_ws)
-            end
+            -- Application picker (scratchpad convention): Super+S opens the
+            -- launcher in run mode so the user picks any application. The
+            -- chosen window can then be floated with Super+Alt+Space or
+            -- fullscreened with Super+F/D. (This mirrors Hyprland, where the
+            -- scratchpad is a quickly toggled application.)
+            launcher_open_mode("run")
         elseif ev.shift then
             -- Super+Shift+1/2/3 moves the focused window to that workspace;
             -- Super+Shift+arrows swaps it with its neighbour in the layout.

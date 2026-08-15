@@ -38,7 +38,7 @@ local shortcuts_active = {
     { "Super+arrows", "focus direction" },
     { "Super+Shift+arrows", "move window" },
     { "Super+1/2/3", "workspace" },
-    { "Super+S", "scratchpad" },
+    { "Super+S", "apps (launcher)" },
     { "Alt+Tab", "cycle windows" },
     { "F5", "hot reload" },
 }

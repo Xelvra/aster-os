@@ -114,7 +114,7 @@ Pravá část baru je dnes placeholder, ale **má správné rozložení** (widge
   ne technické omezení — hodnoty jdou kdykoli změnit v `theme.lua`.
 - Aktivní okno: **gradient border** (tyrkys→tmavě zelená).
 - Neaktivní: šedý border, opacity 0.85.
-- Float (Super+Alt+Space), drag hlavičkou, fullscreen (Super+F/D), scratchpad (Super+S).
+- Float (Super+Alt+Space), drag hlavičkou, fullscreen (Super+F/D), aplikace (Super+S).
 
 ### 4.5 Workspaces (✅ hotovo)
 - 1–3, přepínání Super+1/2/3, klik v baru.
@@ -187,7 +187,7 @@ Cíl: btop/Noctalia sysmon widget v baru + okno.
 | Super+šipky | focus směr |
 | Super+Shift+šipky / +1/2/3 | přesun okna |
 | Super+1/2/3 | workspace |
-| Super+S | scratchpad |
+| Super+S | aplikace (launcher run) |
 | Alt+Tab | cyklování oken |
 | F5 | hot reload |
 
