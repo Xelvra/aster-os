@@ -683,11 +683,9 @@ local function handle_key(ev)
                 files_rename_cancel()
             elseif code == "backspace" then
                 fs_rename_name = string.sub(fs_rename_name, 1, -2)
-                fs_error = ""
                 update_files_header()
             elseif ev.char then
                 fs_rename_name = fs_rename_name .. ev.char
-                fs_error = ""
                 update_files_header()
             end
             gfx.invalidate()

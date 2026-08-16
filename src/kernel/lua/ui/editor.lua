@@ -85,9 +85,10 @@ end
 function editor_load(path)
     -- Read-only files (every `*.bak` backup plus /.repl_history) are view-only
     -- in the files browser (Space); the editor refuses to load them so they
-    -- can never be overwritten with Ctrl+S. Checked first so a refused load
-    -- leaves the current buffer untouched.
-    if path:sub(-4) == ".bak" or path == "/.repl_history" then
+    -- can never be overwritten with Ctrl+S. Checked first (guard nil/empty —
+    -- a fresh untitled buffer) so a refused load leaves the current buffer
+    -- untouched.
+    if path ~= nil and path ~= "" and (path:sub(-4) == ".bak" or path == "/.repl_history") then
         wm_error("editor", path .. " is read-only (view only)")
         gfx.invalidate()
         return
@@ -165,9 +166,11 @@ end
 -- config is still written to the working copy (the user keeps fixing) while
 -- /wm/.theme.bak stays at the last valid (previous) version. A valid config
 -- backs up the PREVIOUS working copy to /wm/.theme.bak, then writes the new
--- version — the backup never mirrors the just-saved content. Any other path
--- is a plain rewrite; a missing file is created (ext2 create). Returns nil on
--- success or an error.
+-- version — the backup never mirrors the just-saved content. The /wm/ config
+-- files follow the same basename backup rule (ADR-025): theme.lua -> .theme.bak,
+-- api.lua -> api.bak — never "theme.lua.bak"/"api.lua.bak" concatenation. Any
+-- other path is a plain rewrite; a missing file is created (ext2 create).
+-- Returns nil on success or an error.
 local function editor_write(path, content)
     if path == "/wm/theme.lua" then
         local err = apply_theme_content(content)
@@ -204,6 +207,19 @@ local function editor_write(path, content)
         end
         return nil
     end
+    -- api.lua keeps a basename backup of its previous version on every save.
+    if path == "/wm/api.lua" then
+        local prev = read_file(path)
+        if prev ~= nil then
+            local b = file.open("/wm/api.bak")
+            if not b then b = file.create("/wm/api.bak") end
+            if b then
+                file.truncate(b, 0)
+                file.write(b, prev)
+                file.close(b)
+            end
+        end
+    end
     local h = file.open(path)
     if not h then h = file.create(path) end
     if not h then return "cannot write " .. path end
@@ -223,12 +239,28 @@ function editor_save()
         return
     end
     local err = editor_write(ed_path, table.concat(ed_lines, "\n"))
-    if err then
+    if err and ed_path ~= "/wm/theme.lua" then
+        -- The write failed outright (e.g. "cannot write /x"): keep the buffer
+        -- dirty so the changes are never lost.
         wm_error("editor", err)
-    else
-        ed_saved = table.concat(ed_lines, "\n")
-        ed_dirty = false
+        update_editor_header()
+        gfx.invalidate()
+        return
     end
+    -- /wm/theme.lua is always written to disk, even when the config is invalid
+    -- (the error is only a validation warning — the previous look stays and
+    -- the user keeps fixing the working copy). The on-disk copy matches the
+    -- buffer now, so the buffer must not stay dirty: a dirty buffer would
+    -- block Super+T and any files-edit forever (the editor could never escape
+    -- an unsavable theme).
+    if err then wm_error("editor", err) end
+    ed_saved = table.concat(ed_lines, "\n")
+    ed_dirty = false
+    -- The file (or its *.bak backup) just landed on disk; refresh the file
+    -- browser immediately so a new entry shows up without re-navigating
+    -- (files_refresh keeps the selection and is a no-op when the files window
+    -- is not showing the affected directory).
+    files_refresh()
     update_editor_header()
     gfx.invalidate()
 end
@@ -257,11 +289,14 @@ function editor_saveas_commit()
         return
     end
     local err = editor_write(path, table.concat(ed_lines, "\n"))
-    if err then
+    if err and path ~= "/wm/theme.lua" then
         wm_error("editor", err)
         gfx.invalidate()
         return
     end
+    -- /wm/theme.lua is written even when the config is invalid (validation
+    -- warning only); the buffer adopts the path and is no longer dirty.
+    if err then wm_error("editor", err) end
     -- The new file lands on disk; make it appear in the file browser right
     -- away if it is showing the directory (files_refresh keeps the selection).
     files_refresh()

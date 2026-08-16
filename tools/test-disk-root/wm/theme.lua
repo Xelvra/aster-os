@@ -37,6 +37,7 @@ theme = {
     accent_dark = 0x007D6F,
     inactive   = 0x798BB2,
     red        = 0xFF6B6B, -- read-only files (files browser), error
+    trash      = 0x4A90D9, -- the /.trash directory and its contents (files browser)
 
     wm = {
         gap_out = 0,

@@ -13,7 +13,6 @@ fs_view_row = fs_view_row or 1
 fs_view_col = fs_view_col or 0
 fs_view_scroll = fs_view_scroll or 0
 fs_view_scroll_col = fs_view_scroll_col or 0
-fs_error = fs_error or ""
 fs_renaming = fs_renaming or false
 fs_rename_orig = fs_rename_orig or ""
 fs_rename_name = fs_rename_name or ""
@@ -86,12 +85,11 @@ function files_open(path)
     local entries = load_listing(fs_path)
     if not entries then
         fs_entries = {}
-        fs_error = "cannot read " .. fs_path
+        wm_error("files", "cannot read " .. fs_path)
         update_files_header()
         gfx.invalidate()
         return
     end
-    fs_error = ""
     fs_entries = entries
     update_files_header()
     gfx.invalidate()
@@ -108,7 +106,6 @@ function files_refresh()
     local entries = load_listing(fs_path)
     if not entries then return end
     local was_idx = fs_sel
-    fs_error = ""
     fs_entries = entries
     fs_sel = math.max(1, math.min(was_idx, #fs_entries))
     update_files_header()
@@ -119,7 +116,7 @@ function files_view(name)
     local full = join_path(fs_path, name)
     local h = file.open(full)
     if not h then
-        fs_error = "cannot open " .. name
+        wm_error("files", "cannot open " .. name)
         gfx.invalidate()
         return
     end
@@ -137,7 +134,6 @@ function files_view(name)
     fs_view_col = 0
     fs_view_scroll = 0
     fs_view_scroll_col = 0
-    fs_error = ""
     update_files_header()
     gfx.invalidate()
 end
@@ -172,9 +168,10 @@ function files_up()
 end
 
 -- Files the editor refuses to overwrite: read-only. Matched by name so it
--- works wherever they live — every `*.bak` backup (e.g. .theme.bak, and any
--- future api.lua.bak) plus the persistent /.repl_history. They are red in the
--- browser, deletable, but never editable — only viewable.
+-- works wherever they live — every `*.bak` backup (basename + .bak, e.g.
+-- .theme.bak and api.bak — never "theme.lua.bak"/"api.lua.bak", ADR-025) plus
+-- the persistent /.repl_history. They are red in the browser, deletable, but
+-- never editable — only viewable.
 local function is_read_only(name)
     return name:sub(-4) == ".bak" or name == ".repl_history"
 end
@@ -194,7 +191,7 @@ end
 -- are used, so any file can be moved/removed freely.
 function files_remove(name)
     if is_protected(name) then
-        fs_error = name .. " is protected"
+        wm_error("files", name .. " is protected")
         gfx.invalidate()
         return
     end
@@ -205,13 +202,13 @@ function files_remove(name)
     else
         removed = file.rename(full, "/.trash/" .. name)
         if not removed then
-            fs_error = "cannot move " .. name .. " to trash (name in use?)"
+            wm_error("files", "cannot move " .. name .. " to trash (name in use?)")
             gfx.invalidate()
             return
         end
     end
     if not removed then
-        fs_error = "cannot delete " .. name
+        wm_error("files", "cannot delete " .. name)
         gfx.invalidate()
         return
     end
@@ -245,12 +242,12 @@ function files_rename_start()
     local e = fs_entries[fs_sel]
     if not e then return end
     if is_protected(e.name) then
-        fs_error = e.name .. " is protected"
+        wm_error("files", e.name .. " is protected")
         gfx.invalidate()
         return
     end
     if is_read_only(e.name) then
-        fs_error = e.name .. " is read-only (view with Space)"
+        wm_error("files", e.name .. " is read-only (view with Space)")
         gfx.invalidate()
         return
     end
@@ -274,12 +271,12 @@ function files_rename_commit()
     local name = fs_rename_name
     local orig = fs_rename_orig
     if name == "" then
-        fs_error = "name cannot be empty"
+        wm_error("files", "name cannot be empty")
         gfx.invalidate()
         return
     end
     if name == "." or name == ".." or name:find("/") then
-        fs_error = "invalid name"
+        wm_error("files", "invalid name")
         gfx.invalidate()
         return
     end
@@ -290,7 +287,7 @@ function files_rename_commit()
         return
     end
     if not file.rename(join_path(fs_path, orig), join_path(fs_path, name)) then
-        fs_error = "cannot rename " .. orig .. " (name already in use?)"
+        wm_error("files", "cannot rename " .. orig .. " (name already in use?)")
         gfx.invalidate()
         return
     end
@@ -326,10 +323,6 @@ local function files_render()
     local ty = w.y + theme.wm.border + theme.wm.title_h + 6
     local rows = math.floor((w.h - theme.wm.title_h - 12) / fs_row_h)
     if rows < 1 then rows = 1 end
-    if fs_error ~= "" then
-        gfx.draw_text(fs_error, tx, ty, theme.accent)
-        return
-    end
     if fs_viewing then
         -- The full path + cancel hint live in the window title bar (header);
         -- the content area is pure file content with a hollow cursor marking
