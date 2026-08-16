@@ -53,9 +53,12 @@ end
 
 local function next_cp(s, pos)
     -- pos is a byte offset (0..len); return the offset just after the code
-    -- point that starts at pos+1.
+    -- point that starts at pos+1. cp_end returns the 1-based position after
+    -- the code point, so it maps to the next 0-based offset as (cp_end - 1);
+    -- returning it raw would step two code points for every one on ASCII
+    -- (off-by-one: cursor, slices and wrapping all fell behind the text).
     if pos >= #s then return pos end
-    return cp_end(s, pos + 1)
+    return cp_end(s, pos + 1) - 1
 end
 local function add_line(s)
     table.insert(lines, s)
