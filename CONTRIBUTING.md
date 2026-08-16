@@ -43,6 +43,7 @@ Run the pipeline in order; on the first failure, fix and restart from step 1:
 zig fmt --check .
 zig build
 zig build test
+zig build shell-test
 ./tools/qemu-smoke.sh
 ./tools/qemu-test.sh
 ./tools/verify-reproducible.sh

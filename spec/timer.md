@@ -98,8 +98,10 @@ wait by zastavil celý systém (klávesnice, rendering). Proto:
 - Tick handler zůstává **krátký a alokačně čistý**: jen atomická aktualizace + signál
   scheduleru. Veškerá plánovací logika běží mimo IRQ kontext.
 - Kooperativní `sleepMs` z §3 se v M7 transformuje na blokující sleep **úkolu**
-  (jádro přepne na jiný úkol do deadline) — volající sémantika se nemění
-  (`time.sleep_ms(ms)` z Lua funguje stejně).
+  (jádro přepne na jiný úkol do deadline). Stav dnes: `time` tabulka v Lua vystavuje
+  **jen `ticks`** — Lua binding `sleep_ms` zatím neexistuje; KI sub-op `sleep_ms` je
+  rezervovaný (vrací `NotSupported`) a blokující sleep je k dispozici jen kernel
+  taskům přes `sched.sleepMs`. Do plné M7 zbývá napojení na `Runtime.spawn`.
 
 ### 5.1 Implementovaný stav (2026-08-12)
 

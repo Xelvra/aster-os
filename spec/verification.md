@@ -183,13 +183,14 @@ zig build test
 Klon se dělá z pracovní kopie na disku, ne přes síť — testuje se, že repozitář sám je
 úplný (smazat a naklonovat znovu), ne síťová dostupnost GitHubu.
 
-### Ověřeno (2026-08-15)
+### Ověřeno (2026-08-16)
 
 | Kontrola | Výsledek |
 |---|---|
 | `zig fmt --check .` | ✅ OK |
 | `zig build` | ✅ OK |
-| `zig build test` | ✅ 132/132 |
+| `zig build test` | ✅ 145/145 |
+| `zig build shell-test` | ✅ 12/12 (Lua shell regrese) |
 | `./tools/qemu-smoke.sh` | ✅ PASS |
 | `./tools/capture-boot.sh --check` | ✅ OK |
 | `./tools/sync-docs.sh --check` | ✅ OK |

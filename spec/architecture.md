@@ -1,7 +1,7 @@
 # Aster OS — Architektonický přehled
 
-**Verze:** 1.1 (draft)
-**Status:** Current design — Schváleno k implementaci (Milníky M0–M6; M7 Runtime rozpracovaný)
+**Verze:** 1.2 (draft)
+**Status:** Current design — Schváleno k implementaci (M0–M6 hotovo; M7 Runtime rozpracovaný — scheduler, editor/files, koš, zálohy `.lua`, historie REPL)
 
 > Tento dokument je **hlavním architektonickým přehledem** projektu. Zachycuje aktuální
 > návrh a jeho rozhodnutí. Slouží jako referenční bod pro konzultaci návrhu architektury a
@@ -220,8 +220,9 @@ aby pozdější konsultace návrhu měla k dispozici *proč*, ne jen *co*.
 | [020](adr/020-future-extensibility.md) | Rozšiřitelnost: nové features jako nové KI moduly na konec | Accepted |
 | [021](adr/021-extended-rendering-primitives.md) | Rozšířená renderovací primitiva pro UI (roundRect, border, gradient) | Accepted |
 | [022](adr/022-network.md) | Síť jako KI modul `net.*` — minimální stack (virtio-net, ARP/IPv4/ICMP/UDP), M9 | Accepted |
-| [023](adr/023-filesystem-ext2-non-posix.md) | Persistence: ext2 backend (read-only), non-POSIX sémantika, tenké rozhraní | Accepted |
+| [023](adr/023-filesystem-ext2-non-posix.md) | Persistence: ext2 backend, non-POSIX sémantika, tenké rozhraní | Accepted |
 | [024](adr/024-keyboard-layout-registry.md) | Multi-layout klávesnice: KL registry + přepínání za běhu (`input.set_layout`) | Accepted |
+| [025](adr/025-lua-shell-from-disk.md) | Lua shell z disku do `/wm/` s initrd fallbackem (Úroveň 2) | Accepted |
 
 **Pravidla ADR:** rozhodnutí se nemění dodatečně — změna názoru = nový ADR odkazující na
 starý. Čísla se nepřehazují a nemazají.
@@ -271,7 +272,7 @@ aster-os/
 │   ├── manifest.md
 │   ├── non-goals.md              # co systém vědomě nedělá
 │   ├── code-style.md             # filozofie a pravidla kódu
-│   ├── adr/                      # architektonická rozhodnutí (ADR-001..024)
+│   ├── adr/                      # architektonická rozhodnutí (ADR-001..025)
 │   ├── kernel-interface.md       # KI: sys.dispatch + interface moduly
 │   ├── graphics.md               # Graphics API → Renderer → Framebuffer
 │   ├── desktop-ui.md            # desktop UI port (bar, launcher, okna, widgety)
@@ -284,24 +285,35 @@ aster-os/
 │   ├── roadmap.md                # M0–M8 + kvalitní metriky
 │   ├── verification.md           # verifikační pipeline + deterministický build
 │   ├── debugging.md              # Debugging Survival Guide (GDB, serial dump)
-│   ├── troubleshooting.md        # vyřešené pasti a lekce (C1..C27, H1..H2)
+│   ├── troubleshooting.md        # vyřešené pasti a lekce (C1..C43, H1..H7)
+│   ├── audit-2026-08-15.md       # kompletní repo audit
 │   ├── handoff.md                # postup pro nevyřešené problémy
 │   └── handoffs/                 # handoff dokumenty (open/closed)
 ├── src/
-│   ├── kernel/                   # boot, mem/pfa+heap, cpu/idt+timer, drivers/ps2,
-│   │   │                         # fb/framebuffer, render/renderer+font+text, api/,
-│   │   │                         # time.zig (monotónní tick), lua/ (Lua 5.4 binding +
-│   │   │                         # ui/ shell moduly), sys/
-│   └── kernel/lua/ui/            # desktop shell v Luay: theme, wm, repl, launcher,
-│                                 # input, main (concatenované do jednoho chunku)
+│   ├── kernel/                   # boot/, cpu/ (idt, apic, timer), mem/ (pfa, heap,
+│   │   │                         # page_map), drivers/ (ps2, virtio-blk, block),
+│   │   │                         # fb/ (framebuffer), render/ (renderer, font,
+│   │   │                         # mouse_cursor), input/ (service, layout, queue),
+│   │   │                         # fs/ (gpt, ext2, file, tar), sched/ (task, sync),
+│   │   │                         # serial/, lua/ (Lua 5.4 binding + ui/ shell moduly),
+│   │   │                         # api/ (KI dispatch), sys/ (syscalls)
+│   └── kernel/lua/ui/            # desktop shell v Luay: theme, wm, repl, editor,
+│                                 # files, launcher, input, main (concatenované)
 ├── libs/
 │   ├── limine/                   # vendored bootloader + hlavičky
 │   └── lua-5.4/                  # vendored Lua 5.4 zdroj
-├── tests/                        # host unit testy (PFA, font blit, binding marshalling)
+├── tests/                        # host unit testy (pfa, heap, graphics, input, fs,
+│                                 # cpu, queue, libc) + tests/lua/ shell regrese
 ├── tools/
 │   ├── qemu-smoke.sh             # serial marker + timeout
+│   ├── qemu-test.sh              # in-QEMU runtime testy (isa-debug-exit 99)
+│   ├── capture-boot.sh           # regenerace boot-log.md
+│   ├── sync-docs.sh              # EN web vs spec timestamp brána
+│   ├── make-test-disk.sh         # deterministický ext2 test disk
+│   ├── lua-shell-test.sh         # host běh tests/lua shell regresí
+│   ├── install-hooks.sh          # pre-push hooky
 │   └── bench.sh                  # měření metrik
-└── images/                       # generované ISO / disk image
+└── zig-out/                      # výstup: aster.iso, boot/ (fixní cesta)
 ```
 
 ---
