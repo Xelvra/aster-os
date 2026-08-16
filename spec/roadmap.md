@@ -186,9 +186,13 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
       programovat redirection table (IRQ1 → vektor 0x21, BSP). Adresa I/O APIC se od
       revision 2026-08-11 čte z **MADT** (`src/kernel/cpu/acpi.zig`: RSDP od Limine →
       RSDT/XSDT → MADT); `0xFEC00000` je fallback default. **Dluh do M7 (SMP):**
-      zapnutí **AP jader** (skutečné multiprocesorové běh) — MADT parsing (LAPIC ID,
-      ISA IRQ→GSI overrides, NMI detekce) je **hotový** (M7, 2026-08-16); zůstává jen
-      přivedení dalších jader do běhu. Viz `spec/non-goals.md`.
+      zapnutí **AP jader** — **hotovo (2026-08-16):** MADT parsing (LAPIC ID, ISA
+      IRQ→GSI overrides, NMI detekce), IPI vrstva (INIT assert+deassert, SIPI,
+      `io.writeMsr`) a vlastní trampolina `smp_tramp.s` + orchestrátor `smp.zig`
+      probudí AP přes INIT-SIPI-SIPI; AP načte sdílenou IDT, zapne vlastní LAPIC
+      a idluje (scheduler zůstává BSP-only). Boot log `smp: 1 ap` s QEMU `-smp 2`,
+      runtime test „SMP AP bring-up" PASS. Lekce C48/C49, handoff H5 closed.
+      Viz `spec/non-goals.md`.
 - [x] **Fault policy:** defaultní IDT handlers pro double fault / GPF / page fault —
       výpis stavu na serial a halt (ne reset, ne tiché pokračování). Detail
       `spec/invariants.md` §1 (Safety).
@@ -378,6 +382,11 @@ binding marshallingu zelené.
       odložen (2026-08-09):** v alfě bez konzumenta nedává smysl; workflow zůstává
       připravený a spustí se tagem, až bude reálná poptávka (ukázka, milestone, M10).
 - [ ] **M6.1.12 CI na Windows/macOS:** Zig je multiplatformní, build.zig by měl běžet.
+      **Částečně (2026-08-16):** CI cache (`.zig-cache` + `~/.cache/zig` přes
+      `actions/cache`) a `concurrency: cancel-in-progress` — push se buildí
+      inkrementálně místo hodinové studené Debug kompilace (root cause hodinového
+      CI: nekonečná smyčka v MADT parseru + žádná cache, C49); **Windows/macOS
+      build matrix** (fmt + build + host testy) zůstává otevřený.
 
 ```text
 GPT disk image → GPT → ext2 partition → Aster FS backend → open/read/close → runtime

@@ -80,7 +80,13 @@ smp_lm64:
   movq smp_stack_top(%rip), %rsp
   xorl %ebp, %ebp
   movq smp_high64(%rip), %rax
-  jmpq *%rax
+  /* Far-return into the kernel with the kernel CS (0x28), same as the BSP:
+     a far return pops RIP, CS and RFLAGS, so RFLAGS must be pushed first.
+     `jmpq *%rax` would leave CS at the trampoline selector 0x18. */
+  pushfq
+  pushq $0x28
+  pushq %rax
+  lretq
 
 /* ---- GDT ---------------------------------------------------------------- */
   .p2align 3
@@ -93,8 +99,9 @@ smp_gdt:
   .quad 0x00AF9A000000FFFF /* 0x28 64-bit code (kernel CS, like the BSP) */
   .quad 0x00AF92000000FFFF /* 0x30 64-bit data (kernel SS/DS) */
   .quad 0x0000000000000000 /* 0x38 padding */
+smp_gdt_last:
 smp_gdt_ptr:
-  .word smp_gdt_end - smp_gdt - 1
+  .word smp_gdt_last - smp_gdt - 1
   .long tramp_base + (smp_gdt - smp_trampoline_start)
 smp_gdt_end:
 
