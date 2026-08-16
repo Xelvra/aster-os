@@ -57,14 +57,45 @@ pub const Renderer = struct {
     pub fn drawText(self: *const Renderer, text: []const u8, x: i32, y: i32, color: Color) void {
         const pixel = self.fb.pixelColor(color);
         var cursor_x = x;
-        for (text) |c| {
-            const pixels = font.glyph(c);
+        var i: usize = 0;
+        while (i < text.len) {
+            // Decode code points: a multi-byte character renders as ONE glyph
+            // (the font's fallback for non-ASCII) instead of drawing each
+            // byte as separate noise glyphs (audit 2026-08-15). The font is
+            // monospace 8px, so every code point advances the cursor the same
+            // distance the Lua side assumes (cp_count * glyph_w).
+            const cp = nextCodePoint(text, i);
+            const pixels = font.glyph(cp.cp);
             for (0..font.glyph_height) |row| {
                 const bits = pixels[row];
                 if (bits == 0) continue;
                 self.fb.drawGlyphRow(cursor_x, y + @as(i32, @intCast(row)), bits, pixel);
             }
             cursor_x += font.glyph_width;
+            i += cp.len;
         }
     }
 };
+
+/// The next UTF-8 code point in `text` starting at byte offset `i` (which must
+/// be < text.len), with its byte length. Malformed or truncated sequences
+/// decode as U+FFFD so they render as the font's fallback glyph ('?') instead
+/// of per-byte noise.
+fn nextCodePoint(text: []const u8, i: usize) struct { cp: u32, len: usize } {
+    const b0 = text[i];
+    if (b0 < 0x80) return .{ .cp = b0, .len = 1 };
+    const extra: usize = if (b0 >= 0xF0) 3 else if (b0 >= 0xE0) 2 else if (b0 >= 0xC0) 1 else 0;
+    if (extra == 0 or i + extra >= text.len) return .{ .cp = 0xFFFD, .len = 1 };
+    var cp: u32 = switch (extra) {
+        3 => b0 & 0x07,
+        2 => b0 & 0x0F,
+        1 => b0 & 0x1F,
+        else => unreachable,
+    };
+    for (1..extra + 1) |k| {
+        const bk = text[i + k];
+        if (bk & 0xC0 != 0x80) return .{ .cp = 0xFFFD, .len = k };
+        cp = (cp << 6) | (bk & 0x3F);
+    }
+    return .{ .cp = cp, .len = extra + 1 };
+}

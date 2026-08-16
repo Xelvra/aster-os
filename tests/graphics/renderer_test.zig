@@ -81,6 +81,45 @@ test "drawText writes sequential glyphs" {
     try std.testing.expect(drawn > 0);
 }
 
+fn memoryEqual(a: *const Context, b: *const Context) bool {
+    return std.mem.eql(u8, &a.memory, &b.memory);
+}
+
+test "drawText renders a multi-byte UTF-8 char as one fallback glyph, not byte noise" {
+    // Audit 2026-08-15: drawText used to iterate bytes, so 'ž' (2 bytes)
+    // drew two garbage glyphs. A multi-byte code point must decode to a
+    // single glyph — the ASCII font's fallback '?' for non-ASCII — and the
+    // following character must land right after it (monospace 8px advance).
+    var ctx: Context = undefined;
+    initCtx(&ctx);
+    ctx.renderer.drawText("ž", 0, 0, 0xFFFFFF);
+
+    var ref: Context = undefined;
+    initCtx(&ref);
+    ref.renderer.drawText("?", 0, 0, 0xFFFFFF);
+    try std.testing.expect(memoryEqual(&ctx, &ref));
+
+    // Mixed text: "ažb" == "a?b", byte for byte.
+    initCtx(&ctx);
+    ctx.renderer.drawText("ažb", 0, 0, 0xFFFFFF);
+    initCtx(&ref);
+    ref.renderer.drawText("a?b", 0, 0, 0xFFFFFF);
+    try std.testing.expect(memoryEqual(&ctx, &ref));
+}
+
+test "drawText decodes a malformed UTF-8 byte as a single fallback glyph" {
+    var ctx: Context = undefined;
+    initCtx(&ctx);
+    // A lone continuation byte (0x80) and an unterminated lead (0xC4 at the
+    // end) must not draw per-byte noise — each becomes one fallback glyph.
+    ctx.renderer.drawText(&.{ 0x41, 0x80, 0x42, 0xC4 }, 0, 0, 0xFFFFFF);
+
+    var ref: Context = undefined;
+    initCtx(&ref);
+    ref.renderer.drawText("A?B?", 0, 0, 0xFFFFFF);
+    try std.testing.expect(memoryEqual(&ctx, &ref));
+}
+
 test "roundRect fills interior and rounds corners" {
     var ctx: Context = undefined;
     initCtx(&ctx);
