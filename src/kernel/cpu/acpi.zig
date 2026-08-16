@@ -19,6 +19,13 @@ pub const IrqOverride = struct {
 
 pub const max_irq_overrides = 16;
 
+/// The I/O APIC redirection table (IOREDTBL[gsi]) index range. Real chipsets
+/// expose at most 255 redirection entries (the entry count is an 8-bit field)
+/// and ISA IRQ overrides always reference low GSIs, so anything larger is
+/// corrupt MADT data: accepting it would let `gsi * 2` overflow u32 in
+/// ReleaseSafe and panic at boot.
+pub const max_gsi = 255;
+
 /// Everything the kernel needs from the MADT (the M2 SMP debt): the I/O APIC
 /// address (already used), the BSP Local APIC ID, the ISA IRQ -> GSI overrides
 /// and whether any Local APIC NMI source is configured.
@@ -105,10 +112,16 @@ fn madtInfo(madt: *align(1) const AcpiHeader) MadtInfoResult {
             madt_irq_override_type => {
                 // type(1) length(1) bus(1)=ISA source(1)=ISA IRQ gsi(4) flags(2).
                 if (entry.len < 10) continue;
+                const gsi = std.mem.readInt(u32, entry[4..8], .little);
+                // A GSI outside the I/O APIC redirection table range is corrupt
+                // firmware data: skip the override so `gsiFor` falls back to
+                // the raw ISA IRQ number instead of panicking on `gsi * 2`
+                // later.
+                if (gsi > max_gsi) continue;
                 if (result.irq_override_count < max_irq_overrides) {
                     result.irq_overrides[result.irq_override_count] = .{
                         .isa_irq = entry[3],
-                        .gsi = std.mem.readInt(u32, entry[4..8], .little),
+                        .gsi = gsi,
                         .flags = std.mem.readInt(u16, entry[8..10], .little),
                     };
                     result.irq_override_count += 1;

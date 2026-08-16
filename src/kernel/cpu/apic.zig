@@ -1,3 +1,4 @@
+const std = @import("std");
 const io = @import("io.zig");
 const idt = @import("idt.zig");
 const page_map = @import("../mem/page_map.zig");
@@ -74,7 +75,11 @@ fn gsiFor(isa_irq: u8) u32 {
 
 pub fn enableIsaIrq(isa_irq: u8, vector: u8) void {
     const gsi = gsiFor(isa_irq);
-    const reg_lo = ioapic_redtbl + gsi * 2;
+    // gsi is bounded by acpi.max_gsi at parse time; keep checked arithmetic
+    // here anyway so a corrupt value that ever slips through degrades to the
+    // raw ISA IRQ number instead of an overflow panic in ReleaseSafe.
+    const gsi2 = std.math.mul(u32, gsi, 2) catch @as(u32, isa_irq);
+    const reg_lo = std.math.add(u32, ioapic_redtbl, gsi2) catch @as(u32, isa_irq);
     const reg_hi = reg_lo + 1;
     ioapicWrite(reg_hi, 0);
     ioapicWrite(reg_lo, @as(u32, vector) & ~ioapic_lo_masked);
