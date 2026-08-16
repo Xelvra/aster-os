@@ -227,8 +227,9 @@ Jediný modul bez závislostí. Definuje globální tabulku `theme` (viz `theme.
 > initrd default, ADR-025; uživatelská dokumentace je root `/README`). Shell moduly
 > (kód WM) zůstávají v initrd
 > (Úroveň 1); přesun do `/wm/` je plánovaná Úroveň 2 (§3.1). Zálohy se pojmenovávají
-> podle basename — `theme.lua → .theme.bak`, `api.lua → .api.bak`, nikdy
-> `theme.lua.bak`/`api.lua.bak` (ADR-025).
+> podle basename pravidla — **každý `.lua` soubor má při uložení skrytou zálohu
+> předchozí verze** (`theme.lua → .theme.bak`, `api.lua → .api.bak`,
+> `test.lua → .test.bak`), nikdy `theme.lua.bak`/`api.lua.bak` (ADR-025).
 
 ```lua
 theme = {
@@ -822,8 +823,17 @@ Navigační konvence:
   Konfigurace (`/wm/theme.lua`) se
   otevírá přes **Super+Z** (settings);
   uložení configu spouští auto-reload (`spec/runtime.md` §5a, trigger 2).
-  Každý soubor končící `.bak` (např. `/wm/.theme.bak`) a `/.repl_history` jsou
-  read-only (`editor_load` je odmítne načíst); `.bak` zálohy vznikají **jen
+  **Read-only soubory** — každý soubor končící `.bak` (např. `/wm/.theme.bak`)
+  a `/.repl_history` — editor odmítne načíst (`editor_load`), prohlíží se jen
+  Spacem ve files browseru a kreslí se červeně. Důvod je u obou jiný: `.bak`
+  zálohy jsou **ruční záchrana posledního Ctrl+S** — kdyby je editor mohl
+  Ctrl+S přepsat, přestaly by být zálohou; obnovení předchozí verze = přejmenovat
+  `.bak` zpět na working copy. `/.repl_history` je **runtime stav vlastněný
+  shellem** — REPL ho po každém Enter truncate+kompletně přepíše z paměťové
+  historie, takže ruční editace by příští Enter tiše smazal (editace by byla
+  iluzí); zdroj pravdy pro běžící session je paměťová `history` tabulka.
+  Žádné vlastnictví ani práva souborů zatím neexistují — read-only je
+  **hardcoded pravidlo**, ne atribut souboru. `.bak` zálohy vznikají **jen
   ručním Ctrl+S**, nikdy při startu ani z testů.
 - **Files browser (`files.lua`):** Up/Down = výběr, **Enter** = otevřít
   (adresář → dovnitř, soubor → **editace v editoru**),

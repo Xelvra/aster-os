@@ -169,7 +169,8 @@ end
 
 -- Files the editor refuses to overwrite: read-only. Matched by name so it
 -- works wherever they live — every `*.bak` backup (basename + .bak, e.g.
--- .theme.bak and .api.bak — never "theme.lua.bak"/"api.lua.bak", ADR-025) plus
+-- .theme.bak and .api.bak from theme.lua/api.lua, .test.bak from test.lua —
+-- never "theme.lua.bak"/"api.lua.bak", ADR-025) plus
 -- the persistent /.repl_history. They are red in the browser, deletable, but
 -- never editable — only viewable.
 local function is_read_only(name)

@@ -30,11 +30,19 @@ automatickým hot reloadem — ne jen `theme.lua` jako dnes (Úroveň 1).
   základ**: disk ho jen přepisuje per-modul a každý rozbitý/chybějící modul se
   vrací na initrd default.
 - **`.bak` jako ruční záchrana, ne fallback.** Záloha posledního Ctrl+S
-  (`.theme.bak`, `.api.bak`) slouží uživateli k obnovení předchozího stavu
-  ručně — nikdy se automaticky nenačítá, takže nemůže zamaskovat chybu nebo
+  (`.theme.bak`, `.api.bak`, obecně **každý `.lua` soubor → `.basename.bak`**)
+  slouží uživateli k obnovení předchozího stavu ručně — nikdy se automaticky
+  nenačítá, takže nemůže zamaskovat chybu nebo
   reprodukovat chybný stav v kruhu (chyba → záloha → chyba → ...). Uživatel
   vždy vidí v REPL, že systém běží na init defaultu, a ví, že musí opravit
   svůj Lua soubor.
+- **Read-only je hardcoded, ne práva.** Systém nemá vlastnictví ani práva
+  souborů; „read-only" je pravidlo v `files.lua`/`editor.lua` (`.bak` přípona,
+  `/.repl_history`). Důvody: `.bak` = ruční záchrana, kterou editor nesmí
+  Ctrl+S přepsat (jinak by přestala být zálohou; obnovení = přejmenovat zpět
+  na working copy). `/.repl_history` = runtime stav vlastněný shellem — REPL ho
+  po každém Enter kompletně přepíše z paměťové historie, ruční editace by se
+  tiše ztratila a klamala uživatele.
 
 ## Důsledky
 
@@ -59,9 +67,10 @@ automatickým hot reloadem — ne jen `theme.lua` jako dnes (Úroveň 1).
   nemaže** uživatelské Lua soubory — jen kontroluje přítomnost a chybějící
   doplní z init.
 - **`.bak` soubory se nikdy nenačítají.** Jsou read-only pro editor, slouží jen
-  jako ruční záloha posledního Ctrl+S (`.theme.bak` z `theme.lua`, `.api.bak`
-  z `api.lua`). Uživatel, který chce vrátit předchozí stav, si obsah otevře
-  Spacem a ručně ho vrátí do working copy.
+  jako ruční záloha posledního Ctrl+S — **každý `.lua` soubor** má zálohu
+  předchozí verze vedle working copy (`.theme.bak` z `theme.lua`, `.api.bak`
+  z `api.lua`, `.test.bak` z `test.lua`). Uživatel, který chce vrátit předchozí
+  stav, si obsah otevře Spacem a ručně ho vrátí do working copy.
 - Fallback **nevypíná** uživatelskou úpravu: rozbitý soubor se na disku
   ponechá editovatelný, systém běží na initrd verzi, dokud uživatel neuloží
   platnou.

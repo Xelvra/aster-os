@@ -267,7 +267,22 @@ Chybný config **nesmí shodit shell ani nechat polorozkreslený vzhled**:
   tečka) se ve files browseru kreslí šedivě — **read-only soubory** (`/wm/.theme.bak`,
   `.repl_history`) červeně (`theme.red`). **Delete guard neexistuje** — smazání
   `/wm/theme.lua` i `/wm/.theme.bak` je bezpečné: `apply_disk_theme()` najde `nil` a použijí
-  se vestavěné defaulty z initrd, takže prostředí se nikdy nerozbije.
+   se vestavěné defaulty z initrd, takže prostředí se nikdy nerozbije.
+- **Záloha každého `.lua` souboru (basename pravidlo, ADR-025):** `editor_write`
+  uloží při Ctrl+S **každému** souboru s příponou `.lua` (kromě `/wm/theme.lua`,
+  který má vlastní validační větev) skrytou zálohu **předchozí** verze vedle
+  working copy: `theme.lua → .theme.bak`, `api.lua → .api.bak`,
+  `test.lua → .test.bak` (záloha nikdy nezrcadlí právě uložený obsah). Lua soubory
+  jsou nejcennější uživatelská práce (config, skripty), proto mají ochranu;
+  ostatní typy souborů se zapisují jako plain rewrite. Čerstvě vytvořený soubor
+  (save-as) nemá předchozí verzi → záloha nevzniká.
+- **Proč je read-only hardcoded:** systém zatím nemá vlastnictví ani práva souborů —
+  read-only je pravidlo v `files.lua`/`editor.lua` (shoda na `.bak` příponu resp.
+  `/.repl_history`), ne atribut souboru. Důvod se liší per typ: `.bak` je **ruční
+  záchrana** (obnovení = přejmenovat zpět na working copy; kdyby editor mohl zálohu
+  Ctrl+S přepsat, přestala by být zálohou), `/.repl_history` je **runtime stav
+  vlastněný shellem** (REPL ho po každém Enter přepíše z paměti — ruční editace by
+  byla tiše ztracena a klamala uživatele).
 - Diskový `/wm/.theme.bak` musí existovat v image; `make-test-disk.sh` ho vkládá
   z `tools/test-disk-root/wm/.theme.bak` (editor ho přepisuje jen předchozí working
   copy po validním save `/wm/theme.lua`).

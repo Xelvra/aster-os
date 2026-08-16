@@ -162,15 +162,28 @@ function editor_load_safe(path)
     return true
 end
 
+-- Basename backup path for a .lua file (ADR-025): theme.lua -> .theme.bak,
+-- api.lua -> .api.bak, test.lua -> .test.bak — never "test.lua.bak"
+-- concatenation. The backup lives next to the working copy as a hidden file.
+local function lua_backup_path(path)
+    local dir, name = path:match("^(.*)/([^/]+)$")
+    if not dir then
+        dir, name = "", path
+    end
+    local stem = name:sub(1, -5) -- strip the ".lua" suffix
+    if dir == "" then return "/." .. stem .. ".bak" end
+    return dir .. "/." .. stem .. ".bak"
+end
+
 -- Persist `content` to `path`. /wm/theme.lua is validated live; a broken
 -- config is still written to the working copy (the user keeps fixing) while
 -- /wm/.theme.bak stays at the last valid (previous) version. A valid config
 -- backs up the PREVIOUS working copy to /wm/.theme.bak, then writes the new
--- version — the backup never mirrors the just-saved content. The /wm/ config
--- files follow the same basename backup rule (ADR-025): theme.lua -> .theme.bak,
--- api.lua -> .api.bak — never "theme.lua.bak"/"api.lua.bak" concatenation. Any
--- other path is a plain rewrite; a missing file is created (ext2 create).
--- Returns nil on success or an error.
+-- version — the backup never mirrors the just-saved content. Every other
+-- `.lua` file follows the same basename backup rule on save (test.lua ->
+-- .test.bak), because Lua files carry the most valuable user work (config,
+-- scripts); any other path is a plain rewrite; a missing file is created
+-- (ext2 create). Returns nil on success or an error.
 local function editor_write(path, content)
     if path == "/wm/theme.lua" then
         local err = apply_theme_content(content)
@@ -207,12 +220,16 @@ local function editor_write(path, content)
         end
         return nil
     end
-    -- api.lua keeps a basename backup of its previous version on every save.
-    if path == "/wm/api.lua" then
+    -- Every other .lua file keeps a basename backup of its previous version
+    -- on every save (a fresh file has no previous version, so nothing to back
+    -- up on first save-as). The backup is created on demand like the theme
+    -- one; read-only files (ending .bak) are never backed up again.
+    if path:sub(-4) == ".lua" then
         local prev = read_file(path)
         if prev ~= nil then
-            local b = file.open("/wm/.api.bak")
-            if not b then b = file.create("/wm/.api.bak") end
+            local bak = lua_backup_path(path)
+            local b = file.open(bak)
+            if not b then b = file.create(bak) end
             if b then
                 file.truncate(b, 0)
                 file.write(b, prev)
