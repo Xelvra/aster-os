@@ -142,7 +142,21 @@ This version tracks the milestone after M6 Storage was completed.
   window's title bar is no longer a navigation target (a double-click there
   would otherwise do `cd ..` twice): going up lives in a **`..` entry** (shown
   as `/..`, the DOS/MC convention) as the first listing row plus the Escape
-  key, and directories render with a **leading slash** (`/dir`).
+  key,   and directories render with a **leading slash** (`/dir`).
+
+* **Real-time bar clock:** a **CMOS RTC driver** (`src/kernel/rtc.zig`) reads
+  the time of day at boot (ports 0x70/0x71, BCD and binary as selected by
+  status register B bit 2, 12/24 h, double read across the update boundary)
+  and seeds the wall clock; the bar clock now shows **real wall time**
+  (`time.of_day_ms()` = RTC seed + PIT-calibrated `time.ms()`), not uptime.
+  The RTC is treated as **local time** (the BIOS/Windows convention) — QEMU is
+  launched with `-rtc base=localtime` so the guest clock matches the host.
+  The bar clock re-renders when the second changes (`update()` invalidates
+  once per second), so it ticks even with no input. The PIT/TSC calibration
+  uses a proper channel-2 latch and accepts QEMU TCG's high virtual TSC rate,
+  so `ms()` reliably advances. The RTC BCD conversion is host-tested and a
+  QEMU runtime test asserts a plausible time of day and that the clock
+  advances. A missing/broken RTC falls back to time since boot.
 
 * **Editor mouse conventions (mainstream GUI editors):** the mouse wheel
   scrolls the editor viewport in the **standard direction** (wheel down =

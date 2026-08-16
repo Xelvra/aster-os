@@ -785,7 +785,7 @@ Neimplementované widgety se do baru **nepřidávají** (minimalismus). Až bude
 | network | `end` | net (M9, ADR-022) |
 | temp | `start` group `g1` | senzor driver |
 | gpu-usage | `start` group `g1` | GPU driver |
-| datum/den v hodinách | `clock` format | RTC driver |
+| datum/den v hodinách | `clock` format | **čas dne ✅** (CMOS RTC seed, `spec/timer.md` §2); datum/dny v týdnu zůstává (RTC date registry) |
 
 ### 7a.3 Session akce (`shell.session.actions`)
 

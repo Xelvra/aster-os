@@ -48,6 +48,7 @@ má přístup přes `api/timer.zig`, nikdy přímo k hardwaru.
 | 0 | `ticks` | `() → u64` | počet ticků od bootu |
 | 1 | `sleepMs` | `(ms: u64) → ()` | kooperativní čekání, viz §3 |
 | 2 | `ms` | `() → u64` | reálný wall-clock ms od bootu (TSC, PIT-kalibrováno) |
+| 3 | `ofDayMs` | `() → u64` | čas dne jako ms od půlnoci (CMOS RTC seed + `ms`) |
 
 ### 2.2 API (Zig)
 
@@ -62,6 +63,15 @@ pub const TimerApi = struct {
 - `ms` je reálný wall-clock od bootu (TSC, PIT-kalibrováno) — na rozdíl od
   `ticks` **nezávisí na APIC tick rate** (ten se liší stroj od stroje / QEMU),
   takže UI časování (např. práh dvojkliku) je přenositelné.
+- `ofDayMs` je **čas dne** (ms od půlnoci): při bootu se přečte **CMOS RTC**
+  (`src/kernel/rtc.zig`, porty 0x70/0x71, BCD i binárně dle status B bit 2,
+  12/24h, dvojité čtení přes update hranici) a přičítá se `ms` — hodiny v baru
+  tak ukazují reálný čas, ne uptime. Když RTC chybí/je rozbité, seed je 0 →
+  `ofDayMs` = uptime.
+- **Konvence RTC = lokální čas** (BIOS/Windows): kernel RTC nepřepočítává na
+  UTC — QEMU se spouští s `-rtc base=localtime`, na reálném PC ať má RTC
+  nastavený lokální čas. (Linux konvence „RTC = UTC" by vyžadovala timezone
+  offset, který zatím neřešíme.)
 - Žádný real-time / wall clock před M6 (perzistence není; viz `non-goals.md`).
 
 > **Tick zdroj:** monotónní čítač vlastní `src/kernel/time.zig` (middle layer,
