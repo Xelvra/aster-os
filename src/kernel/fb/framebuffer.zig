@@ -1,4 +1,5 @@
 const boot_info = @import("../boot/boot_info.zig");
+const std = @import("std");
 
 pub const Framebuffer = struct {
     base: [*]volatile u8,
@@ -10,7 +11,16 @@ pub const Framebuffer = struct {
     green_shift: u5,
     blue_shift: u5,
 
-    pub fn init(info: boot_info.Framebuffer) Framebuffer {
+    /// Build a renderable framebuffer from the bootloader handoff, or null
+    /// when the handoff is unusable. The renderer writes 32-bit pixels (u32)
+    /// and addresses rows by pitch, so the bootloader must hand at least
+    /// 32 bpp, non-zero dimensions and a pitch covering every row (audit
+    /// 2026-08-15; a broken handoff would otherwise corrupt memory).
+    pub fn init(info: boot_info.Framebuffer) ?Framebuffer {
+        if (info.bpp < 32) return null;
+        if (info.width == 0 or info.height == 0 or info.pitch == 0) return null;
+        if (info.width > std.math.maxInt(u32) or info.height > std.math.maxInt(u32) or info.pitch > std.math.maxInt(u32)) return null;
+        if (info.pitch < info.width * (info.bpp / 8)) return null;
         const red_shift: u5 = @intCast(info.red_mask_shift);
         const green_shift: u5 = @intCast(info.green_mask_shift);
         const blue_shift: u5 = @intCast(info.blue_mask_shift);
@@ -93,27 +103,33 @@ pub const Framebuffer = struct {
         }
     }
 
-    pub fn blit(self: *Framebuffer, src: [*]const u8, src_x: i32, src_y: i32, dst_x: i32, dst_y: i32, w: u32, h: u32) void {
-        const clipped = clipRect(dst_x, dst_y, w, h, self.width, self.height) orelse return;
-        const src_offset_x = @as(i32, @intCast(clipped.x0)) - dst_x;
-        const src_offset_y = @as(i32, @intCast(clipped.y0)) - dst_y;
-        const row_count = clipped.y1 - clipped.y0;
-        const col_count = clipped.x1 - clipped.x0;
-        const bytes_per_row = @as(i32, @intCast(w)) * self.bytes_per_pixel;
-        for (0..row_count) |r| {
-            const src_row = (src_y + src_offset_y + @as(i32, @intCast(r))) * bytes_per_row + (src_x + src_offset_x) * self.bytes_per_pixel;
-            const dst_row = (clipped.y0 + @as(u32, @intCast(r))) * self.pitch + clipped.x0 * self.bytes_per_pixel;
-            const bytes = col_count * self.bytes_per_pixel;
-            const src_ptr: [*]const u8 = @ptrFromInt(@intFromPtr(src) + @as(usize, @intCast(src_row)));
-            const dst_ptr: [*]volatile u8 = self.base + dst_row;
-            for (0..bytes) |i| {
-                dst_ptr[i] = src_ptr[i];
-            }
-        }
-    }
-
     pub fn fillScreen(self: *Framebuffer, color: u32) void {
         self.fillRect(0, 0, self.width, self.height, color);
+    }
+
+    /// Copy a rectangle of pixels from a source buffer into the framebuffer
+    /// at (dst_x, dst_y), clipping to the framebuffer edges. The source
+    /// coordinates address the caller's buffer; a negative source row (a clip
+    /// that would read before the buffer) is skipped and the row/byte
+    /// arithmetic is done in i64 so extreme coordinates cannot overflow i32
+    /// (audit 2026-08-15).
+    pub fn blit(self: *Framebuffer, src: [*]const u8, src_x: i32, src_y: i32, dst_x: i32, dst_y: i32, w: u32, h: u32) void {
+        const clipped = clipRect(dst_x, dst_y, w, h, self.width, self.height) orelse return;
+        const src_col: i64 = @as(i64, clipped.x0) - @as(i64, dst_x) + @as(i64, src_x);
+        const src_row0: i64 = @as(i64, clipped.y0) - @as(i64, dst_y) + @as(i64, src_y);
+        const row_count = clipped.y1 - clipped.y0;
+        const col_count = clipped.x1 - clipped.x0;
+        const bpp: i64 = self.bytes_per_pixel;
+        const bytes_per_row: i64 = @as(i64, w) * bpp;
+        for (0..row_count) |r| {
+            const src_row: i64 = (src_row0 + @as(i64, @intCast(r))) * bytes_per_row + src_col * bpp;
+            if (src_row < 0) continue;
+            const dst_row: usize = @as(usize, clipped.y0 + @as(u32, @intCast(r))) * @as(usize, self.pitch) + @as(usize, clipped.x0) * @as(usize, self.bytes_per_pixel);
+            const bytes: usize = @as(usize, col_count) * self.bytes_per_pixel;
+            const src_ptr: [*]const u8 = @ptrFromInt(@intFromPtr(src) + @as(usize, @intCast(src_row)));
+            const dst_ptr: [*]volatile u8 = self.base + dst_row;
+            for (0..bytes) |i| dst_ptr[i] = src_ptr[i];
+        }
     }
 
     /// Fill a rectangle with rounded corners of the given radius. Pixels

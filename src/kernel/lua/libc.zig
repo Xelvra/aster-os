@@ -11,19 +11,24 @@ fn kernelAllocator() std.mem.Allocator {
 }
 
 export fn malloc(size: usize) callconv(.c) ?*anyopaque {
-    const block = kernelAllocator().alloc(u64, (size + @sizeOf(usize) + 7) / 8 + 1) catch return null;
+    // The header stores the original requested size; free() recomputes the
+    // block length from it, so a checked add keeps an extreme size from
+    // overflowing the bookkeeping arithmetic (audit 2026-08-15).
+    const total = std.math.add(usize, size, @sizeOf(usize) + 7) catch return null;
+    const block = kernelAllocator().alloc(u64, total / 8 + 1) catch return null;
     const len_ptr: *usize = @ptrCast(block.ptr);
     len_ptr.* = size;
     return @ptrCast(block.ptr + 1);
 }
 
 export fn calloc(nmemb: usize, size: usize) callconv(.c) ?*anyopaque {
-    const total = std.math.mul(usize, nmemb, size) catch return null;
-    const block = kernelAllocator().alloc(u64, (total + @sizeOf(usize) + 7) / 8 + 1) catch return null;
+    const total_req = std.math.mul(usize, nmemb, size) catch return null;
+    const total = std.math.add(usize, total_req, @sizeOf(usize) + 7) catch return null;
+    const block = kernelAllocator().alloc(u64, total / 8 + 1) catch return null;
     const len_ptr: *usize = @ptrCast(block.ptr);
-    len_ptr.* = total;
+    len_ptr.* = total_req;
     const data: [*]u8 = @ptrCast(block.ptr + 1);
-    @memset(data[0..total], 0);
+    @memset(data[0..total_req], 0);
     return data;
 }
 
@@ -37,7 +42,10 @@ export fn realloc(ptr: ?*anyopaque, size: usize) callconv(.c) ?*anyopaque {
     const len_ptr: *usize = @ptrCast(@alignCast(data - @sizeOf(usize)));
     const old_len = len_ptr.*;
     if (old_len >= size) {
-        len_ptr.* = size;
+        // Shrinking keeps the original block: free() recomputes the block
+        // length from the stored size, so overwriting it here would make free
+        // release the wrong (smaller) length and corrupt the allocator
+        // (audit 2026-08-15). The caller simply uses fewer bytes.
         return ptr;
     }
     const new_ptr = malloc(size) orelse return null;

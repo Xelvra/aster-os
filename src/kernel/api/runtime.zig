@@ -73,8 +73,10 @@ pub fn performReload() void {
 pub fn spawn(opts: SpawnOptions) !Program {
     switch (opts.kind) {
         .Lua => {
+            // Handles are u64 and never 0; the counter wraps back to 1 at the
+            // ceiling so it can never alias a reused handle (audit 2026-08-15).
             const handle = next_handle;
-            next_handle += 1;
+            next_handle = if (next_handle == std.math.maxInt(u64)) 1 else next_handle + 1;
             try lua.runMain(opts.entry);
             return .{ .kind = .Lua, .handle = handle };
         },

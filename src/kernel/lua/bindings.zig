@@ -38,6 +38,13 @@ fn checkString(L: ?*lua_c.lua_State, index: c_int, comptime name: []const u8) ?[
     }
     var len: usize = 0;
     const ptr = lua_c.lua_tolstring(L, index, &len);
+    // lua_isstring also accepts numbers (they convert to a string on
+    // lua_tolstring), which is expected to succeed — but the pointer can be
+    // null on a conversion failure, so never slice a null (audit 2026-08-15).
+    if (ptr == null) {
+        pushError(L, "expected string for '{s}'", .{name});
+        return null;
+    }
     return ptr[0..len];
 }
 

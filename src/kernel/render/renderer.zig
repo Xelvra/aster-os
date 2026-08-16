@@ -15,12 +15,12 @@ pub const Renderer = struct {
         self.fb.fillRect(x, y, w, h, self.fb.pixelColor(color));
     }
 
-    pub fn blit(self: *const Renderer, src: [*]const u8, src_x: i32, src_y: i32, dst_x: i32, dst_y: i32, w: u32, h: u32) void {
-        self.fb.blit(src, src_x, src_y, dst_x, dst_y, w, h);
-    }
-
     pub fn fillScreen(self: *const Renderer, color: Color) void {
         self.fb.fillScreen(self.fb.pixelColor(color));
+    }
+
+    pub fn blit(self: *const Renderer, src: [*]const u8, src_x: i32, src_y: i32, dst_x: i32, dst_y: i32, w: u32, h: u32) void {
+        self.fb.blit(src, src_x, src_y, dst_x, dst_y, w, h);
     }
 
     pub fn roundRect(self: *const Renderer, x: i32, y: i32, w: u32, h: u32, radius: u32, color: Color) void {
@@ -42,11 +42,13 @@ pub const Renderer = struct {
             while (bit < font.glyph_width) : (bit += 1) {
                 const mask: u8 = @as(u8, 1) << @intCast(7 - bit);
                 if (pixels[row] & mask != 0) {
-                    self.fb.setPixel(
-                        @intCast(@max(x + @as(i32, @intCast(bit)), 0)),
-                        @intCast(@max(y + @as(i32, @intCast(row)), 0)),
-                        self.fb.pixelColor(color),
-                    );
+                    // Widen to i64 before adding so an extreme x/y cannot
+                    // overflow i32 (audit 2026-08-15); negative results are
+                    // off-screen and skipped, setPixel clamps the upper edge.
+                    const px = @as(i64, x) + @as(i64, bit);
+                    const py = @as(i64, y) + @as(i64, @intCast(row));
+                    if (px < 0 or py < 0) continue;
+                    self.fb.setPixel(@intCast(px), @intCast(py), self.fb.pixelColor(color));
                 }
             }
         }

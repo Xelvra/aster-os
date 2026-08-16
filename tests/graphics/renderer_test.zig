@@ -28,7 +28,7 @@ fn initCtx(ctx: *Context) void {
         .green_mask_shift = 8,
         .blue_mask_size = 8,
         .blue_mask_shift = 0,
-    });
+    }).?;
     ctx.renderer = renderer.Renderer.init(&ctx.fb);
 }
 

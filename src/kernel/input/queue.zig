@@ -28,31 +28,39 @@ pub const EventQueue = struct {
     }
 
     pub fn push(self: *EventQueue, event: Event) void {
+        // SPSC: the producer may only overwrite a slot after the consumer has
+        // read it, so read_index is loaded with acquire; the buffer write must
+        // be visible before the slot is published, so write_index is stored
+        // with release (audit 2026-08-15 — monotonic ordering is masked by
+        // x86 TSO but wrong on weaker memory models).
         const write = self.write_index.load(.monotonic);
         const next = (write + 1) % queue_capacity;
-        if (next == self.read_index.load(.monotonic)) {
+        if (next == self.read_index.load(.acquire)) {
             _ = self.dropped.fetchAdd(1, .monotonic);
             return;
         }
         self.buffer[write] = event;
-        self.write_index.store(next, .monotonic);
+        self.write_index.store(next, .release);
     }
 
     pub fn pop(self: *EventQueue) ?Event {
+        // SPSC: the consumer may only read a slot after the producer has
+        // published it (acquire on write_index), and must publish its read
+        // before the producer can overwrite the slot (release on read_index).
         const read = self.read_index.load(.monotonic);
-        if (read == self.write_index.load(.monotonic)) return null;
+        if (read == self.write_index.load(.acquire)) return null;
         const event = self.buffer[read];
-        self.read_index.store((read + 1) % queue_capacity, .monotonic);
+        self.read_index.store((read + 1) % queue_capacity, .release);
         return event;
     }
 
     pub fn peek(self: *EventQueue) ?Event {
         const read = self.read_index.load(.monotonic);
-        if (read == self.write_index.load(.monotonic)) return null;
+        if (read == self.write_index.load(.acquire)) return null;
         return self.buffer[read];
     }
 
     pub fn isEmpty(self: *EventQueue) bool {
-        return self.read_index.load(.monotonic) == self.write_index.load(.monotonic);
+        return self.read_index.load(.monotonic) == self.write_index.load(.acquire);
     }
 };

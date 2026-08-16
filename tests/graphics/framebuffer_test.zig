@@ -25,7 +25,7 @@ fn initFb(ctx: *Context) void {
         .green_mask_shift = 8,
         .blue_mask_size = 8,
         .blue_mask_shift = 0,
-    });
+    }).?;
 }
 
 fn readColor(ctx: *Context, x: u32, y: u32) u32 {
@@ -129,4 +129,53 @@ test "roundRect and gradientBorder tolerate negative coordinates" {
     // A fully visible shape still draws (regression guard).
     ctx.fb.gradientBorder(0, 0, 10, 10, 2, 0x000000, 0xFFFFFF);
     try std.testing.expectEqual(@as(u32, 0), readColor(&ctx, 0, 0));
+}
+
+test "init rejects a malformed bootloader handoff" {
+    // Audit 2026-08-15: the renderer writes u32 pixels, so a handoff below
+    // 32 bpp or with zero/inverted dimensions must be rejected, not corrupt
+    // memory later.
+    var ctx: Context = undefined;
+    initFb(&ctx);
+    const good = framebuffer.Framebuffer.init(.{
+        .address = @intFromPtr(&ctx.memory),
+        .width = FbWidth,
+        .height = FbHeight,
+        .pitch = FbWidth * 4,
+        .bpp = 32,
+        .memory_model = 1,
+        .red_mask_size = 8,
+        .red_mask_shift = 16,
+        .green_mask_size = 8,
+        .green_mask_shift = 8,
+        .blue_mask_size = 8,
+        .blue_mask_shift = 0,
+    });
+    try std.testing.expect(good != null);
+
+    const base = boot_info.Framebuffer{
+        .address = @intFromPtr(&ctx.memory),
+        .width = FbWidth,
+        .height = FbHeight,
+        .pitch = FbWidth * 4,
+        .bpp = 32,
+        .memory_model = 1,
+        .red_mask_size = 8,
+        .red_mask_shift = 16,
+        .green_mask_size = 8,
+        .green_mask_shift = 8,
+        .blue_mask_size = 8,
+        .blue_mask_shift = 0,
+    };
+    var bad_bpp = base;
+    bad_bpp.bpp = 24;
+    try std.testing.expect(framebuffer.Framebuffer.init(bad_bpp) == null);
+
+    var bad_zero = base;
+    bad_zero.width = 0;
+    try std.testing.expect(framebuffer.Framebuffer.init(bad_zero) == null);
+
+    var bad_pitch = base;
+    bad_pitch.pitch = FbWidth * 2; // narrower than width * 4
+    try std.testing.expect(framebuffer.Framebuffer.init(bad_pitch) == null);
 }

@@ -241,14 +241,17 @@ const DisplayState = struct {
 
 fn initGraphics(display: *DisplayState, info: *const boot_info.BootInfo, memory: *mem.Memory) bool {
     const fb_info = info.framebuffer orelse return false;
-    display.fb_storage = framebuffer.Framebuffer.init(fb_info);
+    // A malformed bootloader handoff (bpp < 32, zero/inverted dimensions) is
+    // rejected here instead of corrupting memory later (audit 2026-08-15).
+    const fb = framebuffer.Framebuffer.init(fb_info) orelse return false;
+    display.fb_storage = fb;
 
     // Phase 2 double buffering: render into an offscreen back buffer and
     // present it to the visible framebuffer in one copy, so the viewer never
     // sees a half-drawn frame. The back buffer is plain RAM (not GOP MMIO),
     // one page per 4 KiB of pitch*height. A large contiguous run is fine: the
     // heap grow, initfs and this buffer are the only big PFA allocations.
-    const bytes: usize = @intCast(fb_info.pitch * fb_info.height);
+    const bytes = @as(usize, fb.pitch) * @as(usize, fb.height);
     const pages_needed = (bytes + pfa.page_size - 1) / pfa.page_size;
     if (memory.pfa.allocPages(pages_needed, true) catch null) |pages| {
         var back = display.fb_storage.?;
