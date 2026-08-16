@@ -89,7 +89,12 @@ const Layout = struct {
         self.writeU32(rsdp_phys_, 16, 0);
         self.writeU32(rsdp_phys_, 20, 36); // length
         self.writeU64(rsdp_phys_, 24, root_phys_);
-        self.fixChecksum(rsdp_phys_, 32, 36); // extended checksum
+        // Both checksums must be fixed: `readRsdp` validates the revision-1
+        // checksum (byte 8 over the first 20 bytes) first, then the extended
+        // one (byte 32 over all 36). Leaving byte 8 undefined made the parse
+        // depend on whatever garbage the reused test stack slot held (C48).
+        self.fixChecksum(rsdp_phys_, 8, 20);
+        self.fixChecksum(rsdp_phys_, 32, 36);
     }
 
     /// Write a root table (RSDT with u32 entries or XSDT with u64 entries)

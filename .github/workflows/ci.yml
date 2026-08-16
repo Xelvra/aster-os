@@ -4,6 +4,12 @@ on:
   push:
   pull_request:
 
+# A new push supersedes the running job for the same ref — otherwise two
+# pushes run concurrently and both burn 2-vCPU runners for the full suite.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -11,6 +17,20 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # full history: sync-docs.sh needs git log per file
+
+      # The Zig build cache is the difference between a ~1 min incremental run
+      # and a multi-hour cold Debug compile. Key on the build inputs so a
+      # source change only recompiles what actually changed; the global cache
+      # (~/.cache/zig) keeps the toolchain artefacts across jobs.
+      - name: Cache Zig build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .zig-cache
+            ~/.cache/zig
+          key: zig-${{ runner.os }}-${{ hashFiles('build.zig', '**/*.zig', '**/*.s', '**/*.lua', '.zig-version') }}
+          restore-keys: |
+            zig-${{ runner.os }}-
 
       - name: Install Zig 0.16.0 (pinned by .zig-version)
         run: |

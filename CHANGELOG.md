@@ -21,6 +21,21 @@ This version tracks the milestone after M6 Storage was completed.
 
 ### Added
 
+* **SMP groundwork — Application Processor bring-up (M2/M7 debt):** the MADT
+  parser now collects the Local APIC IDs of the enabled Application Processors
+  (`acpi.zig`), the Local APIC driver gains an IPI layer (`sendInitIpi` with
+  the level-triggered INIT assert + deassert, `sendSipi`, `enableLocal`,
+  `readLocalApicId`) plus `io.writeMsr`, and a low-memory AP trampoline
+  (`smp_tramp.s`) + orchestrator (`smp.zig`) copies the code block to
+  `0x8000`, identity-maps it, wakes each AP with INIT-SIPI-SIPI and waits for
+  it to report ready. The AP entry loads the shared IDT, enables its Local
+  APIC and idles; the scheduler stays BSP-only. Under QEMU `-smp 2` the boot
+  log reports `smp: 1 ap` and the in-QEMU runtime test "SMP AP bring-up"
+  passes. (First attempt crashed the AP with a `#PF(RSVD)` on its first page
+  walk — a `call`/`pop` getip trick read CR3 from garbage because the AP has
+  no stack yet; fixed together with the CR4 mirror and the missing long-mode
+  jump. Lessons C48/C49, handoff H5.)
+
 * **WM configuration directory on the disk (`/wm/`):** the disk config that
   used to sit loose at the filesystem root now lives in a dedicated `/wm/`
   directory — `/wm/theme.lua` (colors and geometry, hot-reloaded on save),

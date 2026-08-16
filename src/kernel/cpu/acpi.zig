@@ -100,7 +100,11 @@ fn madtInfo(madt: *align(1) const AcpiHeader) MadtInfoResult {
         const entry_length = entries[offset + 1];
         if (entry_length < 2) return .no_ioapic_entry;
         if (offset + entry_length > entries.len) return .no_ioapic_entry;
-        const entry = entries[offset .. offset + entry_length];
+        // Advance the cursor BEFORE the switch: a `continue` inside a switch
+        // branch would otherwise skip this line and loop forever (C48
+        // regression — the disabled-processor branch used `continue`).
+        offset += entry_length;
+        const entry = entries[offset - entry_length .. offset];
         switch (entry_type) {
             madt_io_apic_type => {
                 // type(1) length(1) id(1) reserved(1) address(4) gsi_base(4).
@@ -146,7 +150,6 @@ fn madtInfo(madt: *align(1) const AcpiHeader) MadtInfoResult {
             },
             else => {},
         }
-        offset += entry_length;
     }
     if (!ioapic_found) return .no_ioapic_entry;
     return .{ .found = result };

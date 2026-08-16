@@ -14,7 +14,12 @@ trap cleanup EXIT
 build_once() {
     local cache_dir="$1"
     mkdir -p "$cache_dir"
-    ZIG_LOCAL_CACHE_DIR="$cache_dir" zig build -Doptimize="$OPTIMIZE" >/dev/null 2>&1
+    # Isolated local AND global caches: a warm CI cache must not let both
+    # builds reuse the same artefacts and "prove" determinism without a real
+    # cold compile of each.
+    ZIG_LOCAL_CACHE_DIR="$cache_dir" \
+    ZIG_GLOBAL_CACHE_DIR="$cache_dir/global" \
+        zig build -Doptimize="$OPTIMIZE" >/dev/null 2>&1
     sha256sum zig-out/bin/aster | awk '{print $1}'
 }
 
