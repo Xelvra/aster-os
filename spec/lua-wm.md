@@ -586,8 +586,9 @@ okno, které bylo zavřeno (Super+Q), a přesune ho na aktuální workspace.
 - **Super+E — file manager.** Otevře files okno **v kořenu** (`/`) a zaostří.
   Navigace: Up/Down výběr, **Enter** otevře (adresář → dovnitř, soubor →
   **editace v editoru**), **Space** = read-only náhled, **Delete** = smazat,
-  **Esc** o úroveň výš / ven z náhledu; **klik na titulkovou lištu** (cesta)
-  jde nahoru. Read-only soubory (`.theme.bak`, `.repl_history`) jdou jen Space
+  **Esc** o úroveň výš / ven z náhledu; **položka `..`** (zobrazuje se `/..`)
+  jde nahoru (hlavička je okenní — dvojklik = fullscreen). Read-only soubory
+  (`.theme.bak`, `.repl_history`) jdou jen Space
   náhledem. Vždy **lost+found** první, pak adresáře, pak soubory.
 - **Super+Q — zavřít okno.** Zavře **fokusované** okno (odstraní z `windows`),
   zruší fullscreen, pokud patřil jemu, a **refokusuje topmost** okno aktuálního
@@ -816,14 +817,20 @@ Navigační konvence:
   otevřít v kořenu. **Read-only soubory** (každý `*.bak`, `/.repl_history`,
   červené) se otevírají **jen Space náhledem** — Enter ani klik u nich editor
   nespouští a F2 je odmítá přejmenovat (uložit se stejně nedají; smazat je lze). Cesta je v **titulkové liště** okna (root = `/`);
-  **klik na titulkovou lištu** jde o úroveň výš / ven z náhledu (lišta =
-  ukazatel cesty). Hlavička ukazuje cestu (klávesové hinty jsou v help popupu,
-  `Help F1` je v bar liště). Konvence je „Enter otevře,
-  Space prohlíží, Delete do koše, klik na cestu jde nahoru" — v duchu Hyprland
+  Hlavička ukazuje cestu (klávesové hinty jsou v help popupu,
+  `Help F1` je v bar liště). **Nahoru** se jde **položkou `..`** — první řádek
+  výpisu (zobrazuje se jako `/..`, DOS konvence), v kořenu `/` není; Enter i
+  klik ji otevřou, nebo klávesou **Escape**. Adresáře se ve výpisu zobrazují
+  s lomítkem **před** názvem (`/adresar`). **Titulková lišta je čistě okenní** —
+  dvojklik na ni přepíná fullscreen (§8.3); navigace nahoru v ní už není, aby
+  dvojklik nekolidoval s `cd ..`.
+  Konvence je „Enter otevře,
+  Space prohlíží, Delete do koše, `..` jde nahoru" — v duchu Hyprland
   (Enter = otevřít soubor v příslušné aplikaci), ne Midnight Commander (F3/F4).
   Z náhledu se vystupuje **Esc Esc** (jednou = zpět, podruhé = z náhledu ven) —
   vědomá odchylka od Hyprlandu (dvojitý stisk jako pojistka, viz
-  `spec/desktop-ui.md` §5 a §7.1). Myš v náhledu (kolečko = scroll, klik =
+  `spec/desktop-ui.md` §5 a §7.1); myší se z náhledu vystupuje **jen klávesou**
+  (hlavička teď přepíná fullscreen). Myš v náhledu (kolečko = scroll, klik =
   hollow kurzor) se řídí stejnými konvencemi jako editor — `spec/editor.md`
   §3.1 (základ budoucí schránky).
 - **Koš (`/.trash`):** **Delete** mimo koš **přesune** soubor/adresář do
@@ -902,6 +909,15 @@ fallback na replacement znak. Text v Lua používá `glyph_w = 8`, `glyph_h = 16
 2. **Title bar** — `draw_rect` s `blend(title_bg, opacity)`.
 3. **Body** — `draw_rect` s `blend(theme.surface, opacity)`.
 4. **Titulek** — text, aktivní barva vs dim.
+
+**Titulkové interakce (myš):** **dvojklik na titulkovou lištu** přepíná
+fullscreen — jedno gesto pro všechna okna, vč. files (jeho lišta už není
+navigace; nahoru jde položkou `..` ve files, §7a.4). Práh dvojkliku 0.3 s a
+tolerance ±4 px (`double_click_ms` / `last_title_click` v `input.lua`; čas se
+měří `time.ms()`, tj. reálně, ne APIC ticky).
+Pravý konec lišty je **křížek** (zavřít, jen fokusované okno, skrytý při
+kolizi s dlouhou hlavičkou); **žádná další tlačítka se nekreslí** (minimalismus
+— fullscreen je dvojklik).
 
 Okna jsou **hranatá** (bez zaoblení) — designové rozhodnutí pro malé displeje,
 zaoblení by ukouslo plochu obsahu. `theme.wm.radius` se nepoužívá (vše je hranaté:

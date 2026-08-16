@@ -118,6 +118,8 @@ Jinak má bar správné rozložení.
 - Aktivní okno: **gradient border** (tyrkys→tmavě zelená).
 - Neaktivní: šedý border, opacity 0.85.
 - Float (Super+Alt+Space), drag hlavičkou, fullscreen (Super+F/D), scratchpad (Super+S).
+- Myš na titulkové liště: **dvojklik = fullscreen** (všechna okna), pravý konec =
+  **křížek** (zavřít, jen fokusované okno); jiná tlačítka se nekreslí (minimalismus).
 
 ### 4.5 Workspaces (✅ hotovo)
 - 1–3, přepínání Super+1/2/3, klik v baru.
@@ -140,7 +142,8 @@ Jinak má bar správné rozložení.
 - **Super+E** otevře files okno v kořenu (`files_*` stav v `input.lua`).
 - Up/Down výběr, **Enter** otevře (adresář → dovnitř, soubor → **editace v editoru**),
   **Space** = náhled (read-only), **Delete** = smazat, **Escape** o úroveň výš /
-  ven z náhledu; klik na **titulkovou lištu** (cesta) jde nahoru.
+  ven z náhledu; položka **`..`** (zobrazuje se `/..`, DOS konvence) jde nahoru —
+  hlavička je čistě okenní (dvojklik = fullscreen), aby dvojklik nekolidoval s `cd ..`.
 - Detail viz `spec/lua-wm.md` §7a.4.
 
 ### 4.7 Aplikace (🔶 základ)

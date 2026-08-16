@@ -131,6 +131,19 @@ This version tracks the milestone after M6 Storage was completed.
   block allocator walk single/double/triple indirect pointer chains, and
   sparse holes read as zeros.
 
+* **Title-bar mouse interaction (minimalist):** a **double-click on a window's
+  title bar toggles fullscreen** (one gesture for every window — the standard
+  WM convention), and the close "x" stays the only drawn button. The double
+  click is timed with the new real-time `time.ms()` binding (PIT-calibrated,
+  independent of the APIC tick rate), so the 0.3 s threshold works in QEMU and
+  on real hardware; the bar clock also reads real wall time from `time.ms()`
+  (the APIC tick rate is not a reliable clock — it varied between ~478 Hz and
+  ~3100 Hz in QEMU TCG runs). The files
+  window's title bar is no longer a navigation target (a double-click there
+  would otherwise do `cd ..` twice): going up lives in a **`..` entry** (shown
+  as `/..`, the DOS/MC convention) as the first listing row plus the Escape
+  key, and directories render with a **leading slash** (`/dir`).
+
 * **Editor mouse conventions (mainstream GUI editors):** the mouse wheel
   scrolls the editor viewport in the **standard direction** (wheel down =
   scroll down toward the end — Windows/Linux, not macOS natural; the text

@@ -29,6 +29,9 @@
 ### 1.2 Tick frekvence
 
 - Default: **1000 Hz** (1 ms) — dost na měření frame latency i na plánování M7.
+- **Není to zaručená konstanta:** v QEMU TCG se reálně naměřilo ~478 Hz i ~3100 Hz
+  (C46) — rate závisí na emulátoru/hardwaru. `ticks` je jen **monotónní pořadí**;
+  reálné časování (UI práhy, hodiny) jde přes `ms` (PIT-kalibrovaný TSC).
 - Frekvence je konstantní po bootu; žádné dynamické měnění (determinismus).
 
 ---
@@ -44,6 +47,7 @@ má přístup přes `api/timer.zig`, nikdy přímo k hardwaru.
 |---|---|-----------|----------|
 | 0 | `ticks` | `() → u64` | počet ticků od bootu |
 | 1 | `sleepMs` | `(ms: u64) → ()` | kooperativní čekání, viz §3 |
+| 2 | `ms` | `() → u64` | reálný wall-clock ms od bootu (TSC, PIT-kalibrováno) |
 
 ### 2.2 API (Zig)
 
@@ -55,6 +59,9 @@ pub const TimerApi = struct {
 ```
 
 - `ticks` je **monotónní** (nikdy se nevrací) a sdílí ji kernel, timer a Lua.
+- `ms` je reálný wall-clock od bootu (TSC, PIT-kalibrováno) — na rozdíl od
+  `ticks` **nezávisí na APIC tick rate** (ten se liší stroj od stroje / QEMU),
+  takže UI časování (např. práh dvojkliku) je přenositelné.
 - Žádný real-time / wall clock před M6 (perzistence není; viz `non-goals.md`).
 
 > **Tick zdroj:** monotónní čítač vlastní `src/kernel/time.zig` (middle layer,
