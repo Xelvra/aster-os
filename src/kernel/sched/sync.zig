@@ -65,12 +65,23 @@ pub const Semaphore = struct {
 
 /// Ownership-based binary lock: only the task that locked the mutex may unlock
 /// it; unlock hands ownership to the oldest waiter (FIFO) and wakes it, so the
-/// lock is never released while a waiter holds the intent to lock.
+/// lock is never released while a waiter holds the intent to lock. Locking a
+/// mutex the current task already owns is a programming bug and deadlocks (the
+/// task blocks forever) instead of silently allowing a nested critical section
+/// without a recursion counter.
 pub const Mutex = struct {
     locked: bool = false,
     owner: task.TaskId = 0,
-    waiters: [task.max_tasks - 1]task.TaskId = undefined,
+    waiters: [task.max_tasks - 1]Waiter = undefined,
     waiter_count: u32 = 0,
+
+    const Waiter = struct {
+        id: task.TaskId,
+        /// Handed ownership by unlock and woken; the slot stays occupied until
+        /// the task resumes and consumes the grant, so a third party cannot
+        /// steal the lock in between (FIFO).
+        granted: bool = false,
+    };
 
     pub fn init() Mutex {
         return .{};
@@ -80,18 +91,27 @@ pub const Mutex = struct {
         while (true) {
             const guard = irq.begin();
             defer guard.end();
-            if (!self.locked or self.owner == task.currentId()) {
+            // unlock handed this task ownership (FIFO): consume the grant and
+            // acquire. A current owner that calls lock() again is never a
+            // waiter, so it deadlocks instead of nesting.
+            if (self.grantedTo(task.currentId())) {
+                self.unregister(task.currentId());
+                self.locked = true;
+                self.owner = task.currentId();
+                return;
+            }
+            if (!self.locked) {
                 self.locked = true;
                 self.owner = task.currentId();
                 return;
             }
             const id = task.currentId();
             self.unregister(id);
-            self.waiters[self.waiter_count] = id;
+            self.waiters[self.waiter_count] = .{ .id = id };
             self.waiter_count += 1;
             task.blockUntilWoken();
-            // resumed: an unlock handed this task ownership; re-check so a
-            // task that grabbed the slot in between still blocks
+            // resumed: only an unlock that granted this task ownership wakes
+            // it; the granted flag is consumed on the next pass
         }
     }
 
@@ -99,19 +119,24 @@ pub const Mutex = struct {
         const guard = irq.begin();
         defer guard.end();
         if (self.waiter_count > 0) {
-            const w = self.waiters[0];
-            self.unregister(w);
-            self.owner = w;
-            task.wake(w);
+            self.waiters[0].granted = true;
+            task.wake(self.waiters[0].id);
             return;
         }
         self.locked = false;
         self.owner = 0;
     }
 
+    fn grantedTo(self: *Mutex, id: task.TaskId) bool {
+        for (self.waiters[0..self.waiter_count]) |w| {
+            if (w.id == id and w.granted) return true;
+        }
+        return false;
+    }
+
     fn unregister(self: *Mutex, id: task.TaskId) void {
         for (self.waiters[0..self.waiter_count], 0..) |w, i| {
-            if (w == id) {
+            if (w.id == id) {
                 for (i..self.waiter_count - 1) |j| self.waiters[j] = self.waiters[j + 1];
                 self.waiter_count -= 1;
                 return;
