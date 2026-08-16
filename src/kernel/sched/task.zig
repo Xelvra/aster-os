@@ -35,7 +35,11 @@ const stack_canary_magic: u64 = 0xA57E5CA42C4CA1AE; // "ASTERSTK"
 pub const max_tasks = 10;
 pub const TaskId = usize;
 
-const task_stack_size = 16384;
+/// Stack for each spawned native task. Sized for the deepest supported call
+/// path: freeing a triple-indirect ext2 file walks three 4 KiB block buffers
+/// recursively (~12 KiB) plus the block-driver frames, so a file operation
+/// must fit even when it runs on a task stack.
+const task_stack_size = 32768;
 var task_stacks: [max_tasks][task_stack_size]u8 align(16) = undefined;
 
 /// Lowest address of the kernel main stack (task 0), set from main.zig at
