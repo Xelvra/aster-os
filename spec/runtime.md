@@ -264,8 +264,11 @@ Chybný config **nesmí shodit shell ani nechat polorozkreslený vzhled**:
   odmítne načíst — jdou jen prohlížet Spacem ve files browseru, editor je nikdy
   nepřepíše (žádný Ctrl+S guard není potřeba). Zálohu plní jen `editor_write`
   po validním save `/wm/theme.lua`. Skryté soubory (vedoucí
-  tečka) se ve files browseru kreslí šedivě — **read-only soubory** (`/wm/.theme.bak`,
-  `.repl_history`) červeně (`theme.red`). **Delete guard neexistuje** — smazání
+  tečka) a **vše uvnitř `/.trash`** se ve files browseru kreslí **dim šedomodře**
+  (`theme.text_dim`, jeden sdílený „skryté/vedlejší" odstín — v koši dokonce i
+  read-only položky, aby adresář četl jako „v koši"; červená se vrací po vyjmutí)
+  — **read-only soubory** (`/wm/.theme.bak`,
+  `.repl_history`) mimo koš červeně (`theme.red`, má přednost před dim). **Delete guard neexistuje** — smazání
   `/wm/theme.lua` i `/wm/.theme.bak` je bezpečné: `apply_disk_theme()` najde `nil` a použijí
    se vestavěné defaulty z initrd, takže prostředí se nikdy nerozbije.
 - **Záloha každého `.lua` souboru (basename pravidlo, ADR-025):** `editor_write`

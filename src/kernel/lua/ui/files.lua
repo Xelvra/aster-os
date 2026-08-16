@@ -306,13 +306,16 @@ function files_rename_commit()
     if not found then fs_sel = math.max(1, math.min(was_idx, #fs_entries)) end
 end
 
--- Entry text color: selection highlight first, then read-only red, then the
--- trash (the /.trash directory and everything inside it) in blue, then hidden
--- files dim, regular files normal.
+-- Entry text color: selection highlight first, then the trash (everything
+-- inside /.trash is text_dim so the directory reads as "in the trash" — even
+-- a read-only file, whose red cue is a property of the file itself and comes
+-- back once it is moved out), then read-only red, then hidden (dot) files as
+-- quiet text_dim like the trash, regular files normal. Hidden and trash share
+-- one dim blue so a dot file (e.g. .test) cannot be mistaken for a loud color.
 local function entry_color(e, selected)
     if selected then return theme.accent end
+    if fs_path == "/.trash" then return theme.text_dim end
     if is_read_only(e.name) then return theme.red end
-    if fs_path == "/.trash" or (fs_path == "/" and e.name == ".trash") then return theme.trash end
     if e.name:sub(1, 1) == "." then return theme.text_dim end
     return theme.text
 end
@@ -370,7 +373,8 @@ local function files_render()
     end
     -- List mode: the path lives in the window title bar (header), the scrollable
     -- entries follow. Read-only files (.theme.bak, .repl_history) are red so it
-    -- is clear they cannot be edited; other hidden files are dim.
+    -- is clear they cannot be edited; hidden (dot) files and everything inside
+    -- the trash share the dim text_dim color.
     local first = 1
     if fs_sel > rows then first = fs_sel - rows + 1 end
     for i = first, math.min(#fs_entries, first + rows - 1) do

@@ -265,6 +265,26 @@ test("repl_save_history creates the file on first save", function()
     assert(written == "cmd1\ncmd2\n", "history content: " .. tostring(written))
 end)
 
+test("file entry colors: hidden/trash dim blue, read-only red outside trash", function()
+    set_disk()
+    windows[#windows + 1] = window("files", current_ws)
+    files_open("/")
+    -- Hidden non-read-only -> theme.text_dim (shared hidden/trash dim blue).
+    assert(entry_color({ name = ".test", dir = false }, false) == theme.text_dim, "hidden file not dim")
+    -- Hidden read-only outside the trash -> red (red wins over dim).
+    assert(entry_color({ name = ".theme.bak", dir = false }, false) == theme.red, "hidden read-only not red")
+    assert(entry_color({ name = ".repl_history", dir = false }, false) == theme.red, "repl_history not red")
+    -- The .trash dir is a dot dir -> dim blue; normal file -> text; selection -> accent.
+    assert(entry_color({ name = ".trash", dir = true }, false) == theme.text_dim, ".trash not dim")
+    assert(entry_color({ name = "a.txt", dir = false }, false) == theme.text, "normal file not text")
+    assert(entry_color({ name = "a.txt", dir = false }, true) == theme.accent, "selection not accent")
+    -- Inside /.trash every entry is dim blue, even a read-only one (the red
+    -- cue returns once the file is moved back out).
+    files_open("/.trash")
+    assert(entry_color({ name = "old.txt", dir = false }, false) == theme.text_dim, "trash content not dim")
+    assert(entry_color({ name = ".theme.bak", dir = false }, false) == theme.text_dim, "read-only in trash must stay dim")
+end)
+
 -- ──────────────────────────────────────────────────────────────────────────
 
 _p(string.format("lua shell: %d passed, %d failed", passed, failed))

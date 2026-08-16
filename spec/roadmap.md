@@ -510,7 +510,8 @@ triggerů / nových ADR.
       `/.trash` (ext2 `rename`, žádná kopie dat); uvnitř koše Delete trvale
       smaže vybranou položku a `Ctrl+Delete` vyprázdní celý koš (iterace
       `file.remove`). `/.trash` a `lost+found` jsou ochráněné (nelze smazat/
-      přesunout/přejmenovat); položky koše se kreslí modře (`theme.trash`).
+      přesunout/přejmenovat); položky koše se kreslí dim šedomodře
+      (`theme.text_dim`, stejně jako skryté dot soubory).
 
 ### M8 — Stabilizace
 

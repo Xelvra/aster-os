@@ -861,7 +861,13 @@ Navigační konvence:
   vyprázdní celý koš (iterace `file.remove`). Přejmenování na existující název
   v koši se hlásí chybou (rename → `FileExists`). **Ochraněné systémové
   adresáře:** `/.trash` a `lost+found` nelze smazat, přesunout ani přejmenovat
-  (`is_protected`). Položky koše se kreslí modře (`theme.trash`).
+  (`is_protected`). **Vše uvnitř `/.trash`** se kreslí **dim šedomodře**
+  (`theme.text_dim`) bez ohledu na read-only stav — adresář čte jako „v koši";
+  po vyjmutí dostane položka zase barvu podle systémových pravidel. Skryté
+  (dot) soubory a koš sdílejí tento odstín: tečka před jménem jasně definuje
+  skrytý soubor/adresář (ať koš nebo cokoliv jiného) a dim barva je tichá jako
+  ostatní vedlejší UI text. Read-only (červená `theme.red`) má mimo koš
+  přednost.
 
 **Smazání config souborů je bezpečné:** `/wm/.theme.bak` nemá žádnou ochranu proti
 smazání — systém na diskovém configu nezávisí. Když `/wm/theme.lua` i
