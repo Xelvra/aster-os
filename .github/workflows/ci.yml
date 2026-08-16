@@ -19,10 +19,10 @@ jobs:
           tar -xJf /tmp/zig.tar.xz -C /opt/zig --strip-components=1
           echo "/opt/zig" >> "$GITHUB_PATH"
 
-      - name: Install QEMU and ISO tools
+      - name: Install QEMU, ISO tools and Lua
         run: |
           sudo apt-get update
-          sudo apt-get install -y qemu-system-x86 xorriso mtools parted e2fsprogs
+          sudo apt-get install -y qemu-system-x86 xorriso mtools parted e2fsprogs lua5.4
 
       - name: Format check
         run: zig fmt --check .
@@ -30,8 +30,20 @@ jobs:
       - name: Build
         run: zig build
 
+      # Build-only matrix: proves the kernel compiles in every optimize mode
+      # (a Debug-only or ReleaseFast-only bug must not hide). No release, no
+      # tags — this is a compile check, not a packaging step.
+      - name: Build (Debug)
+        run: zig build -Doptimize=Debug
+
+      - name: Build (ReleaseFast)
+        run: zig build -Doptimize=ReleaseFast
+
       - name: Host unit tests
         run: zig build test
+
+      - name: Lua shell regression tests
+        run: zig build shell-test
 
       - name: Deterministic build (ADR-014)
         run: ./tools/verify-reproducible.sh

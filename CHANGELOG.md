@@ -112,6 +112,25 @@ This version tracks the milestone after M6 Storage was completed.
   shows/hides that dedicated window over anything — a fullscreen window or an
   empty workspace. Not an alias of Super+Space or Super+Alt+Space.
 
+* **Basename backup for every `.lua` file (ADR-025):** on Ctrl+S every Lua
+  file keeps a hidden read-only backup of its previous version next to the
+  working copy — `test.lua → .test.bak`, `api.lua → .api.bak`,
+  `theme.lua → .theme.bak` — so the last save can be restored by renaming the
+  backup back; non-Lua files and freshly created files get no backup.
+
+* **Lua shell regression suite:** the real shell modules run on the host
+  against stubbed kernel bindings (`tests/lua/`) — 12 tests covering the UTF-8
+  helpers, editor typing/cursor, basename backups, the broken-theme save trap,
+  protected dirs via the `wm_error` channel, workspace bounds, shared
+  bar/launcher geometry, `esc_pending` and history persistence — wired as
+  `zig build shell-test` and run in CI. Host tests gained an SPSC queue suite
+  and a `libc` malloc/realloc bookkeeping suite (145 total).
+
+* **ext2 double/triple indirect:** files larger than the single-indirect span
+  (~4 MB at 4 KiB blocks) can now be read and written — `blockForIndex` and the
+  block allocator walk single/double/triple indirect pointer chains, and
+  sparse holes read as zeros.
+
 ### Fixed
 
 * **ext2 group descriptor hardening:** `groupDescriptor` now computes the GDT
@@ -178,7 +197,54 @@ This version tracks the milestone after M6 Storage was completed.
   framebuffer in a window, fullscreen and on every monitor (Ctrl+Alt+G grabs/
   releases; see `spec/troubleshooting.md` C43).
 
+* **Editor/REPL/files UTF-8 handling:** two off-by-one/func faults made
+  editing look broken — `next_cp` stepped two code points per ASCII character
+  (the block cursor sat on the just-typed text, `cp_slice` over-sliced lines
+  and horizontal scroll fired late), and `drawText` drew each byte of a
+  multi-byte character as a separate glyph (noise). The cursor, slices and
+  wrapping now agree with the drawn text and non-ASCII renders as the font's
+  `?` fallback (see `spec/troubleshooting.md` C44).
+
+* **A broken theme can no longer trap the editor:** saving `/wm/theme.lua`
+  kept the buffer dirty when the config was invalid, so Super+T, files-edit
+  and Esc close were blocked forever (the editor could never escape an
+  unsavable theme). The working copy is now written and the buffer clears
+  even when validation reports the config as broken.
+
+* **The files listing refreshes on save:** a new file or `.bak` backup appears
+  immediately (Ctrl+S in the editor calls `files_refresh`), instead of only
+  after re-navigating the directory.
+
+* **Hidden (dot) files and the trash share one dim color:** dot files were
+  `theme.text_dim` and the trash `theme.trash`, two blues so close that a
+  hidden file (`test` -> `.test`) was indistinguishable from `.trash`. Both now
+  use `text_dim`, read-only red keeps priority, and everything inside
+  `/.trash` is dim regardless of read-only (red returns once a file is moved
+  out); the dedicated `theme.trash` field is gone.
+
+* **ext2 sparse files and multi-block directories:** a hole (0 block pointer)
+  read block 0 — the superblock — as file data instead of zeros, and
+  `readDir` only listed the first block of a directory (an empty directory
+  read block 0 as entries). Holes now read as zeros and directories walk every
+  block (see the double/triple indirect entry above).
+
+* **Kernel hardening (audit 2026-08-15, low/medium):** the bootloader
+  framebuffer handoff is validated (bpp >= 32, sane dimensions/pitch),
+  `drawGlyph` and `blit` use i64 arithmetic, `checkString` guards the
+  `lua_tolstring` null, `next_handle` wraps at a ceiling, the boot handoff
+  validates the initrd module and maps unknown memory types to reserved, the
+  `libc` `realloc` shrink no longer frees the wrong block, the SPSC event
+  queue uses acquire/release ordering, and the virtio-blk driver rejects
+  sectors beyond the device capacity.
+
+* **A missing `/wm/.api.bak` in the file browser shows immediately** and the
+  api backup is named `.api.bak` (not `api.bak`), matching the basename rule.
+
 ### Removed
+
+* **`theme.trash` theme field:** hidden (dot) files and the trash now share
+  `theme.text_dim`, so the dedicated trash color is gone from the theme
+  defaults, validation and the on-disk `/wm/theme.lua`.
 
 * **Session menu and the Lua `power` binding:** the Lock/Logout/Reboot session
   menu and the `power` KI binding were removed (the WM is intentionally
