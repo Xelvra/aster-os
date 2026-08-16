@@ -1,6 +1,7 @@
 const io = @import("io.zig");
 const idt = @import("idt.zig");
 const page_map = @import("../mem/page_map.zig");
+const acpi = @import("acpi.zig");
 
 const ia32_apic_base_msr: u32 = 0x1B;
 
@@ -30,16 +31,24 @@ const spurious_vector: u8 = 0xFF;
 
 var apic_base: u64 = 0;
 var ioapic_base: u64 = 0;
+var irq_overrides: [acpi.max_irq_overrides]acpi.IrqOverride = undefined;
+var irq_override_count: usize = 0;
 
-pub fn init(hhdm_offset: u64, ioapic_override: ?u64) void {
+pub fn init(hhdm_offset: u64, madt: ?acpi.Madt) void {
     const msr = io.readMsr(ia32_apic_base_msr);
     const apic_phys = msr & 0xFFFFF000;
     apic_base = apic_phys + hhdm_offset;
 
     page_map.mapPage(apic_base, apic_phys, 0x1A);
-    var ioapic_phys = ioapic_override orelse ioapic_default_phys;
-    if (ioapic_phys < ioapic_window_start or ioapic_phys >= ioapic_window_end) {
-        ioapic_phys = ioapic_default_phys;
+    var ioapic_phys: u64 = ioapic_default_phys;
+    if (madt) |m| {
+        // ISA IRQ -> GSI overrides (M2 SMP debt): the I/O APIC redirection
+        // table uses the overridden GSI, not the raw ISA IRQ number.
+        irq_overrides = m.irq_overrides;
+        irq_override_count = m.irq_override_count;
+        if (m.io_apic_address >= ioapic_window_start and m.io_apic_address < ioapic_window_end) {
+            ioapic_phys = m.io_apic_address;
+        }
     }
     ioapic_base = ioapic_phys + hhdm_offset;
     page_map.mapPage(ioapic_base, ioapic_phys, 0x1A);
@@ -53,8 +62,19 @@ pub fn init(hhdm_offset: u64, ioapic_override: ?u64) void {
     enableIsaIrq(12, 0x22);
 }
 
+/// Map an ISA IRQ to its I/O APIC global system interrupt (GSI), applying the
+/// MADT Interrupt Source Override (M2 SMP debt). Without an override the GSI
+/// equals the ISA IRQ number.
+fn gsiFor(isa_irq: u8) u32 {
+    for (0..irq_override_count) |i| {
+        if (irq_overrides[i].isa_irq == isa_irq) return irq_overrides[i].gsi;
+    }
+    return isa_irq;
+}
+
 pub fn enableIsaIrq(isa_irq: u8, vector: u8) void {
-    const reg_lo = ioapic_redtbl + @as(u32, isa_irq) * 2;
+    const gsi = gsiFor(isa_irq);
+    const reg_lo = ioapic_redtbl + gsi * 2;
     const reg_hi = reg_lo + 1;
     ioapicWrite(reg_hi, 0);
     ioapicWrite(reg_lo, @as(u32, vector) & ~ioapic_lo_masked);

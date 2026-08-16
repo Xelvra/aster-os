@@ -934,6 +934,76 @@ fn testFileCreate() void {
     _ = L.lua_pop(lua_state, 1);
 }
 
+fn testDirMultiBlock() void {
+    // A directory grows past one block when it fills up (M7.1 debt: addDirEntry
+    // used to return OutOfSpace at the single-block boundary). Create enough
+    // files to overflow the root directory's first block, then verify every
+    // entry resolves (lookup walks multi-block dirs) and entries in later
+    // blocks can be removed. The dir listing caps at 32, so verification goes
+    // through open/remove, not file.dir. Skipped when no disk is attached.
+    const lua = @import("lua/lua.zig");
+    const storage = @import("api/storage.zig");
+    if (!storage.isMounted()) {
+        expect(true, "multi-block dir test skipped (no disk attached)");
+        return;
+    }
+    const L = @import("lua/cimport.zig").c;
+    const lua_state = lua.getState() orelse {
+        expect(false, "lua state exists");
+        return;
+    };
+    const script =
+        \\local N = 80 -- 1 KiB dir block holds ~51 entries; 80 spans two blocks
+        \\local ok = true
+        \\for i = 1, N do
+        \\    local h = file.create("/dmb_" .. i .. ".txt")
+        \\    if not h then ok = false break end
+        \\    file.write(h, "x")
+        \\    file.close(h)
+        \\end
+        \\for i = 1, N do
+        \\    local h = file.open("/dmb_" .. i .. ".txt")
+        \\    if not h then ok = false end
+        \\    if h then file.close(h) end
+        \\end
+        \\-- Remove every even entry from 40 up (likely in the second block) and
+        \\-- verify the odd ones still resolve while the removed ones are gone.
+        \\for i = 40, N, 2 do file.remove("/dmb_" .. i .. ".txt") end
+        \\for i = 1, N do
+        \\    local h = file.open("/dmb_" .. i .. ".txt")
+        \\    if (i % 2 == 0 and i >= 40) then
+        \\        if h then ok = false end
+        \\    else
+        \\        if not h then ok = false end
+        \\    end
+        \\    if h then file.close(h) end
+        \\end
+        \\for i = 1, N do file.remove("/dmb_" .. i .. ".txt") end
+        \\if ok then return "PASS" else return "FAIL" end
+    ;
+    const load_status = L.luaL_loadstring(lua_state, script);
+    expect(load_status == L.LUA_OK, "multi-block dir script compiles");
+    if (load_status != L.LUA_OK) return;
+    const run_status = L.lua_pcallk(lua_state, 0, 1, 0, 0, null);
+    expect(run_status == L.LUA_OK, "multi-block dir script runs");
+    if (run_status != L.LUA_OK) {
+        var err_len: usize = 0;
+        const err_str = L.lua_tolstring(lua_state, -1, &err_len);
+        const err_slice: []const u8 = @as([*]const u8, @ptrCast(err_str))[0..err_len];
+        var buf: [256]u8 = undefined;
+        const line = std.fmt.bufPrint(&buf, "multi-block dir script error: {s}", .{err_slice}) catch "multi-block dir script error";
+        serial.writeLine(line);
+        L.lua_pop(lua_state, 1);
+        return;
+    }
+    var len: usize = 0;
+    const str = L.lua_tolstring(lua_state, -1, &len);
+    const result: []const u8 = @as([*]const u8, @ptrCast(str))[0..len];
+    const ok = len == 4 and std.mem.eql(u8, result, "PASS");
+    expect(ok, "create/lookup/remove round-trips across a multi-block directory");
+    _ = L.lua_pop(lua_state, 1);
+}
+
 fn testFileDoubleIndirect() void {
     // Write a file larger than the single-indirect span (12 direct + 1024
     // indirect blocks at 4 KiB = block 1035) so the write path allocates
@@ -1313,6 +1383,8 @@ pub fn runAll(alloc: std.mem.Allocator, memory: *mem.Memory) noreturn {
     testFileRename();
     serial.writeLine("file write/read across double-indirect blocks");
     testFileDoubleIndirect();
+    serial.writeLine("create/lookup/remove across a multi-block directory");
+    testDirMultiBlock();
     serial.writeLine("editor app (M7.1.5)");
     testEditorApp();
     serial.writeLine("file.dir listing (M7.1.5)");

@@ -158,21 +158,28 @@ fn kernelMain() !void {
     if (test_buf[0] != 0xAB or test_buf[63] != 0xAB) return error.HeapTestFailed;
 
     page_map.init(&memory.pfa, info.hhdm_offset);
-    const ioapic_result = if (info.rsdp_address) |addr| acpi.findIoApic(addr, info.hhdm_offset) else null;
-    const ioapic_override: ?u64 = if (ioapic_result) |r| switch (r) {
-        .found => |addr| addr,
+    const madt_result = if (info.rsdp_address) |addr| acpi.parseMadt(addr, info.hhdm_offset) else null;
+    const madt: ?acpi.Madt = if (madt_result) |r| switch (r) {
+        .found => |m| m,
         else => null,
     } else null;
-    apic.init(info.hhdm_offset, ioapic_override);
-    const ioapic_note: []const u8 = if (ioapic_result) |r| switch (r) {
+    apic.init(info.hhdm_offset, madt);
+    const ioapic_note: []const u8 = if (madt_result) |r| switch (r) {
         .found => " · ioapic: madt",
         .bad_checksum => " · ioapic: fallback, bad-checksum",
         .no_madt => " · ioapic: fallback, no-madt",
         .no_ioapic_entry => " · ioapic: fallback, no-ioapic-entry",
         .no_rsdp => " · ioapic: fallback, no-rsdp",
     } else " · ioapic: fallback, no-rsdp";
-    var cpu_detail: [96]u8 = undefined;
-    const cpu_line = std.fmt.bufPrint(&cpu_detail, "page tables · apic timer{s}", .{ioapic_note}) catch "page tables · apic timer";
+    var madt_note: []const u8 = "";
+    var cpu_detail: [160]u8 = undefined;
+    var madt_buf: [64]u8 = undefined;
+    if (madt) |m| {
+        madt_note = std.fmt.bufPrint(&madt_buf, " · lapic: {?d} · overrides: {d} · nmi: {s}", .{
+            m.local_apic_id, m.irq_override_count, if (m.has_nmi) "yes" else "no",
+        }) catch " · lapic/overrides: n/a";
+    }
+    const cpu_line = std.fmt.bufPrint(&cpu_detail, "page tables · apic timer{s}{s}", .{ ioapic_note, madt_note }) catch "page tables · apic timer";
     bootlog.ok("cpu", cpu_line);
 
     ps2.init();

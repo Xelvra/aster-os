@@ -543,12 +543,12 @@ pub const Ext2 = struct {
     }
 
     /// Create a regular file at `path` and return its inode. The parent
-    /// directory must exist and have room in its first block (the same
-    /// single-block-directory limitation as readDir/removeDirEntry). A fresh
-    /// inode is allocated, initialized and linked into the parent. Like the
-    /// rest of the write path the operation is non-crash-safe best-effort
-    /// (ADR-023): if the directory link fails the inode stays allocated but
-    /// unreferenced (no rollback, matching unlink's style).
+    /// directory must exist; it may span several blocks (addDirEntry grows a
+    /// full directory with a new block). A fresh inode is allocated,
+    /// initialized and linked into the parent. Like the rest of the write
+    /// path the operation is non-crash-safe best-effort (ADR-023): if the
+    /// directory link fails the inode stays allocated but unreferenced (no
+    /// rollback, matching unlink's style).
     pub fn create(self: *Ext2, path: []const u8) Ext2Error!u32 {
         const parent_path = parentPath(path) orelse return Ext2Error.NotFound;
         const parent_ino = try self.find(parent_path);
@@ -713,68 +713,97 @@ pub const Ext2 = struct {
     fn removeDirEntry(self: *Ext2, dir_ino: u32, ino: u32, name: []const u8) Ext2Error!void {
         const inode = try self.readInode(dir_ino);
         if (inode.mode & inode_type_dir == 0) return Ext2Error.NotADirectory;
-        var block_buf: [4096]u8 = undefined;
-        try self.readBlock(inode.block[0], block_buf[0..self.block_size]);
-        const data = block_buf[0..self.block_size];
-        var off: usize = 0;
-        while (off + 8 <= data.len) {
-            const entry_inode = bytes.readU32(data, off);
-            const rec_len = bytes.readU16(data, off + 4);
-            if (rec_len == 0) break;
-            const entry_name_len = data[off + 6];
-            const name_end = off + 8 + @as(usize, entry_name_len);
-            if (name_end > data.len) return Ext2Error.OutOfBounds;
-            if (entry_inode == ino and entry_name_len == name.len and
-                std.mem.eql(u8, data[off + 8 .. name_end], name))
-            {
-                bytes.writeU32(&block_buf, off, 0);
-                try self.writeBlock(inode.block[0], block_buf[0..self.block_size]);
-                return;
+        var block_index: usize = 0;
+        // Walk every directory block (direct + single/double/triple indirect),
+        // so an entry in a multi-block directory is found and zeroed.
+        while (try self.blockForIndex(inode, block_index)) |blk| {
+            var block_buf: [4096]u8 = undefined;
+            try self.readBlock(blk, block_buf[0..self.block_size]);
+            const data = block_buf[0..self.block_size];
+            var off: usize = 0;
+            while (off + 8 <= data.len) {
+                const entry_inode = bytes.readU32(data, off);
+                const rec_len = bytes.readU16(data, off + 4);
+                if (rec_len == 0) break;
+                const entry_name_len = data[off + 6];
+                const name_end = off + 8 + @as(usize, entry_name_len);
+                if (name_end > data.len) return Ext2Error.OutOfBounds;
+                if (entry_inode == ino and entry_name_len == name.len and
+                    std.mem.eql(u8, data[off + 8 .. name_end], name))
+                {
+                    bytes.writeU32(&block_buf, off, 0);
+                    try self.writeBlock(blk, block_buf[0..self.block_size]);
+                    return;
+                }
+                off += rec_len;
             }
-            off += rec_len;
+            block_index += 1;
         }
         return Ext2Error.NotFound;
     }
 
-    /// Link a new entry into a single-block directory: reuse a dead slot
-    /// (zero inode) that fits, otherwise shrink the last entry to its exact
-    /// aligned size and append. Entries use the mke2fs rec_len alignment
-    /// (4 bytes) so the block stays host-readable.
+    /// Link a new entry into a (possibly multi-block) directory: reuse a dead
+    /// slot (zero inode) that fits in any block, otherwise shrink the last
+    /// entry of a block to its exact aligned size and append; when every
+    /// existing block is full, allocate a new directory block (growing the
+    /// inode's block list) and put the entry there. Entries use the mke2fs
+    /// rec_len alignment (4 bytes) so the block stays host-readable.
     fn addDirEntry(self: *Ext2, dir_ino: u32, ino: u32, name: []const u8, file_type: u8) Ext2Error!void {
         const inode = try self.readInode(dir_ino);
         if (inode.mode & inode_type_dir == 0) return Ext2Error.NotADirectory;
         if (name.len > 255) return Ext2Error.NameTooLong;
         const needed = (8 + name.len + 3) & ~@as(usize, 3);
-        var block_buf: [4096]u8 = undefined;
-        try self.readBlock(inode.block[0], block_buf[0..self.block_size]);
-        const data = block_buf[0..self.block_size];
-        var off: usize = 0;
-        var last_off: usize = 0;
-        while (off + 8 <= data.len) {
-            const rec_len = bytes.readU16(data, off + 4);
-            if (rec_len == 0) break;
-            if (bytes.readU32(data, off) == 0 and rec_len >= needed) {
-                self.writeDirEntry(&block_buf, off, ino, name, file_type, rec_len);
-                try self.writeBlock(inode.block[0], block_buf[0..self.block_size]);
+
+        var block_index: usize = 0;
+        while (try self.blockForIndex(inode, block_index)) |blk| {
+            var block_buf: [4096]u8 = undefined;
+            try self.readBlock(blk, block_buf[0..self.block_size]);
+            const data = block_buf[0..self.block_size];
+            var off: usize = 0;
+            var last_off: usize = 0;
+            while (off + 8 <= data.len) {
+                const rec_len = bytes.readU16(data, off + 4);
+                if (rec_len == 0) break;
+                if (bytes.readU32(data, off) == 0 and rec_len >= needed) {
+                    self.writeDirEntry(&block_buf, off, ino, name, file_type, rec_len);
+                    try self.writeBlock(blk, block_buf[0..self.block_size]);
+                    return;
+                }
+                last_off = off;
+                off += rec_len;
+            }
+            if (off == 0) {
+                self.writeDirEntry(&block_buf, 0, ino, name, file_type, self.block_size);
+                try self.writeBlock(blk, block_buf[0..self.block_size]);
                 return;
             }
-            last_off = off;
-            off += rec_len;
+            // Split the last entry of this block to its exact size and append
+            // after it; the last entry's rec_len covers the rest of the block,
+            // so splitting frees the room.
+            const last_exact = (8 + data[last_off + 6] + 3) & ~@as(usize, 3);
+            const append_at = last_off + last_exact;
+            if (append_at + needed <= self.block_size) {
+                bytes.writeU16(&block_buf, last_off + 4, @intCast(last_exact));
+                self.writeDirEntry(&block_buf, append_at, ino, name, file_type, self.block_size - append_at);
+                try self.writeBlock(blk, block_buf[0..self.block_size]);
+                return;
+            }
+            block_index += 1;
         }
-        if (off == 0) {
-            self.writeDirEntry(&block_buf, 0, ino, name, file_type, self.block_size);
-            try self.writeBlock(inode.block[0], block_buf[0..self.block_size]);
-            return;
-        }
-        // Shrink the last entry to its exact size and append after it; the
-        // last entry's rec_len covers the rest of the block (mke2fs fills the
-        // final entry to the block end), so splitting it frees the room.
-        const last_exact = (8 + data[last_off + 6] + 3) & ~@as(usize, 3);
-        const append_at = last_off + last_exact;
-        if (append_at + needed > self.block_size) return Ext2Error.OutOfSpace;
-        bytes.writeU16(&block_buf, last_off + 4, @intCast(last_exact));
-        self.writeDirEntry(&block_buf, append_at, ino, name, file_type, self.block_size - append_at);
-        try self.writeBlock(inode.block[0], block_buf[0..self.block_size]);
+
+        // Every existing block is full: grow the directory by one block and
+        // put the entry in it. The inode's block list may have gained direct
+        // or indirect pointers, so it is written back.
+        var inode_mut = inode;
+        const new_blk = try self.ensureBlock(&inode_mut, block_index);
+        var zero: [4096]u8 = undefined;
+        @memset(&zero, 0);
+        try self.writeBlock(new_blk, zero[0..self.block_size]);
+        try self.writeInode(dir_ino, inode_mut);
+        var block_buf: [4096]u8 = undefined;
+        try self.readBlock(new_blk, block_buf[0..self.block_size]);
+        self.writeDirEntry(&block_buf, 0, ino, name, file_type, self.block_size);
+        try self.writeBlock(new_blk, block_buf[0..self.block_size]);
     }
 
     fn writeDirEntry(self: *Ext2, block_buf: *[4096]u8, off: usize, ino: u32, name: []const u8, file_type: u8, rec_len: usize) void {
@@ -805,11 +834,33 @@ pub const Ext2 = struct {
     }
 
     fn lookupDir(self: Ext2, dir_ino: u32, name: []const u8) Ext2Error!?u32 {
-        var entries: [32]DirEntry = undefined;
-        const count = try self.readDir(dir_ino, &entries);
-        for (entries[0..count]) |e| {
-            if (e.name_len == name.len and std.mem.eql(u8, e.name[0..e.name_len], name))
-                return e.inode;
+        // Walk the directory blocks directly (no fixed entry buffer), so a
+        // directory of any size — not just the first buffer worth — resolves
+        // (the 32-entry readDir cap used to make find/open fail once a
+        // multi-block directory held more than 32 entries).
+        const inode = try self.readInode(dir_ino);
+        if (inode.mode & inode_type_dir == 0) return Ext2Error.NotADirectory;
+        var block_index: usize = 0;
+        while (try self.blockForIndex(inode, block_index)) |blk| {
+            var block_buf: [4096]u8 = undefined;
+            try self.readBlock(blk, block_buf[0..self.block_size]);
+            const data = block_buf[0..self.block_size];
+            var off: usize = 0;
+            while (off + 8 <= data.len) {
+                const entry_inode = bytes.readU32(data, off);
+                const rec_len = bytes.readU16(data, off + 4);
+                if (rec_len == 0) break;
+                const entry_name_len = data[off + 6];
+                const name_end = off + 8 + @as(usize, entry_name_len);
+                if (name_end > data.len) return Ext2Error.OutOfBounds;
+                if (entry_inode != 0 and entry_name_len == name.len and
+                    std.mem.eql(u8, data[off + 8 .. name_end], name))
+                {
+                    return entry_inode;
+                }
+                off += rec_len;
+            }
+            block_index += 1;
         }
         return null;
     }

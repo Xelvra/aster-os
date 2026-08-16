@@ -151,6 +151,31 @@ const Layout = struct {
         e[1] = 8; // length
         return e;
     }
+
+    fn localApicEntryWith(apic_id: u8, flags: u32) [8]u8 {
+        var e = localApicEntry();
+        e[3] = apic_id;
+        std.mem.writeInt(u32, e[4..8], flags, .little);
+        return e;
+    }
+
+    fn irqOverrideEntry(isa_irq: u8, gsi: u32, flags: u16) [10]u8 {
+        var e: [10]u8 = [_]u8{0} ** 10;
+        e[0] = 2; // type: interrupt source override
+        e[1] = 10; // length
+        e[2] = 0; // bus = ISA
+        e[3] = isa_irq;
+        std.mem.writeInt(u32, e[4..8], gsi, .little);
+        std.mem.writeInt(u16, e[8..10], flags, .little);
+        return e;
+    }
+
+    fn localNmiEntry() [6]u8 {
+        var e: [6]u8 = [_]u8{0} ** 6;
+        e[0] = 4; // type: local APIC NMI
+        e[1] = 6; // length
+        return e;
+    }
 };
 
 fn offFrom(phys: u64) usize {
@@ -164,6 +189,32 @@ test "findIoApic resolves I/O APIC via RSDT" {
     l.writeRsdp();
     const result = acpi.findIoApic(l.rsdpAddr(), l.hhdmOffset());
     try std.testing.expectEqual(acpi.IoApicResult{ .found = io_apic_address }, result);
+}
+
+test "parseMadt collects LAPIC id, IRQ overrides and NMI (M2 SMP debt)" {
+    var l = Layout{};
+    l.writeMadt(&.{
+        &Layout.ioApicEntry(),
+        &Layout.localApicEntryWith(0x05, 1), // BSP, enabled
+        &Layout.irqOverrideEntry(0, 2, 0), // ISA IRQ0 -> GSI2
+        &Layout.irqOverrideEntry(1, 1, 0), // ISA IRQ1 -> GSI1 (identity)
+        &Layout.localNmiEntry(),
+    });
+    l.writeRoot(true, &.{madt_phys});
+    l.writeRsdpV2();
+    const result = acpi.parseMadt(l.rsdpAddr(), l.hhdmOffset());
+    const madt = switch (result) {
+        .found => |m| m,
+        else => return error.TestUnexpectedResult,
+    };
+    try std.testing.expectEqual(@as(u64, io_apic_address), madt.io_apic_address);
+    try std.testing.expectEqual(@as(?u8, 0x05), madt.local_apic_id);
+    try std.testing.expectEqual(@as(usize, 2), madt.irq_override_count);
+    try std.testing.expectEqual(@as(u8, 0), madt.irq_overrides[0].isa_irq);
+    try std.testing.expectEqual(@as(u32, 2), madt.irq_overrides[0].gsi);
+    try std.testing.expectEqual(@as(u8, 1), madt.irq_overrides[1].isa_irq);
+    try std.testing.expectEqual(@as(u32, 1), madt.irq_overrides[1].gsi);
+    try std.testing.expect(madt.has_nmi);
 }
 
 test "findIoApic resolves I/O APIC via XSDT" {

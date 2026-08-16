@@ -4,6 +4,146 @@ const rsdp_signature = "RSD PTR ";
 const acpi_header_size = 36;
 const madt_local_apic_and_flags_size = 8;
 const madt_io_apic_type: u8 = 1;
+const madt_local_apic_type: u8 = 0;
+const madt_irq_override_type: u8 = 2;
+const madt_local_nmi_type: u8 = 4;
+
+/// An ISA IRQ -> GSI override from the MADT (Interrupt Source Override). Most
+/// chipsets redirect the ISA IRQs (e.g. IRQ0 -> GSI 2), so the I/O APIC
+/// redirection table must use the GSI, not the ISA IRQ number.
+pub const IrqOverride = struct {
+    isa_irq: u8,
+    gsi: u32,
+    flags: u16,
+};
+
+pub const max_irq_overrides = 16;
+
+/// Everything the kernel needs from the MADT (the M2 SMP debt): the I/O APIC
+/// address (already used), the BSP Local APIC ID, the ISA IRQ -> GSI overrides
+/// and whether any Local APIC NMI source is configured.
+pub const Madt = struct {
+    io_apic_address: u64,
+    local_apic_id: ?u8,
+    has_nmi: bool,
+    irq_overrides: [max_irq_overrides]IrqOverride = undefined,
+    irq_override_count: usize = 0,
+};
+
+pub const MadtResult = union(enum) {
+    found: Madt,
+    no_rsdp,
+    bad_checksum,
+    no_madt,
+    no_ioapic_entry,
+};
+
+/// Parse the MADT (full M2 SMP debt): the I/O APIC address, the BSP Local
+/// APIC ID, the ISA IRQ -> GSI overrides and NMI presence. Any parse failure
+/// degrades to a fallback reason so the boot log can tell corrupt firmware
+/// apart from a missing table.
+pub fn parseMadt(rsdp_address: u64, hhdm_offset: u64) MadtResult {
+    const rsdp = readRsdp(rsdp_address);
+    const rsdp_ptr = switch (rsdp) {
+        .found => |p| p,
+        .no_rsdp => return .no_rsdp,
+        .bad_checksum => return .bad_checksum,
+    };
+    const madt = findMadt(rsdp_ptr, hhdm_offset);
+    const madt_ptr = switch (madt) {
+        .found => |p| p,
+        .bad_checksum => return .bad_checksum,
+        .no_madt => return .no_madt,
+    };
+    return switch (madtInfo(madt_ptr)) {
+        .found => |m| .{ .found = m },
+        .bad_checksum => .bad_checksum,
+        .no_ioapic_entry => .no_ioapic_entry,
+    };
+}
+
+const MadtInfoResult = union(enum) {
+    found: Madt,
+    bad_checksum,
+    no_ioapic_entry,
+};
+
+fn madtInfo(madt: *align(1) const AcpiHeader) MadtInfoResult {
+    if (!headerLengthValid(madt) or madt.length < acpi_header_size + madt_local_apic_and_flags_size) return .no_ioapic_entry;
+    if (!checksumOk(@as([*]const u8, @ptrCast(madt))[0..madt.length])) return .bad_checksum;
+
+    var result = Madt{
+        .io_apic_address = undefined,
+        .local_apic_id = null,
+        .has_nmi = false,
+    };
+    var ioapic_found = false;
+    const entries = @as([*]const u8, @ptrCast(madt))[acpi_header_size + madt_local_apic_and_flags_size .. madt.length];
+    var offset: usize = 0;
+    while (offset + 2 <= entries.len) {
+        const entry_type = entries[offset];
+        const entry_length = entries[offset + 1];
+        if (entry_length < 2) return .no_ioapic_entry;
+        if (offset + entry_length > entries.len) return .no_ioapic_entry;
+        const entry = entries[offset .. offset + entry_length];
+        switch (entry_type) {
+            madt_io_apic_type => {
+                // type(1) length(1) id(1) reserved(1) address(4) gsi_base(4).
+                if (entry.len < 12) return .no_ioapic_entry;
+                result.io_apic_address = std.mem.readInt(u32, entry[4..8], .little);
+                ioapic_found = true;
+            },
+            madt_local_apic_type => {
+                // type(1) length(1) acpi_processor_id(1) apic_id(1) flags(4).
+                if (entry.len < 8) continue;
+                // The BSP is the first enabled processor entry (flags bit 0).
+                const flags = std.mem.readInt(u32, entry[4..8], .little);
+                if (result.local_apic_id == null and flags & 1 != 0) {
+                    result.local_apic_id = entry[3];
+                }
+            },
+            madt_irq_override_type => {
+                // type(1) length(1) bus(1)=ISA source(1)=ISA IRQ gsi(4) flags(2).
+                if (entry.len < 10) continue;
+                if (result.irq_override_count < max_irq_overrides) {
+                    result.irq_overrides[result.irq_override_count] = .{
+                        .isa_irq = entry[3],
+                        .gsi = std.mem.readInt(u32, entry[4..8], .little),
+                        .flags = std.mem.readInt(u16, entry[8..10], .little),
+                    };
+                    result.irq_override_count += 1;
+                }
+            },
+            madt_local_nmi_type => {
+                // type(1) length(1) acpi_processor_id(1) flags(2) lint(1).
+                if (entry.len >= 6) result.has_nmi = true;
+            },
+            else => {},
+        }
+        offset += entry_length;
+    }
+    if (!ioapic_found) return .no_ioapic_entry;
+    return .{ .found = result };
+}
+
+pub const IoApicResult = union(enum) {
+    found: u64,
+    no_rsdp,
+    bad_checksum,
+    no_madt,
+    no_ioapic_entry,
+};
+
+/// Compatibility wrapper: just the I/O APIC address.
+pub fn findIoApic(rsdp_address: u64, hhdm_offset: u64) IoApicResult {
+    return switch (parseMadt(rsdp_address, hhdm_offset)) {
+        .found => |m| .{ .found = m.io_apic_address },
+        .no_rsdp => .no_rsdp,
+        .bad_checksum => .bad_checksum,
+        .no_madt => .no_madt,
+        .no_ioapic_entry => .no_ioapic_entry,
+    };
+}
 
 const AcpiHeader = extern struct {
     signature: [4]u8,
@@ -43,36 +183,6 @@ const RsdpV2 = extern struct {
 /// bootloader is already HHDM-mapped (base revision >= 4); the table addresses
 /// inside RSDT/XSDT are physical and must be translated by `hhdm_offset`
 /// (base revision >= 4 maps the ACPI regions in the higher half). The result
-/// carries the reason for a fallback so the boot log can tell a firmware
-/// without ACPI from a corrupted table or a missing IOAPIC entry.
-pub const IoApicResult = union(enum) {
-    found: u64,
-    no_rsdp,
-    bad_checksum,
-    no_madt,
-    no_ioapic_entry,
-};
-
-pub fn findIoApic(rsdp_address: u64, hhdm_offset: u64) IoApicResult {
-    const rsdp = readRsdp(rsdp_address);
-    const rsdp_ptr = switch (rsdp) {
-        .found => |p| p,
-        .no_rsdp => return .no_rsdp,
-        .bad_checksum => return .bad_checksum,
-    };
-    const madt = findMadt(rsdp_ptr, hhdm_offset);
-    const madt_ptr = switch (madt) {
-        .found => |p| p,
-        .bad_checksum => return .bad_checksum,
-        .no_madt => return .no_madt,
-    };
-    return switch (ioApicAddress(madt_ptr)) {
-        .found => |addr| .{ .found = addr },
-        .bad_checksum => .bad_checksum,
-        .no_ioapic_entry => .no_ioapic_entry,
-    };
-}
-
 const RsdpResult = union(enum) {
     found: *align(1) const RsdpV1,
     no_rsdp,
@@ -94,13 +204,13 @@ fn readRsdp(address: u64) RsdpResult {
     return .bad_checksum;
 }
 
-const MadtResult = union(enum) {
+const FindMadtResult = union(enum) {
     found: *align(1) const AcpiHeader,
     bad_checksum,
     no_madt,
 };
 
-fn findMadt(rsdp: *align(1) const RsdpV1, hhdm_offset: u64) MadtResult {
+fn findMadt(rsdp: *align(1) const RsdpV1, hhdm_offset: u64) FindMadtResult {
     if (rsdp.revision >= 2) {
         const v2: *align(1) const RsdpV2 = @ptrCast(rsdp);
         const xsdt_ptr: [*]const u8 = @ptrFromInt(@as(usize, @intCast(v2.xsdt_address + hhdm_offset)));
@@ -131,34 +241,6 @@ fn findMadt(rsdp: *align(1) const RsdpV1, hhdm_offset: u64) MadtResult {
         if (std.mem.eql(u8, &table.signature, "APIC")) return .{ .found = table };
     }
     return .no_madt;
-}
-
-const IoApicEntryResult = union(enum) {
-    found: u64,
-    bad_checksum,
-    no_ioapic_entry,
-};
-
-fn ioApicAddress(madt: *align(1) const AcpiHeader) IoApicEntryResult {
-    if (!headerLengthValid(madt) or madt.length < acpi_header_size + madt_local_apic_and_flags_size) return .no_ioapic_entry;
-    if (!checksumOk(@as([*]const u8, @ptrCast(madt))[0..madt.length])) return .bad_checksum;
-    const entries = @as([*]const u8, @ptrCast(madt))[acpi_header_size + madt_local_apic_and_flags_size .. madt.length];
-    var offset: usize = 0;
-    while (offset + 1 < entries.len) {
-        const entry_type = entries[offset];
-        const entry_length = entries[offset + 1];
-        if (entry_length == 0) return .no_ioapic_entry;
-        if (offset + entry_length > entries.len) return .no_ioapic_entry;
-        if (entry_type == madt_io_apic_type) {
-            // An I/O APIC entry is 12 bytes (header 2 + id/reserved 2 + 8-byte
-            // address); a shorter entry cannot carry a valid address.
-            if (offset + 12 > entries.len) return .no_ioapic_entry;
-            const addr: u32 = std.mem.readInt(u32, entries[offset + 4 ..][0..4], .little);
-            return .{ .found = addr };
-        }
-        offset += entry_length;
-    }
-    return .no_ioapic_entry;
 }
 
 /// An ACPI table is at least its 36-byte header; nothing legitimate comes

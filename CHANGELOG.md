@@ -240,6 +240,20 @@ This version tracks the milestone after M6 Storage was completed.
 * **A missing `/wm/.api.bak` in the file browser shows immediately** and the
   api backup is named `.api.bak` (not `api.bak`), matching the basename rule.
 
+* **Multi-block directories (M7.1 debt):** `addDirEntry`/`removeDirEntry`/
+  `create` now walk every directory block and grow a full directory with a new
+  block instead of returning `OutOfSpace` at the single-block boundary;
+  `lookupDir` walks blocks directly so `find`/`open` resolve entries in any
+  directory (the old fixed 32-entry readDir cap made lookups fail past 32
+  entries). A QEMU runtime test creates 80 files spanning two blocks and
+  round-trips create/lookup/remove.
+
+* **M2 SMP debt — full MADT parse:** the MADT now yields the BSP Local APIC
+  ID, the ISA IRQ → GSI overrides and NMI presence (not just the I/O APIC
+  address). `enableIsaIrq` applies the overrides, so the I/O APIC redirection
+  table uses the real GSI; the boot log reports
+  `lapic: <id> · overrides: <n> · nmi: <yes/no>`.
+
 ### Removed
 
 * **`theme.trash` theme field:** hidden (dot) files and the trash now share
