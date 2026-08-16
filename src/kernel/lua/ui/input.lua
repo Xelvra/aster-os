@@ -51,6 +51,9 @@ local function handle_mouse()
     local mx = input.mouse_x()
     local my = input.mouse_y()
     local left = input.mouse_left()
+    -- Wheel is an edge (drained per read); read it every frame so a scroll
+    -- while another window is focused cannot leak into the editor later.
+    local wheel = input.mouse_wheel()
 
     if launcher_open then
         if left and not mouse_was_down then
@@ -93,6 +96,19 @@ local function handle_mouse()
         return
     end
 
+    -- Mouse wheel: scroll the focused editor's viewport (GUI-editor
+    -- convention — the text caret does not follow the wheel); in the files
+    -- view mode it scrolls the viewed content the same way.
+    if wheel ~= 0 then
+        if focused == "editor" and find_win("editor") then
+            editor_wheel(wheel)
+            gfx.invalidate()
+        elseif focused == "files" and find_win("files") and fs_viewing then
+            files_view_wheel(wheel)
+            gfx.invalidate()
+        end
+    end
+
     if left then
         if not mouse_was_down then
             -- Find the window under the cursor: the visible (highest z) window
@@ -127,6 +143,20 @@ local function handle_mouse()
                     -- tiled window's header only focuses it.
                     if is_in_header(w) and w.floating then
                         drag = { title = w.title, dx = mx - w.x, dy = my - w.y }
+                    end
+                    -- A click in the editor body places the text caret; a
+                    -- click in the files view mode places the hollow cursor
+                    -- (foundation for the future clipboard selection). The
+                    -- title bar was excluded above (header drags a floating
+                    -- window, otherwise the click only focuses), and the
+                    -- click handlers themselves ignore clicks outside the
+                    -- body.
+                    if w.title == "editor" then
+                        editor_click_at(mx, my)
+                        gfx.invalidate()
+                    elseif w.title == "files" and fs_viewing then
+                        files_view_click_at(mx, my)
+                        gfx.invalidate()
                     end
                     break
                 end
@@ -680,6 +710,9 @@ local function handle_key(ev)
             ed_col = ed_col + #ev.char
             editor_touch()
         end
+        -- Keyboard caret movement keeps the caret row visible (the wheel
+        -- scrolls the viewport independently and may leave it off-screen).
+        if not ed_saveas then editor_reveal_caret() end
         update_editor_header()
         gfx.invalidate()
     end
@@ -762,6 +795,9 @@ local function handle_key(ev)
                 -- Any other key in view mode resets the pending Esc.
                 esc_pending = false
             end
+            -- Keyboard movement keeps the hollow cursor visible (the wheel
+            -- scrolls the viewport independently and may leave it off-screen).
+            files_view_reveal()
         else
             if code == "up" then
                 fs_sel = math.max(fs_sel - 1, 1)

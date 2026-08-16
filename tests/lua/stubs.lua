@@ -25,13 +25,27 @@ gfx = {
 }
 
 local evq = {}
+-- Settable mouse state: tests position the cursor and press buttons/wheel via
+-- _set_mouse before calling handle_mouse. mouse_wheel drains like the kernel.
+local mx, my, mleft, mwheel = 0, 0, false, 0
 input = {
     next_event = function() return table.remove(evq, 1) end,
-    mouse_x = function() return 0 end, mouse_y = function() return 0 end,
-    mouse_left = function() return false end, mouse_right = function() return false end,
+    mouse_x = function() return mx end,
+    mouse_y = function() return my end,
+    mouse_left = function() return mleft end,
+    mouse_right = function() return false end,
     mouse_middle = function() return false end,
+    mouse_wheel = function() local v = mwheel; mwheel = 0; return v end,
     set_layout = noop, layout_name = function() return "us" end,
 }
+
+-- Position the mouse and set the left button / a wheel notch for the next
+-- handle_mouse() call (wheel is drained on read).
+function _set_mouse(x, y, left, wheel)
+    mx, my = x, y
+    mleft = left or false
+    mwheel = wheel or 0
+end
 
 time = { ticks = function() return 0 end }
 debug = { write = function() end }

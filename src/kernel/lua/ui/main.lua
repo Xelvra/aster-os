@@ -39,6 +39,8 @@ register_app_help("files", {
     { "Super+F1", "global help" },
 })
 register_app_help("editor", {
+    { "mouse wheel", "scroll view" },
+    { "click in text", "place cursor" },
     { "Ctrl+S", "save" },
     { "F2", "save as" },
     { "Esc Esc", "close editor" },

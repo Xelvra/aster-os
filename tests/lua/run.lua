@@ -81,6 +81,157 @@ test("editor cursor sits right after the typed character", function()
     end
 end)
 
+test("editor mouse wheel scrolls the viewport, not the caret", function()
+    local content = ""
+    for i = 1, 30 do content = content .. "line " .. i .. "\n" end
+    set_disk({ ["/t.txt"] = content })
+    windows[#windows + 1] = window("editor", current_ws)
+    local w = find_win("editor")
+    w.x, w.y, w.w, w.h = 0, 0, 400, 100
+    set_focus("editor")
+    editor_load("/t.txt")
+    ed_view_top = 1
+    ed_row = 5
+    w.y = theme.bar.height
+    -- Positive delta (wheel down) scrolls toward the end — the standard
+    -- Windows/Linux direction; the caret stays in place.
+    _set_mouse(0, 0, false, 1)
+    handle_mouse()
+    assert(ed_view_top == 2, "wheel down scrolls the viewport down, got " .. ed_view_top)
+    assert(ed_row == 5, "wheel leaves the caret in place, got " .. ed_row)
+    -- Negative delta (wheel up) scrolls back toward the start.
+    _set_mouse(0, 0, false, -1)
+    handle_mouse()
+    assert(ed_view_top == 1, "wheel up scrolls the viewport up, got " .. ed_view_top)
+    assert(ed_row == 5, "caret still in place after wheel up")
+    -- The viewport clamps at the first line.
+    _set_mouse(0, 0, false, -1)
+    handle_mouse()
+    assert(ed_view_top == 1, "wheel up clamps at the first line, got " .. ed_view_top)
+end)
+
+test("editor mouse click places the caret at the clicked character", function()
+    local content = "hello world\nsecond line\n"
+    set_disk({ ["/t.txt"] = content })
+    windows[#windows + 1] = window("editor", current_ws)
+    local w = find_win("editor")
+    w.x, w.y, w.w, w.h = 0, 0, 400, 100
+    set_focus("editor")
+    editor_load("/t.txt")
+    ed_view_top = 1
+    w.y = theme.bar.height
+    local tx = w.x + theme.wm.border + 6
+    local ty = w.y + theme.wm.border + theme.wm.title_h + 6
+    -- Click on the second row at glyph index 6 ("second" -> ' ').
+    mouse_was_down = false
+    _set_mouse(tx + 6 * ed_glyph_w + 1, ty + ed_row_h + 1, true, 0)
+    handle_mouse()
+    assert(ed_row == 2, "click sets the caret row, got " .. ed_row)
+    assert(ed_col == 6, "click sets the caret column, got " .. ed_col)
+    -- Clicking past the end of the short first line clamps to the line end.
+    mouse_was_down = false
+    _set_mouse(tx + 30 * ed_glyph_w, ty + 1, true, 0)
+    handle_mouse()
+    assert(ed_row == 1, "click on the first row sets the caret row, got " .. ed_row)
+    assert(ed_col == #ed_lines[1], "click past the line end clamps to it, got " .. ed_col)
+    -- A click never splits a multi-byte UTF-8 sequence: 'ě' is 2 bytes, so
+    -- glyph index 2 lands after it at byte offset 3.
+    ed_lines[1] = "\xc4\x9bab"
+    mouse_was_down = false
+    _set_mouse(tx + 2 * ed_glyph_w, ty + 1, true, 0)
+    handle_mouse()
+    assert(ed_row == 1, "click on a utf-8 row sets the caret row")
+    assert(ed_col == 3, "click lands on a code-point boundary, got byte " .. ed_col)
+end)
+
+test("editor keyboard caret movement keeps the caret visible", function()
+    local content = ""
+    for i = 1, 30 do content = content .. "line " .. i .. "\n" end
+    set_disk({ ["/t.txt"] = content })
+    windows[#windows + 1] = window("editor", current_ws)
+    local w = find_win("editor")
+    w.x, w.y, w.w, w.h = 0, 0, 400, 100
+    set_focus("editor")
+    editor_load("/t.txt")
+    ed_view_top = 1
+    w.y = theme.bar.height
+    for _ = 1, 29 do
+        handle_key({ type = "key", pressed = true, super = false, alt = false, ctrl = false, shift = false, code = "down", char = nil })
+    end
+    assert(ed_row == 30, "caret reaches the last line")
+    local _, _, content_rows = editor_text_geometry(find_win("editor"))
+    assert(ed_view_top == math.max(ed_row - content_rows + 1, 1), "viewport follows the caret to the bottom")
+    assert(ed_view_top <= ed_row and ed_row < ed_view_top + content_rows, "caret row stays visible")
+end)
+
+test("files view mode wheel scrolls the viewport, not the cursor", function()
+    local content = ""
+    for i = 1, 30 do content = content .. "line " .. i .. "\n" end
+    set_disk({ ["/t.txt"] = content })
+    windows[#windows + 1] = window("files", current_ws)
+    local w = find_win("files")
+    w.x, w.y, w.w, w.h = 0, theme.bar.height, 400, 100
+    set_focus("files")
+    fs_viewing = true
+    fs_view_content = content
+    fs_view_row = 5
+    fs_view_scroll = 0
+    -- Positive delta (wheel down) scrolls toward the end — standard direction.
+    _set_mouse(0, 0, false, 1)
+    handle_mouse()
+    assert(fs_view_scroll == 1, "view wheel down scrolls, got " .. fs_view_scroll)
+    assert(fs_view_row == 5, "view wheel leaves the cursor in place, got " .. fs_view_row)
+    -- Negative delta (wheel up) scrolls back toward the start.
+    _set_mouse(0, 0, false, -1)
+    handle_mouse()
+    assert(fs_view_scroll == 0, "view wheel up scrolls back, got " .. fs_view_scroll)
+    _set_mouse(0, 0, false, -1)
+    handle_mouse()
+    assert(fs_view_scroll == 0, "view wheel up clamps at the top, got " .. fs_view_scroll)
+end)
+
+test("files view mode click places the hollow cursor", function()
+    local content = "hello view\nsecond line\nthird line\n"
+    set_disk({ ["/t.txt"] = content })
+    windows[#windows + 1] = window("files", current_ws)
+    local w = find_win("files")
+    w.x, w.y, w.w, w.h = 0, theme.bar.height, 400, 100
+    set_focus("files")
+    fs_viewing = true
+    fs_view_content = content
+    fs_view_row = 1
+    fs_view_col = 0
+    fs_view_scroll = 0
+    local tx = w.x + theme.wm.border + 6
+    local ty = w.y + theme.wm.border + theme.wm.title_h + 6
+    mouse_was_down = false
+    _set_mouse(tx + 6 * fs_glyph_w + 1, ty + fs_row_h + 1, true, 0)
+    handle_mouse()
+    assert(fs_view_row == 2, "view click sets the cursor row, got " .. fs_view_row)
+    assert(fs_view_col == 6, "view click sets the cursor column, got " .. fs_view_col)
+end)
+
+test("files view mode keyboard movement keeps the cursor visible", function()
+    local content = ""
+    for i = 1, 30 do content = content .. "line " .. i .. "\n" end
+    set_disk({ ["/t.txt"] = content })
+    windows[#windows + 1] = window("files", current_ws)
+    local w = find_win("files")
+    w.x, w.y, w.w, w.h = 0, theme.bar.height, 400, 100
+    set_focus("files")
+    fs_viewing = true
+    fs_view_content = content
+    fs_view_row = 1
+    fs_view_col = 0
+    fs_view_scroll = 0
+    for _ = 1, 29 do
+        handle_key({ type = "key", pressed = true, super = false, alt = false, ctrl = false, shift = false, code = "down", char = nil })
+    end
+    assert(fs_view_row == 30, "view cursor reaches the last line, got " .. fs_view_row)
+    local _, _, content_rows = files_view_geometry(find_win("files"))
+    assert(fs_view_scroll + content_rows >= fs_view_row, "view cursor stays visible")
+end)
+
 test("every .lua file keeps a basename backup on save", function()
     local disk = set_disk({
         ["/test.lua"] = "v1",

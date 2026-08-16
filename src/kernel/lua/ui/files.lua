@@ -320,24 +320,94 @@ local function entry_color(e, selected)
     return theme.text
 end
 
+-- Content geometry of the files window: the text origin, the number of fully
+-- visible rows and the visible character count. Shared by the render and the
+-- mouse hit-tests (view mode) so a drawn glyph and a click always agree.
+local function files_view_geometry(w)
+    local tx = w.x + theme.wm.border + 6
+    local ty = w.y + theme.wm.border + theme.wm.title_h + 6
+    local content_rows = math.floor((w.h - theme.wm.title_h - 12) / fs_row_h)
+    if content_rows < 1 then content_rows = 1 end
+    local max_chars = math.max(math.floor((w.w - 2 * theme.wm.border - 12) / fs_glyph_w), 1)
+    return tx, ty, content_rows, max_chars
+end
+
+-- Lines of the viewed content (shared by the render, the wheel/click handlers
+-- and the keyboard reveal).
+local function files_view_lines()
+    local lines = {}
+    for line in (fs_view_content .. "\n"):gmatch("(.-)\n") do
+        lines[#lines + 1] = line
+    end
+    return lines
+end
+
+-- Keep the hollow view cursor row inside the visible rows after any movement
+-- (keys, click); the wheel scrolls the viewport independently and may leave
+-- it off-screen until the user clicks or navigates (same convention as the
+-- editor — the foundation for future clipboard selection).
+local function files_view_reveal()
+    local w = find_win("files")
+    if not w then return end
+    local _, _, content_rows = files_view_geometry(w)
+    if fs_view_row < fs_view_scroll + 1 then
+        fs_view_scroll = fs_view_row - 1
+    elseif fs_view_row > fs_view_scroll + content_rows then
+        fs_view_scroll = fs_view_row - content_rows
+    end
+end
+
+-- Mouse wheel in view mode: scroll the viewport. A positive delta scrolls
+-- toward the end of the document, negative toward the start — the standard
+-- (Windows/Linux) direction, like the editor. The hollow cursor stays in
+-- place (GUI convention).
+local function files_view_wheel(delta)
+    if not fs_viewing then return end
+    local w = find_win("files")
+    if not w or w.ws ~= current_ws then return end
+    local _, _, content_rows = files_view_geometry(w)
+    local lines = files_view_lines()
+    local max_scroll = math.max(#lines - content_rows, 0)
+    fs_view_scroll = math.max(0, math.min(fs_view_scroll + delta, max_scroll))
+end
+
+-- Place the hollow view cursor at the clicked character (foundation for the
+-- future clipboard selection / Ctrl+C). The column is code-point aware and
+-- clamps to the visible text / the line end; clicks outside the body (title
+-- bar, border) are ignored.
+local function files_view_click_at(mx, my)
+    if not fs_viewing then return end
+    local w = find_win("files")
+    if not w or w.ws ~= current_ws then return end
+    local tx, ty, content_rows, max_chars = files_view_geometry(w)
+    if my < ty then return end -- title bar / border, not the body
+    local lines = files_view_lines()
+    local line_idx = fs_view_scroll + 1 + math.floor((my - ty) / fs_row_h)
+    if line_idx < 1 then line_idx = 1 end
+    if line_idx > #lines then line_idx = #lines end
+    local col_cp = math.floor((mx - tx) / fs_glyph_w)
+    if col_cp < 0 then col_cp = 0 end
+    if col_cp > max_chars then col_cp = max_chars end
+    -- Rows are drawn from the cursor row's scroll offset (focused) or from the
+    -- start (every other row); map the click against how the row was drawn.
+    local line = lines[line_idx]
+    local start_byte = 0
+    if line_idx == fs_view_row then start_byte = fs_view_scroll_col end
+    local _, off = cp_slice(line, start_byte, col_cp)
+    fs_view_row = line_idx
+    fs_view_col = off
+    files_view_reveal()
+end
+
 local function files_render()
     local w = find_win("files")
     if not w or w.ws ~= current_ws then return end
-    local tx = w.x + theme.wm.border + 6
-    local ty = w.y + theme.wm.border + theme.wm.title_h + 6
-    local rows = math.floor((w.h - theme.wm.title_h - 12) / fs_row_h)
-    if rows < 1 then rows = 1 end
+    local tx, ty, content_rows, max_chars = files_view_geometry(w)
     if fs_viewing then
         -- The full path + cancel hint live in the window title bar (header);
         -- the content area is pure file content with a hollow cursor marking
         -- read-only viewing.
-        local lines = {}
-        for line in (fs_view_content .. "\n"):gmatch("(.-)\n") do
-            lines[#lines + 1] = line
-        end
-        local content_rows = rows
-        if content_rows < 1 then content_rows = 1 end
-        local max_chars = math.max(math.floor((w.w - 2 * theme.wm.border - 12) / fs_glyph_w), 1)
+        local lines = files_view_lines()
         -- Keep the cursor visible horizontally (code-point aware, so a UTF-8
         -- sequence is never split; audit 2026-08-15).
         if fs_view_col < fs_view_scroll_col then
@@ -376,8 +446,8 @@ local function files_render()
     -- is clear they cannot be edited; hidden (dot) files and everything inside
     -- the trash share the dim text_dim color.
     local first = 1
-    if fs_sel > rows then first = fs_sel - rows + 1 end
-    for i = first, math.min(#fs_entries, first + rows - 1) do
+    if fs_sel > content_rows then first = fs_sel - content_rows + 1 end
+    for i = first, math.min(#fs_entries, first + content_rows - 1) do
         local e = fs_entries[i]
         local color = entry_color(e, i == fs_sel)
         local label = e.name

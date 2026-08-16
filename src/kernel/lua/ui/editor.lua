@@ -10,6 +10,7 @@ ed_lines = ed_lines or { "" }
 ed_row = ed_row or 1
 ed_col = ed_col or 0
 ed_scroll_col = ed_scroll_col or 0
+ed_view_top = ed_view_top or 1
 ed_dirty = ed_dirty or false
 ed_open = ed_open or false
 ed_saveas = ed_saveas or false
@@ -47,6 +48,74 @@ local function cp_slice(s, from, count)
         i = next_cp(s, i)
     end
     return string.sub(s, from + 1, i), i
+end
+
+-- Content geometry of the editor window: the text origin, the number of fully
+-- visible rows and the visible character count. Shared by the render and the
+-- mouse hit-tests so a drawn glyph and a click always agree.
+local function editor_text_geometry(w)
+    local tx = w.x + theme.wm.border + 6
+    local ty = w.y + theme.wm.border + theme.wm.title_h + 6
+    local content_rows = math.floor((w.h - theme.wm.title_h - 12) / ed_row_h)
+    if content_rows < 1 then content_rows = 1 end
+    local max_chars = math.max(math.floor((w.w - 2 * theme.wm.border - 12) / ed_glyph_w), 1)
+    return tx, ty, content_rows, max_chars
+end
+
+-- Keep the caret row inside the visible viewport after any caret movement
+-- (keys, click). The wheel scrolls the viewport independently and may leave
+-- the caret off-screen until the user clicks or navigates (editor convention).
+local function editor_reveal_caret()
+    local w = find_win("editor")
+    if not w then return end
+    local _, _, content_rows = editor_text_geometry(w)
+    if ed_row < ed_view_top then
+        ed_view_top = ed_row
+    elseif ed_row >= ed_view_top + content_rows then
+        ed_view_top = ed_row - content_rows + 1
+    end
+end
+
+-- Mouse wheel: scroll the viewport. A positive delta scrolls toward the end
+-- of the document, negative toward the start — the standard (Windows/Linux)
+-- direction, where scrolling down moves the view down (QEMU's ps2 mouse sends
+-- wheel-down as positive Z, real hardware sends wheel-up — the interpretation
+-- lives here). The text caret stays in place — the GUI-editor convention (VS
+-- Code, gedit, ...) is that the wheel scrolls the view and a click places the
+-- caret.
+local function editor_wheel(delta)
+    if not ed_open or ed_saveas then return end
+    local w = find_win("editor")
+    if not w or w.ws ~= current_ws then return end
+    local _, _, content_rows = editor_text_geometry(w)
+    local max_top = math.max(#ed_lines - content_rows + 1, 1)
+    ed_view_top = math.max(1, math.min(ed_view_top + delta, max_top))
+end
+
+-- Place the text caret at the clicked character (GUI-editor convention). The
+-- column is code-point aware and clamps to the visible text / the line end; a
+-- click outside the body (title bar, border) is ignored.
+local function editor_click_at(mx, my)
+    if not ed_open or ed_saveas then return end
+    local w = find_win("editor")
+    if not w or w.ws ~= current_ws then return end
+    local tx, ty, content_rows, max_chars = editor_text_geometry(w)
+    if my < ty then return end -- title bar / border, not the body
+    local line_idx = ed_view_top + math.floor((my - ty) / ed_row_h)
+    if line_idx < 1 then line_idx = 1 end
+    if line_idx > #ed_lines then line_idx = #ed_lines end
+    local col_cp = math.floor((mx - tx) / ed_glyph_w)
+    if col_cp < 0 then col_cp = 0 end
+    if col_cp > max_chars then col_cp = max_chars end
+    -- Rows are drawn from the caret row's scroll offset (focused) or from the
+    -- start (every other row); map the click against how the row was drawn.
+    local line = ed_lines[line_idx]
+    local start_byte = 0
+    if line_idx == ed_row then start_byte = ed_scroll_col end
+    local _, off = cp_slice(line, start_byte, col_cp)
+    ed_row = line_idx
+    ed_col = off
+    editor_reveal_caret()
 end
 
 -- Header text shown in the window title bar: the context (path, dirty marker)
@@ -102,6 +171,7 @@ function editor_load(path)
         ed_row = 1
         ed_col = 0
         ed_scroll_col = 0
+        ed_view_top = 1
         ed_dirty = false
         ed_lines = { "" }
         ed_saved = ""
@@ -141,6 +211,7 @@ function editor_load(path)
     ed_row = 1
     ed_col = 0
     ed_scroll_col = 0
+    ed_view_top = 1
     ed_dirty = false
     ed_lines = t
     ed_saved = table.concat(t, "\n")
@@ -337,11 +408,7 @@ local function editor_render()
     if not ed_open then return end
     local w = find_win("editor")
     if not w or w.ws ~= current_ws then return end
-    local tx = w.x + theme.wm.border + 6
-    local ty = w.y + theme.wm.border + theme.wm.title_h + 6
-    local content_rows = math.floor((w.h - theme.wm.title_h - 12) / ed_row_h)
-    if content_rows < 1 then content_rows = 1 end
-    local max_chars = math.max(math.floor((w.w - 2 * theme.wm.border - 12) / ed_glyph_w), 1)
+    local tx, ty, content_rows, max_chars = editor_text_geometry(w)
     -- Keep the cursor visible horizontally: ed_scroll_col is the byte offset
     -- of the first visible code point; scroll it only when the cursor leaves
     -- the window (code-point aware, so a UTF-8 sequence is never split).
@@ -358,9 +425,9 @@ local function editor_render()
         end
         ed_scroll_col = target
     end
-    -- Scroll so the cursor row is always visible.
-    local first = 1
-    if ed_row > content_rows then first = ed_row - content_rows + 1 end
+    -- The viewport is an independent scroll offset (mouse wheel moves it); the
+    -- caret row is kept visible by editor_reveal_caret whenever it moves.
+    local first = ed_view_top
     for i = first, math.min(#ed_lines, first + content_rows - 1) do
         local text = ed_lines[i]
         -- Slice the visible part of the line by code points: the focused row
