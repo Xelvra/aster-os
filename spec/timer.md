@@ -65,9 +65,11 @@ pub const TimerApi = struct {
   takže UI časování (např. práh dvojkliku) je přenositelné.
 - `ofDayMs` je **čas dne** (ms od půlnoci): při bootu se přečte **CMOS RTC**
   (`src/kernel/rtc.zig`, porty 0x70/0x71, BCD i binárně dle status B bit 2,
-  12/24h, dvojité čtení přes update hranici) a přičítá se `ms` — hodiny v baru
-  tak ukazují reálný čas, ne uptime. Když RTC chybí/je rozbité, seed je 0 →
-  `ofDayMs` = uptime.
+  12/24h, dvojité čtení přes update hranici) a seeduje se hodinový čas; navíc
+  se RTC **resynchronizuje každý frame v event loopu** (`main.zig`), takže bar
+  hodiny ukazují správný reálný čas, i kdyby TSC kalibrace (`ms`) byla rozbitá
+  nebo zamrzlá — RTC je hardwarový čas, který běží vždy. Když RTC chybí/je
+  rozbité, seed je 0 → `ofDayMs` = uptime.
 - **Konvence RTC = lokální čas** (BIOS/Windows): kernel RTC nepřepočítává na
   UTC — QEMU se spouští s `-rtc base=localtime`, na reálném PC ať má RTC
   nastavený lokální čas. (Linux konvence „RTC = UTC" by vyžadovala timezone

@@ -49,14 +49,17 @@ fn readPitCh2() u16 {
     return @as(u16, lo) | (@as(u16, hi) << 8);
 }
 
-/// Measure the TSC rate against the PIT (channel 2, mode 0 one-shot, ~10 ms)
-/// and store the TSC count per 100 ms. Called once at boot with interrupts
-/// masked; ~10 ms of PIT counting is an acceptable boot-cost. Retried so a
-/// broken read cannot leave `tsc_per_100ms` at a garbage value that would make
-/// `ms()` return 0 and freeze every real-time consumer (bar clock, UI timing).
+/// Measure the TSC rate against the PIT (channel 2, mode 0 one-shot) and store
+/// the TSC count per 100 ms. Called once at boot with interrupts masked. A
+/// ~50 ms window averages over far more TSC ticks than the old ~10 ms one, so
+/// timing jitter and a single glitchy read matter less; the **median of five
+/// samples** rejects an occasional broken read. If every sample is unusable,
+/// a fixed 2.5 GHz assumption keeps `ms()` advancing (approximately) instead
+/// of returning 0 and freezing the wall clock.
 pub fn calibrateRealTime() void {
-    const reload: u16 = 11932; // ~10 ms at pit_freq
-    for (0..4) |_| {
+    const reload: u16 = 59659; // ~50 ms at pit_freq
+    var samples: [5]u64 = undefined;
+    for (&samples) |*s| {
         io.out8(pit_control, 0xB0); // channel 2, access lo/hi, mode 0, binary
         io.out8(pit_ch2_data, @truncate(reload));
         io.out8(pit_ch2_data, @truncate(reload >> 8));
@@ -64,23 +67,36 @@ pub fn calibrateRealTime() void {
         const t0 = rdtsc();
         var spins: usize = 0;
         while (readPitCh2() != 0) : (spins += 1) {
-            if (spins > 100_000) break; // PIT never reached 0 — broken read
+            if (spins > 1_000_000) break; // PIT never reached 0 — broken read
         }
-        const t1 = rdtsc();
-
-        const real_ms = @as(u64, reload) * 1000 / pit_freq;
-        const tsc_delta = t1 - t0;
-        // Accept any real ~ms-scale measurement: QEMU TCG can emulate the TSC
-        // at tens of GHz (a correct 10 ms countdown measures 250M+ ticks), so
-        // there is no useful upper bound. Only reject an immediate exit of the
-        // countdown loop, which measures only a few thousand ticks.
-        if (tsc_delta >= real_ms * 100_000) {
-            tsc_per_100ms = tsc_delta * 100 / real_ms;
-            return;
-        }
+        s.* = rdtsc() - t0;
     }
-    // All retries failed: keep tsc_per_100ms at 0 (ms() returns 0) rather than
-    // store a garbage rate.
+    insertionSort(&samples);
+    const real_ms = @as(u64, reload) * 1000 / pit_freq;
+    const median = samples[samples.len / 2];
+    // Accept any real ~ms-scale measurement (QEMU TCG can emulate the TSC at
+    // tens of GHz, so there is no useful upper bound); only an immediate exit
+    // of the countdown loop (a few thousand ticks) is rejected.
+    if (median >= real_ms * 100_000) {
+        tsc_per_100ms = median * 100 / real_ms;
+        return;
+    }
+    // Fallback: a 2.5 GHz assumption so ms() advances (approximately) rather
+    // than freezing every real-time consumer when the PIT is unusable here.
+    tsc_per_100ms = 2_500_000_000 / 10;
+}
+
+/// Insertion sort of a fixed 5-element array (kernel: no allocations).
+fn insertionSort(values: *[5]u64) void {
+    var i: usize = 1;
+    while (i < values.len) : (i += 1) {
+        const key = values[i];
+        var j = i;
+        while (j > 0 and values[j - 1] > key) : (j -= 1) {
+            values[j] = values[j - 1];
+        }
+        values[j] = key;
+    }
 }
 
 /// Real wall-clock milliseconds since an arbitrary boot epoch (0 until
@@ -91,15 +107,24 @@ pub fn ms() u64 {
 }
 
 /// Wall-clock time of day at boot, as ms since midnight, read from the CMOS
-/// RTC (0 when no valid RTC was available). `ofDayMs` adds the monotonic ms,
-/// so the bar clock shows real wall time, not uptime.
+/// RTC (0 when no valid RTC was available). `ofDayMs` adds the elapsed
+/// monotonic ms, so the bar clock shows real wall time, not uptime.
 var rtc_start_ms: u64 = 0;
+/// The `ms()` value when `rtc_start_ms` was last set, so `ofDayMs` measures
+/// elapsed time from that sync point (not from boot).
+var ms_at_sync: u64 = 0;
 
+/// (Re-)seed the wall clock from the RTC. Called at boot and again by the
+/// event loop each frame, so the RTC — a real hardware clock that always
+/// reflects the current time — keeps the bar clock correct even when the
+/// TSC-based `ms()` is miscalibrated or frozen.
 pub fn seedRtc(ms_since_midnight: u64) void {
     rtc_start_ms = ms_since_midnight;
+    ms_at_sync = ms();
 }
 
-/// Current wall-clock time of day as ms since midnight (RTC seed + elapsed).
+/// Current wall-clock time of day as ms since midnight (last RTC read +
+/// elapsed monotonic ms).
 pub fn ofDayMs() u64 {
-    return rtc_start_ms + ms();
+    return rtc_start_ms + (ms() - ms_at_sync);
 }

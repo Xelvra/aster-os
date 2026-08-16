@@ -399,8 +399,17 @@ const max_mouse_per_poll: usize = 64;
 const cursor_speed: i16 = 2;
 
 fn eventLoop(display: *DisplayState) noreturn {
+    const rtc = @import("rtc.zig");
     while (true) {
         poll(display);
+        // Re-sync the wall clock with the CMOS RTC every frame: the RTC is a
+        // real hardware clock that always reflects the current time, so the
+        // bar clock stays correct even if the TSC-based ms() is miscalibrated
+        // or frozen. A read across an RTC update boundary returns null and the
+        // previous seed stays valid until the next frame.
+        if (rtc.readTime()) |t| {
+            time.seedRtc((@as(u64, t.hour) * 60 + t.minute) * 60_000);
+        }
         if (update()) {
             // The shell errored; reload it so the desktop recovers instead
             // of staying half-drawn (spec/runtime.md §5 error containment).

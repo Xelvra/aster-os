@@ -151,12 +151,15 @@ This version tracks the milestone after M6 Storage was completed.
   (`time.of_day_ms()` = RTC seed + PIT-calibrated `time.ms()`), not uptime.
   The RTC is treated as **local time** (the BIOS/Windows convention) — QEMU is
   launched with `-rtc base=localtime` so the guest clock matches the host.
-  The bar clock re-renders when the second changes (`update()` invalidates
+  The wall clock is **re-synced with the RTC every frame** in the event loop,
+  so the bar clock stays correct even if the TSC-based `time.ms()` is
+  miscalibrated or frozen (the RTC is a hardware clock that always runs). The
+  bar clock re-renders when the second changes (`update()` invalidates
   once per second), so it ticks even with no input. The PIT/TSC calibration
-  uses a proper channel-2 latch and accepts QEMU TCG's high virtual TSC rate,
-  so `ms()` reliably advances. The RTC BCD conversion is host-tested and a
-  QEMU runtime test asserts a plausible time of day and that the clock
-  advances. A missing/broken RTC falls back to time since boot.
+  uses a proper channel-2 latch, the median of five ~50 ms samples and a
+  2.5 GHz fallback, so `ms()` reliably advances. The RTC BCD conversion is
+  host-tested and a QEMU runtime test asserts a plausible time of day and that
+  the clock advances. A missing/broken RTC falls back to time since boot.
 
 * **Editor mouse conventions (mainstream GUI editors):** the mouse wheel
   scrolls the editor viewport in the **standard direction** (wheel down =
