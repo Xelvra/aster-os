@@ -737,6 +737,73 @@ fn testTaskErrorHandler() void {
     expect(task_error_recorded.load(.monotonic), "task error handler ran on a task error");
 }
 
+fn testPerProgramIsolation() void {
+    // M7 per-program isolation: a spawned Lua program runs in its own state.
+    // An infinite loop in the entry is contained by the instruction budget and
+    // cannot touch the shell; a program whose update() errors is dropped; a
+    // healthy program ticks and its side effect (a file) is visible from the
+    // shell state.
+    const lua_mod = @import("lua/lua.zig");
+    const storage = @import("api/storage.zig");
+    if (!storage.isMounted()) {
+        expect(true, "per-program isolation test skipped (no disk attached)");
+        return;
+    }
+    const L = @import("lua/cimport.zig").c;
+    const lua_state = lua_mod.getState() orelse {
+        expect(false, "lua state exists");
+        return;
+    };
+
+    // 1. An infinite-loop program must fail at spawn (budget) and the shell
+    //    must stay healthy.
+    const inf_result = lua_mod.spawnProgram("while true do end", "infinite");
+    const inf_contained = if (inf_result) |_| false else |err| err == error.ProgramRunFailed;
+    expect(inf_contained, "infinite-loop program contained at spawn");
+    const shell_ok = lua_mod.callUpdate() != lua_mod.CallResult.err;
+    expect(shell_ok, "shell unaffected after a contained infinite-loop program");
+
+    // 2. A program whose update() errors is dropped, not the whole shell.
+    const boom = lua_mod.spawnProgram("function update() error('boom') end", "boom") catch {
+        expect(false, "erroring program spawns");
+        return;
+    };
+    expect(lua_mod.programAlive(boom), "erroring program alive after spawn");
+    lua_mod.tickPrograms();
+    expect(!lua_mod.programAlive(boom), "erroring program dropped after its update failed");
+    const shell_ok2 = lua_mod.callUpdate() != lua_mod.CallResult.err;
+    expect(shell_ok2, "shell unaffected after an erroring program was dropped");
+
+    // 3. A healthy program ticks: its update creates a file, visible from the
+    //    shell state (shared bindings, separate lua_States).
+    const prog = lua_mod.spawnProgram(
+        "function update() file.create('/prog_tick.txt') end",
+        "tick",
+    ) catch {
+        expect(false, "healthy program spawns");
+        return;
+    };
+    expect(lua_mod.programAlive(prog), "healthy program alive after spawn");
+    lua_mod.tickPrograms();
+    const script =
+        \\local h = file.open("/prog_tick.txt")
+        \\if h then file.close(h); file.remove("/prog_tick.txt") end
+        \\return h ~= nil
+    ;
+    const load_status = L.luaL_loadstring(lua_state, script);
+    expect(load_status == L.LUA_OK, "isolation check script compiles");
+    if (load_status != L.LUA_OK) return;
+    const run_status = L.lua_pcallk(lua_state, 0, 1, 0, 0, null);
+    expect(run_status == L.LUA_OK, "isolation check script runs");
+    if (run_status != L.LUA_OK) {
+        L.lua_pop(lua_state, 1);
+        return;
+    }
+    const ticked = L.lua_toboolean(lua_state, -1) == 1;
+    expect(ticked, "healthy program's update ran and its side effect is visible");
+    _ = L.lua_pop(lua_state, 1);
+}
+
 const tests = [_]Test{
     .{ .name = "timer tick + event queue", .func = testTimerTicks },
     .{ .name = "mouse event queue", .func = testMouseEvent },
@@ -760,6 +827,7 @@ const tests = [_]Test{
     .{ .name = "event group any-mode wake (ADR-017)", .func = testEventGroup },
     .{ .name = "message queue put wakes a blocked get (ADR-017)", .func = testMessageQueue },
     .{ .name = "task error handler runs on an errored task", .func = testTaskErrorHandler },
+    .{ .name = "per-program isolation (own lua_State, contained)", .func = testPerProgramIsolation },
 };
 
 fn testFilesystem(alloc: std.mem.Allocator, memory: *mem.Memory) void {

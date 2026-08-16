@@ -480,6 +480,10 @@ fn poll(display: *DisplayState) void {
 
 fn update() bool {
     const result = lua.callUpdate();
+    // Per-program isolation (M7): tick every spawned program's update() in
+    // its own state; a program that errors is dropped without touching the
+    // shell.
+    lua.tickPrograms();
     lua.gcStep(1024);
     return result == lua.CallResult.err;
 }

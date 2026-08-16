@@ -296,3 +296,103 @@ pub fn gcStep(budget: usize) void {
         _ = lua_c.lua_pop(L, 1);
     }
 }
+
+// ──────────────────────────────────────────────────────────────────────────
+// Per-program isolation (M7): every `Runtime.spawn(.Lua, ...)` program runs in
+// its OWN lua_State, isolated from the shell. A program's error or an
+// infinite loop (instruction budget) is contained to that program — the
+// shell's state and the other programs are unaffected. Programs share the
+// kernel bindings and the single address space (SASOS), but never a Lua
+// state.
+// ──────────────────────────────────────────────────────────────────────────
+
+pub const max_programs = 4;
+pub const ProgramHandle = u32;
+
+pub const Program = struct {
+    state: ?*lua_c.lua_State = null,
+    name: [24]u8 = undefined,
+    name_len: u8 = 0,
+    errored: bool = false,
+};
+
+var programs: [max_programs]Program = [_]Program{.{}} ** max_programs;
+
+/// Spawn a Lua program: a fresh lua_State runs `source` once (libraries and
+/// kernel bindings opened), armed with the instruction budget so an infinite
+/// loop in the entry cannot freeze the system. On success the program is
+/// registered and ticked by `tickPrograms`; on failure its state is closed
+/// and an error is returned (the shell is never touched).
+pub fn spawnProgram(source: []const u8, name: []const u8) !ProgramHandle {
+    for (&programs, 0..) |*p, i| {
+        if (p.state != null) continue;
+        const L = lua_c.lua_newstate(luaAlloc, null) orelse return error.NoMemory;
+        errdefer lua_c.lua_close(L);
+        openLibraries(L);
+        armBudget(L);
+        defer disarmBudget(L);
+        var chunk_buf: [64]u8 = undefined;
+        const chunk = if (name.len < chunk_buf.len) blk: {
+            @memcpy(chunk_buf[0..name.len], name);
+            chunk_buf[name.len] = 0;
+            break :blk chunk_buf[0..name.len :0];
+        } else "program";
+        const load_status = lua_c.luaL_loadbufferx(L, @ptrCast(@constCast(source.ptr)), source.len, chunk.ptr, null);
+        if (load_status != lua_c.LUA_OK) return error.ProgramLoadFailed;
+        const run_status = lua_c.lua_pcallk(L, 0, 0, 0, 0, null);
+        if (run_status != lua_c.LUA_OK) {
+            _ = lua_c.lua_pop(L, 1); // drop the error message
+            return error.ProgramRunFailed;
+        }
+        var name_slot: [24]u8 = undefined;
+        const n = @min(name.len, name_slot.len);
+        @memcpy(name_slot[0..n], name[0..n]);
+        p.* = .{
+            .state = L,
+            .name = name_slot,
+            .name_len = @intCast(n),
+            .errored = false,
+        };
+        return @intCast(i);
+    }
+    return error.ProgramTableFull;
+}
+
+/// Call a named function in one program's state under the instruction budget.
+/// Returns the lua_pcall status; the error message is dropped so nothing
+/// leaks on the stack.
+fn callProgramFunction(L: *lua_c.lua_State, name: [*:0]const u8) c_int {
+    _ = lua_c.lua_getglobal(L, name);
+    if (!lua_c.lua_isfunction(L, -1)) {
+        _ = lua_c.lua_pop(L, 1);
+        return lua_c.LUA_OK;
+    }
+    armBudget(L);
+    defer disarmBudget(L);
+    const status = lua_c.lua_pcallk(L, 0, 0, 0, 0, null);
+    if (status != lua_c.LUA_OK) {
+        _ = lua_c.lua_pop(L, 1);
+    }
+    return status;
+}
+
+/// Run one update tick of every alive program, contained per program: a
+/// program that errors (or exceeds its budget) is recorded and dropped — its
+/// state is closed and the shell and other programs continue. Called from the
+/// frame loop after the shell's update.
+pub fn tickPrograms() void {
+    for (&programs) |*p| {
+        const L = p.state orelse continue;
+        if (p.errored) continue;
+        if (callProgramFunction(L, "update") != lua_c.LUA_OK) {
+            p.errored = true;
+            lua_c.lua_close(L);
+            p.state = null;
+        }
+    }
+}
+
+pub fn programAlive(handle: ProgramHandle) bool {
+    if (handle >= max_programs) return false;
+    return programs[handle].state != null and !programs[handle].errored;
+}

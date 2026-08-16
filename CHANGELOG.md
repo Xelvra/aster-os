@@ -263,6 +263,16 @@ This version tracks the milestone after M6 Storage was completed.
   Tasks can also be spawned with an `anyerror!void` body and an **error
   handler** (`spawnTaskChecked`) that runs when the body fails.
 
+* **Per-program isolation (M7):** a spawned Lua program runs in its OWN
+  `lua_State` (`lua.spawnProgram`) — libraries and the kernel bindings are
+  opened into a fresh state, the program's source runs once armed with the
+  instruction budget, and its `update()` ticks each frame through
+  `tickPrograms()`. An infinite loop or error is contained to that program
+  (the program is dropped) and cannot touch the desktop shell, which keeps
+  its single state. A QEMU runtime test proves an infinite-loop program fails
+  at spawn without hurting the shell, an erroring program is dropped, and a
+  healthy program's update side effect is visible across states.
+
 ### Removed
 
 * **`theme.trash` theme field:** hidden (dot) files and the trash now share

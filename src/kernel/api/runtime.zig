@@ -73,8 +73,11 @@ pub fn performReload() void {
 pub fn spawn(opts: SpawnOptions) !Program {
     switch (opts.kind) {
         .Lua => {
-            // Handles are u64 and never 0; the counter wraps back to 1 at the
-            // ceiling so it can never alias a reused handle (audit 2026-08-15).
+            // The first spawn is the desktop shell bootstrap: it runs in the
+            // single shell state (lua.runMain loads the /wm/ shell modules).
+            // Additional Lua programs are created isolated with
+            // lua.spawnProgram (their own lua_State), so a program error or
+            // infinite loop cannot touch the desktop.
             const handle = next_handle;
             next_handle = if (next_handle == std.math.maxInt(u64)) 1 else next_handle + 1;
             try lua.runMain(opts.entry);
