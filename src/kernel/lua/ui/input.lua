@@ -205,7 +205,12 @@ local function handle_mouse()
             -- window title now — double-click there toggles fullscreen; going
             -- up lives in the ".." listing entry and Escape.
             local fw = find_win("files")
-            if fw and fw.ws == current_ws and not fs_viewing then
+            -- The listing click must stay inside the files window: without an
+            -- x-range check, a click on a tiled neighbour (e.g. the editor on
+            -- the same row) fell through to the files row under the cursor and
+            -- opened whatever entry it hit (e.g. ".trash", then ".keep").
+            if fw and fw.ws == current_ws and not fs_viewing
+                and mx >= fw.x and mx <= fw.x + fw.w then
                 local rows = math.max(math.floor((fw.h - theme.wm.title_h - 12) / fs_row_h), 1)
                 local list_ty = fw.y + theme.wm.border + theme.wm.title_h + 6
                 if my >= list_ty then

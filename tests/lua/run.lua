@@ -601,6 +601,42 @@ test("repl_save_history creates the file on first save", function()
     assert(written == "cmd1\ncmd2\n", "history content: " .. tostring(written))
 end)
 
+test("click in the editor does not fall through to the files listing (regression)", function()
+    set_disk({ ["/README"] = "hi", ["/.trash/.keep"] = "" })
+    file.dir = function(p)
+        if p == "/.trash" then return { { name = ".keep", dir = false } } end
+        if p == "/" then return {
+            { name = "README", dir = false },
+            { name = ".trash", dir = true },
+        } end
+        return {}
+    end
+    -- Files and editor tiled side by side on the same row: a click in the
+    -- editor body shares the y-range of the files listing rows.
+    windows[#windows + 1] = window("files", current_ws)
+    local fw = find_win("files")
+    fw.x, fw.y, fw.w, fw.h = 300, theme.bar.height, 400, 100
+    set_focus("files")
+    files_open("/")
+    windows[#windows + 1] = window("editor", current_ws)
+    local ew = find_win("editor")
+    ew.x, ew.y, ew.w, ew.h = 0, theme.bar.height, 290, 100
+    set_focus("editor")
+    editor_load("/README")
+    assert(fs_path == "/", "precondition: files at the root")
+    local list_ty = fw.y + theme.wm.border + theme.wm.title_h + 6
+    local tx = ew.x + theme.wm.border + 6
+    local ty = ew.y + theme.wm.border + theme.wm.title_h + 6
+    -- Click on the editor text at the y of the FIRST files listing row — the
+    -- row that maps to the ".trash" directory (dirs sort first), so the
+    -- old no-x-check bug navigated into the trash instead of placing the caret.
+    mouse_was_down = false
+    _set_mouse(tx + ed_glyph_w, ty, true, 0)
+    handle_mouse()
+    assert(fs_path == "/", "click in the editor must not enter the files listing")
+    assert(ed_path == "/README", "click in the editor must not open a files entry")
+end)
+
 test("file entry colors: hidden/trash dim blue, read-only red outside trash", function()
     set_disk()
     windows[#windows + 1] = window("files", current_ws)
