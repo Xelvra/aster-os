@@ -32,6 +32,7 @@
 | 18 | [handoff.md](handoff.md) | Formální postup pro nevyřešené problémy — šablona, kdy ji spustit, jak ji zavřít. |
 | 19 | [`CHANGELOG.md`](../CHANGELOG.md) | Agregovaný changelog (anglicky) — co systém umí, jedna verze na milník. |
 | 20 | [lua-wm.md](lua-wm.md) | **Lua WM blueprint** — architektura, moduly, tiling engine, grafická pipeline, bindings, design rationale (RFC). |
+| 21 | [editor.md](editor.md) | **Editor okno** — otevření, klávesové a myšové konvence (kolečko = scroll, klik = kurzor), plánovaný zoom. |
 
 ## Jak konzultovat návrh
 

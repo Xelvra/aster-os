@@ -134,7 +134,7 @@ Jinak má bar správné rozložení.
   (`file.write`); nový buffer nabídne **save as:** v titulkové liště a soubor
   vytvoří (`file.create`). **Esc Esc** zavře editor jen u čistého bufferu.
 - **Super+Z** otevře settings (`/wm/theme.lua`); uložení configu spouští auto-reload.
-- Detail navigace viz `spec/lua-wm.md` §7a.4.
+- Myš: kolečko scrolluje viewport, klik umístí kurzor; detail v `spec/editor.md`.
 
 ### 4.6b Files — správce souborů (✅ hotovo, M7.1)
 - **Super+E** otevře files okno v kořenu (`files_*` stav v `input.lua`).

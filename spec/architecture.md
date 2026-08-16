@@ -277,6 +277,7 @@ aster-os/
 │   ├── graphics.md               # Graphics API → Renderer → Framebuffer
 │   ├── desktop-ui.md            # desktop UI port (bar, launcher, okna, widgety)
 │   ├── lua-wm.md                 # Lua WM blueprint (moduly, tiling, grafika, bindings)
+│   ├── editor.md                 # editor okno (klávesové/myšové konvence, plánovaný zoom)
 │   ├── input.md                  # vstupní události
 │   ├── runtime.md                # Runtime.spawn + RuntimeKind
 │   ├── timer.md                  # čas: tick zdroj (M2), KI timer, kooperativní sleep
@@ -330,6 +331,7 @@ aster-os/
 | `graphics.md` | Graphics API / Renderer / Framebuffer — vrstvy a povolené operace. |
 | `desktop-ui.md` | Desktop UI — port vzhledu/chování z cachyos-hypr-noctalia, reimplementováno (bar, launcher, okna, widgety). |
 | `lua-wm.md` | Lua WM blueprint — architektura, moduly, tiling engine, grafická pipeline, bindings, design rationale (RFC). |
+| `editor.md` | Editor okno — otevření, klávesové a myšové konvence (kolečko = scroll, klik = kurzor), plánovaný zoom. |
 | `input.md` | Vstupní události: PS/2 klávesnice, fronta, mapování na Lua. |
 | `runtime.md` | Runtime.spawn, RuntimeKind, vazba Runtime → Program, error containment. |
 | `timer.md` | Čas: tick zdroj (M2), KI `timer`, kooperativní sleep. |

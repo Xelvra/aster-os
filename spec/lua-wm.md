@@ -801,40 +801,9 @@ se přidají s app systémem / net (M9).
 
 Navigační konvence:
 
-- **Editor (`editor.lua`):** Super+T (i položka `editor` v launcheru) otevře
-  **prázdný buffer** (bez cesty);
-  čistý buffer se dalším Super+T resetuje na nový prázdný dokument, neuložený
-  (dirty) se zachová, takže se změny nikdy neztratí.
-  Šipky Nahoru/Dolů = řádek, Levá/Pravá = kurzor,
-  Home/End = začátek/konec řádku, Enter = nový řádek, Backspace/Delete = mazat,
-  **Ctrl+S** = uložit (`file.write`). Nový buffer (bez cesty) přepne Ctrl+S na
-  prompt **„save as:"** v titulkové liště: píše se cesta, **Enter** uloží —
-  neexistující soubor se vytvoří (`file.create`, ext2 create), **Esc** zruší
-  (prompt neobsahuje žádné hinty — jak uložit je v help popupu, F1). Uložení
-  pod novým jménem **ihned osvěží files browser** (`files_refresh`), pokud
-  zrovna ukazuje tu složku — nový soubor se objeví bez další navigace. Dirty
-  marker se maže i tehdy, když uživatel
-  všechny změny vrátí zpět — buffer se porovnává s posledním uloženým stavem
-  (`ed_saved`), takže Ctrl+S se nabízí jen pro skutečně jiný obsah.
-  **Esc Esc** (jen u čistého bufferu bez neuložených změn) zavře editor jako
-  prohlížení; s neuloženými změnami je Esc blokován, takže se změny nemůžou
-  ztratit. Hlavička ukazuje cestu (klávesové hinty jsou v help popupu,
-  `Help F1` je v bar liště); dirty marker **`*`** za cestou značí neuložené změny.
-  Konfigurace (`/wm/theme.lua`) se
-  otevírá přes **Super+Z** (settings);
-  uložení configu spouští auto-reload (`spec/runtime.md` §5a, trigger 2).
-  **Read-only soubory** — každý soubor končící `.bak` (např. `/wm/.theme.bak`)
-  a `/.repl_history` — editor odmítne načíst (`editor_load`), prohlíží se jen
-  Spacem ve files browseru a kreslí se červeně. Důvod je u obou jiný: `.bak`
-  zálohy jsou **ruční záchrana posledního Ctrl+S** — kdyby je editor mohl
-  Ctrl+S přepsat, přestaly by být zálohou; obnovení předchozí verze = přejmenovat
-  `.bak` zpět na working copy. `/.repl_history` je **runtime stav vlastněný
-  shellem** — REPL ho po každém Enter truncate+kompletně přepíše z paměťové
-  historie, takže ruční editace by příští Enter tiše smazal (editace by byla
-  iluzí); zdroj pravdy pro běžící session je paměťová `history` tabulka.
-  Žádné vlastnictví ani práva souborů zatím neexistují — read-only je
-  **hardcoded pravidlo**, ne atribut souboru. `.bak` zálohy vznikají **jen
-  ručním Ctrl+S**, nikdy při startu ani z testů.
+- **Editor — konvence žijí v `spec/editor.md`** (otevření, klávesové a myšové
+  konvence, plánovaný zoom). Super+T i položka `editor` v launcheru otevře
+  prázdný buffer; read-only a `.bak` backup pravidla tamtéž.
 - **Files browser (`files.lua`):** Up/Down = výběr, **Enter** = otevřít
   (adresář → dovnitř, soubor → **editace v editoru**),
   **Space** = rychlý náhled obsahu (read-only), **F2** = přejmenovat vybranou
@@ -854,7 +823,9 @@ Navigační konvence:
   (Enter = otevřít soubor v příslušné aplikaci), ne Midnight Commander (F3/F4).
   Z náhledu se vystupuje **Esc Esc** (jednou = zpět, podruhé = z náhledu ven) —
   vědomá odchylka od Hyprlandu (dvojitý stisk jako pojistka, viz
-  `spec/desktop-ui.md` §5 a §7.1).
+  `spec/desktop-ui.md` §5 a §7.1). Myš v náhledu (kolečko = scroll, klik =
+  hollow kurzor) se řídí stejnými konvencemi jako editor — `spec/editor.md`
+  §3.1 (základ budoucí schránky).
 - **Koš (`/.trash`):** **Delete** mimo koš **přesune** soubor/adresář do
   `/.trash` (ext2 `rename`, žádná kopie dat — koš je zóna „undo"); uvnitř
   `/.trash` **Delete** trvale smaže vybranou položku a **Ctrl+Delete**

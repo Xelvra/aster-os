@@ -131,6 +131,19 @@ This version tracks the milestone after M6 Storage was completed.
   block allocator walk single/double/triple indirect pointer chains, and
   sparse holes read as zeros.
 
+* **Editor mouse conventions (mainstream GUI editors):** the mouse wheel
+  scrolls the editor viewport in the **standard direction** (wheel down =
+  scroll down toward the end — Windows/Linux, not macOS natural; the text
+  caret does not follow — VS Code / gedit convention), and a click in the text
+  places the caret at the clicked character (code-point aware, clamped to the
+  visible text / line end). The same conventions apply to the read-only files
+  **view mode** (Space preview): wheel scrolls, click moves the hollow cursor
+  — the foundation for a future clipboard selection (`Ctrl+C`/`Ctrl+V`). The
+  keyboard still keeps the caret visible. PS/2 mice that support the wheel
+  (Intellimouse 4-byte packets, detected via the device ID) now deliver it
+  through a new `input.mouse_wheel()` KI binding; a plain mouse stays on the
+  3-byte format.
+
 ### Fixed
 
 * **ext2 group descriptor hardening:** `groupDescriptor` now computes the GDT

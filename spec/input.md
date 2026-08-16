@@ -79,7 +79,8 @@ pub const Event = union(enum) {
 
 Sub-op čísla pro `Input` v KI: `0=next_event`, `1=peek_event`, `2=flush`, `3=mouse_x`,
 `4=mouse_y`, `5=mouse_left`, `6=mouse_right`, `7=mouse_middle`, `8=set_layout`,
-`9=layout_name` (myš se čte jako stav, ne event — §6; layout viz §5, ADR-024).
+`9=layout_name`, `10=mouse_wheel` (myš se čte jako stav, ne event — §6; layout viz
+§5, ADR-024).
 Implementace: `api/input.zig` (`sys.dispatch(.Input, ...)`).
 
 ---
@@ -155,6 +156,8 @@ Lua vidí frontu přes `api/input.zig` (`sys.dispatch(.Input, ...)`) jako funkce
   konzumuje v `poll()`, busy myš nemůže zaplavit Lua event stream)
 - `input.mouse_x()`, `input.mouse_y()`, `input.mouse_left()`, `input.mouse_right()`,
   `input.mouse_middle()` — stav myši
+- `input.mouse_wheel()` — akumulovaný delta kolečka (kladné = nahoru), přečtení ho
+  vyprázdní (edge, ne stav)
 
 `peek_event` a `flush` jsou KI sub-opy (zmrazené), Lua binding zatím neexponují.
 Události se do Lua předávají jako tabulky (`{ type = "key", code = "enter", pressed = true }`).
@@ -165,6 +168,10 @@ kvůli hladkosti kurzoru), ale dotazuje se sdíleného stavu přes bindings:
 
 - `input.mouse_x()` / `input.mouse_y()` — pozice kurzoru ve framebuffer pixelech
 - `input.mouse_left()` / `input.mouse_right()` / `input.mouse_middle()` — stav tlačítek
+- `input.mouse_wheel()` — **edge, ne stav:** akumulátor (`service.addWheel`) sčítá
+  delty paketů mezi framy (busy kolečko zvládne víc zářezů za frame); přečtení
+  (`service.mouseWheel`) vrátí součet a vyprázdní ho, takže zářezy odeslané při
+  jinak zaostřeném okně nemůžou „proklouznout" do editoru později.
 
 Kernel (`main.zig` `poll()`) čte myš z event loopu přes `service.popMouseEvent()`,
 aplikuje paket na cursor overlay (`mouse_cursor.move`) a výslednou pozici/tlačítka
@@ -180,8 +187,13 @@ IRQ → atomický push do vlastní fronty (nezávislá na klávesnici, aby aktiv
 nevyhladověla klávesy/Lua) → event loop. Producenti i konzumenti jdou přes
 `service.zig` (§2), nikdo nepíše do myší fronty napřímo.
 
-- **Paket:** standardní 3-byte PS/2 (b0 = tlačítka + sign/overflow flagy, b1/b2 = delta).
-- **Decode:** `input.decodeMousePacket` — čistá funkce, host-testovaná
+- **Paket:** standardní 3-byte PS/2 (b0 = tlačítka + sign/overflow flagy, b1/b2 = delta);
+  myš s kolečkem se přepne na **4-byte pakety** (Intellimouse): sekvence sample-rate
+  200/100/80 + čtení device ID (0xF2) — jen když ID == 3, jinak zůstává 3-byte
+  (myš bez kolečka nikdy nedesyne). Třetí bajt = Z (kolečko, znaménko: kladné =
+  nahoru, dvojkový doplněk = dolů).
+- **Decode:** `input.decodeMousePacket` (3-byte) a `input.decodeMousePacket4`
+  (4-byte, s kolečkem) — čisté funkce, host-testované
   (`tests/input/mouse_test.zig`): resync na paket-start bitu 3 (0x08), odmítnutí
   přetečených delt (bity 6/7), `dy = -dy` (PS/2 +dy = nahoru, obrazovka y roste dolů).
 - **Driver:** `src/kernel/drivers/ps2.zig` — sdílený i8042 s klávesnicí; každý IRQ
