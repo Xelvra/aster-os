@@ -43,6 +43,11 @@ pub const inode_type_dir: u16 = 0x4000;
 pub const inode_type_reg: u16 = 0x8000;
 pub const inode_direct_blocks: usize = 12;
 pub const inode_block_ptr_count: usize = 15;
+/// Inode block-pointer slots for the indirect chains: 12 = single, 13 =
+/// double, 14 = triple indirect (ext2 layout, `inode.block[12..14]`).
+pub const inode_single_indirect: usize = 12;
+pub const inode_double_indirect: usize = 13;
+pub const inode_triple_indirect: usize = 14;
 
 pub const root_inode: u32 = 2;
 
@@ -285,7 +290,7 @@ pub const Ext2 = struct {
     }
 
     /// Resolve logical block `index` of `inode` to a physical block number
-    /// (direct blocks, then the single-indirect table).
+    /// (direct blocks, then single/double/triple indirect chains).
     fn blockForIndex(self: Ext2, inode: Inode, index: usize) Ext2Error!?u32 {
         if (index < inode_direct_blocks) {
             // A direct pointer of 0 is a hole (sparse file), not block 0 —
@@ -294,14 +299,51 @@ pub const Ext2 = struct {
             const blk = inode.block[index];
             return if (blk == 0) null else blk;
         }
-        const indirect_index = index - inode_direct_blocks;
-        if (indirect_index >= self.block_size / 4) return Ext2Error.UnsupportedIndirect;
-        if (inode.block[inode_direct_blocks] == 0) return null;
-        var ptr_buf: [4096]u8 = undefined;
-        try self.readBlock(inode.block[inode_direct_blocks], ptr_buf[0..self.block_size]);
-        const blk = bytes.readU32(&ptr_buf, indirect_index * 4);
-        if (blk == 0) return null;
-        return blk;
+        const ptrs = self.block_size / 4;
+        const single_base = inode_direct_blocks;
+        const double_base = single_base + ptrs;
+        const triple_base = double_base + ptrs * ptrs;
+        if (index < double_base) return self.indirectDataBlock(&inode, inode_single_indirect, index - single_base);
+        if (index < triple_base) return self.indirectDataBlock(&inode, inode_double_indirect, index - double_base);
+        if (index < triple_base + ptrs * ptrs * ptrs) return self.indirectDataBlock(&inode, inode_triple_indirect, index - triple_base);
+        return Ext2Error.UnsupportedIndirect;
+    }
+
+    /// Resolve `index` (a pointer offset within an indirect chain rooted at
+    /// inode slot `slot`) to a data-block number. `slot` picks the chain
+    /// depth: 12 = single, 13 = double, 14 = triple indirect. A zero pointer
+    /// anywhere in the chain is a hole -> null.
+    fn indirectDataBlock(self: Ext2, inode: *const Inode, slot: usize, index: usize) Ext2Error!?u32 {
+        const ptrs = self.block_size / 4;
+        const root = inode.block[slot];
+        if (root == 0) return null;
+        var buf: [4096]u8 = undefined;
+
+        if (slot == inode_single_indirect) {
+            try self.readBlock(root, buf[0..self.block_size]);
+            const blk = bytes.readU32(&buf, index * 4);
+            return if (blk == 0) null else blk;
+        }
+
+        if (slot == inode_double_indirect) {
+            try self.readBlock(root, buf[0..self.block_size]);
+            const l1 = bytes.readU32(&buf, (index / ptrs) * 4);
+            if (l1 == 0) return null;
+            try self.readBlock(l1, buf[0..self.block_size]);
+            const blk = bytes.readU32(&buf, (index % ptrs) * 4);
+            return if (blk == 0) null else blk;
+        }
+
+        // Triple indirect: root -> double -> single -> data.
+        try self.readBlock(root, buf[0..self.block_size]);
+        const l1 = bytes.readU32(&buf, (index / (ptrs * ptrs)) * 4);
+        if (l1 == 0) return null;
+        try self.readBlock(l1, buf[0..self.block_size]);
+        const l2 = bytes.readU32(&buf, ((index / ptrs) % ptrs) * 4);
+        if (l2 == 0) return null;
+        try self.readBlock(l2, buf[0..self.block_size]);
+        const blk = bytes.readU32(&buf, (index % ptrs) * 4);
+        return if (blk == 0) null else blk;
     }
 
     /// Write `data` into regular-file `ino` starting at `offset`, growing the
@@ -345,8 +387,8 @@ pub const Ext2 = struct {
         try self.writeInode(ino, inode);
     }
 
-    /// Resolve logical block `index`, allocating it (and the single-indirect
-    /// table when needed) if it does not exist yet.
+    /// Resolve logical block `index`, allocating it (and the direct block
+    /// pointer or indirect chain when needed) if it does not exist yet.
     fn ensureBlock(self: *Ext2, inode: *Inode, index: usize) Ext2Error!u32 {
         if (index < inode_direct_blocks) {
             if (inode.block[index] != 0) return inode.block[index];
@@ -357,22 +399,61 @@ pub const Ext2 = struct {
             try self.writeBlock(blk, zero_buf[0..self.block_size]);
             return blk;
         }
-        const indirect_index = index - inode_direct_blocks;
-        if (indirect_index >= self.block_size / 4) return Ext2Error.UnsupportedIndirect;
-        if (inode.block[inode_direct_blocks] == 0) {
-            const ind_blk = try self.allocBlock();
-            inode.block[inode_direct_blocks] = ind_blk;
-            var zero_buf: [4096]u8 = undefined;
-            @memset(&zero_buf, 0);
-            try self.writeBlock(ind_blk, zero_buf[0..self.block_size]);
+        const ptrs = self.block_size / 4;
+        const single_base = inode_direct_blocks;
+        const double_base = single_base + ptrs;
+        const triple_base = double_base + ptrs * ptrs;
+        if (index < double_base) return self.ensureIndirect(inode, inode_single_indirect, index - single_base, 1);
+        if (index < triple_base) return self.ensureIndirect(inode, inode_double_indirect, index - double_base, 2);
+        if (index < triple_base + ptrs * ptrs * ptrs) return self.ensureIndirect(inode, inode_triple_indirect, index - triple_base, 3);
+        return Ext2Error.UnsupportedIndirect;
+    }
+
+    /// Ensure the data block for pointer offset `index` within an indirect
+    /// chain of `levels` blocks rooted at inode slot `slot` exists, allocating
+    /// each missing level (zeroed) and the data block. Every modified indirect
+    /// block is written back; the inode's root pointer is updated when the
+    /// chain root is allocated. Returns the data-block number.
+    fn ensureIndirect(self: *Ext2, inode: *Inode, slot: usize, index: usize, levels: usize) Ext2Error!u32 {
+        const ptrs = self.block_size / 4;
+        if (inode.block[slot] == 0) {
+            inode.block[slot] = try self.allocBlock();
+            var zero: [4096]u8 = undefined;
+            @memset(&zero, 0);
+            try self.writeBlock(inode.block[slot], zero[0..self.block_size]);
         }
-        var ptr_buf: [4096]u8 = undefined;
-        try self.readBlock(inode.block[inode_direct_blocks], ptr_buf[0..self.block_size]);
-        var blk = bytes.readU32(&ptr_buf, indirect_index * 4);
+
+        var cur_block = inode.block[slot];
+        var cur_index = index;
+        var cur_levels = levels;
+        while (cur_levels > 1) {
+            const divisor = std.math.pow(usize, ptrs, cur_levels - 1);
+            const first = cur_index / divisor;
+            cur_index %= divisor;
+            var buf: [4096]u8 = undefined;
+            try self.readBlock(cur_block, buf[0..self.block_size]);
+            var next = bytes.readU32(&buf, first * 4);
+            if (next == 0) {
+                next = try self.allocBlock();
+                var zero: [4096]u8 = undefined;
+                @memset(&zero, 0);
+                try self.writeBlock(next, zero[0..self.block_size]);
+                try self.readBlock(cur_block, buf[0..self.block_size]);
+                bytes.writeU32(&buf, first * 4, next);
+                try self.writeBlock(cur_block, buf[0..self.block_size]);
+            }
+            cur_block = next;
+            cur_levels -= 1;
+        }
+
+        // Leaf pointer table: allocate the data block if it is still a hole.
+        var leaf: [4096]u8 = undefined;
+        try self.readBlock(cur_block, leaf[0..self.block_size]);
+        var blk = bytes.readU32(&leaf, cur_index * 4);
         if (blk == 0) {
             blk = try self.allocBlock();
-            bytes.writeU32(&ptr_buf, indirect_index * 4, blk);
-            try self.writeBlock(inode.block[inode_direct_blocks], ptr_buf[0..self.block_size]);
+            bytes.writeU32(&leaf, cur_index * 4, blk);
+            try self.writeBlock(cur_block, leaf[0..self.block_size]);
             var zero_buf: [4096]u8 = undefined;
             @memset(&zero_buf, 0);
             try self.writeBlock(blk, zero_buf[0..self.block_size]);
@@ -514,24 +595,40 @@ pub const Ext2 = struct {
         try self.removeDirEntry(old_parent, ino, old_name);
     }
 
-    /// Free the data blocks of `inode` (direct + single indirect) in the
-    /// block bitmap and adjust the free counts.
+    /// Free every block of `inode` (direct + the single/double/triple indirect
+    /// chains): the data blocks at the leaves plus each intermediate pointer
+    /// block. A zero pointer anywhere is a hole — nothing to free.
     fn freeBlocks(self: *Ext2, inode: Inode) Ext2Error!void {
         var index: usize = 0;
         while (index < inode_direct_blocks) : (index += 1) {
             if (inode.block[index] != 0) try self.freeBlock(inode.block[index]);
         }
-        const ind_ptr = inode.block[inode_direct_blocks];
-        if (ind_ptr != 0) {
-            var ptr_buf: [4096]u8 = undefined;
-            try self.readBlock(ind_ptr, ptr_buf[0..self.block_size]);
+        if (inode.block[inode_single_indirect] != 0) try self.freeIndirectBlocks(inode.block[inode_single_indirect], 1);
+        if (inode.block[inode_double_indirect] != 0) try self.freeIndirectBlocks(inode.block[inode_double_indirect], 2);
+        if (inode.block[inode_triple_indirect] != 0) try self.freeIndirectBlocks(inode.block[inode_triple_indirect], 3);
+    }
+
+    /// Free every block reachable through an indirect chain of `levels` blocks
+    /// rooted at `block_num` (level 1 = the block is the leaf pointer table).
+    fn freeIndirectBlocks(self: *Ext2, block_num: u32, levels: usize) Ext2Error!void {
+        const ptrs = self.block_size / 4;
+        var buf: [4096]u8 = undefined;
+        try self.readBlock(block_num, buf[0..self.block_size]);
+        if (levels == 1) {
             var i: usize = 0;
-            while (i < self.block_size / 4) : (i += 1) {
-                const blk = bytes.readU32(&ptr_buf, i * 4);
+            while (i < ptrs) : (i += 1) {
+                const blk = bytes.readU32(&buf, i * 4);
                 if (blk != 0) try self.freeBlock(blk);
             }
-            try self.freeBlock(ind_ptr);
+            try self.freeBlock(block_num);
+            return;
         }
+        var i: usize = 0;
+        while (i < ptrs) : (i += 1) {
+            const next = bytes.readU32(&buf, i * 4);
+            if (next != 0) try self.freeIndirectBlocks(next, levels - 1);
+        }
+        try self.freeBlock(block_num);
     }
 
     /// Clear one block bit in its group's block bitmap and bump the free

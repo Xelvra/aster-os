@@ -117,6 +117,42 @@ pub const Image = struct {
         for (0..block_size) |j| self.data[ind_base + j] = 0x22;
         writeU32(&self.data, 60 * block_size, 52);
     }
+
+    /// A regular file (inode 6) whose data lives behind a double-indirect
+    /// chain: inode block[13] -> double table (block 20) -> single table
+    /// (block 21) -> data (block 22). `logical_index` is the file's logical
+    /// block number (>= 12 + 256), which is what blockForIndex must resolve;
+    /// the PHYSICAL blocks stay small (inside the 64 KiB image). The data
+    /// block is filled with `content_byte`.
+    pub fn putDoubleIndirectFile(self: *Image, logical_index: u32, content_byte: u8) void {
+        const ptrs = 256;
+        const double_base = 12 + ptrs;
+        const idx = logical_index - double_base;
+        const off = 5 * block_size + 5 * 128;
+        writeU16(&self.data, off, ext2.inode_type_reg);
+        writeU32(&self.data, off + 4, (logical_index + 1) * block_size);
+        writeU32(&self.data, off + 40 + 13 * 4, 20); // i_block[13] = double table
+        writeU32(&self.data, 20 * block_size + (idx / ptrs) * 4, 21);
+        writeU32(&self.data, 21 * block_size + (idx % ptrs) * 4, 22);
+        @memset(self.data[22 * block_size .. 23 * block_size], content_byte);
+    }
+
+    /// Like putDoubleIndirectFile but behind a triple-indirect chain (inode
+    /// block[14]): triple table (block 23) -> double (24) -> single (25) ->
+    /// data (26). `logical_index` >= 12 + 256 + 256*256.
+    pub fn putTripleIndirectFile(self: *Image, logical_index: u32, content_byte: u8) void {
+        const ptrs = 256;
+        const triple_base = 12 + ptrs + ptrs * ptrs;
+        const idx = logical_index - triple_base;
+        const off = 5 * block_size + 6 * 128; // inode 7
+        writeU16(&self.data, off, ext2.inode_type_reg);
+        writeU32(&self.data, off + 4, (logical_index + 1) * block_size);
+        writeU32(&self.data, off + 40 + 14 * 4, 23); // i_block[14] = triple table
+        writeU32(&self.data, 23 * block_size + (idx / (ptrs * ptrs)) * 4, 24);
+        writeU32(&self.data, 24 * block_size + ((idx / ptrs) % ptrs) * 4, 25);
+        writeU32(&self.data, 25 * block_size + (idx % ptrs) * 4, 26);
+        @memset(self.data[26 * block_size .. 27 * block_size], content_byte);
+    }
 };
 
 pub fn buildImage() Image {

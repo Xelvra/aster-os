@@ -213,6 +213,39 @@ test "readFile reads through the single-indirect block" {
     try std.testing.expectEqual(@as(u8, 0x22), out[12 * 1024]);
 }
 
+test "readFile reads through a double-indirect chain" {
+    // Logical block 300 (past single indirect) resolved through inode
+    // block[13]: 300 - 12 - 256 = 32 -> double table[0] -> single table[32].
+    var img = buildImage();
+    img.putDoubleIndirectFile(300, 0x33);
+    var mock = MockDisk{ .data = &img.data };
+    const fs = try ext2.Ext2.init(mount(&mock));
+    // The file's only real data block sits at logical block 300; everything
+    // before it is a hole (zeros).
+    var out: [1024]u8 = undefined;
+    const n = try fs.readAt(6, 300 * 1024, &out);
+    try std.testing.expectEqual(@as(usize, 1024), n);
+    for (out) |b| try std.testing.expectEqual(@as(u8, 0x33), b);
+    const inode = try fs.readInode(6);
+    try std.testing.expect(inode.block[ext2.inode_double_indirect] != 0);
+}
+
+test "readFile reads through a triple-indirect chain" {
+    // Logical block 70000 (past double indirect) resolved through inode
+    // block[14]. 70000 - 12 - 256 - 65536 = 4196 -> triple[0] -> double[16]
+    // (4196/256) -> single[100] (4196%256) -> data.
+    var img = buildImage();
+    img.putTripleIndirectFile(70000, 0x44);
+    var mock = MockDisk{ .data = &img.data };
+    const fs = try ext2.Ext2.init(mount(&mock));
+    var out: [1024]u8 = undefined;
+    const n = try fs.readAt(7, 70000 * 1024, &out);
+    try std.testing.expectEqual(@as(usize, 1024), n);
+    for (out) |b| try std.testing.expectEqual(@as(u8, 0x44), b);
+    const inode = try fs.readInode(7);
+    try std.testing.expect(inode.block[ext2.inode_triple_indirect] != 0);
+}
+
 test "readFile rejects a directory inode" {
     var img = buildImage();
     var mock = MockDisk{ .data = &img.data };

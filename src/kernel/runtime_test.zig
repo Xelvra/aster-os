@@ -934,6 +934,87 @@ fn testFileCreate() void {
     _ = L.lua_pop(lua_state, 1);
 }
 
+fn testFileDoubleIndirect() void {
+    // Write a file larger than the single-indirect span (12 direct + 1024
+    // indirect blocks at 4 KiB = block 1035) so the write path allocates
+    // through a double-indirect chain, then read it all back and verify the
+    // byte at the double-indirect boundary. Skipped when no disk is attached.
+    const lua = @import("lua/lua.zig");
+    const storage = @import("api/storage.zig");
+    if (!storage.isMounted()) {
+        expect(true, "double-indirect test skipped (no disk attached)");
+        return;
+    }
+    const L = @import("lua/cimport.zig").c;
+    const lua_state = lua.getState() orelse {
+        expect(false, "lua state exists");
+        return;
+    };
+    const script =
+        \\-- The test disk uses 1 KiB blocks: 12 direct + 256 single-indirect
+        \\-- pointers, so logical block 268 is the first double-indirect block.
+        \\-- A 269-block file (275456 B) crosses the boundary. Write in chunks
+        \\-- so no single heap allocation is huge, read it all back and verify
+        \\-- the byte at the double-indirect boundary.
+        \\local h = file.open("/big_test.txt")
+        \\if h then file.close(h); file.remove("/big_test.txt") end
+        \\h = file.create("/big_test.txt")
+        \\if not h then return "FAIL" end
+        \\local n = 269 * 1024
+        \\local chunk = 32768
+        \\local written = 0
+        \\while written < n do
+        \\    local c = math.min(chunk, n - written)
+        \\    file.write(h, string.rep("B", c))
+        \\    written = written + c
+        \\end
+        \\file.close(h)
+        \\h = file.open("/big_test.txt")
+        \\local parts = {}
+        \\local total = 0
+        \\while true do
+        \\    local piece = file.read(h, 4096)
+        \\    if not piece or piece == "" then break end
+        \\    parts[#parts + 1] = piece
+        \\    total = total + #piece
+        \\end
+        \\file.close(h)
+        \\local ok = (total == n)
+        \\local boundary = 268 * 1024 + 1
+        \\local sofar = 0
+        \\for _, p in ipairs(parts) do
+        \\    if sofar + #p >= boundary then
+        \\        if p:byte(boundary - sofar) ~= 66 then ok = false end
+        \\        break
+        \\    end
+        \\    sofar = sofar + #p
+        \\end
+        \\file.remove("/big_test.txt")
+        \\if ok then return "PASS" else return "FAIL" end
+    ;
+    const load_status = L.luaL_loadstring(lua_state, script);
+    expect(load_status == L.LUA_OK, "double-indirect script compiles");
+    if (load_status != L.LUA_OK) return;
+    const run_status = L.lua_pcallk(lua_state, 0, 1, 0, 0, null);
+    expect(run_status == L.LUA_OK, "double-indirect script runs");
+    if (run_status != L.LUA_OK) {
+        var err_len: usize = 0;
+        const err_str = L.lua_tolstring(lua_state, -1, &err_len);
+        const err_slice: []const u8 = @as([*]const u8, @ptrCast(err_str))[0..err_len];
+        var buf: [256]u8 = undefined;
+        const line = std.fmt.bufPrint(&buf, "double-indirect script error: {s}", .{err_slice}) catch "double-indirect script error";
+        serial.writeLine(line);
+        L.lua_pop(lua_state, 1);
+        return;
+    }
+    var len: usize = 0;
+    const str = L.lua_tolstring(lua_state, -1, &len);
+    const result: []const u8 = @as([*]const u8, @ptrCast(str))[0..len];
+    const ok = len == 4 and std.mem.eql(u8, result, "PASS");
+    expect(ok, "write/read round-trips a file across the double-indirect boundary");
+    _ = L.lua_pop(lua_state, 1);
+}
+
 fn testFileRename() void {
     // file.rename relinks an existing file under a new name (no data copy):
     // the old path resolves to nothing, the new path holds the same content,
@@ -1230,6 +1311,8 @@ pub fn runAll(alloc: std.mem.Allocator, memory: *mem.Memory) noreturn {
     testFileCreate();
     serial.writeLine("file.rename relink inode (rename)");
     testFileRename();
+    serial.writeLine("file write/read across double-indirect blocks");
+    testFileDoubleIndirect();
     serial.writeLine("editor app (M7.1.5)");
     testEditorApp();
     serial.writeLine("file.dir listing (M7.1.5)");
