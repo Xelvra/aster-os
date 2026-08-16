@@ -21,6 +21,10 @@ pub const eventName = input.eventName;
 pub const decodeMousePacket = input.decodeMousePacket;
 
 var mouse_state: input.MouseState = .{};
+/// Wheel deltas accumulated between Lua polls: a busy wheel can send several
+/// notches inside one frame, and Lua reads the sum once per frame. Consumed
+/// (drained) by `mouseWheel`.
+var wheel_accum: i32 = 0;
 
 // ─── keyboard modifier state ─────────────────────────────────────────
 //
@@ -130,6 +134,18 @@ pub fn mouseRight() bool {
 
 pub fn mouseMiddle() bool {
     return mouse_state.middle;
+}
+
+/// Accumulate a wheel delta (positive = wheel up) from the event loop.
+pub fn addWheel(delta: i8) void {
+    wheel_accum += delta;
+}
+
+/// Read and drain the accumulated wheel delta since the last call.
+pub fn mouseWheel() i32 {
+    const value = wheel_accum;
+    wheel_accum = 0;
+    return value;
 }
 
 /// Update the keyboard modifier that a key code maps to. Modifiers are

@@ -234,6 +234,14 @@ fn inputMouseMiddle(L: ?*lua_c.lua_State) callconv(.c) c_int {
     return 1;
 }
 
+fn inputMouseWheel(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    const value = sys.dispatch(.Input, .{ .a = @intFromEnum(api_input.InputOp.mouse_wheel) });
+    // Signed wheel: reinterpret the u64 result as lua_Integer (i64) so a
+    // negative delta (wheel down) reaches Lua as -1, not a huge positive.
+    lua_c.lua_pushinteger(L, @bitCast(value));
+    return 1;
+}
+
 fn inputSetLayout(L: ?*lua_c.lua_State) callconv(.c) c_int {
     // Copy the name into a fixed buffer so the KI handler sees a
     // NUL-terminated string; the active layout is registry state owned by
@@ -336,6 +344,7 @@ const InputFuncs = [_]lua_c.luaL_Reg{
     .{ .name = "mouse_left", .func = inputMouseLeft },
     .{ .name = "mouse_right", .func = inputMouseRight },
     .{ .name = "mouse_middle", .func = inputMouseMiddle },
+    .{ .name = "mouse_wheel", .func = inputMouseWheel },
     .{ .name = "set_layout", .func = inputSetLayout },
     .{ .name = "layout_name", .func = inputLayoutName },
     .{ .name = null, .func = null },

@@ -142,8 +142,22 @@ fn initKeyboard() void {
 
 // ─── Mouse state ───────────────────────────────────────────────────────
 
-var mouse_packet: [3]u8 = undefined;
+var mouse_packet: [4]u8 = undefined;
 var mouse_byte_idx: u8 = 0;
+/// 4-byte (Intellimouse) packets: the third byte carries the wheel delta.
+/// Set only when the device reports ID 3 after the wheel-enable sequence, so
+/// a plain mouse without a wheel keeps the 3-byte format and never desyncs.
+var mouse_4byte = false;
+/// Whether a working mouse was found on port 2 (set after the port test).
+var mouse_present = false;
+
+pub fn mousePresent() bool {
+    return mouse_present;
+}
+
+pub fn mouseHasWheel() bool {
+    return mouse_4byte;
+}
 
 /// Initialize the second PS/2 port (mouse) on IRQ12. Robust against a
 /// missing device: the port is tested first and every command waits for
@@ -169,6 +183,7 @@ fn initMouse() void {
     }
     const test_result = io.in8(ps2_data);
     if (test_result != ps2_test_passed) return; // port 2 has no working device
+    mouse_present = true;
 
     // Enable port 2 and set its IRQ bit in the config byte. Keep the
     // keyboard (port 1) enabled and translation on.
@@ -177,6 +192,27 @@ fn initMouse() void {
     const cfg = waitOutput() orelse return;
     sendCommand(0x60); // write config (no response byte)
     sendData((cfg | 0x02) & ~@as(u8, 0x20)); // IRQ12 on, port2 clock on
+
+    // Enable the scroll wheel (4-byte packets) when the device supports it:
+    // the sample-rate 200/100/80 sequence switches an Intellimouse-compatible
+    // device to 4-byte packets and its device ID to 3. A plain mouse ignores
+    // the sequence and keeps ID 0, so it stays on 3-byte packets.
+    _ = mouseCommand(0xF3);
+    _ = mouseCommand(200);
+    _ = mouseCommand(0xF3);
+    _ = mouseCommand(100);
+    _ = mouseCommand(0xF3);
+    _ = mouseCommand(80);
+    // 0xF2 (Get Device ID) responds with an ACK (0xFA) followed by the device
+    // ID byte; mouseCommand consumes only the ACK, so read the ID after it.
+    // Some devices reply with the ID directly — handle both.
+    if (mouseCommand(0xF2)) |first| {
+        if (first == 3) {
+            mouse_4byte = true;
+        } else if (waitOutput()) |id| {
+            mouse_4byte = id == 3;
+        }
+    }
 
     // Tell the mouse to start reporting; wait for its ACK.
     _ = mouseCommand(0xF4);
@@ -265,7 +301,8 @@ pub fn handleIrq12() void {
         if (mouse_byte_idx == 0 and byte & 0x08 == 0) return;
         mouse_packet[mouse_byte_idx] = byte;
         mouse_byte_idx +%= 1;
-        if (mouse_byte_idx >= 3) {
+        const packet_len: u8 = if (mouse_4byte) 4 else 3;
+        if (mouse_byte_idx >= packet_len) {
             mouse_byte_idx = 0;
             pushMousePacket();
         }
@@ -357,8 +394,14 @@ fn keypadOrNav(code: input.KeyCode) ?input.KeyCode {
 
 // ─── Mouse packet decode ───────────────────────────────────────────────
 
-/// Decode a standard 3-byte PS/2 mouse packet (relative movement, buttons).
+/// Decode a standard 3-byte or 4-byte (wheel) PS/2 mouse packet, selected by
+/// the mode detected at init.
 fn pushMousePacket() void {
-    const event = input.decodeMousePacket(&mouse_packet) orelse return;
+    if (mouse_4byte) {
+        const event = input.decodeMousePacket4(&mouse_packet) orelse return;
+        input_service.pushMouseEvent(event);
+        return;
+    }
+    const event = input.decodeMousePacket(mouse_packet[0..3]) orelse return;
     input_service.pushMouseEvent(event);
 }

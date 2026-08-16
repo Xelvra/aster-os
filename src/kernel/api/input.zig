@@ -31,6 +31,7 @@ pub const InputOp = enum(u64) {
     mouse_middle = 7,
     set_layout = 8,
     layout_name = 9,
+    mouse_wheel = 10,
 };
 
 pub fn dispatch(args: sys.SyscallArgs) u64 {
@@ -44,6 +45,10 @@ pub fn dispatch(args: sys.SyscallArgs) u64 {
         .mouse_left => boolToU64(service.mouseLeft()),
         .mouse_right => boolToU64(service.mouseRight()),
         .mouse_middle => boolToU64(service.mouseMiddle()),
+        // wheel is signed (down = negative); return the two's-complement i64
+        // so a negative delta survives the u64 syscall result (a plain
+        // @intCast of a negative i32 would panic in ReleaseSafe).
+        .mouse_wheel => @as(u64, @bitCast(@as(i64, service.mouseWheel()))),
         .set_layout => setLayoutOp(args.b),
         .layout_name => layoutNameOp(args.b, args.c),
     };

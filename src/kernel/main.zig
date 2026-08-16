@@ -466,6 +466,7 @@ fn poll(display: *DisplayState) void {
                     .right = m.right,
                     .middle = m.middle,
                 });
+                input_service.addWheel(m.wheel);
                 mouse_processed += 1;
             },
         }

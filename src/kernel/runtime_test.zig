@@ -60,6 +60,106 @@ fn testMouseEvent() void {
     }
 }
 
+fn testMouseWheel() void {
+    const service = @import("input/service.zig");
+    const lua_mod = @import("lua/lua.zig");
+    _ = service.mouseWheel(); // drain any deltas from earlier boot activity
+
+    // The service accumulator sums per-packet deltas and drains on read.
+    service.addWheel(2);
+    service.addWheel(-1);
+    expect(service.mouseWheel() == 1, "wheel accumulator sums deltas");
+    expect(service.mouseWheel() == 0, "wheel accumulator drains on read");
+
+    // The Lua binding reads the same accumulator (positive = wheel up).
+    const L = @import("lua/cimport.zig").c;
+    const lua_state = lua_mod.getState() orelse {
+        expect(false, "lua state exists");
+        return;
+    };
+    service.addWheel(3);
+    const load_status = L.luaL_loadstring(lua_state, "return input.mouse_wheel()");
+    expect(load_status == L.LUA_OK, "wheel check script compiles");
+    if (load_status != L.LUA_OK) return;
+    const run_status = L.lua_pcallk(lua_state, 0, 1, 0, 0, null);
+    expect(run_status == L.LUA_OK, "wheel check script runs");
+    if (run_status != L.LUA_OK) {
+        L.lua_pop(lua_state, 1);
+        return;
+    }
+    const wheel = L.lua_tointegerx(lua_state, -1, null);
+    L.lua_pop(lua_state, 1);
+    expect(wheel == 3, "Lua input.mouse_wheel() reads the accumulator");
+    expect(service.mouseWheel() == 0, "the Lua read drained the accumulator");
+}
+
+fn testMouseWheelHardware() void {
+    // The PS/2 driver must detect the scroll wheel on the attached mouse
+    // (QEMU's ps2 mouse reports ID 3 after the 200/100/80 sequence). Without
+    // detection the wheel never reaches the input subsystem — a regression the
+    // host tests cannot see (they only cover the packet decoder).
+    const ps2 = @import("drivers/ps2.zig");
+    if (!ps2.mousePresent()) {
+        expect(true, "mouse wheel hardware test skipped (no PS/2 mouse attached)");
+        return;
+    }
+    expect(ps2.mouseHasWheel(), "PS/2 mouse supports the wheel (Intellimouse 4-byte)");
+}
+
+fn testMouseWheelPacketPath() void {
+    // End-to-end data path from a decoded wheel packet to Lua: a packet with a
+    // wheel delta is pushed into the mouse queue (as the PS/2 driver does),
+    // consumed exactly like the event loop (main.zig processMouse pops and
+    // calls addWheel), and the Lua input.mouse_wheel() binding delivers it.
+    const service = @import("input/service.zig");
+    const lua_mod = @import("lua/lua.zig");
+    _ = service.mouseWheel(); // drain any deltas from earlier boot activity
+
+    input_service.pushMouseEvent(.{
+        .dx = 3,
+        .dy = -2,
+        .left = false,
+        .right = false,
+        .middle = false,
+        .wheel = -2,
+    });
+    const event = input_service.popMouseEvent() orelse {
+        expect(false, "wheel packet popped from the mouse queue");
+        return;
+    };
+    switch (event) {
+        .mouse => |m| {
+            expect(m.wheel == -2, "wheel delta preserved through the queue");
+            service.addWheel(m.wheel); // exactly what the event loop does
+        },
+        else => {
+            expect(false, "event is a mouse event");
+            return;
+        },
+    }
+    expect(service.mouseWheel() == -2, "event loop accumulated the wheel delta");
+
+    // The Lua binding the shell's handle_mouse reads sees the same value.
+    const L = @import("lua/cimport.zig").c;
+    const lua_state = lua_mod.getState() orelse {
+        expect(false, "lua state exists");
+        return;
+    };
+    service.addWheel(-1);
+    const load_status = L.luaL_loadstring(lua_state, "return input.mouse_wheel()");
+    expect(load_status == L.LUA_OK, "wheel path check script compiles");
+    if (load_status != L.LUA_OK) return;
+    const run_status = L.lua_pcallk(lua_state, 0, 1, 0, 0, null);
+    expect(run_status == L.LUA_OK, "wheel path check script runs");
+    if (run_status != L.LUA_OK) {
+        L.lua_pop(lua_state, 1);
+        return;
+    }
+    const wheel = L.lua_tointegerx(lua_state, -1, null);
+    L.lua_pop(lua_state, 1);
+    expect(wheel == -1, "Lua input.mouse_wheel() delivers the accumulated delta");
+}
+
 fn testMouseFloodDoesNotStarveKeys() void {
     // Drain whatever IRQs already queued.
     while (input_service.popKernelEvent()) |_| {}
@@ -858,6 +958,9 @@ fn testSpawnWiring() void {
 const tests = [_]Test{
     .{ .name = "timer tick + event queue", .func = testTimerTicks },
     .{ .name = "mouse event queue", .func = testMouseEvent },
+    .{ .name = "mouse wheel accumulator + KI binding", .func = testMouseWheel },
+    .{ .name = "mouse wheel hardware detection (PS/2 ID 3)", .func = testMouseWheelHardware },
+    .{ .name = "mouse wheel packet -> queue -> Lua binding", .func = testMouseWheelPacketPath },
     .{ .name = "mouse flood does not starve keys", .func = testMouseFloodDoesNotStarveKeys },
     .{ .name = "mouse cursor overlay", .func = testMouseCursor },
     .{ .name = "framebuffer write + drawText", .func = testFramebufferWrites },

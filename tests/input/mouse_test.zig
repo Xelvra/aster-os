@@ -48,3 +48,33 @@ test "mouse: overflowed delta rejected" {
     try std.testing.expect(input.decodeMousePacket(&[3]u8{ 0x48, 0xFF, 0x00 }) == null);
     try std.testing.expect(input.decodeMousePacket(&[3]u8{ 0x88, 0x00, 0xFF }) == null);
 }
+
+test "mouse4: wheel decoded as a signed byte" {
+    // Positive Z = wheel up, negative (two's complement) = wheel down.
+    const up = input.decodeMousePacket4(&[4]u8{ 0x08, 0, 0, 1 }).?;
+    try std.testing.expectEqual(@as(i8, 1), up.wheel);
+    const down = input.decodeMousePacket4(&[4]u8{ 0x08, 0, 0, 0xFF }).?;
+    try std.testing.expectEqual(@as(i8, -1), down.wheel);
+    const two = input.decodeMousePacket4(&[4]u8{ 0x08, 0, 0, 0xFE }).?;
+    try std.testing.expectEqual(@as(i8, -2), two.wheel);
+}
+
+test "mouse4: movement and buttons decode like the 3-byte packet" {
+    const m = input.decodeMousePacket4(&[4]u8{ 0x09, 3, 5, 0 }).?;
+    try std.testing.expectEqual(@as(i16, 3), m.dx);
+    try std.testing.expectEqual(@as(i16, -5), m.dy);
+    try std.testing.expect(m.left);
+    try std.testing.expect(!m.right and !m.middle);
+    try std.testing.expectEqual(@as(i8, 0), m.wheel);
+    // b0=0x0A right, b0=0x0C middle.
+    const right = input.decodeMousePacket4(&[4]u8{ 0x0A, 0, 0, 0 }).?;
+    try std.testing.expect(right.right);
+    const middle = input.decodeMousePacket4(&[4]u8{ 0x0C, 0, 0, 0 }).?;
+    try std.testing.expect(middle.middle);
+}
+
+test "mouse4: out-of-sync and overflowed packets rejected" {
+    try std.testing.expect(input.decodeMousePacket4(&[4]u8{ 0x00, 0, 0, 0 }) == null);
+    try std.testing.expect(input.decodeMousePacket4(&[4]u8{ 0x48, 0xFF, 0x00, 0 }) == null);
+    try std.testing.expect(input.decodeMousePacket4(&[4]u8{ 0x88, 0x00, 0xFF, 0 }) == null);
+}
