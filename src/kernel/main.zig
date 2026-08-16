@@ -139,6 +139,12 @@ fn kernelMain() !void {
 
     time.calibrateRealTime();
     const boot_ms = time.ms();
+    // Seed the wall clock from the CMOS RTC so the bar shows real wall time,
+    // not uptime. A missing/broken RTC falls back to time since boot (0).
+    const rtc = @import("rtc.zig");
+    if (rtc.readTime()) |t| {
+        time.seedRtc((@as(u64, t.hour) * 60 + t.minute) * 60_000);
+    }
     const info = try boot.collect();
     bootlog.ok("bootloader", "limine handoff");
 

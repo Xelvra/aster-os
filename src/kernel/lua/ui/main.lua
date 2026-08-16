@@ -59,6 +59,11 @@ register_app_help("repl", {
     { "Super+F1", "global help" },
 })
 
+-- The bar clock must tick even when nothing else invalidates the screen (no
+-- input), so a second change requests a redraw. F5-safe like the other shell
+-- state.
+last_clock_sec = last_clock_sec or 0
+
 function update()
     layout_pass()
     handle_mouse()
@@ -67,6 +72,12 @@ function update()
         if ev.type == "key" and ev.pressed then
             handle_key(ev)
         end
+    end
+    -- Redraw once per second so the clock advances while idle.
+    local secs = math.floor(time.of_day_ms() / 1000)
+    if secs ~= last_clock_sec then
+        last_clock_sec = secs
+        gfx.invalidate()
     end
 end
 

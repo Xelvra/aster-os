@@ -47,16 +47,19 @@ function _set_mouse(x, y, left, wheel)
     mwheel = wheel or 0
 end
 
--- Settable clock for the double-click / fullscreen tests. `ticks` is the APIC
--- tick counter (its rate differs per machine), `ms` the PIT-calibrated real
--- wall-clock millisecond counter the UI timing uses.
+-- Settable clock for the double-click / fullscreen / bar tests. `ticks` is the
+-- APIC tick counter (its rate differs per machine), `ms` the PIT-calibrated
+-- real wall-clock milliseconds, `of_day_ms` the RTC-seeded time of day.
 local _ticks = 0
 local _ms = 0
+local _of_day_ms = 0
 function _set_ticks(n) _ticks = n end
 function _set_ms(n) _ms = n end
+function _set_of_day_ms(n) _of_day_ms = n end
 time = {
     ticks = function() return _ticks end,
     ms = function() return _ms end,
+    of_day_ms = function() return _of_day_ms end,
 }
 debug = { write = function() end }
 sysmon = { ram_total_mb = function() return 512 end, ram_free_mb = function() return 300 end }

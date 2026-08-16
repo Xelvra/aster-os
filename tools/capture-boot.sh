@@ -34,6 +34,7 @@ qemu-system-x86_64 \
     $(./tools/qemu-accel.sh) \
     -M q35 \
     -m 512M \
+    -rtc base=localtime \
     -cdrom "$ISO" \
     -drive "file=$DISK,format=raw,if=none,id=hd0" \
     -device virtio-blk-pci,drive=hd0,disable-legacy=on \

@@ -194,6 +194,12 @@ fn timeMs(L: ?*lua_c.lua_State) callconv(.c) c_int {
     return 1;
 }
 
+fn timeOfDayMs(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    const ms = sys.dispatch(.Timer, .{ .a = @intFromEnum(api_timer.TimerOp.of_day_ms) });
+    lua_c.lua_pushinteger(L, @intCast(ms));
+    return 1;
+}
+
 fn inputNextEvent(L: ?*lua_c.lua_State) callconv(.c) c_int {
     // Mouse packets are consumed by the kernel cursor overlay and filtered
     // out by the KI input module; a busy mouse cannot flood the Lua stream.
@@ -359,6 +365,7 @@ const InputFuncs = [_]lua_c.luaL_Reg{
 const TimeFuncs = [_]lua_c.luaL_Reg{
     .{ .name = "ticks", .func = timeTicks },
     .{ .name = "ms", .func = timeMs },
+    .{ .name = "of_day_ms", .func = timeOfDayMs },
 };
 
 const DebugFuncs = [_]lua_c.luaL_Reg{

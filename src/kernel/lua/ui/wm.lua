@@ -353,9 +353,10 @@ local function bar_render()
 
     -- Clock (real wall time). The APIC tick rate is emulator/hardware-
     -- dependent (measured 478 Hz and 3100 Hz in two QEMU TCG runs — the spec's
-    -- "1000 Hz" is not a guarantee), so ticks are only monotonic ordering;
-    -- the clock uses the PIT-calibrated time.ms() instead.
-    local secs = math.floor(time.ms() / 1000)
+    -- "1000 Hz" is not a guarantee), so ticks are only monotonic ordering.
+    -- of_day_ms is the CMOS-RTC-seeded time of day, kept accurate by the
+    -- PIT-calibrated time.ms(); a missing RTC falls back to time since boot.
+    local secs = math.floor(time.of_day_ms() / 1000)
     local hh = math.floor(secs / 3600) % 24
     local mm = math.floor(secs / 60) % 60
     local clock = string.format("%02d:%02d", hh, mm)

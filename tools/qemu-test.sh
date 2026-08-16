@@ -37,6 +37,7 @@ timeout "$TIMEOUT" qemu-system-x86_64 \
     "${ACCEL[@]}" \
     -M q35 \
     -m 512M \
+    -rtc base=localtime \
     -cdrom "$ISO" \
     "${disk_args[@]}" \
     -device isa-debug-exit \

@@ -6,6 +6,7 @@ pub const TimerOp = enum(u64) {
     ticks = 0,
     sleep_ms = 1,
     ms = 2,
+    of_day_ms = 3,
 };
 
 pub fn dispatch(args: sys.SyscallArgs) u64 {
@@ -16,6 +17,9 @@ pub fn dispatch(args: sys.SyscallArgs) u64 {
         // unlike ticks it is independent of the APIC tick rate, so UI
         // timing (e.g. the double-click threshold) is portable.
         .ms => time.ms(),
+        // Wall-clock time of day as ms since midnight (CMOS RTC seeded at
+        // boot + elapsed) — what the bar clock shows.
+        .of_day_ms => time.ofDayMs(),
         // Cooperative sleep (spec/timer.md §3) lands with the M7 task model.
         // The sub-op is frozen today so the number never changes.
         .sleep_ms => @intFromEnum(sys.KiStatus.NotSupported),

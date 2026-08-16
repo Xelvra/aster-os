@@ -35,6 +35,25 @@ fn testTimerTicks() void {
     expect(ticks_seen >= 5, "APIC timer produces tick events through the queue");
 }
 
+fn testRtcWallClock() void {
+    // The CMOS RTC is read at boot and seeds the wall clock; QEMU's mc146818
+    // is always present, so ofDayMs() is a real time of day. A broken RTC read
+    // (always null) would leave it at 0 and this test would fail.
+    const time_mod = @import("time.zig");
+    const day_ms = time_mod.ofDayMs();
+    expect(day_ms > 0 and day_ms < 24 * 60 * 60 * 1000, "RTC-seeded wall clock is a plausible time of day");
+    // The wall clock must advance. The wait is bounded by iterations so a
+    // stalled ms() (PIT calibration failed, ms() == 0) is reported as a
+    // failure instead of hanging the test suite.
+    var spins: usize = 0;
+    const before = time_mod.ms();
+    while (time_mod.ms() - before < 1100) : (spins += 1) {
+        if (spins > 100_000_000) break;
+    }
+    const day_ms2 = time_mod.ofDayMs();
+    expect(day_ms2 > day_ms, "wall clock advances over time");
+}
+
 fn testMouseEvent() void {
     // Mouse packets live in their own queue, separate from keys/timers.
     while (input_service.popMouseEvent()) |_| {}
@@ -957,6 +976,7 @@ fn testSpawnWiring() void {
 
 const tests = [_]Test{
     .{ .name = "timer tick + event queue", .func = testTimerTicks },
+    .{ .name = "RTC-seeded wall clock (bar time of day)", .func = testRtcWallClock },
     .{ .name = "mouse event queue", .func = testMouseEvent },
     .{ .name = "mouse wheel accumulator + KI binding", .func = testMouseWheel },
     .{ .name = "mouse wheel hardware detection (PS/2 ID 3)", .func = testMouseWheelHardware },

@@ -13,6 +13,7 @@ const ext2_test = @import("fs/ext2_test.zig");
 const ext2_fuzz_test = @import("fs/ext2_fuzz_test.zig");
 const file_test = @import("fs/file_test.zig");
 const acpi_test = @import("cpu/acpi_test.zig");
+const rtc_test = @import("cpu/rtc_test.zig");
 
 test {
     std.testing.refAllDecls(@This());
@@ -30,4 +31,5 @@ test {
     _ = ext2_fuzz_test;
     _ = file_test;
     _ = acpi_test;
+    _ = rtc_test;
 }

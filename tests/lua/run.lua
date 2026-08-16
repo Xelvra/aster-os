@@ -372,6 +372,33 @@ test("directories render with a leading slash", function()
     assert(texts[3] == "b.txt", "file renders without a slash, got " .. tostring(texts[3]))
 end)
 
+test("bar clock shows the RTC time of day", function()
+    fullscreen_win = nil
+    fullscreen_restore = nil
+    _set_of_day_ms((14 * 3600 + 32 * 60) * 1000)
+    local texts = {}
+    gfx.draw_text = function(t) texts[#texts + 1] = t end
+    bar_render()
+    local found = false
+    for _, t in ipairs(texts) do if t == "14:32" then found = true end end
+    assert(found, "clock renders 14:32 from of_day_ms")
+end)
+
+test("the bar clock requests a redraw when the second changes", function()
+    local invalidated = 0
+    gfx.invalidate = function() invalidated = invalidated + 1 end
+    _set_of_day_ms(60 * 60 * 1000) -- 01:00:00
+    last_clock_sec = -1
+    update()
+    assert(invalidated >= 1, "clock change triggers a redraw")
+    local before = invalidated
+    update() -- same second: no redraw
+    assert(invalidated == before, "no redraw within the same second")
+    _set_of_day_ms(60 * 60 * 1000 + 1000) -- 01:00:01
+    update()
+    assert(invalidated > before, "a new second triggers a redraw")
+end)
+
 test("close button still closes the focused window", function()
     set_disk({ ["/t.txt"] = "x" })
     windows[#windows + 1] = window("editor", current_ws)
