@@ -235,8 +235,8 @@ Bezpečnostní model zůstává jednouživatelský SASOS bez izolace domén
 > **Úroveň 2 (ADR-025):** cíl je rozšířit „kód je systém" z configu na **celý WM
 > shell** — moduly se načítají z `/wm/` (ne jen theme). **Fallback pravidlo:**
 > rozbitý/chybějící uživatelský modul se nikdy nepoužije; aplikuje se vestavěný
-> initrd default. `.bak` soubory (theme.bak / api.bak) jsou **jen ruční záloha
-> posledního Ctrl+S** a nikdy se nenačítají jako konfigurace (ADR-025).
+> initrd default. `.bak` soubory (`.theme.bak` / `.api.bak`) jsou **jen ruční
+> záloha posledního Ctrl+S** a nikdy se nenačítají jako konfigurace (ADR-025).
 > Determinismus (ADR-014) a bootovatelnost (ADR-016) tak zůstávají v platnosti.
 
 ### 5a.2 Fallback a chybové hlášení configu

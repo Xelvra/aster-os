@@ -168,7 +168,7 @@ end
 -- backs up the PREVIOUS working copy to /wm/.theme.bak, then writes the new
 -- version — the backup never mirrors the just-saved content. The /wm/ config
 -- files follow the same basename backup rule (ADR-025): theme.lua -> .theme.bak,
--- api.lua -> api.bak — never "theme.lua.bak"/"api.lua.bak" concatenation. Any
+-- api.lua -> .api.bak — never "theme.lua.bak"/"api.lua.bak" concatenation. Any
 -- other path is a plain rewrite; a missing file is created (ext2 create).
 -- Returns nil on success or an error.
 local function editor_write(path, content)
@@ -211,8 +211,8 @@ local function editor_write(path, content)
     if path == "/wm/api.lua" then
         local prev = read_file(path)
         if prev ~= nil then
-            local b = file.open("/wm/api.bak")
-            if not b then b = file.create("/wm/api.bak") end
+            local b = file.open("/wm/.api.bak")
+            if not b then b = file.create("/wm/.api.bak") end
             if b then
                 file.truncate(b, 0)
                 file.write(b, prev)

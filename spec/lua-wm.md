@@ -222,12 +222,12 @@ Jediný modul bez závislostí. Definuje globální tabulku `theme` (viz `theme.
 
 > **Umístění configu na disku:** on-disk kopie žije v `/wm/theme.lua` (adresář WM na
 > disku; vedle něj `/wm/api.lua` — reference Lua API, `/wm/.theme.bak` — ruční
-> záloha posledního Ctrl+S theme.lua, `/wm/api.bak` — záloha api.lua, **nikdy se
+> záloha posledního Ctrl+S theme.lua, `/wm/.api.bak` — záloha api.lua, **nikdy se
 > nenačítají** jako config — fallback je vždy
 > initrd default, ADR-025; uživatelská dokumentace je root `/README`). Shell moduly
 > (kód WM) zůstávají v initrd
 > (Úroveň 1); přesun do `/wm/` je plánovaná Úroveň 2 (§3.1). Zálohy se pojmenovávají
-> podle basename — `theme.lua → .theme.bak`, `api.lua → api.bak`, nikdy
+> podle basename — `theme.lua → .theme.bak`, `api.lua → .api.bak`, nikdy
 > `theme.lua.bak`/`api.lua.bak` (ADR-025).
 
 ```lua

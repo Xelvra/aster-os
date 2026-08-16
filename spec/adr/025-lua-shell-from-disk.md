@@ -30,7 +30,7 @@ automatickým hot reloadem — ne jen `theme.lua` jako dnes (Úroveň 1).
   základ**: disk ho jen přepisuje per-modul a každý rozbitý/chybějící modul se
   vrací na initrd default.
 - **`.bak` jako ruční záchrana, ne fallback.** Záloha posledního Ctrl+S
-  (`theme.bak`, `api.bak`) slouží uživateli k obnovení předchozího stavu
+  (`.theme.bak`, `.api.bak`) slouží uživateli k obnovení předchozího stavu
   ručně — nikdy se automaticky nenačítá, takže nemůže zamaskovat chybu nebo
   reprodukovat chybný stav v kruhu (chyba → záloha → chyba → ...). Uživatel
   vždy vidí v REPL, že systém běží na init defaultu, a ví, že musí opravit
@@ -59,7 +59,7 @@ automatickým hot reloadem — ne jen `theme.lua` jako dnes (Úroveň 1).
   nemaže** uživatelské Lua soubory — jen kontroluje přítomnost a chybějící
   doplní z init.
 - **`.bak` soubory se nikdy nenačítají.** Jsou read-only pro editor, slouží jen
-  jako ruční záloha posledního Ctrl+S (`theme.bak` z `theme.lua`, `api.bak`
+  jako ruční záloha posledního Ctrl+S (`.theme.bak` z `theme.lua`, `.api.bak`
   z `api.lua`). Uživatel, který chce vrátit předchozí stav, si obsah otevře
   Spacem a ručně ho vrátí do working copy.
 - Fallback **nevypíná** uživatelskou úpravu: rozbitý soubor se na disku
