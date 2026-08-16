@@ -254,6 +254,15 @@ This version tracks the milestone after M6 Storage was completed.
   table uses the real GSI; the boot log reports
   `lapic: <id> · overrides: <n> · nmi: <yes/no>`.
 
+* **Blocking sync primitives (ADR-017):** the semaphore is joined by an
+  ownership **mutex** (unlock hands the lock to the oldest waiter), an
+  **event group** (wait on any/all flags, set/clear) and a blocking **message
+  queue** (byte FIFO with message boundaries, put wakes a blocked get). Each
+  waits through the interrupt-guarded waiter list and is exercised by a QEMU
+  runtime test; `max_tasks` grows to 10 so the suite can hold all task tests.
+  Tasks can also be spawned with an `anyerror!void` body and an **error
+  handler** (`spawnTaskChecked`) that runs when the body fails.
+
 ### Removed
 
 * **`theme.trash` theme field:** hidden (dot) files and the trash now share

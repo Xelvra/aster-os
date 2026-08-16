@@ -62,3 +62,218 @@ pub const Semaphore = struct {
         }
     }
 };
+
+/// Ownership-based binary lock: only the task that locked the mutex may unlock
+/// it; unlock hands ownership to the oldest waiter (FIFO) and wakes it, so the
+/// lock is never released while a waiter holds the intent to lock.
+pub const Mutex = struct {
+    locked: bool = false,
+    owner: task.TaskId = 0,
+    waiters: [task.max_tasks - 1]task.TaskId = undefined,
+    waiter_count: u32 = 0,
+
+    pub fn init() Mutex {
+        return .{};
+    }
+
+    pub fn lock(self: *Mutex) void {
+        while (true) {
+            const guard = irq.begin();
+            defer guard.end();
+            if (!self.locked or self.owner == task.currentId()) {
+                self.locked = true;
+                self.owner = task.currentId();
+                return;
+            }
+            const id = task.currentId();
+            self.unregister(id);
+            self.waiters[self.waiter_count] = id;
+            self.waiter_count += 1;
+            task.blockUntilWoken();
+            // resumed: an unlock handed this task ownership; re-check so a
+            // task that grabbed the slot in between still blocks
+        }
+    }
+
+    pub fn unlock(self: *Mutex) void {
+        const guard = irq.begin();
+        defer guard.end();
+        if (self.waiter_count > 0) {
+            const w = self.waiters[0];
+            self.unregister(w);
+            self.owner = w;
+            task.wake(w);
+            return;
+        }
+        self.locked = false;
+        self.owner = 0;
+    }
+
+    fn unregister(self: *Mutex, id: task.TaskId) void {
+        for (self.waiters[0..self.waiter_count], 0..) |w, i| {
+            if (w == id) {
+                for (i..self.waiter_count - 1) |j| self.waiters[j] = self.waiters[j + 1];
+                self.waiter_count -= 1;
+                return;
+            }
+        }
+    }
+};
+
+pub const EventMode = enum { any, all };
+
+/// Event group (ADT-017): a set of event flags tasks wait on (any/all). `set`
+/// raises flags and wakes every waiter whose condition is now met; `clear`
+/// lowers flags. Flags are not consumed on a wait (an event stays set until
+/// explicitly cleared), so a wake re-checks the condition and returns.
+pub const EventGroup = struct {
+    flags: u32 = 0,
+    waiters: [task.max_tasks - 1]Waiter = undefined,
+    waiter_count: u32 = 0,
+
+    const Waiter = struct {
+        id: task.TaskId,
+        wanted: u32,
+        mode: EventMode,
+    };
+
+    pub fn init(initial: u32) EventGroup {
+        return .{ .flags = initial };
+    }
+
+    pub fn set(self: *EventGroup, bits: u32) void {
+        const guard = irq.begin();
+        defer guard.end();
+        self.flags |= bits;
+        var i: usize = 0;
+        while (i < self.waiter_count) {
+            const w = self.waiters[i];
+            const met = if (w.mode == .any) (self.flags & w.wanted) != 0 else (self.flags & w.wanted) == w.wanted;
+            if (met) {
+                for (i..self.waiter_count - 1) |j| self.waiters[j] = self.waiters[j + 1];
+                self.waiter_count -= 1;
+                task.wake(w.id);
+            } else {
+                i += 1;
+            }
+        }
+    }
+
+    pub fn wait(self: *EventGroup, wanted: u32, mode: EventMode) void {
+        while (true) {
+            const guard = irq.begin();
+            defer guard.end();
+            const met = if (mode == .any) (self.flags & wanted) != 0 else (self.flags & wanted) == wanted;
+            if (met) return;
+            self.unregister(task.currentId());
+            self.waiters[self.waiter_count] = .{ .id = task.currentId(), .wanted = wanted, .mode = mode };
+            self.waiter_count += 1;
+            task.blockUntilWoken();
+        }
+    }
+
+    pub fn clear(self: *EventGroup, bits: u32) void {
+        const guard = irq.begin();
+        defer guard.end();
+        self.flags &= ~bits;
+    }
+
+    fn unregister(self: *EventGroup, id: task.TaskId) void {
+        for (self.waiters[0..self.waiter_count], 0..) |w, i| {
+            if (w.id == id) {
+                for (i..self.waiter_count - 1) |j| self.waiters[j] = self.waiters[j + 1];
+                self.waiter_count -= 1;
+                return;
+            }
+        }
+    }
+};
+
+/// Blocking byte FIFO with message boundaries: `put` blocks until the whole
+/// message fits, `get` blocks until `out.len` bytes are available, and each
+/// put/get hands the slot to a waiter (FIFO) so capacity is never wasted.
+/// The backing buffer is static (the scheduler allocates nothing); a message
+/// larger than the buffer would deadlock, so callers must fit.
+pub const MessageQueue = struct {
+    buffer: []u8,
+    head: usize = 0,
+    tail: usize = 0,
+    size: usize = 0,
+    get_waiters: [task.max_tasks - 1]task.TaskId = undefined,
+    get_waiter_count: u32 = 0,
+    put_waiters: [task.max_tasks - 1]task.TaskId = undefined,
+    put_waiter_count: u32 = 0,
+
+    pub fn init(buffer: []u8) MessageQueue {
+        return .{ .buffer = buffer };
+    }
+
+    pub fn put(self: *MessageQueue, data: []const u8) void {
+        while (true) {
+            const guard = irq.begin();
+            defer guard.end();
+            if (self.size + data.len <= self.buffer.len) {
+                for (data) |b| {
+                    self.buffer[self.tail] = b;
+                    self.tail = (self.tail + 1) % self.buffer.len;
+                }
+                self.size += data.len;
+                if (self.get_waiter_count > 0) {
+                    const w = self.get_waiters[0];
+                    self.unregisterGet(w);
+                    task.wake(w);
+                }
+                return;
+            }
+            self.unregisterPut(task.currentId());
+            self.put_waiters[self.put_waiter_count] = task.currentId();
+            self.put_waiter_count += 1;
+            task.blockUntilWoken();
+        }
+    }
+
+    /// Read exactly `out.len` bytes (blocks until that many are available).
+    pub fn get(self: *MessageQueue, out: []u8) void {
+        while (true) {
+            const guard = irq.begin();
+            defer guard.end();
+            if (self.size >= out.len) {
+                for (0..out.len) |i| {
+                    out[i] = self.buffer[self.head];
+                    self.head = (self.head + 1) % self.buffer.len;
+                }
+                self.size -= out.len;
+                if (self.put_waiter_count > 0) {
+                    const w = self.put_waiters[0];
+                    self.unregisterPut(w);
+                    task.wake(w);
+                }
+                return;
+            }
+            self.unregisterGet(task.currentId());
+            self.get_waiters[self.get_waiter_count] = task.currentId();
+            self.get_waiter_count += 1;
+            task.blockUntilWoken();
+        }
+    }
+
+    fn unregisterGet(self: *MessageQueue, id: task.TaskId) void {
+        for (self.get_waiters[0..self.get_waiter_count], 0..) |w, i| {
+            if (w == id) {
+                for (i..self.get_waiter_count - 1) |j| self.get_waiters[j] = self.get_waiters[j + 1];
+                self.get_waiter_count -= 1;
+                return;
+            }
+        }
+    }
+
+    fn unregisterPut(self: *MessageQueue, id: task.TaskId) void {
+        for (self.put_waiters[0..self.put_waiter_count], 0..) |w, i| {
+            if (w == id) {
+                for (i..self.put_waiter_count - 1) |j| self.put_waiters[j] = self.put_waiters[j + 1];
+                self.put_waiter_count -= 1;
+                return;
+            }
+        }
+    }
+};

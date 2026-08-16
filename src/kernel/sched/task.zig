@@ -29,10 +29,10 @@ const stack_canary_magic: u64 = 0xA57E5CA42C4CA1AE; // "ASTERSTK"
 ///
 /// No dynamic allocation: the TCB table and all task stacks are static
 /// (`.bss`). The kernel image is not reserved in the PFA bitmap, so task
-/// stacks must never come from `allocPages` (brief Task 7.1). max_tasks = 5
-/// (one main + four spawnable) so the runtime test suite can hold all its
+/// stacks must never come from `allocPages` (brief Task 7.1). max_tasks = 10
+/// (one main + nine spawnable) so the runtime test suite can hold all its
 /// task-spawning tests at once — tasks are never torn down.
-pub const max_tasks = 5;
+pub const max_tasks = 10;
 pub const TaskId = usize;
 
 const task_stack_size = 16384;
@@ -204,6 +204,19 @@ pub fn spawnTask(entry: *const fn () callconv(.c) noreturn) SpawnError!TaskId {
     };
     task_count += 1;
     return id;
+}
+
+/// Spawn a task whose body is `anyerror!void`: when it returns an error, the
+/// `on_error` handler runs (e.g. records the failure); the task then idles
+/// forever (tasks are never torn down). Wraps both into a `noreturn` body, so
+/// a task error is contained instead of escaping the task entry.
+pub fn spawnTaskChecked(comptime entry: anytype, comptime on_error: anytype) SpawnError!TaskId {
+    return spawnTask(struct {
+        fn run() callconv(.c) noreturn {
+            entry() catch |err| on_error(err);
+            while (true) asm volatile ("hlt" ::: .{ .memory = true });
+        }
+    }.run);
 }
 
 /// Hand-assemble the top of the new task's stack so that resuming it runs

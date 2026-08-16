@@ -587,6 +587,156 @@ fn testSemaphore() void {
     expect(sem.waiter_count == 0 and sem.count == 0, "signal handed the slot, count back to zero");
 }
 
+var mutex_obj = sync.Mutex.init();
+var mutex_ran = std.atomic.Value(bool).init(false);
+var mutex_released = std.atomic.Value(bool).init(false);
+fn mutexWaiterTask() callconv(.c) noreturn {
+    mutex_obj.lock(); // blocks while the main task owns it
+    mutex_ran.store(true, .monotonic);
+    mutex_obj.unlock(); // hand it back so the main can observe the free state
+    mutex_released.store(true, .monotonic);
+    while (true) {
+        asm volatile ("hlt" ::: .{ .memory = true });
+    }
+}
+
+fn testMutex() void {
+    // A task that blocks on an owned mutex must not run until the owner
+    // unlocks (which hands the lock to the waiter); the waiter then releases
+    // it so the main can see the mutex is free again.
+    const sched = @import("sched/task.zig");
+    mutex_obj = sync.Mutex.init();
+    mutex_obj.lock(); // main owns it
+    mutex_ran.store(false, .monotonic);
+    mutex_released.store(false, .monotonic);
+    _ = sched.spawnTask(mutexWaiterTask) catch {
+        expect(false, "scheduler spawns mutex waiter");
+        return;
+    };
+    var spins: usize = 0;
+    while (spins < 1000000) : (spins += 1) {
+        asm volatile ("hlt" ::: .{ .memory = true });
+        if (mutex_obj.waiter_count == 1) break;
+    }
+    expect(mutex_obj.waiter_count == 1, "mutex waiter blocks on an owned lock");
+    expect(!mutex_ran.load(.monotonic), "blocked waiter does not run before unlock");
+    mutex_obj.unlock();
+    spins = 0;
+    while (!mutex_released.load(.monotonic) and spins < 1000000) : (spins += 1) {
+        asm volatile ("hlt" ::: .{ .memory = true });
+    }
+    expect(mutex_ran.load(.monotonic), "mutex waiter resumed with ownership");
+    expect(!mutex_obj.locked and mutex_obj.owner == 0, "mutex free after the waiter released it");
+}
+
+var event_group = sync.EventGroup.init(0);
+var evg_ran = std.atomic.Value(bool).init(false);
+fn evgWaiterTask() callconv(.c) noreturn {
+    event_group.wait(0b101, .any); // wants bit 0 or bit 2
+    evg_ran.store(true, .monotonic);
+    while (true) {
+        asm volatile ("hlt" ::: .{ .memory = true });
+    }
+}
+
+fn testEventGroup() void {
+    const sched = @import("sched/task.zig");
+    event_group = sync.EventGroup.init(0);
+    evg_ran.store(false, .monotonic);
+    _ = sched.spawnTask(evgWaiterTask) catch {
+        expect(false, "scheduler spawns event waiter");
+        return;
+    };
+    var spins: usize = 0;
+    while (spins < 1000000) : (spins += 1) {
+        asm volatile ("hlt" ::: .{ .memory = true });
+        if (event_group.waiter_count == 1) break;
+    }
+    expect(event_group.waiter_count == 1, "event waiter blocks");
+    event_group.set(0b010); // not wanted -> no wake
+    expect(!evg_ran.load(.monotonic), "unmatched set does not wake the waiter");
+    event_group.set(0b100); // bit 2 is wanted -> wake
+    spins = 0;
+    while (!evg_ran.load(.monotonic) and spins < 1000000) : (spins += 1) {
+        asm volatile ("hlt" ::: .{ .memory = true });
+    }
+    expect(evg_ran.load(.monotonic), "event waiter resumes after a matching set");
+    expect(event_group.flags == 0b110, "event flags accumulate");
+}
+
+var mq_buf: [8]u8 = undefined;
+var message_queue = sync.MessageQueue.init(&mq_buf);
+var mq_produced = std.atomic.Value(bool).init(false);
+var mq_done = std.atomic.Value(bool).init(false);
+var mq_got = false;
+fn mqConsumerTask() callconv(.c) noreturn {
+    var out: [2]u8 = undefined;
+    message_queue.get(&out); // blocks until the producer puts
+    mq_got = out[0] == 'A' and out[1] == 'B';
+    mq_done.store(true, .monotonic);
+    while (true) {
+        asm volatile ("hlt" ::: .{ .memory = true });
+    }
+}
+fn mqProducerTask() callconv(.c) noreturn {
+    message_queue.put("AB"); // wakes the blocked consumer
+    mq_produced.store(true, .monotonic);
+    while (true) {
+        asm volatile ("hlt" ::: .{ .memory = true });
+    }
+}
+
+fn testMessageQueue() void {
+    const sched = @import("sched/task.zig");
+    message_queue = sync.MessageQueue.init(&mq_buf);
+    mq_produced.store(false, .monotonic);
+    mq_done.store(false, .monotonic);
+    mq_got = false;
+    _ = sched.spawnTask(mqConsumerTask) catch {
+        expect(false, "scheduler spawns queue consumer");
+        return;
+    };
+    var spins: usize = 0;
+    while (spins < 1000000) : (spins += 1) {
+        asm volatile ("hlt" ::: .{ .memory = true });
+        if (message_queue.get_waiter_count == 1) break;
+    }
+    expect(message_queue.get_waiter_count == 1, "consumer blocks on an empty queue");
+    _ = sched.spawnTask(mqProducerTask) catch {
+        expect(false, "scheduler spawns queue producer");
+        return;
+    };
+    spins = 0;
+    while (!mq_done.load(.monotonic) and spins < 1000000) : (spins += 1) {
+        asm volatile ("hlt" ::: .{ .memory = true });
+    }
+    expect(mq_got, "consumer received the producer's message");
+    expect(mq_produced.load(.monotonic), "producer completed its put");
+    expect(message_queue.size == 0, "queue drained after the get");
+}
+
+var task_error_recorded = std.atomic.Value(bool).init(false);
+fn erroringTask() anyerror!void {
+    return error.TaskFailed;
+}
+fn onTaskError(_: anyerror) void {
+    task_error_recorded.store(true, .monotonic);
+}
+
+fn testTaskErrorHandler() void {
+    const sched = @import("sched/task.zig");
+    task_error_recorded.store(false, .monotonic);
+    _ = sched.spawnTaskChecked(erroringTask, onTaskError) catch {
+        expect(false, "scheduler spawns erroring task");
+        return;
+    };
+    var spins: usize = 0;
+    while (!task_error_recorded.load(.monotonic) and spins < 1000000) : (spins += 1) {
+        asm volatile ("hlt" ::: .{ .memory = true });
+    }
+    expect(task_error_recorded.load(.monotonic), "task error handler ran on a task error");
+}
+
 const tests = [_]Test{
     .{ .name = "timer tick + event queue", .func = testTimerTicks },
     .{ .name = "mouse event queue", .func = testMouseEvent },
@@ -606,6 +756,10 @@ const tests = [_]Test{
     .{ .name = "preemptive RR scheduler (two kernel tasks)", .func = testPreemptiveScheduler },
     .{ .name = "blocking sleep deschedules a task (M7)", .func = testBlockingTaskSleep },
     .{ .name = "semaphore blocks and wakes a task (ADR-017)", .func = testSemaphore },
+    .{ .name = "mutex ownership handoff (ADR-017)", .func = testMutex },
+    .{ .name = "event group any-mode wake (ADR-017)", .func = testEventGroup },
+    .{ .name = "message queue put wakes a blocked get (ADR-017)", .func = testMessageQueue },
+    .{ .name = "task error handler runs on an errored task", .func = testTaskErrorHandler },
 };
 
 fn testFilesystem(alloc: std.mem.Allocator, memory: *mem.Memory) void {
