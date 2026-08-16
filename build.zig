@@ -129,6 +129,14 @@ pub fn build(b: *std.Build) void {
         tar_cmd.addFileArg(b.path(b.fmt("src/kernel/lua/ui/{s}", .{f})));
     }
 
+    // Spawned Lua programs (runtime.spawn beyond the shell bootstrap, M7) are
+    // packed next to the shell modules; the kernel looks them up by their flat
+    // file name (lua.loadProgramSource).
+    const program_files = [_][]const u8{"probe.lua"};
+    for (program_files) |f| {
+        tar_cmd.addFileArg(b.path(b.fmt("src/kernel/lua/programs/{s}", .{f})));
+    }
+
     const iso_root = b.addWriteFiles();
     _ = iso_root.addCopyFile(kernel.getEmittedBin(), "boot/aster");
     _ = iso_root.addCopyFile(b.path("limine.conf"), "boot/limine.conf");

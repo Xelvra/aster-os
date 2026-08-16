@@ -28,9 +28,10 @@ pub const RuntimeOp = enum(u64) {
 };
 
 /// Composition-root exception (spec/code-style.md §1): module-level handle
-/// counter and reload flag, set/read by the event loop and dispatch. Single
-/// instances, not per-feature state.
+/// counter, the first-spawn shell marker and the reload flag, set/read by the
+/// event loop and dispatch. Single instances, not per-feature state.
 var next_handle: u64 = 1;
+var shell_spawned = false;
 var reload_requested = false;
 
 pub fn init(allocator: std.mem.Allocator, initrd: ?[]const u8) void {
@@ -73,14 +74,22 @@ pub fn performReload() void {
 pub fn spawn(opts: SpawnOptions) !Program {
     switch (opts.kind) {
         .Lua => {
-            // The first spawn is the desktop shell bootstrap: it runs in the
-            // single shell state (lua.runMain loads the /wm/ shell modules).
-            // Additional Lua programs are created isolated with
-            // lua.spawnProgram (their own lua_State), so a program error or
-            // infinite loop cannot touch the desktop.
-            const handle = next_handle;
-            next_handle = if (next_handle == std.math.maxInt(u64)) 1 else next_handle + 1;
-            try lua.runMain(opts.entry);
+            if (!shell_spawned) {
+                // The first Lua spawn is the desktop shell bootstrap: it runs
+                // in the single shell state (lua.runMain loads the /wm/ shell
+                // modules).
+                shell_spawned = true;
+                const handle = next_handle;
+                next_handle = if (next_handle == std.math.maxInt(u64)) 1 else next_handle + 1;
+                try lua.runMain(opts.entry);
+                return .{ .kind = .Lua, .handle = handle };
+            }
+            // Every later Lua spawn is a program, isolated in its own lua_State
+            // (lua.spawnProgram): a program error or infinite loop is contained
+            // to that program and cannot touch the desktop. The program's
+            // source is a file in the initrd, looked up by its flat name.
+            const source = try lua.loadProgramSource(opts.entry);
+            const handle = try lua.spawnProgram(source, opts.entry);
             return .{ .kind = .Lua, .handle = handle };
         },
         else => return error.NotSupported,

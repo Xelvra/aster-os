@@ -804,6 +804,57 @@ fn testPerProgramIsolation() void {
     _ = L.lua_pop(lua_state, 1);
 }
 
+fn testSpawnWiring() void {
+    // runtime.spawn for a Lua program AFTER the shell must route through
+    // lua.spawnProgram (its own lua_State), not lua.runMain (the shared shell
+    // state): a program spawns isolated, ticks via tickPrograms, its update
+    // side effect is visible from the shell state, and a missing program file
+    // fails cleanly instead of reloading the shell.
+    const runtime = @import("api/runtime.zig");
+    const lua_mod = @import("lua/lua.zig");
+    const storage = @import("api/storage.zig");
+    if (!storage.isMounted()) {
+        expect(true, "runtime.spawn wiring test skipped (no disk attached)");
+        return;
+    }
+
+    const prog = runtime.spawn(.{ .kind = .Lua, .entry = "probe.lua" }) catch {
+        expect(false, "runtime.spawn launches a Lua program through the isolated path");
+        return;
+    };
+    expect(lua_mod.programAlive(@intCast(prog.handle)), "spawned program alive in its own state");
+    lua_mod.tickPrograms();
+
+    const L = @import("lua/cimport.zig").c;
+    const shell_state = lua_mod.getState() orelse {
+        expect(false, "shell state exists");
+        return;
+    };
+    const script =
+        \\local h = file.open("/probe_wiring.txt")
+        \\if h then file.close(h); file.remove("/probe_wiring.txt") end
+        \\return h ~= nil
+    ;
+    const load_status = L.luaL_loadstring(shell_state, script);
+    expect(load_status == L.LUA_OK, "wiring check script compiles");
+    if (load_status != L.LUA_OK) return;
+    const run_status = L.lua_pcallk(shell_state, 0, 1, 0, 0, null);
+    expect(run_status == L.LUA_OK, "wiring check script runs");
+    if (run_status != L.LUA_OK) {
+        L.lua_pop(shell_state, 1);
+        return;
+    }
+    const marker = L.lua_toboolean(shell_state, -1) == 1;
+    expect(marker, "spawned program's update ran and its side effect is visible");
+    _ = L.lua_pop(shell_state, 1);
+
+    // A program file that does not exist must fail cleanly at the isolated
+    // path (NotFound from the initrd lookup) — never reload the shared shell
+    // state through lua.runMain.
+    const missing = runtime.spawn(.{ .kind = .Lua, .entry = "no_such_program.lua" });
+    expect(missing == error.NotFound, "missing program file fails cleanly, shell untouched");
+}
+
 const tests = [_]Test{
     .{ .name = "timer tick + event queue", .func = testTimerTicks },
     .{ .name = "mouse event queue", .func = testMouseEvent },
@@ -828,6 +879,7 @@ const tests = [_]Test{
     .{ .name = "message queue put wakes a blocked get (ADR-017)", .func = testMessageQueue },
     .{ .name = "task error handler runs on an errored task", .func = testTaskErrorHandler },
     .{ .name = "per-program isolation (own lua_State, contained)", .func = testPerProgramIsolation },
+    .{ .name = "runtime.spawn wires programs to the isolated path", .func = testSpawnWiring },
 };
 
 fn testFilesystem(alloc: std.mem.Allocator, memory: *mem.Memory) void {

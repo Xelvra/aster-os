@@ -32,6 +32,15 @@ pub fn setInitrd(data: ?[]const u8) void {
     initrd = data;
 }
 
+/// Read a Lua program's source from the initrd tar by its flat file name (the
+/// program files are packed next to the shell modules in build.zig). The
+/// returned slice points into the archive — no copy — and stays valid for the
+/// whole boot, so callers may use it during spawn (M7, runtime.spawn).
+pub fn loadProgramSource(name: []const u8) ![]const u8 {
+    const tar = initrd orelse return error.NoInitrd;
+    return tar_mod.find(tar, name);
+}
+
 fn luaAlloc(ud: ?*anyopaque, ptr: ?*anyopaque, osize: usize, nsize: usize) callconv(.c) ?*anyopaque {
     _ = ud;
     if (nsize == 0) {
