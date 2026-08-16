@@ -185,8 +185,10 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
       remap legacy 8259 PIC. **I/O APIC**: pro doručení ISA IRQ v APIC režimu je nutné
       programovat redirection table (IRQ1 → vektor 0x21, BSP). Adresa I/O APIC se od
       revision 2026-08-11 čte z **MADT** (`src/kernel/cpu/acpi.zig`: RSDP od Limine →
-      RSDT/XSDT → MADT); `0xFEC00000` je fallback default. Dluh do M7 (SMP): MADT pro
-      skutečné LAPIC ID, ISA IRQ→GSI overrides a detekci NMI. Viz `spec/non-goals.md`.
+      RSDT/XSDT → MADT); `0xFEC00000` je fallback default. **Dluh do M7 (SMP):**
+      zapnutí **AP jader** (skutečné multiprocesorové běh) — MADT parsing (LAPIC ID,
+      ISA IRQ→GSI overrides, NMI detekce) je **hotový** (M7, 2026-08-16); zůstává jen
+      přivedení dalších jader do běhu. Viz `spec/non-goals.md`.
 - [x] **Fault policy:** defaultní IDT handlers pro double fault / GPF / page fault —
       výpis stavu na serial a halt (ne reset, ne tiché pokračování). Detail
       `spec/invariants.md` §1 (Safety).
@@ -308,10 +310,9 @@ binding marshallingu zelené.
 - ~~**Auto-reload na uložení:** uložení `theme.lua`/config souboru → automatické
       překreslení prostředí bez klávesy (spec `runtime.md` §5a spouštěč 2)~~ —
       **přesunuto do M7.1.6** (čekalo na zápis na disk).
-- [ ] (Výhledově: ukládání, editor.)
-      > **Poznámka (2026-08-08):** uložení nastavení (`theme.lua` apod.) nepůjde vyzkoušet,
-      > dokud disk neumí zapisovat — ext2 je read-only, testovatelnost auto-reloadu je
-      > vázaná na výhledové ukládání.
+- ~~**(Výhledově: ukládání, editor.)**~~ — **pokryto M7.1** (zápis na disk,
+      editor, save-as, koš, zálohy `.lua`, perzistentní historie). Stará poznámka,
+      že to nejde vyzkoušet bez zápisu na disk, už neplatí.
 
 #### M6.1 — Persistence foundation (ADR-023)
 
@@ -414,6 +415,11 @@ se musí vyřešit **před** spuštěním dalších features, ne až na konci st
 
 **Cíl:** izolované aplikace.
 
+> **Pořadí M7 (2026-08-16):** bylo dotaženo vše kolem — preemptivní scheduler,
+> sync primitiva, per-program Lua izolace, zápis na disk + editor/files/koš.
+> **Wasm je poslední položka M7** a dělá se na konec milníku (věci spojené přímo
+> s wasm se odkládají, ostatní se dotaží před ním).
+
 - [ ] wasm3 vendored; `Runtime.spawn(.Wasm, ...)`.
 - [ ] První `.wasm` aplikace (C/Rust → wasm) kreslící do vlastní surface.
 - ~~Sdílené buffery + present~~ — přesunuto do Fáze 2 (render quality před stabilizací).
@@ -431,15 +437,18 @@ se musí vyřešit **před** spuštěním dalších features, ne až na konci st
       se v TCB označí `.blocked` s wake deadline, dobrovolný switch přes
       `sched_sleep_switch`/`sched_sleep_restore`; probouzení na deadline v `pickNext`.
       Ověřeno runtime testem `testBlockingTaskSleep` (úkol se nespouští během spánku).
-- [~] **Per-program `lua_State` / instance** po `spawn` — zamrzlý program (nekonečná
-      smyčka) už nezamrzne prostředí; preempce + error handler úkolu (spec `runtime.md` §5).
-      **Částečné řešení M7 (2026-08-14):** instrukční rozpočet Lua (`LUA_MASKCOUNT`,
-      brief Task 7b) — nekonečná smyčka vyvolá error containment/hot reload místo
-      zamrznutí; plná per-program izolace zůstává otevřená.
-- [~] **Blokující synchronizační primitiva** (ADR-017): **semafor hotový**
-      (`sched/sync.zig`, `Semaphore` — wait/signal, čekatelé pod interrupt
-      maskou; runtime test „semaphore blocks and wakes a task"); **mutex, event
-      group, message queue a error handler úkolu** (`anyerror!void`) zůstávají.
+- [x] **Per-program `lua_State` / instance** po `spawn` — zamrzlý program (nekonečná
+      smyčka) už nezamrzne prostředí. **Hotovo (M7):** instrukční rozpočet Lua
+      (`LUA_MASKCOUNT`, brief Task 7b) + **`lua.spawnProgram`** — každý `.Lua` spawn
+      po shellu běží ve **vlastním `lua_State`** (`runtime.spawn` je routuje přes
+      `spawnProgram`, ne `runMain`), program se tickuje přes `tickPrograms()` a chyba /
+      nekonečná smyčka je izolovaná (program se zahodí, shell a ostatní běží dál).
+      Ověřeno runtime testem „per-program isolation" + „runtime.spawn wires programs".
+- [x] **Blokující synchronizační primitiva** (ADR-017): **semafor, mutex, event group,
+      message queue a error handler úkolu** (`anyerror!void`) — `sched/sync.zig`
+      (wait/signal, čekatelé pod interrupt maskou, FIFO handoff, granted flag),
+      `spawnTaskChecked` pro error handler. Ověřeno runtime testy (semaphore /
+      mutex / event group / message queue / task error handler).
 - [ ] Benchmark wasm vs Lua; metriky do tabulky.
 
 ### M7.1 — Zápis na disk + editor (ADR-023)
