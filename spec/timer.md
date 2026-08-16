@@ -34,6 +34,35 @@
   reálné časování (UI práhy, hodiny) jde přes `ms` (PIT-kalibrovaný TSC).
 - Frekvence je konstantní po bootu; žádné dynamické měnění (determinismus).
 
+### 1.3 Jak je vyřešen čas (přehled)
+
+Systém má **tři časové zdroje**, každý pro jiný účel:
+
+| Zdroje | Co to je | Použití |
+|---|---|---|
+| `ticks` | **APIC timer** — monotónní čítač, rate není zaručená konstanta | jen **pořadí** (fronta událostí, M7 tasky, sysmon) |
+| `ms` | **TSC kalibrovaný přes PIT** — reálné ms od bootu | elapsed time (práh dvojkliku, boot metriky, frame latency) |
+| `of_day_ms` | **CMOS RTC** — hardwarové hodiny z BIOSu | **bar hodiny** (reálný čas dne) |
+
+**Bar hodiny = hardwarový čas.** Kernel čte **CMOS RTC** (`src/kernel/rtc.zig`,
+porty `0x70`/`0x71`, BCD i binárně dle status B bit 2, 12/24h, dvojité čtení
+přes update hranici) při bootu a **každý frame v event loopu ho znovu přečte a
+hodiny znovu naplní** (`main.zig`). RTC je hardwarový čas, který běží vždy —
+hodiny tedy ukazují správný reálný čas, i kdyby TSC kalibrace (`ms`) byla
+rozbitá, pomalá nebo zamrzlá. Formát je vždy `%02d:%02d` („17:07", nulované).
+
+**Konvence RTC = lokální čas** (BIOS/Windows): kernel RTC nepřepočítává na UTC.
+QEMU se spouští s `-rtc base=localtime` (emulovaný RTC drží lokální čas
+hostitele); na reálném PC musí být RTC nastavené na lokální čas. (Linux
+konvence „RTC = UTC" by vyžadovala timezone offset, který zatím neřešíme.)
+
+**Kalibrace `ms` je robustní:** PIT okno ~50 ms, **medián z 5 vzorků** (odolné
+vůči občasnému rozbitému čtení) a **fallback 2.5 GHz**, aby `ms` nikdy
+nevracelo 0 (jinak by hodiny i dvojklik zamrzly). Lekce C46/C47.
+
+**Resync s RTC je definitivní záruka:** i kdyby `ms` selhalo úplně, `of_day_ms`
+se každý frame aktualizuje z RTC, takže bar hodiny vždy ukazují správný čas.
+
 ---
 
 ## 2. KI modul `timer`
