@@ -91,18 +91,10 @@ One direction of flow. No duplication.
 
 ## How to navigate this site
 
-This site is currently a single introduction page. The complete documentation
-lives in two places:
-
-- the **repository README** (`README.md`) — the English public interface;
-- the **internal specification** (`spec/`) — the authoritative source, written
-  in the developer's language.
-
-English translations of individual specification files are produced
-continuously as the `docs/` layer evolves. Pages that duplicated files already
-living in the repository root (such as the code-style rules and the
-third-party notices) were removed instead of being kept as copies. When a
-nuance matters, the linked source in `spec/` is the authoritative answer.
+This site is currently a single introduction page. The full documentation lives
+in the repository README (`README.md`) and the internal specification
+(`spec/`), the latter being the authoritative source written in the
+developer's language.
 
 ---
 
