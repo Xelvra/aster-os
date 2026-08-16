@@ -38,6 +38,12 @@ pub fn readCr3() u64 {
     );
 }
 
+pub fn readCr4() u64 {
+    return asm volatile ("mov %%cr4, %[v]"
+        : [v] "=r" (-> u64),
+    );
+}
+
 pub fn readMsr(msr: u32) u64 {
     var lo: u32 = undefined;
     var hi: u32 = undefined;
@@ -47,4 +53,15 @@ pub fn readMsr(msr: u32) u64 {
         : [_] "{ecx}" (msr),
     );
     return (@as(u64, hi) << 32) | lo;
+}
+
+pub fn writeMsr(msr: u32, value: u64) void {
+    const lo: u32 = @truncate(value);
+    const hi: u32 = @truncate(value >> 32);
+    asm volatile ("wrmsr"
+        :
+        : [_] "{ecx}" (msr),
+          [_] "{eax}" (lo),
+          [_] "{edx}" (hi),
+    );
 }

@@ -215,6 +215,30 @@ test "parseMadt collects LAPIC id, IRQ overrides and NMI (M2 SMP debt)" {
     try std.testing.expectEqual(@as(u8, 1), madt.irq_overrides[1].isa_irq);
     try std.testing.expectEqual(@as(u32, 1), madt.irq_overrides[1].gsi);
     try std.testing.expect(madt.has_nmi);
+    try std.testing.expectEqual(@as(usize, 0), madt.ap_count);
+}
+
+test "parseMadt collects enabled Application Processors (SMP bring-up)" {
+    var l = Layout{};
+    l.writeMadt(&.{
+        &Layout.ioApicEntry(),
+        &Layout.localApicEntryWith(0x00, 1), // BSP, enabled
+        &Layout.localApicEntryWith(0x01, 1), // AP 1, enabled
+        &Layout.localApicEntryWith(0x02, 0), // disabled -> skipped
+        &Layout.localApicEntryWith(0x00, 1), // duplicate BSP id -> skipped
+        &Layout.localApicEntryWith(0x03, 1), // AP 2, enabled
+    });
+    l.writeRoot(true, &.{madt_phys});
+    l.writeRsdpV2();
+    const result = acpi.parseMadt(l.rsdpAddr(), l.hhdmOffset());
+    const madt = switch (result) {
+        .found => |m| m,
+        else => return error.TestUnexpectedResult,
+    };
+    try std.testing.expectEqual(@as(?u8, 0x00), madt.local_apic_id);
+    try std.testing.expectEqual(@as(usize, 2), madt.ap_count);
+    try std.testing.expectEqual(@as(u8, 0x01), madt.ap_ids[0]);
+    try std.testing.expectEqual(@as(u8, 0x03), madt.ap_ids[1]);
 }
 
 test "findIoApic resolves I/O APIC via XSDT" {

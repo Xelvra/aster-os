@@ -19,6 +19,11 @@ pub const IrqOverride = struct {
 
 pub const max_irq_overrides = 16;
 
+/// Hard cap on Application Processors (the enabled processor entries after the
+/// BSP). Real desktop/server chipsets rarely exceed a handful; the per-AP
+/// stacks and the scheduler assume a small fixed upper bound.
+pub const max_ap = 7;
+
 /// The I/O APIC redirection table (IOREDTBL[gsi]) index range. Real chipsets
 /// expose at most 255 redirection entries (the entry count is an 8-bit field)
 /// and ISA IRQ overrides always reference low GSIs, so anything larger is
@@ -27,14 +32,17 @@ pub const max_irq_overrides = 16;
 pub const max_gsi = 255;
 
 /// Everything the kernel needs from the MADT (the M2 SMP debt): the I/O APIC
-/// address (already used), the BSP Local APIC ID, the ISA IRQ -> GSI overrides
-/// and whether any Local APIC NMI source is configured.
+/// address (already used), the BSP Local APIC ID, the ISA IRQ -> GSI overrides,
+/// whether any Local APIC NMI source is configured, and the Local APIC IDs of
+/// the enabled Application Processors (used for INIT-SIPI-SIPI bring-up).
 pub const Madt = struct {
     io_apic_address: u64,
     local_apic_id: ?u8,
     has_nmi: bool,
     irq_overrides: [max_irq_overrides]IrqOverride = undefined,
     irq_override_count: usize = 0,
+    ap_ids: [max_ap]u8 = undefined,
+    ap_count: usize = 0,
 };
 
 pub const MadtResult = union(enum) {
@@ -103,10 +111,15 @@ fn madtInfo(madt: *align(1) const AcpiHeader) MadtInfoResult {
             madt_local_apic_type => {
                 // type(1) length(1) acpi_processor_id(1) apic_id(1) flags(4).
                 if (entry.len < 8) continue;
-                // The BSP is the first enabled processor entry (flags bit 0).
+                // The BSP is the first enabled processor entry (flags bit 0);
+                // the remaining enabled entries are Application Processors.
                 const flags = std.mem.readInt(u32, entry[4..8], .little);
-                if (result.local_apic_id == null and flags & 1 != 0) {
+                if (flags & 1 == 0) continue;
+                if (result.local_apic_id == null) {
                     result.local_apic_id = entry[3];
+                } else if (result.ap_count < max_ap and entry[3] != result.local_apic_id.?) {
+                    result.ap_ids[result.ap_count] = entry[3];
+                    result.ap_count += 1;
                 }
             },
             madt_irq_override_type => {

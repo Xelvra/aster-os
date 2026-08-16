@@ -27,19 +27,10 @@ pub fn init() void {
     load();
 }
 
-fn setEntry(vector: usize, gate_type: u8) void {
-    const stub_addr = @intFromPtr(isr_stubs) + vector * stub_size;
-    idt_entries[vector] = .{
-        .offset_low = @truncate(stub_addr),
-        .selector = 0x28,
-        .ist = 0,
-        .type_attr = gate_type,
-        .offset_mid = @truncate(stub_addr >> 16),
-        .offset_high = @truncate(stub_addr >> 32),
-    };
-}
-
-fn load() void {
+/// Load the (shared) IDT on the current CPU. The BSP does it during init; each
+/// Application Processor calls this again after SIPI — the table is global, so
+/// every core gets the same interrupt gates.
+pub fn load() void {
     var idt_reg: [10]u8 align(16) = undefined;
     const limit: u16 = idt_size * @sizeOf(IdtEntry) - 1;
     const base: u64 = @intFromPtr(&idt_entries);
@@ -52,6 +43,18 @@ fn load() void {
         :
         : [reg] "r" (@intFromPtr(&idt_reg)),
         : .{ .rax = true, .memory = true });
+}
+
+fn setEntry(vector: usize, gate_type: u8) void {
+    const stub_addr = @intFromPtr(isr_stubs) + vector * stub_size;
+    idt_entries[vector] = .{
+        .offset_low = @truncate(stub_addr),
+        .selector = 0x28,
+        .ist = 0,
+        .type_attr = gate_type,
+        .offset_mid = @truncate(stub_addr >> 16),
+        .offset_high = @truncate(stub_addr >> 32),
+    };
 }
 
 fn handleIsrImpl(frame: *InterruptFrame) callconv(.c) void {

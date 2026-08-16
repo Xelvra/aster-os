@@ -11,6 +11,15 @@ const apic_timer_div: u32 = 0x3E0;
 const apic_timer_initial: u32 = 0x380;
 const apic_eoi: u32 = 0xB0;
 const apic_svr: u32 = 0xF0;
+const apic_lapic_id_reg: u32 = 0x20;
+const apic_icr_lo: u32 = 0x300;
+const apic_icr_hi: u32 = 0x310;
+
+const icr_delivery_status: u32 = 1 << 12;
+const icr_level_assert: u32 = 1 << 14;
+const icr_trigger_level: u32 = 1 << 15;
+const icr_init_mode: u32 = 0x5 << 8;
+const icr_startup_mode: u32 = 0x6 << 8;
 
 const ioapic_default_phys: u64 = 0xFEC00000;
 /// The I/O APIC MMIO window the chipset puts at 0xFEC00xxx (reserved, not
@@ -32,10 +41,12 @@ const spurious_vector: u8 = 0xFF;
 
 var apic_base: u64 = 0;
 var ioapic_base: u64 = 0;
+var hhdm_offset: u64 = 0;
 var irq_overrides: [acpi.max_irq_overrides]acpi.IrqOverride = undefined;
 var irq_override_count: usize = 0;
 
-pub fn init(hhdm_offset: u64, madt: ?acpi.Madt) void {
+pub fn init(hhdm: u64, madt: ?acpi.Madt) void {
+    hhdm_offset = hhdm;
     const msr = io.readMsr(ia32_apic_base_msr);
     const apic_phys = msr & 0xFFFFF000;
     apic_base = apic_phys + hhdm_offset;
@@ -61,6 +72,52 @@ pub fn init(hhdm_offset: u64, madt: ?acpi.Madt) void {
 
     enableIsaIrq(1, 0x21);
     enableIsaIrq(12, 0x22);
+}
+
+/// Enable the Local APIC on the current CPU (SMP AP bring-up): re-read the
+/// IA32_APIC_BASE MSR — the APIC is per-CPU MMIO and the base can differ from
+/// the BSP's — then arm the spurious-vector register so spurious interrupts
+/// are dropped instead of faulting. No timer is programmed: only the BSP runs
+/// the preemptive scheduler tick.
+pub fn enableLocal() void {
+    const msr = io.readMsr(ia32_apic_base_msr);
+    const phys = msr & 0xFFFFF000;
+    apic_base = phys + hhdm_offset;
+    writeReg(apic_svr, apic_enable | spurious_vector);
+}
+
+/// The Local APIC ID of the current CPU (MMIO 0x20, bits 24-31). The BSP
+/// reads its own for diagnostics; the MADT supplies the AP IDs.
+pub fn readLocalApicId() u8 {
+    return @truncate(readReg(apic_lapic_id_reg) >> 24);
+}
+
+/// Send an INIT IPI to one Application Processor (SMP bring-up, step 1).
+/// INIT is level-triggered: the assert must be followed by a ~10 ms pause and
+/// a deassert, otherwise the ICR delivery status stays set and the next
+/// waitForIcrIdle spins forever.
+pub fn sendInitIpi(lapic_id: u8) void {
+    waitForIcrIdle();
+    writeReg(apic_icr_hi, @as(u32, lapic_id) << 24);
+    writeReg(apic_icr_lo, icr_init_mode | icr_trigger_level | icr_level_assert);
+    const time = @import("../time.zig");
+    const start = time.ms();
+    while (time.ms() - start < 10) {}
+    writeReg(apic_icr_hi, @as(u32, lapic_id) << 24);
+    writeReg(apic_icr_lo, icr_init_mode | icr_trigger_level);
+}
+
+/// Send a Start-Up IPI (SIPI) to one Application Processor: `vector` is the
+/// page-aligned low-memory address of the trampoline >> 12. Sent twice after
+/// INIT per the P1/P2 flow (the second is a retry if the first was lost).
+pub fn sendSipi(lapic_id: u8, vector: u8) void {
+    waitForIcrIdle();
+    writeReg(apic_icr_hi, @as(u32, lapic_id) << 24);
+    writeReg(apic_icr_lo, icr_startup_mode | @as(u32, vector));
+}
+
+fn waitForIcrIdle() void {
+    while ((readReg(apic_icr_lo) & icr_delivery_status) != 0) {}
 }
 
 /// Map an ISA IRQ to its I/O APIC global system interrupt (GSI), applying the

@@ -62,6 +62,7 @@ pub fn build(b: *std.Build) void {
     kernel.pie = true;
     kernel.link_z_max_page_size = 0x1000;
     kernel.root_module.addAssemblyFile(b.path("src/kernel/cpu/isr.s"));
+    kernel.root_module.addAssemblyFile(b.path("src/kernel/cpu/smp_tramp.s"));
     kernel.root_module.addAssemblyFile(b.path("src/kernel/lua/setjmp.s"));
 
     const lua_sources = [_][]const u8{
@@ -205,6 +206,8 @@ pub fn build(b: *std.Build) void {
     run_cmd.addArg("q35");
     run_cmd.addArg("-m");
     run_cmd.addArg("512M");
+    run_cmd.addArg("-smp");
+    run_cmd.addArg("1");
     // The RTC holds local wall time (the BIOS/Windows convention), so the
     // kernel's bar clock reads the host's local time directly, no UTC offset.
     run_cmd.addArg("-rtc");
@@ -243,6 +246,8 @@ pub fn build(b: *std.Build) void {
     rt_run_cmd.addArg("q35");
     rt_run_cmd.addArg("-m");
     rt_run_cmd.addArg("512M");
+    rt_run_cmd.addArg("-smp");
+    rt_run_cmd.addArg("1");
     rt_run_cmd.addArg("-rtc");
     rt_run_cmd.addArg("base=localtime");
     rt_run_cmd.addArg("-cdrom");

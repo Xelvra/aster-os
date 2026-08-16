@@ -974,6 +974,16 @@ fn testSpawnWiring() void {
     expect(missing == error.NotFound, "missing program file fails cleanly, shell untouched");
 }
 
+fn testApCoresUp() void {
+    // SMP bring-up (M7): with QEMU -smp N (N > 1) every enabled AP must have
+    // reported ready after INIT-SIPI-SIPI. Single-core (-smp 1) passes as a
+    // no-op; the assertion becomes active once the bring-up is fixed (see
+    // spec/handoffs/05 - the AP currently #PF(RSVD) on its first page walk).
+    const smp = @import("cpu/smp.zig");
+    if (smp.ap_count == 0) return;
+    expect(smp.ap_ready.load(.seq_cst) == smp.ap_count, "SMP: every AP reported ready after SIPI");
+}
+
 const tests = [_]Test{
     .{ .name = "timer tick + event queue", .func = testTimerTicks },
     .{ .name = "RTC-seeded wall clock (bar time of day)", .func = testRtcWallClock },
@@ -1003,6 +1013,7 @@ const tests = [_]Test{
     .{ .name = "task error handler runs on an errored task", .func = testTaskErrorHandler },
     .{ .name = "per-program isolation (own lua_State, contained)", .func = testPerProgramIsolation },
     .{ .name = "runtime.spawn wires programs to the isolated path", .func = testSpawnWiring },
+    .{ .name = "SMP AP bring-up (INIT-SIPI-SIPI)", .func = testApCoresUp },
 };
 
 fn testFilesystem(alloc: std.mem.Allocator, memory: *mem.Memory) void {

@@ -12,6 +12,7 @@ const bootlog = @import("bootlog.zig");
 const acpi = @import("cpu/acpi.zig");
 const apic = @import("cpu/apic.zig");
 const idt = @import("cpu/idt.zig");
+const smp = @import("cpu/smp.zig");
 const block = @import("drivers/block.zig");
 const pic = @import("drivers/pic.zig");
 const ps2 = @import("drivers/ps2.zig");
@@ -170,6 +171,8 @@ fn kernelMain() !void {
         else => null,
     } else null;
     apic.init(info.hhdm_offset, madt);
+    smp.init(madt, info.hhdm_offset);
+    smp.bringUp();
     const ioapic_note: []const u8 = if (madt_result) |r| switch (r) {
         .found => " · ioapic: madt",
         .bad_checksum => " · ioapic: fallback, bad-checksum",
@@ -185,7 +188,9 @@ fn kernelMain() !void {
             m.local_apic_id, m.irq_override_count, if (m.has_nmi) "yes" else "no",
         }) catch " · lapic/overrides: n/a";
     }
-    const cpu_line = std.fmt.bufPrint(&cpu_detail, "page tables · apic timer{s}{s}", .{ ioapic_note, madt_note }) catch "page tables · apic timer";
+    var smp_buf: [32]u8 = undefined;
+    const smp_note = std.fmt.bufPrint(&smp_buf, " · smp: {d} ap", .{smp.ap_count}) catch " · smp: n/a";
+    const cpu_line = std.fmt.bufPrint(&cpu_detail, "page tables · apic timer{s}{s}{s}", .{ ioapic_note, madt_note, smp_note }) catch "page tables · apic timer";
     bootlog.ok("cpu", cpu_line);
 
     ps2.init();
