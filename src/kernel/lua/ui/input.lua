@@ -5,6 +5,16 @@
 -- Only applies to file viewing; window close stays Super+Q (Hyprland).
 local esc_pending = false
 
+-- Double-click on a window's title bar toggles fullscreen (standard WM
+-- gesture). Two fresh clicks on the title bar within `double_click_ms` at
+-- nearly the same spot count as a double-click. time.ms() is real wall-clock
+-- milliseconds (PIT-calibrated), independent of the APIC tick rate, so the
+-- threshold works on any machine / in QEMU.
+local double_click_ms = 300
+-- Sentinel in the far past so the very first title-bar click (or a click
+-- right after a consumed double-click) can never be a false double-click.
+local last_title_click = { t = -math.huge, x = 0, y = 0 }
+
 -- Switch to another workspace (Super+1/2/3 and the bar capsules). Clearing a
 -- fullscreen window that belongs to a different workspace is done here, not
 -- left to the render path as a side effect, so the state is always coherent.
@@ -139,6 +149,24 @@ local function handle_mouse()
                         mouse_was_down = left
                         return
                     end
+                    -- Double-click on the title bar toggles fullscreen for
+                    -- every window, including files (its title bar is no
+                    -- longer a navigation target — the ".." listing entry goes
+                    -- up). A single click just focuses; a floating header
+                    -- still starts a drag on the first click.
+                    local now = time.ms()
+                    if is_in_header(w) and now - last_title_click.t <= double_click_ms
+                        and math.abs(mx - last_title_click.x) <= 4
+                        and math.abs(my - last_title_click.y) <= 4 then
+                        last_title_click = { t = -math.huge, x = 0, y = 0 }
+                        toggle_fullscreen(w.title)
+                        gfx.invalidate()
+                        mouse_was_down = left
+                        return
+                    end
+                    if is_in_header(w) then
+                        last_title_click = { t = now, x = mx, y = my }
+                    end
                     -- Only floating windows can be dragged; a click on a
                     -- tiled window's header only focuses it.
                     if is_in_header(w) and w.floating then
@@ -171,27 +199,12 @@ local function handle_mouse()
                     switch_workspace(c.i)
                 end
             end
-            -- Clicking the files title bar (the path header) navigates up one
-            -- level — or exits the current view — the header mirrors the path.
-            -- Skipped when the same click started dragging a floating files
-            -- window, so dragging and navigating cannot happen together (audit
-            -- 2026-08-15).
+            -- Clicking an entry in the files listing opens it (Enter agrees):
+            -- ".." goes up, a directory is entered, a file is edited in the
+            -- editor (read-only files are refused). The title bar is a plain
+            -- window title now — double-click there toggles fullscreen; going
+            -- up lives in the ".." listing entry and Escape.
             local fw = find_win("files")
-            if fw and fw.ws == current_ws and drag == nil then
-                local hy = fw.y + theme.wm.border
-                if mx >= fw.x + theme.wm.border and mx <= fw.x + fw.w - theme.wm.border and
-                   my >= hy and my <= hy + theme.wm.title_h then
-                    files_up()
-                    -- Exiting a view by mouse must also clear a pending Esc,
-                    -- or the next view would exit on the first Esc (audit
-                    -- 2026-08-15).
-                    esc_pending = false
-                    gfx.invalidate()
-                end
-            end
-            -- Clicking an entry in the files listing opens it: a directory is
-            -- entered, a file is edited (same as Enter). Clicking the header
-            -- above already handled going up.
             if fw and fw.ws == current_ws and not fs_viewing then
                 local rows = math.max(math.floor((fw.h - theme.wm.title_h - 12) / fs_row_h), 1)
                 local list_ty = fw.y + theme.wm.border + theme.wm.title_h + 6
@@ -200,13 +213,7 @@ local function handle_mouse()
                     local scroll_offset = math.max(fs_sel - rows, 0)
                     local e = fs_entries[scroll_offset + row]
                     if e then
-                        if e.dir then
-                            files_open(join_path(fs_path, e.name))
-                        elseif is_read_only(e.name) then
-                            wm_error("files", e.name .. " is read-only (view with Space)")
-                        else
-                            files_edit(e.name)
-                        end
+                        files_open_entry(e)
                         gfx.invalidate()
                     end
                 end
@@ -805,15 +812,7 @@ local function handle_key(ev)
                 fs_sel = math.min(fs_sel + 1, math.max(#fs_entries, 1))
             elseif code == "enter" then
                 local e = fs_entries[fs_sel]
-                if e then
-                    if e.dir then
-                        files_open(join_path(fs_path, e.name))
-                    elseif is_read_only(e.name) then
-                        wm_error("files", e.name .. " is read-only (view with Space)")
-                    else
-                        files_edit(e.name)
-                    end
-                end
+                if e then files_open_entry(e) end
             elseif code == "space" then
                 local e = fs_entries[fs_sel]
                 if e and not e.dir then files_view(e.name) end

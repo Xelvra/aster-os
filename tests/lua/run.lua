@@ -232,6 +232,164 @@ test("files view mode keyboard movement keeps the cursor visible", function()
     assert(fs_view_scroll + content_rows >= fs_view_row, "view cursor stays visible")
 end)
 
+test("double-click on the title bar toggles fullscreen", function()
+    set_disk({ ["/t.txt"] = "x" })
+    windows[#windows + 1] = window("editor", current_ws)
+    local w = find_win("editor")
+    w.x, w.y, w.w, w.h = 0, theme.bar.height, 400, 100
+    set_focus("editor")
+    editor_load("/t.txt")
+    fullscreen_win = nil
+    fullscreen_restore = nil
+    local hy = w.y + theme.wm.border + 5 -- inside the title bar
+    -- A single click on the title bar must not fullscreen.
+    _set_ms(100)
+    _set_mouse(40, hy, true, 0)
+    mouse_was_down = false
+    handle_mouse()
+    assert(fullscreen_win == nil, "single title click does not fullscreen")
+    -- A second click within the 300 ms threshold toggles fullscreen.
+    _set_ms(200)
+    _set_mouse(40, hy, true, 0)
+    mouse_was_down = false
+    handle_mouse()
+    assert(fullscreen_win == "editor", "double-click enters fullscreen")
+    -- Another double-click restores.
+    _set_ms(300)
+    _set_mouse(40, hy, true, 0)
+    mouse_was_down = false
+    handle_mouse()
+    _set_ms(400)
+    _set_mouse(40, hy, true, 0)
+    mouse_was_down = false
+    handle_mouse()
+    assert(fullscreen_win == nil, "double-click exits fullscreen")
+    -- A double-click far apart in time must not count.
+    _set_ms(1000)
+    _set_mouse(40, hy, true, 0)
+    mouse_was_down = false
+    handle_mouse()
+    _set_ms(1500)
+    _set_mouse(40, hy, true, 0)
+    mouse_was_down = false
+    handle_mouse()
+    assert(fullscreen_win == nil, "slow clicks are not a double-click")
+end)
+
+test("files title bar double-click fullscreens, never navigates up", function()
+    local d = set_disk({ ["/a/b.txt"] = "x" })
+    file.dir = function(p)
+        if p == "/a" then return { { name = "b.txt", dir = false } } end
+        return { { name = "a", dir = true } }
+    end
+    windows[#windows + 1] = window("files", current_ws)
+    local w = find_win("files")
+    w.x, w.y, w.w, w.h = 0, theme.bar.height, 400, 100
+    set_focus("files")
+    files_open("/a")
+    assert(fs_path == "/a", "opened the nested directory")
+    fullscreen_win = nil
+    local hy = w.y + theme.wm.border + 5
+    -- A single click on the files title bar focuses only (no navigation).
+    _set_ms(100)
+    _set_mouse(40, hy, true, 0)
+    mouse_was_down = false
+    handle_mouse()
+    assert(fs_path == "/a", "single title click does not navigate up")
+    -- The double-click fullscreens instead of doing cd ..
+    _set_ms(200)
+    _set_mouse(40, hy, true, 0)
+    mouse_was_down = false
+    handle_mouse()
+    assert(fullscreen_win == "files", "files title double-click fullscreens")
+    assert(fs_path == "/a", "files double-click never navigates up")
+end)
+
+test("files .. entry goes up to the parent directory", function()
+    local d = set_disk({ ["/a/b.txt"] = "x" })
+    file.dir = function(p)
+        if p == "/a" then return { { name = "b.txt", dir = false } } end
+        if p == "/" then return { { name = "a", dir = true } } end
+        return {}
+    end
+    windows[#windows + 1] = window("files", current_ws)
+    local w = find_win("files")
+    w.x, w.y, w.w, w.h = 0, theme.bar.height, 400, 100
+    set_focus("files")
+    files_open("/a")
+    assert(fs_entries[1].name == "..", ".. is listed first in a nested dir")
+    files_open_entry(fs_entries[1])
+    assert(fs_path == "/", ".. opens the parent directory")
+    assert(fs_entries[1].name ~= "..", "root listing has no parent entry")
+end)
+
+test("files_open_entry: file opens, read-only is refused (regression)", function()
+    local disk = set_disk({ ["/a/note.txt"] = "hi", ["/a/old.bak"] = "backup" })
+    file.dir = function(p)
+        if p == "/a" then return {
+            { name = "note.txt", dir = false },
+            { name = "old.bak", dir = false },
+        } end
+        return {}
+    end
+    windows[#windows + 1] = window("files", current_ws)
+    local w = find_win("files")
+    w.x, w.y, w.w, w.h = 0, theme.bar.height, 400, 100
+    set_focus("files")
+    files_open("/a")
+    -- A regular file opens in the editor (files_edit -> editor_load_safe).
+    local file_entry = nil
+    for _, e in ipairs(fs_entries) do if e.name == "note.txt" then file_entry = e end end
+    files_open_entry(file_entry)
+    assert(ed_path == "/a/note.txt", "editing a file loads it into the editor")
+    -- A read-only .bak entry is refused without a nil-global call (regression:
+    -- files_open_entry used to reference is_read_only before its declaration).
+    local bak_entry = nil
+    for _, e in ipairs(fs_entries) do if e.name == "old.bak" then bak_entry = e end end
+    files_open_entry(bak_entry)
+    assert(ed_path == "/a/note.txt", "read-only entry does not replace the buffer")
+end)
+
+test("directories render with a leading slash", function()
+    local d = set_disk({ ["/a/b.txt"] = "x" })
+    file.dir = function(p)
+        if p == "/a" then return {
+            { name = "sub", dir = true },
+            { name = "b.txt", dir = false },
+        } end
+        return {}
+    end
+    windows[#windows + 1] = window("files", current_ws)
+    local w = find_win("files")
+    w.x, w.y, w.w, w.h = 0, theme.bar.height, 400, 100
+    set_focus("files")
+    files_open("/a")
+    local texts = {}
+    gfx.draw_text = function(t) texts[#texts + 1] = t end
+    files_render()
+    assert(texts[1] == "/..", "parent renders as /.., got " .. tostring(texts[1]))
+    assert(texts[2] == "/sub", "dir renders with a leading slash, got " .. tostring(texts[2]))
+    assert(texts[3] == "b.txt", "file renders without a slash, got " .. tostring(texts[3]))
+end)
+
+test("close button still closes the focused window", function()
+    set_disk({ ["/t.txt"] = "x" })
+    windows[#windows + 1] = window("editor", current_ws)
+    local w = find_win("editor")
+    w.x, w.y, w.w, w.h = 0, theme.bar.height, 400, 100
+    set_focus("editor")
+    editor_load("/t.txt")
+    local cb = close_button_rect(w)
+    _set_mouse(cb.x + cb.w / 2, cb.y + cb.h / 2, true, 0)
+    mouse_was_down = false
+    handle_mouse()
+    local gone = true
+    for _, w2 in ipairs(windows) do
+        if w2 == w then gone = false end
+    end
+    assert(gone, "close button closes the window")
+end)
+
 test("every .lua file keeps a basename backup on save", function()
     local disk = set_disk({
         ["/test.lua"] = "v1",

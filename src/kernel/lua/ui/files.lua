@@ -75,6 +75,12 @@ local function load_listing(path)
         if a.dir ~= b.dir then return a.dir end
         return a.name < b.name
     end)
+    -- DOS/MC parent entry: ".." goes up one level. Not at the root "/" (there
+    -- is nothing above it). It is navigation, not a file, so the hidden /
+    -- read-only rules never apply to it (entry_color special-cases it).
+    if path ~= "/" then
+        table.insert(shown, 1, { name = "..", dir = true })
+    end
     return shown
 end
 
@@ -175,6 +181,27 @@ end
 -- never editable — only viewable.
 local function is_read_only(name)
     return name:sub(-4) == ".bak" or name == ".repl_history"
+end
+
+-- Open a listing entry: ".." goes up one level (DOS/MC parent), a directory is
+-- entered, a file is edited in the editor (read-only files are refused).
+-- Shared by the Enter key and a click so both always agree. Defined after
+-- is_read_only so the reference resolves lexically (a local is in scope only
+-- from its declaration on — earlier this caused a nil-global call).
+function files_open_entry(e)
+    if e.name == ".." then
+        files_up()
+        return
+    end
+    if e.dir then
+        files_open(join_path(fs_path, e.name))
+        return
+    end
+    if is_read_only(e.name) then
+        wm_error("files", e.name .. " is read-only (view with Space)")
+        return
+    end
+    files_edit(e.name)
 end
 
 -- System directories that must never be deleted, moved or renamed: the trash
@@ -314,6 +341,7 @@ end
 -- one dim blue so a dot file (e.g. .test) cannot be mistaken for a loud color.
 local function entry_color(e, selected)
     if selected then return theme.accent end
+    if e.name == ".." then return theme.text end
     if fs_path == "/.trash" then return theme.text_dim end
     if is_read_only(e.name) then return theme.red end
     if e.name:sub(1, 1) == "." then return theme.text_dim end
@@ -450,8 +478,11 @@ local function files_render()
     for i = first, math.min(#fs_entries, first + content_rows - 1) do
         local e = fs_entries[i]
         local color = entry_color(e, i == fs_sel)
+        -- Directories render with a leading slash ("/dir", the parent is
+        -- "/..") — the DOS convention, kept in one place so the listing and
+        -- the click mapping always agree.
         local label = e.name
-        if e.dir then label = label .. "/" end
+        if e.dir then label = "/" .. label end
         gfx.draw_text(label, tx, ty, color)
         ty = ty + fs_row_h
     end

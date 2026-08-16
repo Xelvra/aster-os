@@ -50,6 +50,7 @@ local shortcuts_active = {
     { "F5", "hot reload" },
     { "click header", "drag floating window" },
     { "click capsule", "switch workspace" },
+    { "double-click title", "fullscreen" },
 }
 
 local function launcher_filtered()

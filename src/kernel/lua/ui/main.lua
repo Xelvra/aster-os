@@ -28,7 +28,7 @@ register_app_help("files", {
     { "Ctrl+H", "toggle hidden files" },
     { "Esc", "up a level" },
     { "click entry", "open (dir enter / file edit)" },
-    { "click header", "up a level" },
+    { "click /..", "up a level" },
     "view mode",
     { "Arrow up / down", "move row" },
     { "Arrow left / right", "move column" },
