@@ -16,6 +16,7 @@ pub const VirtioError = error{
     QueueFailed,
     NoSupport,
     IoError,
+    OutOfBounds,
     OutOfMemory,
 };
 
@@ -152,6 +153,12 @@ fn volatileU8(ptr: *u8) u8 {
     return @as(*const volatile u8, @ptrCast(ptr)).*;
 }
 
+/// Read a device-config u64 (little-endian) through a volatile pointer. The
+/// virtio-blk device config exposes the block capacity in sectors here.
+fn volatileU64(ptr: *u64) u64 {
+    return @as(*const volatile u64, @ptrCast(ptr)).*;
+}
+
 pub const VirtioBlk = struct {
     allocator: std.mem.Allocator,
     hhdm_offset: u64,
@@ -160,6 +167,10 @@ pub const VirtioBlk = struct {
     notify_base: u64,
     notify_multiplier: u32,
     queue: VirtQueue,
+    /// Device block capacity in 512-byte sectors (from the virtio-blk device
+    /// config); a request beyond it is rejected before it reaches the device
+    /// (audit 2026-08-15: readSector did not know the capacity).
+    capacity: u64,
 
     pub fn init(allocator: std.mem.Allocator, pfa_inst: *pfa.PageFrameAllocator, hhdm_offset: u64) VirtioError!VirtioBlk {
         const device = pci.findDevice(blk_vendor, blk_device_modern) orelse
@@ -168,6 +179,7 @@ pub const VirtioBlk = struct {
 
         var common_addr: u64 = 0;
         var notify_addr: u64 = 0;
+        var device_cfg_addr: u64 = 0;
         var notify_mult: u32 = 0;
         var bar_end: [6]u64 = .{ 0, 0, 0, 0, 0, 0 };
 
@@ -190,6 +202,7 @@ pub const VirtioBlk = struct {
                             notify_addr = region_end;
                             notify_mult = pci.readConfig32(device.bus, device.slot, device.func, cap_offset + 16);
                         },
+                        cfg_type_device => device_cfg_addr = region_end,
                         else => {},
                     }
                 }
@@ -207,9 +220,12 @@ pub const VirtioBlk = struct {
             }
         }
 
-        if (common_addr == 0 or notify_addr == 0) return error.InitFailed;
+        if (common_addr == 0 or notify_addr == 0 or device_cfg_addr == 0) return error.InitFailed;
         const common = @as(*volatile CommonCfg, @ptrFromInt(hhdm_offset + common_addr));
         const notify_base = hhdm_offset + notify_addr;
+        // The virtio-blk device config starts with the 64-bit little-endian
+        // block capacity in sectors.
+        const capacity = volatileU64(@ptrFromInt(hhdm_offset + device_cfg_addr));
 
         return VirtioBlk{
             .allocator = allocator,
@@ -219,6 +235,7 @@ pub const VirtioBlk = struct {
             .notify_base = notify_base,
             .notify_multiplier = notify_mult,
             .queue = undefined,
+            .capacity = capacity,
         };
     }
 
@@ -293,18 +310,23 @@ pub const VirtioBlk = struct {
 
     fn blockRead(ctx: *anyopaque, sector: u64, out: []u8) block.BlockError!void {
         const blk: *VirtioBlk = @ptrCast(@alignCast(ctx));
-        blk.readSector(sector, out) catch return error.IoError;
+        blk.readSector(sector, out) catch |err| {
+            return if (err == error.OutOfBounds) error.OutOfBounds else error.IoError;
+        };
     }
 
     fn blockWrite(ctx: *anyopaque, sector: u64, in: []const u8) block.BlockError!void {
         const blk: *VirtioBlk = @ptrCast(@alignCast(ctx));
-        blk.writeSector(sector, in) catch return error.IoError;
+        blk.writeSector(sector, in) catch |err| {
+            return if (err == error.OutOfBounds) error.OutOfBounds else error.IoError;
+        };
     }
 
     /// Write one 512-byte sector from in. The data buffer handed to the device
     /// is heap-backed (phys = virt - hhdm_offset holds, as in readSector).
     pub fn writeSector(self: *VirtioBlk, sector: u64, in: []const u8) VirtioError!void {
         if (in.len != 512) return error.NoSupport;
+        if (sector >= self.capacity) return error.OutOfBounds;
 
         const header = try self.allocator.create(BlkReqHeader);
         defer self.allocator.destroy(header);
@@ -367,6 +389,7 @@ pub const VirtioBlk = struct {
     /// hhdm_offset holds for every block handed to the device).
     pub fn readSector(self: *VirtioBlk, sector: u64, out: []u8) VirtioError!void {
         if (out.len != 512) return error.NoSupport;
+        if (sector >= self.capacity) return error.OutOfBounds;
 
         const header = try self.allocator.create(BlkReqHeader);
         defer self.allocator.destroy(header);

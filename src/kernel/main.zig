@@ -306,10 +306,11 @@ fn probeStorage(alloc: std.mem.Allocator, memory: *mem.Memory) void {
     const msg = std.fmt.bufPrint(&buf, "{d} partition(s)", .{count}) catch return;
     bootlog.ok("gpt", msg);
 
-    // M6.1.3: mount ext2 read-only on the linux-filesystem partition and
-    // list the root directory as the exit check ("výpis souborů"). The mount
-    // is handed to the KI storage module (M7.1.4) so Lua file.* works after
-    // boot.
+    // M6.1.3: mount ext2 on the linux-filesystem partition and list the root
+    // directory as the exit check ("výpis souborů"). The mount is handed to
+    // the KI storage module (M7.1.4) so Lua file.* works after boot; ext2 is
+    // read-write (M7.1.5+, ADR-023) — the system never depends on the disk,
+    // a broken/missing working copy falls back to the initrd defaults.
     var fs_partition: ?block.PartitionView = null;
     for (partitions[0..count]) |p| {
         if (gpt.eqlGuid(p.type_guid, gpt.type_guid_linux_fs)) {

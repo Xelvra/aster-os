@@ -25,9 +25,9 @@ pub const superblock_offset: usize = 1024;
 
 pub const feature_compat_ext_attr: u32 = 0x0008;
 pub const feature_compat_resize_inode: u32 = 0x0010;
-pub const feature_compat_dir_index: u32 = 0x0020;
+pub const feature_compat_dir_index: u32 = 0x0020; // unsupported (HTree); kept for the rejection tests
 pub const feature_incompat_filetype: u32 = 0x0002;
-pub const feature_incompat_recovery: u32 = 0x0004;
+pub const feature_incompat_recovery: u32 = 0x0004; // kept for the rejection tests
 pub const feature_ro_compat_sparse_super: u32 = 0x0001;
 pub const feature_ro_compat_large_file: u32 = 0x0002;
 
@@ -216,26 +216,35 @@ pub const Ext2 = struct {
         const inode = try self.readInode(ino);
         if (inode.mode & inode_type_dir == 0) return Ext2Error.NotADirectory;
         var block_buf: [4096]u8 = undefined;
-        try self.readBlock(inode.block[0], block_buf[0..self.block_size]);
-        const data = block_buf[0..self.block_size];
-        var off: usize = 0;
         var count: usize = 0;
-        while (off + 8 <= data.len) {
-            const entry_inode = bytes.readU32(data, off);
-            const rec_len = bytes.readU16(data, off + 4);
-            if (rec_len == 0) break;
-            const name_len = data[off + 6];
-            if (count == out.len) return Ext2Error.BufferTooSmall;
-            if (entry_inode != 0) {
-                const name_end = off + 8 + @as(usize, name_len);
-                if (name_end > data.len) return Ext2Error.OutOfBounds;
-                @memcpy(out[count].name[0..name_len], data[off + 8 .. name_end]);
-                out[count].name_len = name_len;
-                out[count].inode = entry_inode;
-                out[count].file_type = data[off + 7];
-                count += 1;
+        var block_index: usize = 0;
+        // Walk every block of the directory (direct + single indirect) so a
+        // directory spanning several blocks is fully listed; a hole (or the
+        // end of the block list) ends the walk. blockForIndex treats a 0
+        // pointer as a hole, so an empty directory never reads the superblock
+        // as entries (audit 2026-08-15).
+        while (try self.blockForIndex(inode, block_index)) |blk| {
+            try self.readBlock(blk, block_buf[0..self.block_size]);
+            const data = block_buf[0..self.block_size];
+            var off: usize = 0;
+            while (off + 8 <= data.len) {
+                const entry_inode = bytes.readU32(data, off);
+                const rec_len = bytes.readU16(data, off + 4);
+                if (rec_len == 0) break;
+                const name_len = data[off + 6];
+                if (count == out.len) return Ext2Error.BufferTooSmall;
+                if (entry_inode != 0) {
+                    const name_end = off + 8 + @as(usize, name_len);
+                    if (name_end > data.len) return Ext2Error.OutOfBounds;
+                    @memcpy(out[count].name[0..name_len], data[off + 8 .. name_end]);
+                    out[count].name_len = name_len;
+                    out[count].inode = entry_inode;
+                    out[count].file_type = data[off + 7];
+                    count += 1;
+                }
+                off += rec_len;
             }
-            off += rec_len;
+            block_index += 1;
         }
         return count;
     }
@@ -254,11 +263,15 @@ pub const Ext2 = struct {
         var block_index = offset / self.block_size;
         var in_block = offset % self.block_size;
         while (written < to_read) {
-            const blk = try self.blockForIndex(inode, block_index) orelse break;
-            var block_buf: [4096]u8 = undefined;
-            try self.readBlock(blk, block_buf[0..self.block_size]);
             const n = @min(@min(self.block_size - in_block, to_read - written), out.len - written);
-            @memcpy(out[written .. written + n], block_buf[in_block .. in_block + n]);
+            if (try self.blockForIndex(inode, block_index)) |blk| {
+                var block_buf: [4096]u8 = undefined;
+                try self.readBlock(blk, block_buf[0..self.block_size]);
+                @memcpy(out[written .. written + n], block_buf[in_block .. in_block + n]);
+            } else {
+                // A hole (sparse file): the block reads as zeros.
+                @memset(out[written .. written + n], 0);
+            }
             written += n;
             in_block = 0;
             block_index += 1;
@@ -274,7 +287,13 @@ pub const Ext2 = struct {
     /// Resolve logical block `index` of `inode` to a physical block number
     /// (direct blocks, then the single-indirect table).
     fn blockForIndex(self: Ext2, inode: Inode, index: usize) Ext2Error!?u32 {
-        if (index < inode_direct_blocks) return inode.block[index];
+        if (index < inode_direct_blocks) {
+            // A direct pointer of 0 is a hole (sparse file), not block 0 —
+            // reading the superblock as file data would leak foreign bytes
+            // (audit 2026-08-15).
+            const blk = inode.block[index];
+            return if (blk == 0) null else blk;
+        }
         const indirect_index = index - inode_direct_blocks;
         if (indirect_index >= self.block_size / 4) return Ext2Error.UnsupportedIndirect;
         if (inode.block[inode_direct_blocks] == 0) return null;
