@@ -33,7 +33,6 @@ const smp_cr3_sym = @extern([*]u8, .{ .name = "smp_cr3" });
 const smp_cpu_id_sym = @extern([*]u8, .{ .name = "smp_cpu_id" });
 const smp_stack_top_sym = @extern([*]u8, .{ .name = "smp_stack_top" });
 const smp_high64_sym = @extern([*]u8, .{ .name = "smp_high64" });
-const smp_marks_sym = @extern([*]u8, .{ .name = "smp_marks" });
 const smp_ap_entry_sym = @extern([*]u8, .{ .name = "smp_ap_entry" });
 
 /// Collect the AP LAPIC IDs from the parsed MADT and stage the trampoline:
@@ -68,7 +67,6 @@ pub fn bringUp() void {
         const stack_top = @intFromPtr(&ap_stacks[i]) + ap_stack_size;
         setData(u64, smp_cpu_id_sym, @as(u64, @intCast(i)));
         setData(u64, smp_stack_top_sym, stack_top);
-        setData(u64, smp_marks_sym, 0);
         ap_ready.store(0, .seq_cst);
         apic.sendInitIpi(ap_ids[i]);
         apic.sendSipi(ap_ids[i], vector);

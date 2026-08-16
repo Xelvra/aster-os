@@ -40,7 +40,7 @@ timeout "$TIMEOUT" qemu-system-x86_64 \
     "${ACCEL[@]}" \
     -M q35 \
     -m 512M \
-    -smp 1 \
+    -smp 2 \
     -rtc base=localtime \
     -cdrom "$ISO" \
     "${disk_args[@]}" \

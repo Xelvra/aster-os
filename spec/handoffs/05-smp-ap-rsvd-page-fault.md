@@ -1,7 +1,7 @@
 # Handoff H5: SMP — AP jádro dostane #PF(RSVD) po zapnutí pagingu a firmware bootuje OS na AP
 
 **Datum:** 2026-08-16
-**Status:** open
+**Status:** closed (root cause = `call 1f; pop %ebx` „getip" trik v 32-bit trampolině před nastavením zásobníku — AP má po INIT-SIPI `ESP` nedefinované (v QEMU 0), `pop` načetl odpadky místo adresy bloku, CR3 se přečetl z náhodné fyzické adresy → AP stránkoval přes odpadkovou tabulku → `#PF(RSVD)` ihned po `PG=1`; fix = přímé `tramp_base + (symbol - smp_trampoline_start)` adresování, viz C48. Kromě toho opraven CR4 mirror (`0x640` = MCE, ne PGE → `0x620`) a doplněn chybějící `ljmp` do 64-bit long mode — `smp_lm64` byl předtím mrtvý kód)
 
 ---
 
@@ -67,6 +67,7 @@ check_exception old: 0xe new 0xe
 | 12 | Dump BSP page tables | `CR3=0x1ff84000`, `pml4[0]=0x10a023`, `pdpt[0]=0x10b023`, `pd[0]=0x10c023`, `pt[8]=0x8063`; BSP `CR4=0x620` (bez LA57) | tabulky vypadají validní, root cause neznámý |
 | 13 | `pd[0]` → 2 MiB huge page (base 0, `0x83`) | stále RSVD | není PT úroveň |
 | 14 | **Nahrazení Limine `PML4[0]` vlastní identity mapou** | **zastaveno** — odvážný zásah do stabilního bootloaderu, vráceno zpět | NEPOUŽÍVAT; hledat kořenovou příčinu |
+| 15 | **FIX (root cause):** v `smp_pm32` nahrazen `call 1f; pop %ebx` (getip) za přímé `movl (tramp_base + smp_cr3 - smp_trampoline_start), %eax`; dále CR4 `0x640` → `0x620` (MCE → OSFXSR/OSXMMEXCPT mirror BSP, PAE zvlášť) a doplněn `ljmp $0x18` do `smp_lm64` (předtím mrtvý kód) | **RSVD fault i triple fault pryč** — boot do `ASTER BOOT OK` / `ASTER FIRST FRAME`, boot log `smp: 1 ap`; `qemu-test` s diskem **PASS (exit 99, 3×)**; `ap_ready == ap_count` v `runtime_test.zig` prošlo → AP doběhlo přes `idt.load()` a `apic.enableLocal()` | potvrzeno (C48, §4) |
 
 Závěr z pokusů: 16/32-bit i CR3/PAE bez pagingu fungují; **paging je spouštěč RSVD
 faultu**, a to i s `LME|NXE`, s BSP CR4 i s vlastní huge page mapou.

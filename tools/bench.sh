@@ -34,7 +34,7 @@ timeout "$TIMEOUT" qemu-system-x86_64 \
     "${ACCEL[@]}" \
     -M q35 \
     -m 512M \
-    -smp 1 \
+    -smp 2 \
     -rtc base=localtime \
     -cdrom "$ISO" \
     -chardev pipe,id=serial0,path="$tmpdir/serial" \

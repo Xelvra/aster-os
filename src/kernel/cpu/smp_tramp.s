@@ -22,7 +22,6 @@ smp_trampoline_start:
 /* ---- 16-bit real mode -------------------------------------------------- */
 .code16
   cli
-  movl $0x11, (tramp_base + smp_marks - smp_trampoline_start)
   xorw %ax, %ax
   movw %ax, %ds
   movw %ax, %es
@@ -30,7 +29,6 @@ smp_trampoline_start:
      of the GDT pointer inside the block (tramp_base + block offset; it fits
      a 16-bit address because the whole block lives below 1 MiB). */
   lgdtw (tramp_base + smp_gdt_ptr - smp_trampoline_start)
-  movl $0x12, (tramp_base + smp_marks - smp_trampoline_start)
   movl %cr0, %eax
   orl $1, %eax
   movl %eax, %cr0
@@ -42,19 +40,17 @@ smp_trampoline_start:
 /* ---- 32-bit protected mode --------------------------------------------- */
 .code32
 smp_pm32:
-  movl $0x13, (tramp_base + smp_marks - smp_trampoline_start)
   movw $0x10, %ax
   movw %ax, %ds
   movw %ax, %es
   movw %ax, %ss
-  /* Read the page-table root (BSP CR3) via the getip pattern: ebx = address
-     of the label below, the data offset is a block-relative constant. */
-  call 1f
-1:
-  popl %ebx
-  movl (smp_cr3 - 1b)(%ebx), %eax
+  /* Read the page-table root (BSP CR3) by tramp_base-relative addressing
+     (the same style as smp_gdt_ptr below). Never use a call/pop getip here:
+     the AP has no stack yet (ESP is undefined after INIT-SIPI, 0 in QEMU), so
+     a call would push the return address into nowhere and pop would read
+     garbage instead of the block address (handoff H5, C-lekce). */
+  movl (tramp_base + smp_cr3 - smp_trampoline_start), %eax
   movl %eax, %cr3
-  movl $0x14, (tramp_base + smp_marks - smp_trampoline_start)
   /* Long mode needs EFER.LME, and the BSP page tables set the NX bit on
      every entry — without EFER.NXE that bit is reserved and the first page
      walk raises a #PF(RSVD). Enable both before paging. */
@@ -63,15 +59,14 @@ smp_pm32:
   orl $0x900, %eax /* LME | NXE */
   wrmsr
   movl %cr4, %eax
-  orl $0x20, %eax
-  orl $0x640, %eax /* PAE | PGE | OSFXSR | OSXMMEXCPT (mirror the BSP) */
+  orl $0x620, %eax /* PAE | OSFXSR | OSXMMEXCPT (mirror the BSP) */
   movl %eax, %cr4
   movl %cr0, %eax
   orl $0x80000000, %eax
   movl %eax, %cr0
-  movl $0x15, (tramp_base + smp_marks - smp_trampoline_start)
-1:
-  jmp 1b
+  /* Far jump into the 64-bit code segment (tramp_base + block offset). */
+  ljmp $0x18, $(tramp_base + smp_lm64 - smp_trampoline_start)
+
 /* ---- 64-bit long mode --------------------------------------------------- */
 .code64
 smp_lm64:
@@ -79,7 +74,6 @@ smp_lm64:
   movw %ax, %ds
   movw %ax, %es
   movw %ax, %ss
-  movl $0x16, (tramp_base + smp_marks - smp_trampoline_start)
   /* Per-AP values prepared by the BSP; RIP-relative so the low-memory copy
      still resolves them (the block offsets are identical at any base). */
   movq smp_cpu_id(%rip), %rdi
@@ -114,8 +108,6 @@ smp_cpu_id:    .quad 0
 smp_stack_top: .quad 0
 .globl smp_high64
 smp_high64:    .quad 0
-.globl smp_marks
-smp_marks:     .quad 0
 
 .globl smp_trampoline_end
 smp_trampoline_end:

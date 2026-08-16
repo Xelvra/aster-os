@@ -34,7 +34,7 @@ qemu-system-x86_64 \
     $(./tools/qemu-accel.sh) \
     -M q35 \
     -m 512M \
-    -smp 1 \
+    -smp 2 \
     -rtc base=localtime \
     -cdrom "$ISO" \
     -drive "file=$DISK,format=raw,if=none,id=hd0" \

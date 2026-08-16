@@ -207,7 +207,7 @@ pub fn build(b: *std.Build) void {
     run_cmd.addArg("-m");
     run_cmd.addArg("512M");
     run_cmd.addArg("-smp");
-    run_cmd.addArg("1");
+    run_cmd.addArg("2");
     // The RTC holds local wall time (the BIOS/Windows convention), so the
     // kernel's bar clock reads the host's local time directly, no UTC offset.
     run_cmd.addArg("-rtc");
@@ -247,7 +247,7 @@ pub fn build(b: *std.Build) void {
     rt_run_cmd.addArg("-m");
     rt_run_cmd.addArg("512M");
     rt_run_cmd.addArg("-smp");
-    rt_run_cmd.addArg("1");
+    rt_run_cmd.addArg("2");
     rt_run_cmd.addArg("-rtc");
     rt_run_cmd.addArg("base=localtime");
     rt_run_cmd.addArg("-cdrom");
