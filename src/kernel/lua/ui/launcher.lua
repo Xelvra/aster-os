@@ -101,11 +101,17 @@ function launcher_open_app_help(app)
     gfx.invalidate()
 end
 
+-- Run-mode popup metrics (named; audit 2026-08-15: the row math was
+-- duplicated as magic numbers in input.lua's mouse hit-test).
+local run_row_h = 20
+local run_prompt_offset = 30 -- prompt -> first item row
+local run_header_pad = 40    -- top padding that makes lh = header + rows
+
 -- Launcher popup geometry for the current mode (help vs run): launcher_render
 -- draws it and handle_mouse hit-tests it, so the click targets can never
 -- drift from the drawn popup. Returns lx, ly, lw, lh.
 local function launcher_popup()
-    local row_h = (launcher_mode == "help") and 18 or 20
+    local row_h = (launcher_mode == "help") and 18 or run_row_h
     local lw, lh
     if launcher_mode == "help" then
         local items = launcher_help_app and app_help[launcher_help_app] or shortcuts_active
@@ -118,11 +124,23 @@ local function launcher_popup()
     else
         local items = launcher_filtered()
         lw = 320
-        lh = 40 + math.max(#items, 1) * row_h
+        lh = run_header_pad + math.max(#items, 1) * row_h
     end
     local lx = math.floor((SW - lw) / 2)
     local ly = theme.bar.height + 8 + math.max(math.floor((SH - theme.bar.height - 8 - lh) / 2), 0)
     return lx, ly, lw, lh
+end
+
+-- Run-mode item row under the mouse y (1-based), or nil when the click is
+-- outside the item list (the header or the padding). Shared with handle_mouse
+-- so the click target matches the drawn rows (audit 2026-08-15).
+function launcher_item_at(my)
+    local lx, ly, lw, lh = launcher_popup()
+    local items = launcher_filtered()
+    local first = ly + run_prompt_offset
+    local last = first + math.max(#items, 1) * run_row_h
+    if my < first or my >= last then return nil end
+    return math.floor((my - first) / run_row_h) + 1
 end
 
 -- Close "x" rect in the popup's top-right corner: drawn by launcher_render,
@@ -211,7 +229,6 @@ local function launcher_run(id)
         else
             w.ws = current_ws
         end
-        repl_visible = true
         app_win = find_win("repl")
         set_focus("repl")
     elseif id == "sysmon" then
@@ -261,10 +278,8 @@ local function launcher_run(id)
     if launcher_mode == "scratchpad" and app_win then
         scratchpad_app = app_win.title
         app_win.floating = true
-        app_win.w = math.floor(SW * 0.6)
-        app_win.h = math.floor((SH - theme.bar.height) * 0.6)
-        app_win.x = math.floor((SW - app_win.w) / 2)
-        app_win.y = theme.bar.height + math.floor(((SH - theme.bar.height) - app_win.h) / 2)
+        local g = centered_rect(0.6, 0.6)
+        app_win.x, app_win.y, app_win.w, app_win.h = g.x, g.y, g.w, g.h
         scratchpad_open = true
     end
     layout_pass()

@@ -74,7 +74,7 @@ end
 -- z-order keeps each content on top of the windows below it (a stacked window
 -- must not show through the one above).
 local function render_window_content(title)
-    if title == "repl" and repl_visible then
+    if title == "repl" then
         repl_render()
     elseif title == "sysmon" then
         sysmon_render()
@@ -113,7 +113,10 @@ function render()
             if launcher_open then launcher_render() end
             return
         else
-            fullscreen_win = nil
+            -- The fullscreen window is gone or on another workspace: leave
+            -- fullscreen through the shared path (clears the restore geometry
+            -- too; audit 2026-08-15).
+            exit_fullscreen()
         end
     end
     -- Draw windows bottom-to-top by z (tiling order first, floating on top).

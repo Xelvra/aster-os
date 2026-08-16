@@ -101,9 +101,11 @@ function repl_load_history()
 end
 
 -- Persist the last commands (newest last, capped at history_max). Called
--- after every Enter; a missing file (no disk) makes it a no-op.
+-- after every Enter; the file is created on first use and a missing disk
+-- makes it a no-op (audit 2026-08-15: previously the file was never created).
 function repl_save_history()
     local h = file.open(history_path)
+    if not h then h = file.create(history_path) end
     if not h then return end
     file.truncate(h, 0)
     local start = math.max(1, #history - history_max + 1)
@@ -155,7 +157,6 @@ local function run(code)
 end
 
 local function repl_render()
-    if not repl_visible then return end
     local w = find_win("repl")
     if not w or w.ws ~= current_ws then return end
     local tx = w.x + theme.wm.border + 6

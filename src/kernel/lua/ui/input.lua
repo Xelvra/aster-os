@@ -9,6 +9,9 @@ local esc_pending = false
 -- fullscreen window that belongs to a different workspace is done here, not
 -- left to the render path as a side effect, so the state is always coherent.
 local function switch_workspace(ws)
+    -- The workspace count comes from theme.ws, so a hardcoded Super+digit
+    -- must never reach past it (audit 2026-08-15: unbounded index).
+    if ws < 1 or ws > #theme.ws then return end
     current_ws = ws
     local fs = find_win(fullscreen_win or "")
     if fs and fs.ws ~= ws then exit_fullscreen() end
@@ -66,21 +69,24 @@ local function handle_mouse()
                 mouse_was_down = left
                 return
             end
-            local items = launcher_filtered()
-            local row_h = 20
-            local lw, lh = 320, 40 + math.max(#items, 1) * row_h
-            local lx = math.floor((SW - lw) / 2)
-            local ly = theme.bar.height + 8 + math.max(math.floor((SH - theme.bar.height - 8 - lh) / 2), 0)
-            if mx >= lx and mx <= lx + lw and my >= ly and my <= ly + lh then
-                local idx = math.floor((my - ly - 30) / row_h) + 1
+            -- Cheat sheets never close on an item click (they are not item
+            -- lists); only run mode maps a row to an app/action. A click on
+            -- the popup header/padding keeps the launcher open; only a click
+            -- outside the popup closes it.
+            local idx = launcher_item_at(my)
+            if idx then
+                local items = launcher_filtered()
                 if items[idx] then
                     launcher_run(items[idx].id)
-                    if launcher_mode ~= "help" then launcher_open = false end
+                    launcher_open = false
                     gfx.invalidate()
                 end
             else
-                launcher_open = false
-                gfx.invalidate()
+                local lx, ly, lw, lh = launcher_popup()
+                if mx < lx or mx > lx + lw or my < ly or my > ly + lh then
+                    launcher_open = false
+                    gfx.invalidate()
+                end
             end
         end
         mouse_was_down = left
@@ -126,9 +132,12 @@ local function handle_mouse()
                 end
             end
             -- Clicking a workspace capsule switches workspace and focuses its
-            -- topmost window, so typing works right away.
+            -- topmost window, so typing works right away. The bar owns rows
+            -- 0..bar_h-1; the first window row starts at bar_h, so the strict
+            -- upper bound keeps a boundary click from hitting both the bar
+            -- and a window (audit 2026-08-15: y == bar_h double-hit).
             for _, c in ipairs(ws_capsules()) do
-                if mx >= c.x and mx <= c.x + c.w and my >= 0 and my <= theme.bar.height then
+                if mx >= c.x and mx <= c.x + c.w and my >= 0 and my < theme.bar.height then
                     switch_workspace(c.i)
                 end
             end
@@ -143,6 +152,10 @@ local function handle_mouse()
                 if mx >= fw.x + theme.wm.border and mx <= fw.x + fw.w - theme.wm.border and
                    my >= hy and my <= hy + theme.wm.title_h then
                     files_up()
+                    -- Exiting a view by mouse must also clear a pending Esc,
+                    -- or the next view would exit on the first Esc (audit
+                    -- 2026-08-15).
+                    esc_pending = false
                     gfx.invalidate()
                 end
             end
@@ -169,7 +182,8 @@ local function handle_mouse()
                 end
             end
             -- Clicking the launcher button (the ">" chevron) opens the launcher.
-            if mx >= 8 and mx <= 28 and my >= 0 and my <= theme.bar.height then
+            local lbr = launcher_button_rect()
+            if mx >= lbr.x and mx <= lbr.x + lbr.w and my >= 0 and my < theme.bar.height then
                 launcher_open_mode("run")
                 gfx.invalidate()
             end
@@ -177,7 +191,7 @@ local function handle_mouse()
             -- (the focused window's cheat sheet, or the global WM help) —
             -- the same action as the F1 key.
             local hr = help_f1_rect()
-            if mx >= hr.x and mx <= hr.x + hr.w and my >= hr.y and my <= hr.y + hr.h then
+            if mx >= hr.x and mx <= hr.x + hr.w and my >= hr.y and my < hr.y + hr.h then
                 open_contextual_help()
                 gfx.invalidate()
             end
@@ -333,7 +347,6 @@ local function handle_key(ev)
                 scratchpad_app = nil
                 scratchpad_open = false
             end
-            repl_visible = true
             set_focus("repl")
         elseif code == "t" then
             -- Editor (spec/lua-wm.md: Super+T -> editor). Super+T always
@@ -380,10 +393,8 @@ local function handle_key(ev)
                     if not w.floating then
                         w.x, w.y, w.w, w.h = 0, 0, 0, 0
                     else
-                        w.w = math.floor(SW * 0.5)
-                        w.h = math.floor((SH - theme.bar.height) * 0.6)
-                        w.x = math.floor((SW - w.w) / 2)
-                        w.y = theme.bar.height + math.floor(((SH - theme.bar.height) - w.h) / 2)
+                        local g = centered_rect(0.5, 0.6)
+                        w.x, w.y, w.w, w.h = g.x, g.y, g.w, g.h
                     end
                 end
             else
@@ -427,10 +438,8 @@ local function handle_key(ev)
                     w.ws = current_ws
                 end
                 w.floating = true
-                w.w = math.floor(SW * 0.6)
-                w.h = math.floor((SH - theme.bar.height) * 0.6)
-                w.x = math.floor((SW - w.w) / 2)
-                w.y = theme.bar.height + math.floor(((SH - theme.bar.height) - w.h) / 2)
+                local g = centered_rect(0.6, 0.6)
+                w.x, w.y, w.w, w.h = g.x, g.y, g.w, g.h
                 scratchpad_open = true
                 set_focus(scratchpad_app)
             end
@@ -440,14 +449,16 @@ local function handle_key(ev)
             local w = find_win(focused)
             if w then
                 if code == "digit_1" or code == "digit_2" or code == "digit_3" then
-                    w.ws = tonumber(code:sub(-1))
+                    local target = tonumber(code:sub(-1))
+                    if target < 1 or target > #theme.ws then return end
+                    w.ws = target
                     w.floating = false
                     w.x, w.y, w.w, w.h = 0, 0, 0, 0
                     -- Moving a fullscreen window to another workspace exits
                     -- fullscreen deterministically (it no longer covers the
                     -- current one); the render path must not clean this up
                     -- as a side effect.
-                    if fullscreen_win == w.title then fullscreen_win = nil end
+                    if fullscreen_win == w.title then exit_fullscreen() end
                     -- A window that leaves the workspace can no longer be the
                     -- active scratchpad; reset the state like close_window does.
                     if scratchpad_app == w.title then
@@ -517,11 +528,15 @@ local function handle_key(ev)
     end
 
     -- REPL input goes to the focused window when it is the REPL.
-    if find_win(focused) and focused == "repl" and repl_visible then
+    if find_win(focused) and focused == "repl" then
         if code == "enter" then
             add_line("> " .. current)
             if current ~= "" then
+                -- Cap the in-memory history at history_max so a long session
+                -- cannot grow it without bound (repl_save_history already
+                -- caps what it writes to disk; audit 2026-08-15).
                 table.insert(history, current)
+                if #history > history_max then table.remove(history, 1) end
                 repl_save_history()
             end
             run(current)
@@ -696,6 +711,10 @@ local function handle_key(ev)
             -- no editing. Up/Down move rows (and scroll), Left/Right columns,
             -- Home/End line ends, PgUp/PgDn page up/down. Pressing Esc twice
             -- (Esc Esc) exits back to the listing; space/enter exit at once.
+            -- Any non-Esc key cancels a pending first Esc, so navigating after
+            -- the "are you sure" press does not let the next Esc exit straight
+            -- away (audit 2026-08-15: esc_pending was stale across keys).
+            if code ~= "escape" then esc_pending = false end
             if code == "escape" then
                 if esc_pending then
                     files_up()

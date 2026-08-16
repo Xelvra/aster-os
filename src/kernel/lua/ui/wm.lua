@@ -58,6 +58,20 @@ local function toggle_fullscreen(title)
     end
 end
 local z_counter = 0
+
+-- Centered window/popup geometry below the bar: the float toggle and the
+-- scratchpad picker share the shape, so one helper keeps the size/centering
+-- from drifting (audit 2026-08-15: duplicated formulas with magic ratios).
+local function centered_rect(ratio_w, ratio_h)
+    local w = math.floor(SW * ratio_w)
+    local h = math.floor((SH - theme.bar.height) * ratio_h)
+    return {
+        x = math.floor((SW - w) / 2),
+        y = theme.bar.height + math.floor(((SH - theme.bar.height) - h) / 2),
+        w = w,
+        h = h,
+    }
+end
 -- Real scratchpad state: Super+S toggles a dedicated window over anything
 -- (a fullscreen window or an empty workspace). The first Super+S picks which
 -- application becomes the scratchpad (launcher scratchpad mode — applications
@@ -93,7 +107,6 @@ end
 -- The REPL console lives as a window so it survives focus switches.
 windows[#windows + 1] = window("repl", 1)
 windows[#windows + 1] = window("sysmon", 1)
-local repl_visible = true
 
 local function set_focus(title)
     local w = find_win(title)
@@ -172,7 +185,10 @@ local function layout_pass()
             w.x, w.y, w.w, w.h = 0, 0, SW, SH
             return
         else
-            fullscreen_win = nil
+            -- The fullscreen window is gone or on another workspace: leave
+            -- fullscreen through the shared path so the restore geometry is
+            -- cleared too (audit 2026-08-15).
+            exit_fullscreen()
         end
     end
 
@@ -250,16 +266,40 @@ end
 -- volume right.
 -- ---------------------------------------------------------------------------
 -- ---------------------------------------------------------------------------
+-- Bar geometry (bar_render draws it, handle_mouse hit-tests it): named
+-- constants so the workspace capsules can never drift from the launcher+clock
+-- layout (audit 2026-08-15: the capsule start was a magic sum duplicating the
+-- draw code).
+local bar_margin = 8        -- left edge of the launcher button
+local launcher_size = 20    -- the launcher square
+local launcher_gap = 8      -- launcher -> clock
+local clock_gap = 4         -- extra padding after the launcher gap
+local clock_chars = 5       -- "HH:MM"
+local clock_after_gap = 12  -- clock -> first capsule
+local capsule_gap = 6       -- between workspace capsules
+
+-- Launcher button rect (bar_render draws the square, handle_mouse hit-tests
+-- it — one source of truth so the click target matches the drawn button).
+local function launcher_button_rect()
+    local bar_h = theme.bar.height
+    return { x = bar_margin, y = (bar_h - launcher_size) // 2, w = launcher_size, h = launcher_size }
+end
+
+-- Left edge of the first workspace capsule: everything before it in the bar.
+local function bar_capsules_x()
+    return bar_margin + launcher_size + launcher_gap + clock_gap + clock_chars * 8 + clock_after_gap
+end
+
 -- Shared workspace-capsule geometry: the bar draws them and handle_mouse
 -- hit-tests them; one source of truth so the two can never drift apart.
 -- Returns { { i = <ws index>, x = <left>, w = <width> }, ... }.
 local function ws_capsules()
     local list = {}
-    local x = 8 + 20 + 8 + 4 + 5 * 8 + 12
+    local x = bar_capsules_x()
     for i, name in ipairs(theme.ws) do
         local w = 4 + name:len() * 8 + 8
         list[#list + 1] = { i = i, x = x, w = w }
-        x = x + w + 6
+        x = x + w + capsule_gap
     end
     return list
 end
@@ -304,13 +344,12 @@ end
 local function bar_render()
     if fullscreen_win then return end
     local bar_h = theme.bar.height
-    gfx.draw_rect(0, 0, SW, bar_h, theme.surface)    local x = 8
+    gfx.draw_rect(0, 0, SW, bar_h, theme.surface)
     -- Launcher button (a square with a double chevron, evokes "open menu").
-    local bx = x
-    gfx.draw_rect(bx, (bar_h - 20) // 2, 20, 20, theme.accent)
-    gfx.draw_text(">>", bx + 2, (bar_h - 16) // 2 + 1, theme.background)
-    x = x + 20 + 8
-    x = x + 4
+    local lbr = launcher_button_rect()
+    gfx.draw_rect(lbr.x, lbr.y, lbr.w, lbr.h, theme.accent)
+    gfx.draw_text(">>", lbr.x + 2, lbr.y + (lbr.h - 16) // 2 + 1, theme.background)
+    local x = lbr.x + lbr.w + launcher_gap + clock_gap
 
     -- Clock.
     local t = time.ticks()
@@ -319,14 +358,14 @@ local function bar_render()
     local mm = math.floor(secs / 60) % 60
     local clock = string.format("%02d:%02d", hh, mm)
     gfx.draw_text(clock, x, (bar_h - 16) // 2 + 1, theme.text)
-    x = x + 5 * 8 + 12
+    x = x + clock_chars * 8 + clock_after_gap
 
     -- Workspace capsules.
     for _, c in ipairs(ws_capsules()) do
         local active = (c.i == current_ws)
         local color = active and theme.accent or theme.surface_alt
         local text_color = active and theme.background or theme.text_dim
-        gfx.draw_rect(c.x, (bar_h - 20) // 2, c.w, 20, color)
+        gfx.draw_rect(c.x, (bar_h - launcher_size) // 2, c.w, launcher_size, color)
         gfx.draw_text(theme.ws[c.i], c.x + 4, (bar_h - 16) // 2 + 1, text_color)
     end
 
