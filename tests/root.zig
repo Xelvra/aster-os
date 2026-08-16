@@ -6,6 +6,8 @@ const renderer_test = @import("graphics/renderer_test.zig");
 const font_test = @import("graphics/font_test.zig");
 const layout_test = @import("input/layout_test.zig");
 const mouse_test = @import("input/mouse_test.zig");
+const queue_test = @import("input/queue_test.zig");
+const libc_test = @import("lua/libc_test.zig");
 const gpt_test = @import("fs/gpt_test.zig");
 const ext2_test = @import("fs/ext2_test.zig");
 const ext2_fuzz_test = @import("fs/ext2_fuzz_test.zig");
@@ -21,6 +23,8 @@ test {
     _ = font_test;
     _ = layout_test;
     _ = mouse_test;
+    _ = queue_test;
+    _ = libc_test;
     _ = gpt_test;
     _ = ext2_test;
     _ = ext2_fuzz_test;

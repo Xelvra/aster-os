@@ -10,7 +10,7 @@ fn kernelAllocator() std.mem.Allocator {
     return heap_allocator;
 }
 
-export fn malloc(size: usize) callconv(.c) ?*anyopaque {
+pub export fn malloc(size: usize) callconv(.c) ?*anyopaque {
     // The header stores the original requested size; free() recomputes the
     // block length from it, so a checked add keeps an extreme size from
     // overflowing the bookkeeping arithmetic (audit 2026-08-15).
@@ -21,7 +21,7 @@ export fn malloc(size: usize) callconv(.c) ?*anyopaque {
     return @ptrCast(block.ptr + 1);
 }
 
-export fn calloc(nmemb: usize, size: usize) callconv(.c) ?*anyopaque {
+pub export fn calloc(nmemb: usize, size: usize) callconv(.c) ?*anyopaque {
     const total_req = std.math.mul(usize, nmemb, size) catch return null;
     const total = std.math.add(usize, total_req, @sizeOf(usize) + 7) catch return null;
     const block = kernelAllocator().alloc(u64, total / 8 + 1) catch return null;
@@ -32,7 +32,7 @@ export fn calloc(nmemb: usize, size: usize) callconv(.c) ?*anyopaque {
     return data;
 }
 
-export fn realloc(ptr: ?*anyopaque, size: usize) callconv(.c) ?*anyopaque {
+pub export fn realloc(ptr: ?*anyopaque, size: usize) callconv(.c) ?*anyopaque {
     if (ptr == null) return malloc(size);
     if (size == 0) {
         free(ptr);
@@ -55,7 +55,7 @@ export fn realloc(ptr: ?*anyopaque, size: usize) callconv(.c) ?*anyopaque {
     return new_ptr;
 }
 
-export fn free(ptr: ?*anyopaque) callconv(.c) void {
+pub export fn free(ptr: ?*anyopaque) callconv(.c) void {
     if (ptr == null) return;
     const data: [*]u8 = @ptrCast(ptr.?);
     const len_ptr: *usize = @ptrCast(@alignCast(data - @sizeOf(usize)));

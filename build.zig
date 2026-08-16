@@ -267,4 +267,18 @@ pub fn build(b: *std.Build) void {
 
     const test_step = b.step("test", "Run host unit tests");
     test_step.dependOn(&b.addRunArtifact(tests).step);
+
+    // Lua shell regression tests: the real shell modules are concatenated
+    // after the host stubs (tests/lua/) and run with a plain Lua interpreter.
+    // The step depends on every shell source and test file, so editing any of
+    // them re-runs the suite (the kernel's own module order is mirrored here).
+    const shell_test_cmd = b.addSystemCommand(&.{"tools/lua-shell-test.sh"});
+    for (shell_files) |f| {
+        shell_test_cmd.addFileArg(b.path(b.fmt("src/kernel/lua/ui/{s}", .{f})));
+    }
+    shell_test_cmd.addFileArg(b.path("tests/lua/stubs.lua"));
+    shell_test_cmd.addFileArg(b.path("tests/lua/run.lua"));
+
+    const shell_test_step = b.step("shell-test", "Run the Lua shell regression tests on the host");
+    shell_test_step.dependOn(&shell_test_cmd.step);
 }
