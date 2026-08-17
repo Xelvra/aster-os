@@ -122,6 +122,13 @@ pub fn build(b: *std.Build) void {
     const wasm3_mod = b.createModule(.{
         .target = target,
         .optimize = optimize,
+        // The kernel is a PIE with -mcmodel kernel; the wasm3 object must be
+        // position-independent too or its PC-relative relocations against
+        // .rodata/.data fail at link time (Debug build, CI).
+        .code_model = .kernel,
+        .red_zone = false,
+        .single_threaded = true,
+        .pic = true,
     });
     wasm3_mod.addIncludePath(b.path("libs/wasm3/source"));
     wasm3_mod.addIncludePath(b.path("libs/wasm3/include"));

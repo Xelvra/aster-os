@@ -21,6 +21,19 @@ This version tracks the milestone after M6 Storage was completed.
 
 ### Added
 
+* **Wasm (M7) — wasm3 interpreter vendored and linked into the kernel:** the
+  WebAssembly runtime ships as a vendored wasm3 v0.5.0 (`libs/wasm3/`, upstream
+  sources untouched) with its own freestanding headers, built as a
+  self-contained sandbox module that never sees the Lua vendor's libc. Its
+  `malloc`/`free`/`realloc`/`abort` resolve against the shared kernel libc,
+  which moved out of `lua/` into `src/kernel/libc.zig` and gained software
+  `floor`/`ceil`/`trunc`/`rint`/`copysign`/`sqrt` (bit-trick IEEE 754 and a
+  Newton-Raphson sqrt) plus `strlen`. The math functions are implemented by
+  hand because `@floor`-style builtins on baseline x86_64 lower to software
+  routines that call the same-named C symbol — i.e. the exported function
+  itself — causing infinite tail recursion (troubleshooting C51). Host tests
+  cover them, including `rint` ties-to-even and signed zero.
+
 * **SMP groundwork — Application Processor bring-up (M2/M7 debt):** the MADT
   parser now collects the Local APIC IDs of the enabled Application Processors
   (`acpi.zig`), the Local APIC driver gains an IPI layer (`sendInitIpi` with
@@ -191,6 +204,12 @@ This version tracks the milestone after M6 Storage was completed.
 
 ### Fixed
 
+* **Clicking the launcher's `help` entry closed it instead of showing the
+  cheat sheet:** the mouse path always set `launcher_open = false` after
+  running an item, so the `help` action (which switches the launcher to the
+  help mode) vanished before rendering; the Enter key already respected the
+  mode. Both input paths now agree, so a click on `help` shows the global WM
+  keybinding cheat sheet without closing the launcher.
 * **ext2 group descriptor hardening:** `groupDescriptor` now computes the GDT
   block and in-block offset from the group index (multi-block descriptor tables
   work), and bounds the group against the block-group count derived from the
