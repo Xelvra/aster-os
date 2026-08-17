@@ -1159,6 +1159,15 @@ Viz také `spec/invariants.md` (Safety / Performance / Architecture) a
 - **M6 initfs/perzistence:** `theme.lua` a shell moduly se mají číst ze souborů na
   disku (ext2, `spec/roadmap.md`) — balení v initrd je mezistupeň; `addFileArg`
   tracking zůstává.
+- **Úroveň 2 (ADR-025) = nejen přesun shellu na disk, ale i rozpad jednoho chunku.**
+  Dnes je celý WM **jeden konkatenovaný chunk** (~3000+ řádků, D1). Úroveň 2 to
+  **explicitně nahrazuje**: moduly se stanou **samostatnými soubory načítanými
+  per-modul** (`load` + `pcall`, fallback na initrd default) s **explicitními
+  závislostmi mezi moduly** (require nebo předané rozhraní) místo sdíleného
+  `local` stavu v jednom chunku. Tím se řeší rostoucí komplexita D1 a umožní to
+  uživatelsky přidávané moduly s automatickým hot reloadem (stejně jako dnes
+  `/wm/theme.lua`). Rozdělení a vyřešení sdíleného stavu je **součást Úrovně 2**,
+  ne samostatný úkol.
 - **M7 programy:** `Program` se stává schedulable kontextem (ADR-017); okna dnes
   sdílí jediný shell — aplikace dostanou vlastní `lua_State`/Wasm modul a obsah okna
   bude z programu, ne z `repl/sysmon_render`.

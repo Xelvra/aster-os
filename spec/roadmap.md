@@ -300,11 +300,12 @@ binding marshallingu zelené.
       (0x1af4:0x1042) zařízení; boot log `[ OK ] storage virtio-blk`.
 - [x] **Partition table** — **GPT** (standard), čtení; ext2/ext4 i FAT32 na disku potřebují
       partition table. Nikdy vlastní formát.
-- [x] **Perzistence: ext2 read-only** (ADR-023) — **nikdy vlastní formát**. ext2 je jen on-disk
-      reprezentace, žádná POSIX sémantika v API (výhrady v ADR-023); feature check odmítá
-      nepodporované features; subset je spárován s přesnou `mke2fs -t ext2` invokací
-      (ADR-014; pozor na defaultní `dir_index`). FAT32/ext4/EROFS/9P jsou budoucí backendy
-      dle triggerů v ADR-023, ne povinný cíl.
+- [x] **Perzistence: ext2** (ADR-023) — **nikdy vlastní formát**. M6 byl **read-only**; od
+      **M7.1 je ext2 read-write** (write/truncate/create/remove/rename, non-crash-safe bez
+      journalu). ext2 je jen on-disk reprezentace, žádná POSIX sémantika v API (výhrady
+      v ADR-023); feature check odmítá nepodporované features; subset je spárován s přesnou
+      `mke2fs -t ext2` invokací (ADR-014; pozor na defaultní `dir_index`). FAT32/ext4/EROFS/9P
+      jsou budoucí backendy dle triggerů v ADR-023, ne povinný cíl.
 - [x] **Kooperativní čtení:** pomalé FS operace neblokují event loop — kooperativní
       suspendace (spec `kernel-interface.md` §6.2, `timer.md` §3). — **uzavřeno principem
       (2026-08-09):** v M6 se FS čte výhradně mimo event loop (boot probe + runtime testy),

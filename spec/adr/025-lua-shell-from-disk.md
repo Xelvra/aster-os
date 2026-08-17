@@ -16,6 +16,14 @@ Tím se uzavírá cíl dokumentovaný v `spec/lua-wm.md` §3.1 (Úroveň 2): už
 může editovat a přidávat **libovolné** WM moduly jako soubory `.lua` s
 automatickým hot reloadem — ne jen `theme.lua` jako dnes (Úroveň 1).
 
+> **Úroveň 2 = nejen přesun shellu na disk, ale i rozpad jednoho chunku.** Dnes je
+> celý WM **jeden konkatenovaný chunk** (`spec/lua-wm.md` §14 D1, ~3000+ řádků se
+> sdíleným `local` stavem). Tento ADR **explicitně nahrazuje D1**: moduly se načítají
+> jako **samostatné soubory per-modul** (`load` + `pcall`, fallback na initrd default)
+> s **explicitními závislostmi mezi moduly** (require nebo předané rozhraní) místo
+> sdíleného stavu v jednom chunku — rozpad velkého souboru a vyřešení sdíleného stavu
+> je **součást Úrovně 2**, ne samostatný úkol. Viz `spec/lua-wm.md` §15.
+
 ## Odůvodnění
 - **Konzistence s „kód je systém a systém je kód"** (`spec/runtime.md` §5a.1):
   `/wm/theme.lua` je už dnes plný Lua kód, ne datový formát. Úroveň 2 je jen

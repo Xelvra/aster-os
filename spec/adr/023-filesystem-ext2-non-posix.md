@@ -3,9 +3,16 @@
 **Status:** Accepted
 **Datum:** 2026-08-08
 
+> **Status update (2026-08-16):** „zpočátku read-only" platilo pro M6. Od **M7.1**
+> je ext2 backend **read-write** — `write`, `truncate`, `create`, `remove`,
+> `rename` (non-crash-safe, bez journalu; viz `roadmap.md` M7.1). Zbytek ADR-023
+> (on-disk reprezentace, non-POSIX sémantika, tenké rozhraní, nikdy vlastní
+> formát) beze změny.
+
 ## Rozhodnutí
 
-M6 adoptuje **ext2 jako první persistentní filesystem backend**, zpočátku **read-only**.
+M6 adoptuje **ext2 jako první persistentní filesystem backend**, zpočátku **read-only**
+(od M7.1 read-write, viz status update výše).
 ext2 je pouze **on-disk reprezentace** — nedefinuje sémantiku souborů, identitu, namespace,
 permissions ani bezpečnostní model Aster OS. Rozhraní mezi Aster File API a backendem je tenké
 (`open` / `read` / `close`); **nikdy vlastní on-disk formát** (navazuje na ADR-010).
