@@ -431,6 +431,35 @@ se musí vyřešit **před** spuštěním dalších features, ne až na konci st
 > **Wasm je poslední položka M7** a dělá se na konec milníku (věci spojené přímo
 > s wasm se odkládají, ostatní se dotaží před ním).
 
+> **Jak budeme wasm dělat (2026-08-16):**
+> - **Infrastruktura nejdřív, appka nudná.** Vendor wasm3 + C interop + oddělená
+>   sada wasm KI bindings (mimo Lua bindings) je sám o sobě rizikový kus práce —
+>   proto je **první appka kalkulačka** (draw_text/draw_rect + klikací tlačítka):
+>   tak triviální, aby ověřila celý řetězec end-to-end (wasm3 → vlastní lineární
+>   paměť → KI volání → composite do vlastní surface → input eventy), bez ladění
+>   dvou neznámých najednou. Kalkulačka je zmíněná v `lua-wm.md` §15.
+> - **Jiné testovací appky až v kroku C** (po kalkulačce) — žádné předtím.
+> - **Krok C = benchmark wasm vs Lua** (Mandelbrot/Game of Life, per-pixel/per-buňka
+>   výpočet) + metriky do tabulky (bod níže). Pozor: **wasm3 je bytecode interpreter,
+>   ne JIT/nativní kompilace** — benchmark je tedy Lua 5.4 vs wasm3 (oba interpretované);
+>   hodnota wasm je izolace a deterministická sémantika, ne nutně výkon. „Wow moment"
+>   stavíme na **izolaci** (appka, co záměrně spadne — dělení nulou / OOB do lineární
+>   paměti — a desktop běží dál).
+> - **Flat struktura programů, ne /apps/wasm/ + /apps/lua/.** Kernel ani desktop nikdy
+>   nesmí vědět, co konkrétní runtime je (`runtime.md` §1) — typ runtime se odvodí
+>   z přípony na jednom místě spouštění (.lua → Lua, .wasm → Wasm), ne z FS struktury.
+>   Podadresář dostane až ta konkrétní appka, která bude potřebovat víc než jeden
+>   soubor (assety, save state) — „rozšiř na konci, nepřestavuj" (ADR-020 duch).
+> - **První .wasm binárka do initfs** (programy se dnes načítají z initrd taru přes
+>   `loadProgramSource`, vedle `probe.lua`); flat `/apps/` na disku je až součást
+>   Úrovně 2 (ADR-025).
+> - **Launcher `/apps/` dynamicky neskenuje** (hardcoded `apps` tabulka) — dynamický
+>   scan a spouštění z disku je **samostatný úkol (M8)**, pro první appku stačí
+>   hardcoded entry.
+> - **Editor/files odmítnou `.wasm` otevřít jako text** — stejný extension-based
+>   mechanismus jako `.bak`/`.repl_history` (`is_read_only`), rozšířený o binární
+>   `.wasm`.
+
 - [ ] wasm3 vendored; `Runtime.spawn(.Wasm, ...)`.
 - [ ] První `.wasm` aplikace (C/Rust → wasm) kreslící do vlastní surface.
 - ~~Sdílené buffery + present~~ — přesunuto do Fáze 2 (render quality před stabilizací).
