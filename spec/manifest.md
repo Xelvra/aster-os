@@ -15,7 +15,7 @@
 | Fráze | Význam |
 |---|---|
 | *experimentální desktopový systém* | Nejde o produkční systém, ale o laboratoř pro UI architekturu. |
-| *jednoduchost před izolací* | Bezpečnostní model = izolace na úrovni jazyka: Lua skripty a Wasm moduly běží uvnitř managed runtime, což snižuje riziko libovolné paměťové korupce oproti nativnímu Zig kódu. Plnou moc má jen námi psaný Zig kód. |
+| *jednoduchost před izolací* | Bezpečnostní model = izolace na úrovni jazyka: Lua skripty a Wasm moduly běží uvnitř **managed runtime** — **sandboxu** (česky *pískoviště*): bezpečně odděleném, izolovaném prostředí, ve kterém se spouští neověřený kód bez rizika, že poškodí zbytek systému. To snižuje riziko libovolné paměťové korupce oproti nativnímu Zig kódu. Plnou moc má jen námi psaný Zig kód. |
 | *jediný adresní prostor* | Žádné ring přechody, žádné TLB flushe, žádné přepínání CR3. UI kreslí přímo do paměti. |
 | *stabilní abstrakce* | Rozhraní (KI) se navrhují tak, jako by už dnes byla ABI. |
 | *přestěhování do izolovaných procesů bez změny API* | Z dnešních přímých volání se zítra stanou IPC zprávy — volající kód se nemění. |
@@ -48,8 +48,8 @@ přenesené do 21. století.
 ## Kompromisy (přijaté vědomě)
 
 1. **Izolace obětovaná za rychlost a jednoduchost.** Riziko: bug v nativním Zig kódu může
-   zkorumpovat cokoli. Zmírnění: Lua skripty a Wasm moduly běží v managed runtime, takže
-   riziko libovolné paměťové korupce je oproti nativnímu kódu nižší.
+   zkorumpovat cokoli. Zmírnění: Lua skripty a Wasm moduly běží v **sandboxu** (managed
+   runtime), takže riziko libovolné paměťové korupce je oproti nativnímu kódu nižší.
 2. **Boot z Limine, ne vlastní bootloader.** Obětovaná kontrola nad bootem za čas k vývoji.
 3. **Lua 5.4 místo LuaJIT.** Obětovaný výkon interpreteru za jednoduchost a stabilitu na Ring 0.
 4. **Žádný FS do M6.** Obětovaná persistence za menší kód; assety jsou embedded.

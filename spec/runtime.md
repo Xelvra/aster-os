@@ -311,7 +311,9 @@ způsobit pauzy mimo render — ohrožuje KPI `frame latency (p99) < 16 ms`
 ## 7. Wasm (M7) — pravidla předem
 
 - Runtime = wasm3 (vendored, C, MIT).
-- Program v Wasm má vlastní lineární paměť (izolace přirozená pro Wasm).
+- Program v Wasm běží v **sandboxu** — vlastní lineární paměť (izolace je pro Wasm
+  přirozená), pasti (OOB, dělení nulou) se zachytí bez shození hostitele; padlý program
+  se zahodí, desktop běží dál.
 - Komunikace s UI přes bindings + sdílené buffery (viz `spec/graphics.md` budoucí cesta).
 - **Kernel nepřijme žádný Wasm-specifický kód.** Vše je za `Runtime.spawn`.
 - Před nasazením: benchmark vs. Lua (kvalitní metriky v `roadmap.md`).

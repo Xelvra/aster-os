@@ -241,9 +241,9 @@ Přiznaná dopředu, aby nebyla později "objevem". Rizika se řídí, ne ignoru
 
 | Riziko | Popis | Zmírnění |
 |---|---|---|
-| **Single address space** | Bug v nativním Zig kódu může zkorumpovat cokoli (kernel, framebuffer, ostatní moduly). | Lua/Wasm běží v managed runtime; nativní kód prochází invarianty (`spec/invariants.md`) a review. |
+| **Single address space** | Bug v nativním Zig kódu může zkorumpovat cokoli (kernel, framebuffer, ostatní moduly). | Lua/Wasm běží v **sandboxu** (managed runtime — bezpečně oddělené izolované prostředí pro neověřený kód); nativní kód prochází invarianty (`spec/invariants.md`) a review. |
 | **Embedded Lua v jádře** | Lua VM běží s plným oprávněním; bug VM nebo bindingů = pád systému. | Vendored stabilní verze, minimální binding plocha, host testy marshallingu. |
-| **Žádná MMU izolace** | Není hardwarová hranice mezi komponentami. | Jazyková izolace (Lua/Wasm); ADR-002; non-goal do budoucna. |
+| **Žádná MMU izolace** | Není hardwarová hranice mezi komponentami. | Jazyková izolace: Lua/Wasm v sandboxu (managed runtime); ADR-002; non-goal do budoucna. |
 | **Žádné userspace ovladače** | Ovladače (PS/2, timer) běží v jádře; jejich bug = pád. | Malý, kontrolovaný kód; QEMU smoke test jako záchyt. |
 | **Žádná perzistence před M6** | Nelze uložit konfiguraci/editor do M6. | Vědomé non-goal (`spec/non-goals.md`); embedded assety to kompenzují. |
 | **Jednojadro** | Single-core; SMP by byl zásah do scheduleru a paměti. | Non-goal (`spec/non-goals.md`); architektura jednojadro umožňuje měřit. |
