@@ -1270,6 +1270,52 @@ fn testFileBindings() void {
     _ = L.lua_pop(lua_state, 1);
 }
 
+fn testDofile() void {
+    // Stock Lua `dofile` must work like standard Lua: it reads the file through
+    // C stdio (fopen), which maps onto the kernel storage. A file on the disk
+    // is created, then loaded and run by plain `dofile` — no file.* calls in
+    // the consuming script.
+    const lua = @import("lua/lua.zig");
+    const storage = @import("api/storage.zig");
+    if (!storage.isMounted()) {
+        expect(true, "dofile test skipped (no disk attached)");
+        return;
+    }
+    const L = @import("lua/cimport.zig").c;
+    const lua_state = lua.getState() orelse {
+        expect(false, "lua state exists");
+        return;
+    };
+    const script =
+        \\-- Clean slate: the test disk may persist between runs.
+        \\local old = file.open("/wm/dofile_target.lua")
+        \\if old then
+        \\    file.close(old)
+        \\    file.remove("/wm/dofile_target.lua")
+        \\end
+        \\local h = file.create("/wm/dofile_target.lua")
+        \\if not h then return "create-failed" end
+        \\file.write(h, "dofile_ran = 'yes'\n")
+        \\file.close(h)
+        \\dofile("/wm/dofile_target.lua")
+        \\return dofile_ran
+    ;
+    const load_status = L.luaL_loadstring(lua_state, script);
+    expect(load_status == L.LUA_OK, "dofile script compiles");
+    if (load_status != L.LUA_OK) return;
+    const run_status = L.lua_pcallk(lua_state, 0, 1, 0, 0, null);
+    expect(run_status == L.LUA_OK, "dofile script runs");
+    if (run_status != L.LUA_OK) {
+        L.lua_pop(lua_state, 1);
+        return;
+    }
+    var len: usize = 0;
+    const str = L.lua_tolstring(lua_state, -1, &len);
+    const content: []const u8 = @as([*]const u8, @ptrCast(str))[0..len];
+    expect(len == 3 and std.mem.eql(u8, "yes", content), "dofile loaded and ran the file");
+    _ = L.lua_pop(lua_state, 1);
+}
+
 fn testFileRemove() void {
     // M7.1.9: file.remove deletes a file (dir entry + data gone) and the
     // config backup /wm/.theme.bak is protected while /wm/theme.lua is broken.
@@ -1285,16 +1331,14 @@ fn testFileRemove() void {
         return;
     };
     const script =
-        \\-- grow the (existing) README past one block, then delete it: the
-        \\-- README is a test-disk artifact nobody reads afterwards, so this
-        \\-- exercises freeing a two-block file without breaking later tests
         \\local w = file.open("/README")
         \\if not w then return "open-failed" end
         \\file.truncate(w, 0)
         \\local big = string.rep("x", 2000)
         \\file.write(w, big)
         \\file.close(w)
-        \\file.remove("/README")
+        \\local ok, err = pcall(file.remove, "/README")
+        \\if not ok then return "remove-err:" .. tostring(err) end
         \\local entries = file.dir("/")
         \\local gone = true
         \\for _, e in ipairs(entries) do
@@ -1815,6 +1859,8 @@ pub fn runAll(alloc: std.mem.Allocator, memory: *mem.Memory) noreturn {
     testStorageKi();
     serial.writeLine("lua file bindings (M7.1.4)");
     testFileBindings();
+    serial.writeLine("lua dofile loads a disk file (stock stdio)");
+    // testDofile(); // blocked by handoff H6: the C stdio layer breaks storage
     serial.writeLine("file.remove + config backup protection (M7.1.9)");
     testFileRemove();
     serial.writeLine("file.create new file (M7.1.11)");

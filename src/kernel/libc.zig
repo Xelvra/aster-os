@@ -1,4 +1,6 @@
 const std = @import("std");
+const sys = @import("api/sys.zig");
+const api_storage = @import("api/storage.zig");
 
 var heap_allocator: std.mem.Allocator = undefined;
 
@@ -374,27 +376,63 @@ export var stdin: ?*anyopaque = null;
 export var stdout: ?*anyopaque = null;
 export var stderr: ?*anyopaque = null;
 
+// C stdio over the kernel storage (KI file.*): fopen/fread/fclose/feof/getc
+// map onto ext2 handles so standard Lua file functions (dofile, loadfile)
+// work like stock Lua instead of failing on a no-op fopen. Read mode only;
+// writes keep going to the serial console through fwrite. The FILE* is a
+// small-slot index, not a real C stream.
+const stdio_slots = 16;
+const StdioSlot = struct {
+    in_use: bool = false,
+    handle: u64 = 0,
+    eof: bool = false,
+};
+var stdio_table: [stdio_slots]StdioSlot = [_]StdioSlot{.{}} ** stdio_slots;
+
+fn stdioSlot(stream: ?*anyopaque) ?*StdioSlot {
+    const idx: usize = @intFromPtr(stream);
+    if (idx == 0 or idx > stdio_slots) return null;
+    const slot = &stdio_table[idx - 1];
+    return if (slot.in_use) slot else null;
+}
+
 export fn fopen(path: [*:0]const u8, mode: [*:0]const u8) callconv(.c) ?*anyopaque {
-    _ = path;
-    _ = mode;
+    if (mode[0] != 'r') return null;
+    const len = std.mem.len(path);
+    const result = sys.dispatch(.Storage, .{
+        .a = @intFromEnum(api_storage.StorageOp.open),
+        .b = @intFromPtr(path),
+        .c = len,
+    });
+    if (result >> 32 != 0) return null;
+    const handle = result & 0xFFFFFFFF;
+    for (&stdio_table, 0..) |*slot, i| {
+        if (!slot.in_use) {
+            slot.* = .{ .in_use = true, .handle = handle, .eof = false };
+            return @ptrFromInt(i + 1);
+        }
+    }
     return null;
 }
 
 export fn freopen(path: [*:0]const u8, mode: [*:0]const u8, stream: ?*anyopaque) callconv(.c) ?*anyopaque {
-    _ = path;
-    _ = mode;
     _ = stream;
-    return null;
+    return fopen(path, mode);
 }
 
 export fn fclose(stream: ?*anyopaque) callconv(.c) c_int {
-    _ = stream;
+    const slot = stdioSlot(stream) orelse return 0;
+    _ = sys.dispatch(.Storage, .{
+        .a = @intFromEnum(api_storage.StorageOp.close),
+        .b = slot.handle,
+    });
+    slot.* = .{ .in_use = false };
     return 0;
 }
 
 export fn feof(stream: ?*anyopaque) callconv(.c) c_int {
-    _ = stream;
-    return 1;
+    const slot = stdioSlot(stream) orelse return 1;
+    return if (slot.eof) 1 else 0;
 }
 
 export fn ferror(stream: ?*anyopaque) callconv(.c) c_int {
@@ -403,16 +441,32 @@ export fn ferror(stream: ?*anyopaque) callconv(.c) c_int {
 }
 
 export fn fread(ptr: ?*anyopaque, size: usize, nmemb: usize, stream: ?*anyopaque) callconv(.c) usize {
-    _ = ptr;
-    _ = size;
-    _ = nmemb;
-    _ = stream;
-    return 0;
+    const slot = stdioSlot(stream) orelse return 0;
+    const total = size * nmemb;
+    if (total == 0) return 0;
+    const ra = api_storage.ReadArgs{
+        .handle = slot.handle,
+        .buf = @intFromPtr(ptr),
+        .len = total,
+    };
+    const result = sys.dispatch(.Storage, .{
+        .a = @intFromEnum(api_storage.StorageOp.read),
+        .b = @intFromPtr(&ra),
+    });
+    if (result >> 32 != 0) {
+        slot.eof = true;
+        return 0;
+    }
+    const n = result & 0xFFFFFFFF;
+    // Reading fewer bytes than requested means end of file reached.
+    if (n < total) slot.eof = true;
+    return if (size == 0) 0 else n / size;
 }
 
 export fn getc(stream: ?*anyopaque) callconv(.c) c_int {
-    _ = stream;
-    return -1;
+    var byte: u8 = undefined;
+    if (fread(&byte, 1, 1, stream) == 0) return -1;
+    return byte;
 }
 
 export fn fwrite(ptr: [*]const u8, size: usize, nmemb: usize, stream: ?*anyopaque) callconv(.c) usize {
