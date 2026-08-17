@@ -760,11 +760,11 @@ test("double Esc exits the files view mode (regression)", function()
     assert(not fs_viewing, "second Esc exits the view mode")
 end)
 
-test("file entry colors: hidden/trash dim blue, read-only red outside trash", function()
+test("file entry colors: hidden dim, read-only red, trash blue", function()
     set_disk()
     windows[#windows + 1] = window("files", current_ws)
     files_open("/")
-    -- Hidden non-read-only -> theme.text_dim (shared hidden/trash dim blue).
+    -- Hidden non-read-only -> theme.text_dim.
     assert(entry_color({ name = ".test", dir = false }, false) == theme.text_dim, "hidden file not dim")
     -- Hidden read-only outside the trash -> red (red wins over dim).
     assert(entry_color({ name = ".theme.bak", dir = false }, false) == theme.red, "hidden read-only not red")
@@ -773,11 +773,11 @@ test("file entry colors: hidden/trash dim blue, read-only red outside trash", fu
     assert(entry_color({ name = ".trash", dir = true }, false) == theme.text_dim, ".trash not dim")
     assert(entry_color({ name = "a.txt", dir = false }, false) == theme.text, "normal file not text")
     assert(entry_color({ name = "a.txt", dir = false }, true) == theme.accent, "selection not accent")
-    -- Inside /.trash every entry is dim blue, even a read-only one (the red
+    -- Inside /.trash every entry is trash blue, even a read-only one (the red
     -- cue returns once the file is moved back out).
     files_open("/.trash")
-    assert(entry_color({ name = "old.txt", dir = false }, false) == theme.text_dim, "trash content not dim")
-    assert(entry_color({ name = ".theme.bak", dir = false }, false) == theme.text_dim, "read-only in trash must stay dim")
+    assert(entry_color({ name = "old.txt", dir = false }, false) == theme.trash, "trash content not trash blue")
+    assert(entry_color({ name = ".theme.bak", dir = false }, false) == theme.trash, "read-only in trash must stay trash blue")
 end)
 
 test("executable .wasm files are read-only but green, not red", function()
@@ -789,6 +789,15 @@ test("executable .wasm files are read-only but green, not red", function()
     assert(color == theme.exec, "executable .wasm renders in theme.exec, got " .. tostring(color))
     local ro_color = entry_color({ name = "notes.bak" }, false)
     assert(ro_color == theme.red, "a .bak backup still renders red, got " .. tostring(ro_color))
+    local norm = entry_color({ name = "hello.txt" }, false)
+    assert(norm == theme.text, "a normal file renders white, got " .. tostring(norm))
+    local hidden = entry_color({ name = ".test" }, false)
+    assert(hidden == theme.text_dim, "a dot file renders dim, got " .. tostring(hidden))
+    local sel = entry_color({ name = "calc.wasm" }, true)
+    assert(sel == theme.accent, "the selected entry always renders accent, got " .. tostring(sel))
+    fs_path = "/.trash"
+    local tr = entry_color({ name = "notes.bak" }, false)
+    assert(tr == theme.trash, "inside /.trash everything renders trash-blue, got " .. tostring(tr))
     fs_path = saved_path
 end)
 

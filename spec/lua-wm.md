@@ -839,16 +839,35 @@ Navigační konvence:
   vyprázdní celý koš (iterace `file.remove`). Přejmenování na existující název
   v koši se hlásí chybou (rename → `FileExists`). **Ochraněné systémové
   adresáře:** `/.trash` a `lost+found` nelze smazat, přesunout ani přejmenovat
-  (`is_protected`). **Vše uvnitř `/.trash`** se kreslí **dim šedomodře**
-  (`theme.text_dim`) bez ohledu na read-only stav — adresář čte jako „v koši";
-  po vyjmutí dostane položka zase barvu podle systémových pravidel. Skryté
-  (dot) soubory a koš sdílejí tento odstín: tečka před jménem jasně definuje
-  skrytý soubor/adresář (ať koš nebo cokoliv jiného) a dim barva je tichá jako
-  ostatní vedlejší UI text. Read-only (červená `theme.red`) má mimo koš
-  přednost. **Spustitelné `.wasm` programy** jsou read-only (nikdy se neotevírají
-  jako text, `is_read_only` mechanismus), ale **nekreslí se červeně** — mají
-  vlastní barvu **`theme.exec` (zelená)**, aby se četly jako *spustitelné*,
-  ne jako chráněná data (červená = chráněná data, zelená = program k spuštění).
+  (`is_protected`).
+
+**Hierarchie barev listingů** (nejkonkrétnější první; `entry_color` v
+`files.lua`):
+
+1. **Vybraná (aktivní) položka** → `theme.accent` — překrývá všechna ostatní pravidla.
+2. **`..`** (rodič) → `theme.text`.
+3. **V koši** (`/.trash`) → `theme.trash` (modrá) — bez ohledu na ostatní pravidla.
+4. **Spustitelný** (`.wasm`) → `theme.exec` (zelená) — má přednost i přesto, že je read-only.
+5. **Read-only** (`.bak`, `.repl_history`) → `theme.red` (červená).
+6. **Skrytý** (dot soubor) → `theme.text_dim` (šedivá).
+7. **Normální** → `theme.text` (bílá).
+
+**Práva souborů v files browseru** (skutečné chování, `files.lua`/`editor.lua`):
+
+| Kategorie | Příklady | Otevřít v editoru | Smazat (Delete) | Přejmenovat (F2) | Barva |
+|---|---|---|---|---|---|
+| Normální soubor | `*.lua`, `*.txt` | ✅ ano | ✅ do koše | ✅ ano | bílá `text` |
+| Skrytý (dot) soubor | `.test`, `.theme` | ✅ ano | ✅ do koše | ✅ ano | šedivá `text_dim` |
+| Read-only | `*.bak`, `/.repl_history` | ❌ jen náhled (Space) | ✅ do koše | ❌ ne | červená `red` |
+| Spustitelný program | `*.wasm` | ❌ (spouští se) | ✅ do koše | ❌ ne | zelená `exec` |
+| V koši (cokoli) | soubor v `/.trash` | ✅ ano | ✅ trvale | ✅ ano (kolize = chyba) | modrá `trash` |
+| Systémový adresář | `/.trash`, `lost+found` | — (adresář) | ❌ ne | ❌ ne | podle pravidel |
+| Vybraná položka | — | — | — | — | akcent `accent` (překrývá) |
+
+Spustitelný `.wasm` je read-only (nikdy se neotevírá jako text, `is_read_only`
+mechanismus, `spec/roadmap.md`), ale **nekreslí se červeně** — zelená čte jako
+*spustitelný program*, ne jako chráněná data (červená = chráněná data, zelená =
+program k spuštění).
 
 **Smazání config souborů je bezpečné:** `/wm/.theme.bak` nemá žádnou ochranu proti
 smazání — systém na diskovém configu nezávisí. Když `/wm/theme.lua` i

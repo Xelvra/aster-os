@@ -84,6 +84,17 @@ src/kernel/lua/ui/
   (tyrkys), `#00AA84`, `#007D6F`. **Text:** `#DDDDDD`, dim `#798BB2`.
 - Zdroj: `colors.lua` (CACHYLGREEN/CACHYMBLUE/...). V `theme.lua`.
 
+Konfigurační paleta (`theme` tabulka v `theme.lua`, barvy `0xRRGGBB`):
+
+| Proměnná | HEX kód | Odstín | Konkrétní použití v aplikaci |
+|---|---|---|---|
+| `accent_b` | `#00AA84` | Smaragdově tyrkysová | Hlavní akcent: Aktivní záložky, vybrané položky v nabídce, zvýrazněný text a primární tlačítka. |
+| `accent_dark` | `#007D6F` | Tmavá tyrkysová | Sekundární akcent: Stav při najetí myší (hover), pozadí aktivního řádku nebo ohraničení prvků. |
+| `inactive` | `#798BB2` | Tlumená šedomodrá | Neaktivní prvky: Neaktivní záložky oken, zakázaná tlačítka (disabled) a vedlejší texty na pozadí. |
+| `red` | `#FF6B6B` | Korálově červená | Varování a chybové stavy: Soubory určené pouze pro čtení (read-only) ve správci souborů a chybové hlášky. |
+| `exec` | `#6BCF6B` | Pastelově zelená | Spustitelné soubory: Označení spouštěcích skriptů a aplikací (např. `.wasm`) ve správci souborů. |
+| `trash` | `#4A90D9` | Jasně modrá | Obsah koše: Všechny položky uvnitř `/.trash` ve správci souborů, bez ohledu na ostatní pravidla. |
+
 ### 4.2 Bar — horní panel (🔶 částečně)
 Noctalia bar, 35 px, plné šířky. Zleva:
 - **Launcher tlačítko** (štítek akcentu `>`) — ✅, klik otevře launcher.

@@ -21,6 +21,15 @@ This version tracks the milestone after M6 Storage was completed.
 
 ### Added
 
+* **File browser colour hierarchy + palette:** listing entries follow a fixed
+  colour hierarchy (`files.lua entry_color`, most specific first) — selected =
+  accent, inside `/.trash` = trash blue (`theme.trash`, new), executable `.wasm`
+  = green (`theme.exec`), read-only `.bak`/`.repl_history` = red, hidden dot
+  files = dim, everything else = white. The trash has its own colour (blue)
+  instead of sharing the hidden-file dim, so a "deleted" file reads as such;
+  the palette (including `exec`/`trash`) is documented in `spec/desktop-ui.md`
+  §4.1 and the rights (edit/delete/rename per category) in `spec/lua-wm.md`.
+
 * **Wasm (M7) — wasm3 interpreter vendored and linked into the kernel:** the
   WebAssembly runtime ships as a vendored wasm3 v0.5.0 (`libs/wasm3/`, upstream
   sources untouched) with its own freestanding headers, built as a

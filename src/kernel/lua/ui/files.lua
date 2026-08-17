@@ -342,12 +342,16 @@ end
 -- back once it is moved out), then read-only red, then hidden (dot) files as
 -- quiet text_dim like the trash, regular files normal. Hidden and trash share
 -- one dim blue so a dot file (e.g. .test) cannot be mistaken for a loud color.
+-- Colour hierarchy for a listing entry, most specific first:
+--   selected (active) > trash > executable > read-only > hidden > normal.
+-- An executable .wasm program stays green even though it is read-only, so
+-- "runnable" reads louder than "protected data"; the trash keeps its own
+-- colour regardless of the other rules (a file inside /.trash cannot be
+-- edited and is already "deleted").
 local function entry_color(e, selected)
     if selected then return theme.accent end
     if e.name == ".." then return theme.text end
-    if fs_path == "/.trash" then return theme.text_dim end
-    -- Executable .wasm programs are read-only but keep their own colour so
-    -- they read as runnable, not as protected data like the red .bak files.
+    if fs_path == "/.trash" then return theme.trash end
     if e.name:sub(-5) == ".wasm" then return theme.exec end
     if is_read_only(e.name) then return theme.red end
     if e.name:sub(1, 1) == "." then return theme.text_dim end
@@ -476,10 +480,10 @@ local function files_render()
         return
     end
     -- List mode: the path lives in the window title bar (header), the scrollable
-    -- entries follow. Read-only files (.theme.bak, .repl_history) are red so it
-    -- is clear they cannot be edited; executable .wasm programs are green
-    -- (theme.exec) to read as runnable; hidden (dot) files and everything inside
-    -- the trash share the dim text_dim color.
+    -- entries follow. Colour hierarchy: selected = accent, inside /.trash =
+    -- trash blue, executable .wasm = green (theme.exec), read-only files
+    -- (.theme.bak, .repl_history) = red, hidden (dot) files = dim, everything
+    -- else = normal text.
     local first = 1
     if fs_sel > content_rows then first = fs_sel - content_rows + 1 end
     for i = first, math.min(#fs_entries, first + content_rows - 1) do

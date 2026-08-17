@@ -60,6 +60,7 @@ theme = {
     inactive   = 0x798BB2,
     red        = 0xFF6B6B, -- read-only files (files browser), error
     exec       = 0x6BCF6B, -- executable .wasm files (files browser)
+    trash      = 0x4A90D9, -- everything inside /.trash (files browser)
 
     wm = {
         gap_out = 0,
@@ -97,7 +98,7 @@ local function theme_valid(t)
     if type(t) ~= "table" then return false end
     local numeric = {
         "background", "surface", "surface_alt", "text", "text_dim",
-        "accent", "accent_b", "accent_dark", "inactive", "red", "exec",
+        "accent", "accent_b", "accent_dark", "inactive", "red", "exec", "trash",
     }
     for _, k in ipairs(numeric) do
         if type(t[k]) ~= "number" then return false end
