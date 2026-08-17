@@ -988,6 +988,23 @@ fn testSpawnWiring() void {
     expect(missing == error.NotFound, "missing program file fails cleanly, shell untouched");
 }
 
+fn testGcStepPreservesStack() void {
+    // 0a74b69: gcStep called lua_pop after a successful pcall with nresults=0,
+    // which already restores the pre-push stack — the extra pop removed a live
+    // value and corrupted the shell's stack. A value pushed before gcStep must
+    // survive it.
+    const lua = @import("lua/lua.zig");
+    const L = @import("lua/cimport.zig").c;
+    const lua_state = lua.getState() orelse {
+        expect(false, "lua state exists");
+        return;
+    };
+    _ = L.lua_pushinteger(lua_state, 0x5157);
+    lua.gcStep(1024);
+    expect(L.lua_tointegerx(lua_state, -1, null) == 0x5157, "gcStep keeps a live stack value");
+    _ = L.lua_pop(lua_state, 1);
+}
+
 fn testApCoresUp() void {
     // SMP bring-up (M7): with QEMU -smp N (N > 1) every enabled AP must have
     // reported ready after INIT-SIPI-SIPI. Single-core (-smp 1) passes as a
@@ -1028,6 +1045,7 @@ const tests = [_]Test{
     .{ .name = "per-program isolation (own lua_State, contained)", .func = testPerProgramIsolation },
     .{ .name = "runtime.spawn wires programs to the isolated path", .func = testSpawnWiring },
     .{ .name = "SMP AP bring-up (INIT-SIPI-SIPI)", .func = testApCoresUp },
+    .{ .name = "gcStep keeps a live stack value (0a74b69)", .func = testGcStepPreservesStack },
 };
 
 fn testFilesystem(alloc: std.mem.Allocator, memory: *mem.Memory) void {
