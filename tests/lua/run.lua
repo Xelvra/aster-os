@@ -637,6 +637,109 @@ test("click in the editor does not fall through to the files listing (regression
     assert(ed_path == "/README", "click in the editor must not open a files entry")
 end)
 
+test("files listing sorts directories first, lost+found on top (regression)", function()
+    set_disk()
+    file.dir = function(p)
+        if p == "/" then return {
+            { name = "a.txt", dir = false },
+            { name = ".trash", dir = true },
+            { name = "lost+found", dir = true },
+            { name = "b", dir = true },
+            { name = "c.txt", dir = false },
+        } end
+        return {}
+    end
+    windows[#windows + 1] = window("files", current_ws)
+    set_focus("files")
+    files_open("/")
+    local names = {}
+    for _, e in ipairs(fs_entries) do names[#names + 1] = e.name end
+    local joined = table.concat(names, ",")
+    -- lost+found first, then directories (".trash" sorts before "b" in ASCII),
+    -- then files (0a2d107, 382bdb2).
+    assert(joined == "lost+found,.trash,b,a.txt,c.txt", "listing order: " .. joined)
+end)
+
+test("launcher clamps a stale selection when filtering shrinks the list (regression)", function()
+    set_disk()
+    launcher_open = true
+    launcher_mode = "run"
+    launcher_input = ""
+    launcher_sel = 99 -- stale, beyond the filtered list
+    launcher_filtered = function()
+        return { { id = "a", title = "alpha" }, { id = "b", title = "beta" } }
+    end
+    handle_key({ type = "key", pressed = true, super = false, alt = false, ctrl = false, shift = false, code = "down", char = nil })
+    local items = launcher_filtered()
+    assert(launcher_sel <= #items, "stale selection clamped after filtering, got " .. launcher_sel)
+    assert(launcher_sel >= 1, "selection stays >= 1")
+    launcher_open = false
+end)
+
+test("held click on a close X does not close a neighbouring window (regression)", function()
+    set_disk({ ["/t.txt"] = "hi" })
+    windows = {} -- isolated: close_window matches by title, not instance
+    local fw = window("files", current_ws)
+    local ew = window("editor", current_ws)
+    windows[#windows + 1] = fw
+    windows[#windows + 1] = ew
+    fw.x, fw.y, fw.w, fw.h = 0, theme.bar.height, 400, 100
+    ew.x, ew.y, ew.w, ew.h = 300, theme.bar.height, 400, 100
+    set_focus("editor")
+    editor_load("/t.txt")
+    local cb = close_button_rect(ew)
+    mouse_was_down = false
+    _set_mouse(cb.x + cb.w / 2, cb.y + cb.h / 2, true, 0)
+    handle_mouse()
+    local ed_gone = true
+    for _, w2 in ipairs(windows) do if w2 == ew then ed_gone = false end end
+    assert(ed_gone, "close X closes the focused window")
+    assert(mouse_was_down, "close consumes the held button")
+    -- The button is still held on the next frame: the click must not fire
+    -- again on whatever window now occupies the spot (the files neighbour
+    -- expanded into the freed space and its close X could sit under the
+    -- cursor) - f5719f6.
+    _set_mouse(cb.x + cb.w / 2, cb.y + cb.h / 2, true, 0)
+    handle_mouse()
+    local fw_still = false
+    for _, w2 in ipairs(windows) do if w2 == fw then fw_still = true end end
+    assert(fw_still, "held click after close does not close the neighbour")
+end)
+
+test("editor scrolls a long line horizontally to keep the caret visible (regression)", function()
+    local texts = {}
+    gfx.draw_text = function(t, x, y, c) texts[#texts + 1] = { t = t } end
+    set_disk({ ["/t.txt"] = "short\n" })
+    windows[#windows + 1] = window("editor", current_ws)
+    local w = find_win("editor")
+    w.x, w.y, w.w, w.h = 0, theme.bar.height, 200, 100
+    set_focus("editor")
+    editor_load("/t.txt")
+    -- A line longer than the window, caret far to the right: the viewport
+    -- must scroll horizontally (7ecba2a).
+    ed_lines = { string.rep("x", 200) }
+    ed_row = 1
+    ed_col = 100
+    ed_scroll_col = 0
+    editor_render()
+    assert(ed_scroll_col > 0, "long line scrolls horizontally, got " .. ed_scroll_col)
+end)
+
+test("double Esc exits the files view mode (regression)", function()
+    set_disk({ ["/a.txt"] = "hello\nworld\n" })
+    file.dir = function(p) return { { name = "a.txt", dir = false } } end
+    windows[#windows + 1] = window("files", current_ws)
+    set_focus("files")
+    files_open("/")
+    files_view("a.txt")
+    assert(fs_viewing, "precondition: files in view mode")
+    esc_pending = false
+    handle_key({ type = "key", pressed = true, super = false, alt = false, ctrl = false, shift = false, code = "escape", char = nil })
+    assert(fs_viewing, "first Esc only arms the exit")
+    handle_key({ type = "key", pressed = true, super = false, alt = false, ctrl = false, shift = false, code = "escape", char = nil })
+    assert(not fs_viewing, "second Esc exits the view mode")
+end)
+
 test("file entry colors: hidden/trash dim blue, read-only red outside trash", function()
     set_disk()
     windows[#windows + 1] = window("files", current_ws)
