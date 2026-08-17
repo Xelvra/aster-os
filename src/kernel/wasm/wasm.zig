@@ -3,12 +3,11 @@ const serial = @import("../serial.zig");
 const tar_mod = @import("../fs/tar.zig");
 const c = @import("cimport.zig").c;
 
-/// Wasm runtime (M7, Fáze A): wasm3 WebAssembly interpreter. Programs are Zig
+/// Wasm runtime (M7, Phase A): wasm3 WebAssembly interpreter. Programs are Zig
 /// binaries compiled to wasm32-freestanding and run against the kernel heap
 /// through the shared kernel libc. Isolation is the manifest's managed-runtime
 /// boundary: wasm3 traps (OOB, division by zero) surface as a call error and
 /// drop the program without touching the desktop.
-
 /// Home-wasm import surface (M7): the thin host API a program may call. The
 /// module/function names and signatures are a stable contract (wasm import
 /// surface ADR). Zig targets import from the module "env" and name the import
