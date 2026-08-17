@@ -1,6 +1,7 @@
 const std = @import("std");
 const sys = @import("sys.zig");
 const lua = @import("../lua/lua.zig");
+const wasm = @import("../wasm/wasm.zig");
 const validate = @import("validate.zig");
 
 pub const RuntimeKind = enum(u8) {
@@ -37,6 +38,7 @@ var reload_requested = false;
 pub fn init(allocator: std.mem.Allocator, initrd: ?[]const u8) void {
     lua.init(allocator);
     lua.setInitrd(initrd);
+    wasm.init(allocator, initrd);
 }
 
 /// Re-initialize the Lua shell state without restarting the system
@@ -91,6 +93,17 @@ pub fn spawn(opts: SpawnOptions) !Program {
             const source = try lua.loadProgramSource(opts.entry);
             const handle = try lua.spawnProgram(source, opts.entry);
             return .{ .kind = .Lua, .handle = handle };
+        },
+        .Wasm => {
+            const source = try wasm.loadProgramSource(opts.entry);
+            var program = try wasm.spawn(source, opts.entry);
+            // The first call runs the entry point; a trap (OOB, division by
+            // zero) drops the program without touching the desktop.
+            defer program.free();
+            try program.call();
+            const handle = next_handle;
+            next_handle = if (next_handle == std.math.maxInt(u64)) 1 else next_handle + 1;
+            return .{ .kind = .Wasm, .handle = handle };
         },
         else => return error.NotSupported,
     }

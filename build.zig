@@ -96,6 +96,10 @@ pub fn build(b: *std.Build) void {
     };
     kernel.root_module.addIncludePath(b.path("libs/lua-5.4/src"));
     kernel.root_module.addIncludePath(b.path("libs/lua-5.4/include"));
+    // wasm3.h for the kernel-side wasm3 API (src/kernel/wasm/cimport.zig);
+    // the same directory holds the kernel's freestanding inttypes.h.
+    kernel.root_module.addIncludePath(b.path("libs/wasm3/source"));
+    kernel.root_module.addIncludePath(b.path("src/kernel/wasm"));
     kernel.root_module.addCSourceFiles(.{
         .files = &lua_sources,
         .flags = &.{ "-std=c99", "-ffreestanding", "-Os" },
@@ -176,6 +180,25 @@ pub fn build(b: *std.Build) void {
     const program_files = [_][]const u8{"probe.lua"};
     for (program_files) |f| {
         tar_cmd.addFileArg(b.path(b.fmt("src/kernel/lua/programs/{s}", .{f})));
+    }
+
+    // Spawned wasm programs (runtime.spawn(.Wasm, ...), M7) are Zig binaries
+    // compiled to wasm32-freestanding and packed into the initrd by their flat
+    // .wasm name (wasm.loadProgramSource). The kernel keeps the same list.
+    const wasm_app_files = [_][]const u8{ "hello.zig", "fault.zig" };
+    for (wasm_app_files) |f| {
+        const wasm_app = b.addExecutable(.{
+            .name = std.fs.path.stem(f),
+            .root_module = b.createModule(.{
+                .root_source_file = b.path(b.fmt("src/kernel/apps/{s}", .{f})),
+                .target = b.resolveTargetQuery(.{ .cpu_arch = .wasm32, .os_tag = .freestanding }),
+                .optimize = .ReleaseSmall,
+                .link_libc = false,
+            }),
+        });
+        // Library-style wasm module: exported start(), no _start entry.
+        wasm_app.entry = .disabled;
+        tar_cmd.addFileArg(wasm_app.getEmittedBin());
     }
 
     const iso_root = b.addWriteFiles();
