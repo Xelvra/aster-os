@@ -460,7 +460,9 @@ se musí vyřešit **před** spuštěním dalších features, ne až na konci st
 >   hardcoded entry.
 > - **Editor/files odmítnou `.wasm` otevřít jako text** — stejný extension-based
 >   mechanismus jako `.bak`/`.repl_history` (`is_read_only`), rozšířený o binární
->   `.wasm`.
+>   `.wasm`. Ve files browseru se `.wasm` **nekreslí červeně** jako read-only
+>   data, ale **zeleně (`theme.exec`)** — spustitelný soubor čte jinou barvou než
+>   chráněná data (viz `spec/lua-wm.md` barvy listingů).
 > - **Appky píšeme v Zigu, ne v C/Rust.** Target `wasm32-freestanding` — stejný jazyk
 >   i toolchain, který projekt už má pinnený (`.zig-version`), bez zavádění druhého
 >   jazyka (CONTRIBUTING.md povoluje jen Zig, Lua, Assembly). Model je **fantasy

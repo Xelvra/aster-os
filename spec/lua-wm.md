@@ -845,7 +845,10 @@ Navigační konvence:
   (dot) soubory a koš sdílejí tento odstín: tečka před jménem jasně definuje
   skrytý soubor/adresář (ať koš nebo cokoliv jiného) a dim barva je tichá jako
   ostatní vedlejší UI text. Read-only (červená `theme.red`) má mimo koš
-  přednost.
+  přednost. **Spustitelné `.wasm` programy** jsou read-only (nikdy se neotevírají
+  jako text, `is_read_only` mechanismus), ale **nekreslí se červeně** — mají
+  vlastní barvu **`theme.exec` (zelená)**, aby se četly jako *spustitelné*,
+  ne jako chráněná data (červená = chráněná data, zelená = program k spuštění).
 
 **Smazání config souborů je bezpečné:** `/wm/.theme.bak` nemá žádnou ochranu proti
 smazání — systém na diskovém configu nezávisí. Když `/wm/theme.lua` i

@@ -179,8 +179,11 @@ end
 -- never "theme.lua.bak"/"api.lua.bak", ADR-025) plus
 -- the persistent /.repl_history. They are red in the browser, deletable, but
 -- never editable — only viewable.
+-- Executable `.wasm` programs are read-only too (never opened as text), but
+-- they are not red: they render in theme.exec (green) to read as runnable
+-- programs, not as protected data.
 local function is_read_only(name)
-    return name:sub(-4) == ".bak" or name == ".repl_history"
+    return name:sub(-4) == ".bak" or name == ".repl_history" or name:sub(-5) == ".wasm"
 end
 
 -- Open a listing entry: ".." goes up one level (DOS/MC parent), a directory is
@@ -343,6 +346,9 @@ local function entry_color(e, selected)
     if selected then return theme.accent end
     if e.name == ".." then return theme.text end
     if fs_path == "/.trash" then return theme.text_dim end
+    -- Executable .wasm programs are read-only but keep their own colour so
+    -- they read as runnable, not as protected data like the red .bak files.
+    if e.name:sub(-5) == ".wasm" then return theme.exec end
     if is_read_only(e.name) then return theme.red end
     if e.name:sub(1, 1) == "." then return theme.text_dim end
     return theme.text
@@ -471,7 +477,8 @@ local function files_render()
     end
     -- List mode: the path lives in the window title bar (header), the scrollable
     -- entries follow. Read-only files (.theme.bak, .repl_history) are red so it
-    -- is clear they cannot be edited; hidden (dot) files and everything inside
+    -- is clear they cannot be edited; executable .wasm programs are green
+    -- (theme.exec) to read as runnable; hidden (dot) files and everything inside
     -- the trash share the dim text_dim color.
     local first = 1
     if fs_sel > content_rows then first = fs_sel - content_rows + 1 end

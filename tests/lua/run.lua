@@ -428,7 +428,7 @@ test("every .lua file keeps a basename backup on save", function()
             "  background = 0x111826, surface = 0x182545, surface_alt = 0x223454,",
             "  text = 0xDDDDDD, text_dim = 0x798BB2, accent = 0x82DCCC,",
             "  accent_b = 0x00AA84, accent_dark = 0x007D6F, inactive = 0x798BB2,",
-            "  red = 0xFF6B6B, trash = 0x4A90D9,",
+            "  red = 0xFF6B6B, exec = 0x6BCF6B, trash = 0x4A90D9,",
             "  wm = { gap_out=0, gap_in=0, border=2, title_h=24, opacity_active=0.95, opacity_inactive=0.85 },",
             "  bar = { height = 35, radius = 0 }, ws = { \"1\",\"2\",\"3\" } }",
         }, "\n"),
@@ -455,7 +455,7 @@ test("every .lua file keeps a basename backup on save", function()
         "  background = 0x111826, surface = 0x182545, surface_alt = 0x223454,",
         "  text = 0xDDDDDD, text_dim = 0x798BB2, accent = 0xFF5544,",
         "  accent_b = 0x00AA84, accent_dark = 0x007D6F, inactive = 0x798BB2,",
-        "  red = 0xFF6B6B, trash = 0x4A90D9,",
+        "  red = 0xFF6B6B, exec = 0x6BCF6B, trash = 0x4A90D9,",
         "  wm = { gap_out=0, gap_in=0, border=2, title_h=24, opacity_active=0.95, opacity_inactive=0.85 },",
         "  bar = { height = 35, radius = 0 }, ws = { \"1\",\"2\",\"3\" } }",
     }, "\n"))
@@ -778,6 +778,18 @@ test("file entry colors: hidden/trash dim blue, read-only red outside trash", fu
     files_open("/.trash")
     assert(entry_color({ name = "old.txt", dir = false }, false) == theme.text_dim, "trash content not dim")
     assert(entry_color({ name = ".theme.bak", dir = false }, false) == theme.text_dim, "read-only in trash must stay dim")
+end)
+
+test("executable .wasm files are read-only but green, not red", function()
+    assert(is_read_only("calc.wasm"), ".wasm is read-only (never opened as text)")
+    assert(not is_read_only("calc.lua"), ".lua stays editable")
+    local saved_path = fs_path
+    fs_path = "/"
+    local color = entry_color({ name = "calc.wasm" }, false)
+    assert(color == theme.exec, "executable .wasm renders in theme.exec, got " .. tostring(color))
+    local ro_color = entry_color({ name = "notes.bak" }, false)
+    assert(ro_color == theme.red, "a .bak backup still renders red, got " .. tostring(ro_color))
+    fs_path = saved_path
 end)
 
 -- ──────────────────────────────────────────────────────────────────────────
