@@ -432,12 +432,14 @@ se musí vyřešit **před** spuštěním dalších features, ne až na konci st
 > s wasm se odkládají, ostatní se dotaží před ním).
 
 > **Jak budeme wasm dělat (2026-08-16):**
-> - **Infrastruktura nejdřív, appka nudná.** Vendor wasm3 + C interop + oddělená
->   sada wasm KI bindings (mimo Lua bindings) je sám o sobě rizikový kus práce —
->   proto je **první appka kalkulačka** (draw_text/draw_rect + klikací tlačítka):
->   tak triviální, aby ověřila celý řetězec end-to-end (wasm3 → vlastní lineární
->   paměť → KI volání → composite do vlastní surface → input eventy), bez ladění
->   dvou neznámých najednou. Kalkulačka je zmíněná v `lua-wm.md` §15.
+> - **První appka je záměrně jednoduchá — PRÁVĚ proto, že infrastruktura je složitá.**
+>   Vendor wasm3 + C interop + oddělená sada wasm KI bindings (mimo Lua bindings)
+>   + surface model je sám o sobě rizikový kus práce: **appka má být nudná a
+>   infrastruktura zajímavá, ne naopak**. První appkou je proto **kalkulačka**
+>   (draw_text/draw_rect + klikací tlačítka) — tak triviální, aby ověřila celý
+>   řetězec end-to-end (wasm3 → vlastní lineární paměť → KI volání → composite do
+>   vlastní surface → input eventy), bez ladění dvou neznámých najednou.
+>   Kalkulačka je zmíněná v `lua-wm.md` §15.
 > - **Jiné testovací appky až v kroku C** (po kalkulačce) — žádné předtím.
 > - **Krok C = benchmark wasm vs Lua** (Mandelbrot/Game of Life, per-pixel/per-buňka
 >   výpočet) + metriky do tabulky (bod níže). Pozor: **wasm3 je bytecode interpreter,
