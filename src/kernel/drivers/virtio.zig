@@ -1,8 +1,16 @@
 const std = @import("std");
+const serial = @import("../serial.zig");
 const pci = @import("pci.zig");
 const pfa = @import("../mem/pfa.zig");
 const page_map = @import("../mem/page_map.zig");
 const block = @import("block.zig");
+
+/// Handoff H6 diagnostic: every read is done twice and the copies are compared,
+/// and the DMA data buffer is pre-filled with a sentinel so a completion that
+/// never delivered data (stale used-ring) is detected. A mismatch logs a
+/// VIO-DIFF line with the exact sector; a sentinel-untouched buffer logs
+/// VIO-STALE. Kept off for normal builds; the H6 reproduction turns it on.
+const diag_verify_reads: bool = false;
 
 /// virtio-blk over the modern (capability-based) PCI transport. Only the
 /// blocks needed to read and write sectors are implemented: one split
@@ -384,10 +392,10 @@ pub const VirtioBlk = struct {
         if (volatileU8(status_byte) != 0) return error.IoError;
     }
 
-    /// Read one 512-byte sector into out. A heap-backed buffer is used for
-    /// the DMA data (the heap lives in the hhdm mapping, so phys = virt -
-    /// hhdm_offset holds for every block handed to the device).
-    pub fn readSector(self: *VirtioBlk, sector: u64, out: []u8) VirtioError!void {
+    /// One 512-byte DMA read of `sector` into `out`. A heap-backed buffer is
+    /// used for the DMA data (the heap lives in the hhdm mapping, so phys =
+    /// virt - hhdm_offset holds for every block handed to the device).
+    fn dmaRead(self: *VirtioBlk, sector: u64, out: []u8) VirtioError!void {
         if (out.len != 512) return error.NoSupport;
         if (sector >= self.capacity) return error.OutOfBounds;
 
@@ -448,5 +456,38 @@ pub const VirtioBlk = struct {
 
         if (volatileU8(status_byte) != 0) return error.IoError;
         @memcpy(out, data);
+    }
+
+    fn logVio(tag: []const u8, sector: u64) void {
+        var buf: [96]u8 = undefined;
+        const line = std.fmt.bufPrint(&buf, "{s} sector={d}", .{ tag, sector }) catch tag;
+        serial.writeLine(line);
+    }
+
+    /// Read one 512-byte sector into out. With `diag_verify_reads` on the
+    /// read is repeated and compared, and the DMA buffer is pre-filled so a
+    /// completion that never delivered data is reported (handoff H6).
+    pub fn readSector(self: *VirtioBlk, sector: u64, out: []u8) VirtioError!void {
+        if (!diag_verify_reads) return self.dmaRead(sector, out);
+
+        var buf_a: [512]u8 = undefined;
+        @memset(&buf_a, 0xAA);
+        try self.dmaRead(sector, &buf_a);
+
+        var stale = true;
+        for (&buf_a) |b| {
+            if (b != 0xAA) {
+                stale = false;
+                break;
+            }
+        }
+        if (stale) logVio("VIO-STALE", sector);
+
+        var buf_b: [512]u8 = undefined;
+        @memset(&buf_b, 0xBB);
+        try self.dmaRead(sector, &buf_b);
+        if (!std.mem.eql(u8, &buf_a, &buf_b)) logVio("VIO-DIFF", sector);
+
+        @memcpy(out, &buf_a);
     }
 };
