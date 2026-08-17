@@ -223,6 +223,28 @@ test "parseMadt collects LAPIC id, IRQ overrides and NMI (M2 SMP debt)" {
     try std.testing.expectEqual(@as(usize, 0), madt.ap_count);
 }
 
+test "parseMadt skips IRQ overrides with a GSI above the I/O APIC bound" {
+    // A GSI outside the I/O APIC redirection table range (max_gsi) is corrupt
+    // firmware data: it must be skipped so gsiFor falls back to the raw ISA
+    // IRQ number instead of panicking on `gsi * 2` (audit regression, 6bd32ba).
+    var l = Layout{};
+    l.writeMadt(&.{
+        &Layout.ioApicEntry(),
+        &Layout.irqOverrideEntry(0, 300, 0), // gsi 300 > max_gsi 255 -> skipped
+        &Layout.irqOverrideEntry(1, 1, 0), // normal override survives
+    });
+    l.writeRoot(true, &.{madt_phys});
+    l.writeRsdpV2();
+    const result = acpi.parseMadt(l.rsdpAddr(), l.hhdmOffset());
+    const madt = switch (result) {
+        .found => |m| m,
+        else => return error.TestUnexpectedResult,
+    };
+    try std.testing.expectEqual(@as(usize, 1), madt.irq_override_count);
+    try std.testing.expectEqual(@as(u8, 1), madt.irq_overrides[0].isa_irq);
+    try std.testing.expectEqual(@as(u32, 1), madt.irq_overrides[0].gsi);
+}
+
 test "parseMadt collects enabled Application Processors (SMP bring-up)" {
     var l = Layout{};
     l.writeMadt(&.{

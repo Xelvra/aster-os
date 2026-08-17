@@ -89,6 +89,16 @@ test "allocPages returns contiguous run" {
     try std.testing.expectEqual(pages[0] + 2 * pfa.page_size, pages[2]);
 }
 
+test "allocator never hands out memory below low_memory_end" {
+    // The PFA deliberately never allocates below 1 MiB (BIOS/limine low
+    // memory; the direct map does not cover it). Exhausting the free pool
+    // must never return a page under that boundary (audit regression, 7370ed5).
+    var alloc = initAllocator();
+    var pages: [expected_free_pages]u64 = undefined;
+    for (0..pages.len) |i| pages[i] = try alloc.allocPage(false);
+    for (pages) |p| try std.testing.expect(p >= pfa.low_memory_end);
+}
+
 test "freePages frees all" {
     var alloc = initAllocator();
     const pages = try alloc.allocPages(3, false);

@@ -712,7 +712,11 @@ var mutex_released = std.atomic.Value(bool).init(false);
 fn mutexWaiterTask() callconv(.c) noreturn {
     mutex_obj.lock(); // blocks while the main task owns it
     mutex_ran.store(true, .monotonic);
-    mutex_obj.unlock(); // hand it back so the main can observe the free state
+    // Self-relock: a task that locks a mutex it already owns must deadlock
+    // (block forever) instead of silently nesting — a single unlock would
+    // otherwise release the outer critical section unprotected (regression,
+    // ec879d1).
+    mutex_obj.lock();
     mutex_released.store(true, .monotonic);
     while (true) {
         asm volatile ("hlt" ::: .{ .memory = true });
@@ -721,8 +725,8 @@ fn mutexWaiterTask() callconv(.c) noreturn {
 
 fn testMutex() void {
     // A task that blocks on an owned mutex must not run until the owner
-    // unlocks (which hands the lock to the waiter); the waiter then releases
-    // it so the main can see the mutex is free again.
+    // unlocks (which hands the lock to the waiter); the waiter then self-
+    // relocks, which must deadlock it (not nest), so the mutex stays owned.
     const sched = @import("sched/task.zig");
     mutex_obj = sync.Mutex.init();
     mutex_obj.lock(); // main owns it
@@ -741,11 +745,21 @@ fn testMutex() void {
     expect(!mutex_ran.load(.monotonic), "blocked waiter does not run before unlock");
     mutex_obj.unlock();
     spins = 0;
-    while (!mutex_released.load(.monotonic) and spins < 1000000) : (spins += 1) {
+    while (!mutex_ran.load(.monotonic) and spins < 1000000) : (spins += 1) {
         asm volatile ("hlt" ::: .{ .memory = true });
     }
     expect(mutex_ran.load(.monotonic), "mutex waiter resumed with ownership");
-    expect(!mutex_obj.locked and mutex_obj.owner == 0, "mutex free after the waiter released it");
+    // The waiter then self-relocked: it must be blocked forever (never reach
+    // the release) and the mutex must still be owned by it. A short hlt spin
+    // (~1 s at the APIC tick rate) gives the waiter time to reach the
+    // self-relock; it must never complete the release.
+    spins = 0;
+    while (spins < 1000) : (spins += 1) {
+        asm volatile ("hlt" ::: .{ .memory = true });
+    }
+    expect(!mutex_released.load(.monotonic), "self-relock deadlocks instead of nesting");
+    expect(mutex_obj.locked, "self-relocked mutex stays locked");
+    expect(mutex_obj.owner != 0, "self-relocked mutex owner is the waiter");
 }
 
 var event_group = sync.EventGroup.init(0);
