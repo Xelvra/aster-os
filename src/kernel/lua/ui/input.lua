@@ -91,7 +91,10 @@ local function handle_mouse()
                 local items = launcher_filtered()
                 if items[idx] then
                     launcher_run(items[idx].id)
-                    launcher_open = false
+                    -- Clicking "help" switches to the cheat sheet instead of
+                    -- closing, exactly like the Enter key (the mouse path must
+                    -- not diverge from the keyboard one).
+                    if launcher_mode ~= "help" then launcher_open = false end
                     gfx.invalidate()
                 end
             else

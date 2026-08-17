@@ -554,6 +554,26 @@ test("bar geometry is shared and capsules fit the screen", function()
     assert(lbr.x == 8 and lbr.w == 20, "launcher button rect")
 end)
 
+test("launcher click on 'help' stays open in help mode (regression)", function()
+    set_disk()
+    launcher_open = true
+    launcher_mode = "run"
+    launcher_input = ""
+    launcher_sel = 1
+    local items = launcher_filtered()
+    local help_idx = nil
+    for i, a in ipairs(items) do if a.id == "help" then help_idx = i end end
+    assert(help_idx, "help entry is offered in run mode")
+    local lx, ly, lw, lh = launcher_popup()
+    local row_y = ly + 30 + (help_idx - 1) * 20 + 10
+    mouse_was_down = false
+    _set_mouse(lx + 10, row_y, true, 0)
+    handle_mouse()
+    assert(launcher_open, "clicking help keeps the launcher open")
+    assert(launcher_mode == "help", "clicking help switches to the help mode, got " .. launcher_mode)
+    launcher_open = false
+end)
+
 test("launcher row hit-test maps the mouse to an item", function()
     set_disk()
     launcher_open = true
