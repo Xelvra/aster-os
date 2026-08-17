@@ -123,6 +123,12 @@ důsledek manifestu.
 
 ### 3.1 Current architecture (M0–M6, implementováno)
 
+> **WM architektura:** desktop shell je „WM jako Lua kód" — architektonický vzor
+> **AwesomeWM** (kernel = primitiva, Lua = WM logika; od 2007 ověřený na X11).
+> Hyprland (cachyos-hypr-noctalia) je jen zdroj vizuálního designu a klávesových
+> konvencí, ne architektury. Rozhodnutí a co z AwesomeWM přejímáme: `lua-wm.md` §14 (D11),
+> licence/původ: `THIRD-PARTY-NOTICES.md` §5a.
+
 ```text
 Lua shell (desktop, vendored Lua 5.4)
    │  KI bindings → sys.dispatch()

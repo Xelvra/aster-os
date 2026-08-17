@@ -381,12 +381,13 @@ binding marshallingu zelené.
       `aster.iso` jako release asset (`gh` CLI, žádná third-party akce). — **Release je
       odložen (2026-08-09):** v alfě bez konzumenta nedává smysl; workflow zůstává
       připravený a spustí se tagem, až bude reálná poptávka (ukázka, milestone, M10).
-- [ ] **M6.1.12 CI na Windows/macOS:** Zig je multiplatformní, build.zig by měl běžet.
-      **Částečně (2026-08-16):** CI cache (`.zig-cache` + `~/.cache/zig` přes
-      `actions/cache`) a `concurrency: cancel-in-progress` — push se buildí
-      inkrementálně místo hodinové studené Debug kompilace (root cause hodinového
-      CI: nekonečná smyčka v MADT parseru + žádná cache, C49); **Windows/macOS
-      build matrix** (fmt + build + host testy) zůstává otevřený.
+- ~~**[ ] M6.1.12 CI na Windows/macOS:** Zig je multiplatformní, build.zig by měl běžet.~~ —
+      **non-goal (2026-08-16), viz `spec/non-goals.md`:** kernel je `x86_64-freestanding`,
+      neběží na Windows/macOS a není POSIX/binárně kompatibilní; host testy by testovaly
+      totéž co Linux x86_64. **Co zůstává z 2026-08-16:** CI cache (`.zig-cache` +
+      `~/.cache/zig`) a `concurrency: cancel-in-progress` jako součást **Linux** CI —
+      push se buildí inkrementálně místo hodinové studené Debug kompilace (root cause
+      hodinového CI: nekonečná smyčka v MADT parseru + žádná cache, C49).
 
 ```text
 GPT disk image → GPT → ext2 partition → Aster FS backend → open/read/close → runtime

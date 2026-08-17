@@ -25,6 +25,7 @@ na tento dokument.
 | **Perzistence před M6** | ❌ Ne | Žádný FS do M6 (ADR-010); assety embedded. |
 | **Síťové/cloudové služby** | ❌ Ne | Lokální experimentální systém. |
 | **Arm / jiné architektury** | ❌ Ne (teď) | Aktuálně jen x86_64 (QEMU `q35`). Port (např. ARM, RISC-V) není vyloučen, ale vyžádal by si arch-neutrální KI důsledněji a vlastní změnu rozsahu — není cílem dnes. |
+| **Multiplatformní CI (Windows/macOS)** | ❌ Ne | Kernel je `x86_64-freestanding` — **neběží na Windows ani macOS** a není POSIX/binárně kompatibilní s Linuxem (vlastní KI, ADR-004). Build host je jen toolchain; OS běží výhradně v QEMU (`q35`) / vlastním hardwaru. Host unit testy na Windows/macOS x86_64 testují **stejné kernel moduly na stejném host CPU** jako Linux x86_64 — nulový přínos; na arm64 macOS by navíc **selhaly** (x86_64 asm v kernel modulech). CI cílí na Linux (QEMU, ISO, runtime testy); `build.zig` zůstává v principu portabilní, ale multiplatformní build matrix se **netestuje** — kdyby přibyl vývojář na Windows/macOS, znovu se to posoudí změnou rozsahu (ADR). CI cache + `concurrency: cancel-in-progress` (2026-08-16) zůstávají jako součást **Linux** CI, ne multiplatformního záměru. |
 
 ---
 

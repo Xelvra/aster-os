@@ -1142,6 +1142,15 @@ Viz také `spec/invariants.md` (Safety / Performance / Architecture) a
 | D8 | Skutečný scratchpad (toggle vyhrazené app) | Super+S = launcher / Super+S = float toggle | scratchpad = **stavový toggle**: první Super+S otevře launcher v módu `scratchpad:` (jen aplikace, žádné akce), další Super+S jen show/hide to okno přes cokoli (i fullscreen/prázdný ws). Není alias Super+Space (`run:`, aplikace + akce) ani Super+Alt+Space (float) — každá zkratka dělá jinou věc. |
 | D9 | Bindingy vracejí `nil, err` místo panic | pcall + log, ignore | marshalling je bezpečnostní hranice; kernel nesmí shodit skript |
 | D10 | REPL stav v globálu přeživším reload | stav v userdata kernelu | uživatelské data nepřežívají `lua_State` (invariant use-after-free); globál je čistě Lua doména |
+| D11 | Architektura WM = **„WM jako Lua kód"** (vzor **AwesomeWM**) | nativní compositor v Zigu + deklarativní config (Hyprland model) | Kernel dává jen primitiva (renderer/input/okna) přes KI; **WM logika (tiling layout, workspaces, bar, okna) žije v Lua** — AwesomeWM dokazuje udržitelnost od 2007 (X11 v roli primitiv). **Hyprland (cachyos-hypr-noctalia) je zdroj vizuálního designu a klávesových konvencí, NE architektury** (viz `desktop-ui.md`, `THIRD-PARTY-NOTICES.md` §5a). Hyprland model (nativní compositor + config) by ztratil hot reload (F5) a programovatelné chování. Viz `spec/architecture.md` a `non-goals.md`. |
+
+> **Co z AwesomeWM přejímáme (a od koho):** žádný kód ani asset — jen **ověřený vzor** a
+> architektonické zdůvodnění. Budoucí WM funkce, které zrcadlí zavedený koncept
+> AwesomeWM (typicky **signály mezi komponentami** pro decoupled komunikaci a
+> **deklarativní window rules** — match okna → akce), se implementují jako vlastní kód
+> a **explicitně se v §14 označí zdrojem** („taken from AwesomeWM, reimplemented").
+> Klávesové konvence jsou **Hyprland + hybridní F-klávesy, které Hyprland nemá**
+> (F1 help, F5 hot reload, F11 fullscreen, F6–F10/F12 rezervované — `desktop-ui.md` §5).
 
 ---
 

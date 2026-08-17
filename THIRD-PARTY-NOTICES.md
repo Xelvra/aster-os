@@ -117,6 +117,23 @@ conventions, which Aster reimplements as data in its own shell.
 
 ---
 
+### 5a. Architectural inspiration — AwesomeWM
+
+| Field | Value |
+|---|---|
+| **What** | The **architectural pattern** "window manager as Lua code" — the window manager is a Lua program, the display server/kernel supplies only primitives (windows, drawing, input). Aster's own shell (`src/kernel/lua/ui/`) follows this pattern: the kernel provides the renderer/input/window primitives via KI bindings, and Lua owns the window-manager logic (tiling layout, workspaces, bar, windows). |
+| **Source** | [AwesomeWM](https://awesomewm.org/) (X11 window manager written in Lua, MIT license, actively developed since 2007) |
+| **License** | MIT (AwesomeWM is MIT-licensed) |
+| **Usage** | **No code or asset is taken from AwesomeWM.** Aster reimplements the window-manager logic in its own Lua from scratch. What Aster *does* borrow is the proven pattern and the rationale that a Lua-based WM is maintainable long-term. Future Aster WM features that mirror a well-known AwesomeWM concept (e.g. signals between components, declarative window rules) are documented as such in `spec/lua-wm.md` §14 with an explicit "taken from AwesomeWM, reimplemented" note — see D11. |
+
+**Acknowledgments:** to the AwesomeWM authors and community for proving, since 2007,
+that a window manager written in Lua is a viable, maintainable architecture — the
+same pattern Aster OS uses with the kernel in the place of X11. Aster does **not** use
+any code or asset from AwesomeWM; the implementation is original Aster code, inspired
+by the pattern.
+
+---
+
 ## 6. VGA 8x16 font
 
 | Field | Value |
