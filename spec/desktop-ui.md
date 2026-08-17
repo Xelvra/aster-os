@@ -52,7 +52,7 @@ Co repo obsahuje a co z toho portujeme:
 
 ## 3. Architektura
 
-UI běží v Luay (`src/kernel/lua/ui/`), kernel poskytuje jen primitiva a vstup.
+UI běží v Lua (`src/kernel/lua/ui/`), kernel poskytuje jen primitiva a vstup.
 
 ```
 src/kernel/lua/ui/
@@ -98,7 +98,7 @@ Konfigurační paleta (`theme` tabulka v `theme.lua`, barvy `0xRRGGBB`):
 ### 4.2 Bar — horní panel (🔶 částečně)
 Noctalia bar, 35 px, plné šířky. Zleva:
 - **Launcher tlačítko** (štítek akcentu `>`) — ✅, klik otevře launcher.
-- **Hodiny** `HH:MM` — ✅ (živě z `time.ticks()`).
+- **Hodiny** `HH:MM` — ✅ (živě z `time.of_day_ms()`, CMOS RTC).
 - **Workspace štítky 1–3** — ✅ (aktivní = akcent, klik přepne).
 - **Active window štítek** — ✅ (uprostřed; fokusované okno).
 - **Help F1** — ✅ (vpravo; klik otevře kontextový help jako F1).
@@ -119,7 +119,7 @@ Jinak má bar správné rozložení.
 ### 4.3 Launcher (✅ hotovo)
 - **Super+Space** otevře popup s vyhledávacím polem.
 - Psaní filtruje aplikace, šipky mění výběr, Enter spustí.
-- Položky: aplikace (repl, sysmon, files, editor) + akce (toggle fullscreen, close).
+- Položky: aplikace (repl, sysmon, files, editor) + akce (toggle fullscreen, close, **help**).
 
 ### 4.4 Okna a dekorace (✅ hotovo)
 - Tiling: splith (60/40, fokus širší) / splitv, **gapless** (`gap_out = 0`, `gap_in = 0`
@@ -152,14 +152,15 @@ Jinak má bar správné rozložení.
 ### 4.6b Files — správce souborů (✅ hotovo, M7.1)
 - **Super+E** otevře files okno v kořenu (`files_*` stav v `input.lua`).
 - Up/Down výběr, **Enter** otevře (adresář → dovnitř, soubor → **editace v editoru**),
-  **Space** = náhled (read-only), **Delete** = smazat, **Escape** o úroveň výš /
+  **Space** = náhled (read-only), **Delete** = přesun do koše `/.trash` (uvnitř koše
+  trvalé smazání; `Ctrl+Delete` koš vyprázdní — M7.1.13), **Escape** o úroveň výš /
   ven z náhledu; položka **`..`** (zobrazuje se `/..`, DOS konvence) jde nahoru —
   hlavička je čistě okenní (dvojklik = fullscreen), aby dvojklik nekolidoval s `cd ..`.
 - Detail viz `spec/lua-wm.md` §7a.4.
 
 ### 4.7 Aplikace (🔶 základ)
 - **sysmon** (RAM used/total, %, ticks) — ✅ základ, ⏳ CPU graf.
-- **files** — ⏳ placeholder (žádný FS; od M6 initfs).
+- **files** — ✅ hotovo (M7.1: listing, koš, rename, hidden toggle; viz §4.6b).
 - **calculator** — ⏳ (Lua `math` evaluace přes REPL).
 - Model: každá aplikace = okno + `render` funkce, spouštěná z launcheru.
 
@@ -253,10 +254,10 @@ Cíl: btop/Noctalia sysmon widget v baru + okno.
 
 ## 7. Prioritizace (co portovat dál)
 
-1. **Bar: reálné hodiny** — ✅ hotovo (M5 close: hodiny žijí z ticků).
+1. **Bar: reálné hodiny** — ✅ hotovo (M5 close: hodiny žijí z `time.of_day_ms()`, CMOS RTC).
 2. **Sysmon CPU widget** (potřebuje kernel binding, medium effort).
 3. **Fade animace přepínání workspace** (bez GPU, medium effort).
-4. **Files aplikace** (po M6 initfs).
+4. **Files aplikace** — ✅ hotovo (M7.1).
 5. **Greeter** (až M8).
 
 ---

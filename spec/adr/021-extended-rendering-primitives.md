@@ -12,7 +12,7 @@ v M5 pro desktop shell.
 ADR-009 odložil rounded corners s odůvodněním „až bude reálný důvod". V M5 ten důvod
 nastal: desktop shell (Noctalia-style) potřebuje zaoblené kaple v taskbaru, border oken
 a gradientní zvýraznění aktivního okna. Přidávají se **na konec** číslování KI operací
-(ops 7–9), takže nedochází k porušení §2 pravidel KI (čísla se nemění, jen přibývají).
+(ops 7–9), takže nedochází k porušení §4 pravidel KI (čísla se nemění, jen přibývají).
 
 ## Důsledky
 - Nové sub-op kódy `round_rect = 7`, `rect_border = 8`, `gradient_border = 9` v

@@ -5,7 +5,7 @@
 **Navazuje na:** `spec/architecture.md`, `spec/runtime.md`, `spec/graphics.md`,
 `spec/input.md`, `spec/desktop-ui.md`, `spec/kernel-interface.md`, `spec/invariants.md`.
 
-> Tento dokument je **jediný ucelený blueprint** okenního manažeru (WM) napsaného v Luay.
+> Tento dokument je **jediný ucelený blueprint** okenního manažeru (WM) napsaného v Lua.
 > Spojuje v jednom souboru vrstvy, které se jinde v `spec/` řeší odděleně:
 >
 > - **Architecture Blueprint** (§2–§5) — kde WM žije a jak je celý postaven;
@@ -22,7 +22,7 @@
 
 ## 1. Shrnutí
 
-**Lua WM je desktop shell napsaný v Luay 5.4, který běží vestavěně v kernelu (Ring 0,
+**Lua WM je desktop shell napsaný v Lua 5.4, který běží vestavěně v kernelu (Ring 0,
 jediný adresní prostor).** Není to samostatný proces ani daemon — je to sada osmi
 Lua modulů, které kernel **zkonkatenuje do jednoho chunku**, nahraje do jediného
 globálního `lua_State` a volá každý frame dvě konvenční funkce: `update()` a `render()`.
@@ -55,11 +55,12 @@ launcher (Super+Space), REPL/terminál jako okno a systémový monitor. Vzhled j
  │  ║  main.zig  — jediný event loop, composition root         ║ │
  │  ║     │  poll() → update() → render()  (main.zig:332)      ║ │
  │  ║     ▼                                                    ║ │
- │  ║  LUA RUNTIME: lua.zig + libc.zig + cimport.zig           ║ │
- │  ║     └── jeden globální lua_State (vendored Lua 5.4)      ║ │
- │  ║          │  bindings.zig (gfx/input/time/...)            ║ │
- │  ║          ▼                                               ║ │
- │  ║  LUA WM SHELL: ui/{theme,wm,repl,launcher,input,main}.lua║ │
+  │  ║  LUA RUNTIME: lua.zig + libc.zig + cimport.zig           ║ │
+  │  ║     └── lua_State shellu (+ per-program státy od M7)     ║ │
+  │  ║          │  bindings.zig (gfx/input/time/...)            ║ │
+  │  ║          ▼                                               ║ │
+  │  ║  LUA WM SHELL: ui/{theme,wm,repl,editor,files,launcher,  ║ │
+  │  ║               input,main}.lua                            ║ │
  │  ║          │  update() / render()                          ║ │
  │  ║          ▼                                               ║ │
  │  ║  KI: sys.dispatch (api/sys.zig)                          ║ │
@@ -237,7 +238,7 @@ theme = {
     text, text_dim,                            -- texty
     accent, accent_b, accent_dark,             -- tyrkysová řada (aktivní dekorace)
     inactive,                                 -- neaktivní border
-    wm   = { gap_out, gap_in, border, radius, title_h,
+    wm   = { gap_out, gap_in, border, title_h,
              opacity_active, opacity_inactive },
     bar  = { height, radius },
     ws   = { "1", "2", "3" },                  -- jména workspace
@@ -279,7 +280,7 @@ Geometrie (`wm`/`bar`/`ws`) se rovněž od M5 nezměnila.
 | `focused` | `string?` | title fokusovaného okna |
 | `current_ws` | `u64` | aktivní workspace |
 | `drag` | `{title,dx,dy}?` | probíhající drag hlavičky floating okna |
-| `layout_mode` | `"splih"`/`"splitv"` | mód tiling layoutu |
+| `layout_mode` | `"splith"`/`"splitv"` | mód tiling layoutu |
 | `fullscreen_win` | `string?` | title fullscreen okna |
 | `z_counter` | `u64` | monotónní zdroj z-řazení |
 
@@ -395,7 +396,8 @@ Dvě velké funkce:
   pohybové/editační klávesy, UTF-8 aware).
 
 Modifikátorový stav (shift/ctrl/alt/super/alt_gr/caps) **nedrží Lua** — udržuje ho
-`bindings.zig` (§11) a každý key event ho nese v tabulce.
+`input/service.zig` (bindings jen volají `api_input.setModifier`/`setCapsLock`) a každý
+key event ho nese v tabulce (viz §9.2).
 
 ### 5.6 `main.lua` — frame orchestrace
 
@@ -530,7 +532,7 @@ Vše v `handle_key` (`input.lua:118`). Super = `ev.super` (Hyprland konvence).
 | Super+Space | launcher toggle | `input.lua:300` |
 | Super+Alt+Space | float toggle (centrovat) | `input.lua:302` |
 | Super+F / Super+D | fullscreen toggle | `input.lua:318` |
-| Super+J | togglesplit (splih↔splitv) | `input.lua:321` |
+| Super+J | togglesplit (splith↔splitv) | `input.lua:321` |
 | Super+šipky | focus ve směru (wrap) | `input.lua:412` |
 | Super+Shift+šipky | swap s okolím v tiling pořadí | `input.lua:385` |
 | Super+1/2/3 | přepnout workspace | `input.lua:236` |
@@ -1006,8 +1008,8 @@ if (needs_render) { render(); needs_render = false; }
 - IRQ → `service.pushKeyEvent` → kruhová fronta (256, atomické indexy,
   `queue.zig:15`) → `input.next_event()` z Lua vybere klávesy (mouse filtruje KI,
   `service.zig:74`).
-- `buildEventTable` (`bindings.zig:319`) udržuje modifikátorový stav (shift/ctrl/
-  alt/super/alt_gr/caps — `setShift`/`setCapsLock`/...) a vyrobí tabulku:
+- `buildEventTable` (`bindings.zig:319`) přečte modifikátorový stav z
+  `input/service.zig` (shift/ctrl/alt/super/alt_gr/caps) a vyrobí tabulku:
 
 ```lua
 { type="key", pressed=true, code="a",
@@ -1042,11 +1044,12 @@ draftu, `hist_idx` reset na 0.
 | Globál | Funkce | KI modul |
 |---|---|---|
 | `gfx` | draw_rect, round_rect, rect_border, gradient_border, draw_text, fill_screen, present, invalidate, width, height | `api/graphics` |
-| `input` | next_event, mouse_x/y/left/right/middle, set_layout, layout_name | `api/input` |
-| `time` | ticks | `api/timer` |
+| `input` | next_event, mouse_x/y/left/right/middle, **mouse_wheel**, set_layout, layout_name | `api/input` |
+| `time` | ticks, **ms, of_day_ms** | `api/timer` |
 | `debug` | write | `api/debug` |
 | `sysmon` | ram_total_mb, ram_free_mb | `api/sysmon` |
 | `runtime` | reload | `api/runtime` |
+| `file` | open, read, write, close, truncate, dir, remove, create, rename | `api/storage` |
 
 > `power` binding v Lua **neexistuje** (žádná cesta z prostředí k resetu/vypnutí —
 > always-live, §5.2); `api/power.zig` zůstává jen jako KI capability pro kernel.
@@ -1065,9 +1068,11 @@ draftu, `hist_idx` reset na 0.
 
 ## 11. Runtime integrace a error containment
 
-- **Jeden globální `lua_State`** = shell (`lua.zig:8`). Alokace přes
-  `luaAlloc` (`lua.zig:22`) na kernel heap alokátor + `libc.zig` shim (malloc/
-  realloc/free/vsnprintf pro C stranu Luy).
+- **Jeden `lua_State` = shell** (`lua.zig:8`); od M7 existují i **per-program státy**
+  (`lua.spawnProgram` — spawnuté `.Lua` programy běží ve vlastním `lua_State`,
+  tickované přes `tickPrograms()`, izolované od shellu; viz `spec/runtime.md` §3).
+  Alokace přes `luaAlloc` (`lua.zig:22`) na kernel heap alokátor + `libc.zig` shim
+  (malloc/realloc/free/vsnprintf pro C stranu Luy).
 - **Každý vstup kernel→Lua je přes `lua_pcall`** (`callGlobalFunction`,
   `lua.zig:176`): chyba `update()`/`render()` se nešíří do Zig stacku → vrátí se
   `CallResult.err` a event loop spustí hot reload (`main.zig:336`).
@@ -1190,11 +1195,12 @@ Viz také `spec/invariants.md` (Safety / Performance / Architecture) a
   uživatelsky přidávané moduly s automatickým hot reloadem (stejně jako dnes
   `/wm/theme.lua`). Rozdělení a vyřešení sdíleného stavu je **součást Úrovně 2**,
   ne samostatný úkol.
-- **M7 programy:** `Program` se stává schedulable kontextem (ADR-017); okna dnes
-  sdílí jediný shell — aplikace dostanou vlastní `lua_State`/Wasm modul a obsah okna
-  bude z programu, ne z `repl/sysmon_render`.
+- **M7 programy (částečně hotovo):** `Program` je schedulable kontext (ADR-017);
+  spawnuté programy mají vlastní `lua_State` (`lua.spawnProgram`) / Wasm modul
+  (`Runtime.spawn(.Wasm)`). **Zbývá:** okna dnes sdílí jediný shell — obsah okna
+  programu (surface model pro wasm programy) je Fáze B, ne z `repl/sysmon_render`.
 - **Aplikace:** model „okno + render funkce" (`spec/desktop-ui.md` §4.7) se rozšiřuje
-  o files (po FS), calculator, systémové widgety.
+  o calculator (wasm Fáze B), systémové widgety.
 - **Animace:** fade přes interpolaci barev v renderu (bez GPU), vyhrazeno.
 
 ---

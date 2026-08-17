@@ -41,7 +41,7 @@ koncept, který moderní OS převálcovaly POSIX filozofií:
 - **AwesomeWM / Arcan (Linux svět):** Lua řídí window manager / display server.
 
 Aster tuto filozofii přináší s moderními nástroji: kernel v Zigu (paměťová bezpečnost,
-žádný skrytý control flow), UI v Luay (embedovatelná, měnitelná za běhu). Wow efekt —
+žádný skrytý control flow), UI v Lua (embedovatelná, měnitelná za běhu). Wow efekt —
 uložím soubor a UI se živě překreslí bez ztráty stavu — je dědictví Smalltalku
 přenesené do 21. století.
 

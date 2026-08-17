@@ -1,6 +1,6 @@
 # Handoff nevyřešeného problému
 
-**Status:** V1 (draft).
+**Status:** V2.
 **Účel:** formální postup, když se problém nedaří vyřešit v rozumném čase. Cílem je
 zachovat veškeré poznatky ve strukturované, předatelné podobě — ať se k problému vrací
 kdokoli, kdekoliv, kdykoliv, bez ztráty kontextu.

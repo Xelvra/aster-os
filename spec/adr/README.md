@@ -16,12 +16,12 @@ samostatný soubor. Pravidla:
 | [003](003-stable-interfaces-day-one.md) | Stabilní rozhraní od prvního dne | Přijato |
 | [004](004-kernel-interface-not-abi.md) | Kernel Interface (KI), ne ABI | Přijato |
 | [005](005-renderer-layer.md) | Renderer jako samostatná vrstva | Přijato |
-| [006](006-generic-runtime-api.md) | Generické Runtime API | Přijato |
+| [006](006-generic-runtime-api.md) | Generické Runtime API | Přijato — implementováno (Wasm v M7) |
 | [007](007-lua-5-4-vendored.md) | Lua 5.4 vendored, staticky, ne LuaJIT | Přijato |
-| [008](008-event-loop-not-mlfq.md) | Scheduler: událostní smyčka, ne MLFQ | Přijato |
+| [008](008-event-loop-not-mlfq.md) | Scheduler: událostní smyčka, ne MLFQ | Superseded ADR-017 (pro M7) |
 | [009](009-minimal-rendering-primitives.md) | Minimální renderovací primitiva | Přijato |
-| [010](010-no-filesystem-yet.md) | Žádný souborový systém, dokud nebude potřeba | Přijato |
-| [011](011-wasm3-later.md) | wasm3 později, šev Runtime → Program | Přijato |
+| [010](010-no-filesystem-yet.md) | Žádný souborový systém, dokud nebude potřeba | Superseded ADR-023 |
+| [011](011-wasm3-later.md) | wasm3 později, šev Runtime → Program | Přijato — implementováno (M7) |
 | [012](012-limine-bootloader.md) | Limine bootloader | Přijato |
 | [013](013-zig-version-pinning.md) | Pinning Zigu mimo název projektu (.zig-version) | Přijato |
 | [014](014-deterministic-build.md) | Deterministický build | Přijato |

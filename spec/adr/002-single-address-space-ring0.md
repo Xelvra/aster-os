@@ -16,7 +16,7 @@ Zig kód.
 ## Důsledky
 - Bezpečnostní model = "důvěřuj managed runtime" (Lua VM, Wasm). Detail viz
   `spec/invariants.md` (Architecture) a `spec/non-goals.md`.
-- Žádný VMM / per-proces adresní prostory v prvních milnících (M0–M4).
+- Žádný VMM / per-proces adresní prostory zatím (výhled oddělení do Ring 3, ADR-018).
 
 ## Související
 - ADR-001, ADR-007, ADR-011

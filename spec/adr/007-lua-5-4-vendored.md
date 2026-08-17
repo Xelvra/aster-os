@@ -14,7 +14,8 @@ až (a pokud) bude úzké hrdlo.
 
 ## Důsledky
 - `libs/lua-5.4/` (vendored zdroj).
-- `main.lua` embedded v binárce (ADR-010).
+- `main.lua` a WM moduly se čtou z initfs (Limine initrd taru); `@embedFile` se
+  nepoužívá (viz ADR-010 status update).
 - Lua běží uvnitř managed runtime; viz přesné formulace v `spec/manifest.md`.
 
 ## Související

@@ -1,6 +1,6 @@
 # Debugging Survival Guide
 
-**Status:** V1 (draft). **Rozhodnutí:** ADR-016, ADR-017.
+**Status:** V1 (draft). **Navazuje na ADR:** 016, 017.
 **Účel:** jak diagnostikovat, když Aster OS spadne, zamrzne nebo se chová divně.
 
 ---
@@ -28,7 +28,7 @@ Pravidlo prvního kroku: **urči vrstvu z projevu, ne hádej.** Boot marker
 
 | Symptom | První krok |
 |---|---|
-| System nereaguje, serial tichý | je kernel vůbec bootnul? (marker `ASTER BOOT OK`) |
+| Systém nereaguje, serial tichý | je kernel vůbec bootnul? (marker `ASTER BOOT OK`) |
 | Serial vypsal fault / panic | viz §3 (čtení dumpu) |
 | Test zacyklil v QEMU | runtime test — idle watchdog (spec `verification.md` Krok 4b) |
 | Chová se deterministicky špatně | build twice + porovnej hash (ADR-014) |
@@ -53,7 +53,7 @@ nestačí a je potřeba krokovat nebo prohlížet paměť/registry živě.
 - **Symboly jsou jen v Debug buildu** (`build.zig`: `strip = optimize != .Debug`).
   Default je `ReleaseSafe` → stripped. Pro gdb stav `-Doptimize=Debug`.
 - Debug build dnes **buildí a bootuje** (C27/C28 workaroundy), ale je pomalejší a
-  nepředpovídá chování ReleaseSafe (L2, D1). Ladí se v Debug, **verifikuje** v
+  nepředpovídá chování ReleaseSafe (L2, B1). Ladí se v Debug, **verifikuje** v
   ReleaseSafe.
 
 ### Postup
@@ -156,7 +156,7 @@ Jak číst:
 
 > **Double fault / triple fault:** je-li dump trojitý (QEMU se restartuje), může být
 > samotný fault handler rozbitý — podezřívej IDT entry, stack switch (TSS), nebo
-> rekurzi v handleru. Tripple fault se testuje v QEMU přes `isa-debug-exit`
+> rekurzi v handleru. Triple fault se testuje v QEMU přes `isa-debug-exit`
 > (spec `verification.md` Krok 4b).
 
 ---

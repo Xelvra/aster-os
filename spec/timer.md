@@ -1,6 +1,6 @@
 # Timer — Čas a plánování ticků
 
-**Status:** V1 (draft). **Rozhodnutí:** ADR-008, ADR-017.
+**Status:** V1 (draft). **Navazuje na ADR:** 008, 017.
 **Rozsah:** časový zdroj (M2), KI modul `timer`, kooperativní sleep a vazba na Lua.
 
 ---
@@ -22,9 +22,9 @@
   (`ICW1..ICW4`), ještě před prvním tickem.
 - **EOI:** jde do **LAPIC** (offset 0xB0), ne do PIC — IRQ se doručuje přes IOAPIC→LAPIC.
 
-> **Dluh do M7 (SMP):** MADT se už parsuje (RSDP → RSDT/XSDT → MADT, viz `acpi.zig`),
-> ale chybí využití skutečného LAPIC ID, ISA IRQ→GSI overrides a detekce NMI. Viz
-> `roadmap.md` M2 a `non-goals.md`.
+> **SMP (hotovo 2026-08-16):** MADT parsing vč. skutečného LAPIC ID, ISA IRQ→GSI
+> overrides a NMI detekce je **implementováno** (`cpu/acpi.zig` + `apic.zig`); APy
+> se budí INIT-SIPI a idlují (scheduler BSP-only). Viz `roadmap.md` M2 a `non-goals.md`.
 
 ### 1.2 Tick frekvence
 
@@ -83,8 +83,10 @@ má přístup přes `api/timer.zig`, nikdy přímo k hardwaru.
 
 ```zig
 pub const TimerApi = struct {
-    pub fn ticks() u64;           // monotónní, bez přetečení rozlišením u64
-    pub fn sleepMs(ms: u64) void; // kooperativní, viz §3
+    pub fn ticks() u64;              // monotónní, bez přetečení rozlišením u64
+    pub fn sleepMs(ms: u64) void;    // kooperativní, viz §3 (kernel tasky)
+    pub fn ms() u64;                 // reálný wall-clock ms od bootu
+    pub fn ofDayMs() u64;            // čas dne jako ms od půlnoci
 };
 ```
 
@@ -147,9 +149,10 @@ wait by zastavil celý systém (klávesnice, rendering). Proto:
   scheduleru. Veškerá plánovací logika běží mimo IRQ kontext.
 - Kooperativní `sleepMs` z §3 se v M7 transformuje na blokující sleep **úkolu**
   (jádro přepne na jiný úkol do deadline). Stav dnes: `time` tabulka v Lua vystavuje
-  **jen `ticks`** — Lua binding `sleep_ms` zatím neexistuje; KI sub-op `sleep_ms` je
-  rezervovaný (vrací `NotSupported`) a blokující sleep je k dispozici jen kernel
-  taskům přes `sched.sleepMs`. Do plné M7 zbývá napojení na `Runtime.spawn`.
+  **`ticks`, `ms`, `of_day_ms`** (`bindings.zig`); Lua binding `sleep_ms` zatím
+  neexistuje — KI sub-op `sleep_ms` je rezervovaný (vrací `NotSupported`) a blokující
+  sleep je k dispozici jen kernel taskům přes `sched.sleepMs`. **Napojení na
+  `Runtime.spawn` (wasm3 / per-program instance) je hotové (M7, c486dee).**
 
 ### 5.1 Implementovaný stav (2026-08-12)
 
@@ -172,7 +175,8 @@ wait by zastavil celý systém (klávesnice, rendering). Proto:
   re-checkuje deadline. Ověřeno `testBlockingTaskSleep` v runtime testech — úkol se
   nespouští během spánku a probudí se po deadline.
 
-**Zbývá do plné M7:** napojení na `Runtime.spawn` (wasm3 / per-program instance).
+**Napojeno na `Runtime.spawn` (M7, hotovo):** wasm3 / per-program Lua instance běží
+přes scheduler (ADR-017).
 
 ---
 

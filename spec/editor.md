@@ -38,7 +38,9 @@ ztratit. Hlavička ukazuje cestu (klávesové hinty jsou v help popupu,
 
 **Read-only soubory** — každý soubor končící `.bak` (např. `/wm/.theme.bak`)
 a `/.repl_history` — editor odmítne načíst (`editor_load`), prohlíží se jen
-Spacem ve files browseru a kreslí se červeně. Důvod je u obou jiný: `.bak`
+Spacem ve files browseru a kreslí se červeně. Binární `.wasm` soubory se
+neotevírají jako text: files browser je blokuje (extension-based `is_read_only`
+mechanismus), takže se k `editor_load` vůbec nedostanou. Důvod je u obou jiný: `.bak`
 zálohy jsou **ruční záchrana posledního Ctrl+S** — kdyby je editor mohl
 Ctrl+S přepsat, přestaly by být zálohou; obnovení předchozí verze = přejmenovat
 `.bak` zpět na working copy. `/.repl_history` je **runtime stav vlastněný

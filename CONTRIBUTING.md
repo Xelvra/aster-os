@@ -25,7 +25,7 @@ See [`spec/verification.md`](spec/verification.md):
 
 - Zig pinned in `.zig-version` (official tarball, not a distro package).
 - QEMU (`qemu-system-x86_64`), xorriso, mtools.
-- Limine and Lua 5.4.8 are vendored in `libs/` — no system packages.
+- Limine, Lua 5.4.8 and wasm3 are vendored in `libs/` — no system packages.
 
 After cloning, install the git hooks:
 

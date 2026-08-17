@@ -58,7 +58,8 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 | M5 (cíl) | < 512 KB | ≤ 16 MB | < 40 ms | < 16 ms | TBD |
 | **M6 (měřeno)** | **362 KiB** | **2 MiB**⁴ | **≈ 26 ms**⁶ (KVM) | TBD | TBD |
 | M6 (cíl) | < 768 KB | ≤ 24 MB | < 50 ms | < 16 ms | TBD |
-| M7 | < 1 MB | ≤ 32 MB | < 50 ms | < 16 ms | TBD |
+| **M7 (měřeno)** | **664 KiB** | **5 MiB**⁸ | **≈ 42 ms**⁸ (KVM) | TBD | TBD |
+| M7 (cíl) | < 1 MB | ≤ 32 MB | < 50 ms | < 16 ms | TBD |
 | M8 | TBD | TBD | TBD | TBD | TBD |
 | M9 | TBD | TBD | TBD | TBD | TBD |
 | M10 | TBD | TBD | TBD | TBD | TBD |
@@ -133,6 +134,11 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 > žádný rozdíl na boot path). Kernel image 405 744 B (ReleaseSafe). **S přidanými stack
 > canary + Lua budgetem (brief Task 7):** Kernel Entry → First Frame ≈ 92 ms (TCG),
 > kernel image 407 152 B.
+> ⁸ **M7 měření (2026-08-17, KVM, `boot-log.md` commit `4007885`):** kernel image
+> **664 KiB** (narostl o wasm runtime), Kernel Entry → First Frame **≈ 42 ms**
+> (jitter viz ⁷ — `capture-boot.sh` normalizuje), RAM idle **≈ 5 MiB** (boot log
+> „508 MiB usable · 5 MiB used"). Cíle M7 (< 1 MB, ≤ 32 MB, < 50 ms) drží; frame
+> latency p99 stále TBD.
 
 ---
 
@@ -244,8 +250,9 @@ první runtime testy v QEMU zelené (exit kód 0).
 binding marshallingu zelené.
 
 > **Stav:** Lua 5.4.8 běží v kernelu. Otevřeny liby `base`, `coroutine`, `table`,
-> `string`, `utf8`, `math` (io/os/package/debug vyřazeny — bez FS, bez dynamic loading,
-> integer-only KI). Freestanding libc shim (`libs/lua-5.4/include/` +
+> `string`, `utf8`, `math` (io/os/package vyřazeny — dynamic loading výhled (M8+),
+> C stdio vrstva je WIP (handoff H6); `debug` → `dbg` dle M6.1.9; integer-only KI).
+> Freestanding libc shim (`libs/lua-5.4/include/` +
 > `src/kernel/lua/libc.zig`): string/ctype/snprintf/strtod/pow/acos/asin/atan2 +
 > `setjmp`/`longjmp` (asm), deterministické `time`/`clock`, file stubs pro
 > `luaL_loadfilex`. Hot reload přes F5. Po startu běží **interaktivní Lua REPL** (banner
@@ -255,9 +262,9 @@ binding marshallingu zelené.
 > bloku) — viz `spec/troubleshooting.md` C17. `grow()` alokuje 4 stránky (16 KB)
 > najednou — Lua loadbuffer potřebuje alokace > 4 KB.
 
-### M5 — UI (Shell v Luay)
+### M5 — UI (Shell v Lua)
 
-**Cíl:** použitelný desktop v Luay.
+**Cíl:** použitelný desktop v Lua.
 
 - [x] **Živá transformace — základ:** `gfx.invalidate()` — shell (Lua) si vyžádá re-render
       bez klávesy; `ui/theme.lua` deklarativní theme (barvy jako data) se mění živě z REPL.
@@ -265,7 +272,7 @@ binding marshallingu zelené.
 - [x] Taskbar + launcher — Lua klienti Graphics API (taskbar 35px: launcher, clock,
       workspace kaple, volume; launcher se search boxem + filtrováním).
 - [x] REPL konzole (`~`) — psaní Lua kódu do běžícího systému (jako okno v shellu).
-- [x] **Živá transformace:** příkaz v Luay okamžitě překreslí prostředí (barvy, tvary)
+- [x] **Živá transformace:** příkaz v Lua okamžitě překreslí prostředí (barvy, tvary)
       bez ztráty oken/obsahu terminalu; **F5** = manuální refresh (spec `runtime.md` §5a).
       (REPL příkaz mění theme za běhu bez ztráty oken; bar height se čte živě ze theme —
       runtime test „live theme change"; F5 = hot reload = restart shellu dle §5.)
@@ -340,7 +347,7 @@ binding marshallingu zelené.
       (`filetype` = incompat 0x2, `dir_index` = compat 0x20 → reject); boot log
       `[ OK ] fs ext2` + výpis kořenového adresáře. Ověřeno na obraze
       `mke2fs -t ext2 -O ^dir_index` + GPT.
-- [x] **M6.1.4 Tenké Aster OS File API:** `open` / `read` / `close`, backend reference. **Ne:**
+- [x] **M6.1.4 Tenké Aster File API:** `open` / `read` / `close`, backend reference. **Ne:**
       inode čísla, uid/gid, mode bity, ACL, hardlink sémantiku, ext2 metadata. *Exit: runtime
       čte ext2 soubor, aniž ví, že ext2 existuje.* — **hotovo:** `fs/file.zig`
       (`File.open/read/close`, `fileSize`, `eof`; backend reference je dnes **ext2-specifická**,
@@ -428,61 +435,71 @@ se musí vyřešit **před** spuštěním dalších features, ne až na konci st
 
 > **Pořadí M7 (2026-08-16):** bylo dotaženo vše kolem — preemptivní scheduler,
 > sync primitiva, per-program Lua izolace, zápis na disk + editor/files/koš.
-> **Wasm je poslední položka M7** a dělá se na konec milníku (věci spojené přímo
-> s wasm se odkládají, ostatní se dotaží před ním).
+> **Stav (2026-08-17):** wasm Fáze A **hotová** (wasm3 vendored,
+> `Runtime.spawn(.Wasm)` + testovací programy `hello`/`fault`, `c486dee`);
+> zbývá Fáze B (surface model + kalkulačka) a Fáze C (benchmark).
+> Wasm se dělal na konec milníku (věci spojené přímo s wasm se odkládaly,
+> ostatní se dotažely před ním).
 
-> **Jak budeme wasm dělat (2026-08-16):**
-> - **První appka je záměrně jednoduchá — PRÁVĚ proto, že infrastruktura je složitá.**
+> **Jak jsme wasm dělali (2026-08-16, korigováno 2026-08-17):**
+> - **První programy jsou záměrně jednoduché — PRÁVĚ proto, že infrastruktura je složitá.**
 >   Vendor wasm3 + C interop + oddělená sada wasm KI bindings (mimo Lua bindings)
->   + surface model je sám o sobě rizikový kus práce: **appka má být nudná a
->   infrastruktura zajímavá, ne naopak**. První appkou je proto **kalkulačka**
->   (draw_text/draw_rect + klikací tlačítka) — tak triviální, aby ověřila celý
->   řetězec end-to-end (wasm3 → vlastní lineární paměť → KI volání → composite do
->   vlastní surface → input eventy), bez ladění dvou neznámých najednou.
->   Kalkulačka je zmíněná v `lua-wm.md` §15.
-> - **Jiné testovací appky až v kroku C** (po kalkulačce) — žádné předtím.
+>   + surface model je sám o sobě rizikový kus práce: **program má být nudný a
+>   infrastruktura zajímavá, ne naopak**. Realita Fáze A: **testovací programy
+>   `hello`/`fault`** (bez surface — `hello` píše přes `debug_write` do serialu,
+>   `fault` dělá záměrný trap na ověření trap containment). **Kalkulačka** je
+>   plánovaná **Fáze B** (draw_text/draw_rect + klikací tlačítka) — triviální,
+>   aby ověřila celý řetězec end-to-end (wasm3 → vlastní lineární paměť → KI
+>   volání → composite do vlastní surface → input eventy), bez ladění dvou
+>   neznámých najednou. Kalkulačka je zmíněná v `lua-wm.md` §15.
+> - **Jiné testovací programy až v kroku C** (po kalkulačce) — žádné předtím.
 > - **Krok C = benchmark wasm vs Lua** (Mandelbrot/Game of Life, per-pixel/per-buňka
 >   výpočet) + metriky do tabulky (bod níže). Pozor: **wasm3 je bytecode interpreter,
 >   ne JIT/nativní kompilace** — benchmark je tedy Lua 5.4 vs wasm3 (oba interpretované);
 >   hodnota wasm je izolace a deterministická sémantika, ne nutně výkon. „Wow moment"
->   stavíme na **izolaci** (appka, co záměrně spadne — dělení nulou / OOB do lineární
+>   stavíme na **izolaci** (program, co záměrně spadne — dělení nulou / OOB do lineární
 >   paměti — a desktop běží dál).
-> - **Flat struktura programů, ne /apps/wasm/ + /apps/lua/.** Kernel ani desktop nikdy
->   nesmí vědět, co konkrétní runtime je (`runtime.md` §1) — typ runtime se odvodí
->   z přípony na jednom místě spouštění (.lua → Lua, .wasm → Wasm), ne z FS struktury.
->   Podadresář dostane až ta konkrétní appka, která bude potřebovat víc než jeden
+> - **Flat struktura programů, ne /apps/wasm/ + /apps/lua/.** Zbytek kernelu ani desktop
+>   nikdy nesmí vědět, co konkrétní runtime je (`runtime.md` §1). Dnes `Runtime.spawn`
+>   bere explicitní `RuntimeKind`; odvození typu runtime z přípony (.lua → Lua,
+>   .wasm → Wasm) je výhled spouštění z disku (M8, ADR-025). Podadresář dostane až ta
+>   konkrétní aplikace, která bude potřebovat víc než jeden
 >   soubor (assety, save state) — „rozšiř na konci, nepřestavuj" (ADR-020 duch).
-> - **První .wasm binárka do initfs** (programy se dnes načítají z initrd taru přes
->   `loadProgramSource`, vedle `probe.lua`); flat `/apps/` na disku je až součást
->   Úrovně 2 (ADR-025).
+> - **První .wasm binárky do initfs** (programy se načítají z initrd taru přes
+>   `loadProgramSource`; `hello`/`fault` jsou přibalené v build.zig); flat `/apps/`
+>   na disku je až součást Úrovně 2 (ADR-025).
 > - **Launcher `/apps/` dynamicky neskenuje** (hardcoded `apps` tabulka) — dynamický
->   scan a spouštění z disku je **samostatný úkol (M8)**, pro první appku stačí
+>   scan a spouštění z disku je **samostatný úkol (M8)**, pro první programy stačí
 >   hardcoded entry.
 > - **Editor/files odmítnou `.wasm` otevřít jako text** — stejný extension-based
 >   mechanismus jako `.bak`/`.repl_history` (`is_read_only`), rozšířený o binární
 >   `.wasm`. Ve files browseru se `.wasm` **nekreslí červeně** jako read-only
 >   data, ale **zeleně (`theme.exec`)** — spustitelný soubor čte jinou barvou než
->   chráněná data (viz `spec/lua-wm.md` barvy listingů).
-> - **Appky píšeme v Zigu, ne v C/Rust.** Target `wasm32-freestanding` — stejný jazyk
+>   chráněná data (viz `spec/lua-wm.md` barvy listingů). **Hotovo (2134d39).**
+> - **Programy píšeme v Zigu, ne v C/Rust.** Target `wasm32-freestanding` — stejný jazyk
 >   i toolchain, který projekt už má pinnený (`.zig-version`), bez zavádění druhého
 >   jazyka (CONTRIBUTING.md povoluje jen Zig, Lua, Assembly). Model je **fantasy
->   konzole (WASM-4)**: appka se píše od nuly proti tenké sadě host funkcí (draw,
->   input), **bez libc** — žádné printf/malloc/SDL; vlastní paměť řídí appka sama
+>   konzole (WASM-4)**: program se píše od nuly proti tenké sadě host funkcí (draw,
+>   input), **bez libc** — žádné printf/malloc/SDL; vlastní paměť řídí program sám
 >   (stačí bump allocator nad lineární pamětí).
 > - **WASI je M9, ne teď.** Až WASI vrstva (mapování WASI→KI) umožní znovu
->   zkompilovat nezměněný zdroják konzolové appky; **binární kompatibilita
+>   zkompilovat nezměněný zdroják konzolového programu; **binární kompatibilita
 >   (ELF/exe) není nikdy** — rozporuje to manifest a KI (non-goal, trvalé).
 > - **Wasm import surface = stabilní kontrakt (vlastní ADR).** Ekvivalent
 >   `kernel-interface.md` §4 pro Lua: čísla operací se nikdy nemění, marshalling
->   přes wasm lineární paměť. Teprve po zafixování a zdokumentování kontraktu
+>   přes wasm lineární paměť. **ADR zatím neexistuje** — je to Fáze B (před
+>   kalkulačkou). Teprve po zafixování a zdokumentování kontraktu
 >   (kalkulačka + benchmark) se zve kontributory (M10 Adoption) — jinak by první
 >   příspěvky rozbil vlastní refaktor.
 > - **Trap containment** — wasm3 pasti (traps: OOB, dělení nulou) se zachytí
->   bez shození hostitele (obdoba `lua_pcall`); padlá appka se zahodí, desktop běží
->   dál. To je vizuální důkaz izolace z manifestu.
+>   bez shození hostitele (obdoba `lua_pcall`); padlý program se zahodí, desktop běží
+>   dál. To je vizuální důkaz izolace z manifestu. **Hotovo (Fáze A, `fault` program).**
 
-- [ ] wasm3 vendored; `Runtime.spawn(.Wasm, ...)`.
-- [ ] První `.wasm` aplikace (Zig → wasm32-freestanding) kreslící do vlastní surface.
+- [x] wasm3 vendored; `Runtime.spawn(.Wasm, ...)` — **hotovo (Fáze A, c486dee):**
+      `libs/wasm3/`, `src/kernel/wasm/`, `Runtime.spawn(.Wasm)`.
+- [x] První `.wasm` programy (Zig → wasm32-freestanding): `hello`/`fault` testovací
+      programy bez surface (`hello` = `debug_write`, `fault` = trap containment).
+      **Surface model + kalkulačka je Fáze B (nezahájeno).**
 - ~~Sdílené buffery + present~~ — přesunuto do Fáze 2 (render quality před stabilizací).
 - [x] **Preemptivní RR scheduler** pro nativní kernel tasky (ADR-017) — čistě IRQ-driven
       switch přes APIC timer (vektor 0x20), TCB tabulka i stacky statické (žádná alokace),
@@ -544,7 +561,8 @@ triggerů / nových ADR.
       jako `.theme.bak` (dotfile, červený ve files jako read-only, Ctrl+S odmítne uložit).
 - [x] **M7.1.9 Mazání souborů ve files browseru:** `file.remove(path)` → KI `storage.remove`
       → ext2 `unlink` (uvolní data bloky + inode, smaže direntry). Files: **Delete** =
-      smazat. **Files konvence (Hyprland):**
+      smazat (rozšířeno M7.1.13 — mimo koš Delete přesouvá do `/.trash`). **Files
+      konvence (Hyprland):**
       Enter = otevřít/upravit, Space = náhled, Delete = smazat, **klik na titulkovou
       lištu (cestu)** = o úroveň výš; root = `/` bez `..` položky. Smazání
       `/wm/theme.lua` i `/wm/.theme.bak` je bezpečné — systém použije defaulty
@@ -572,16 +590,16 @@ triggerů / nových ADR.
       (soubor i adresář v rámci aktuální složky; prompt „rename:" v titulkové
       liště, Enter uloží / Esc zruší); **Shift+F4** = nový soubor (MC konvence,
       otevře editor s prázdným bufferem). Rozšiřuje ext2 `rename`/`link` potřebné pro
-      budoucí koš (`/.trash`).
-- [x] **M7.1.14 Toggle skrytých souborů ve files browseru** — **Ctrl+H** přepíná
-      zobrazování dotfiles (dnes se kreslí šedivě, default viditelné; skryté
-      se filtrují v `load_listing`).
+      koš (`/.trash`, M7.1.13).
 - [x] **M7.1.13 Koš (`/.trash`)** — Delete mimo koš přesune soubor/adresář do
       `/.trash` (ext2 `rename`, žádná kopie dat); uvnitř koše Delete trvale
       smaže vybranou položku a `Ctrl+Delete` vyprázdní celý koš (iterace
       `file.remove`). `/.trash` a `lost+found` jsou ochráněné (nelze smazat/
       přesunout/přejmenovat); položky koše se kreslí dim šedomodře
       (`theme.text_dim`, stejně jako skryté dot soubory).
+- [x] **M7.1.14 Toggle skrytých souborů ve files browseru** — **Ctrl+H** přepíná
+      zobrazování dotfiles (dnes se kreslí šedivě, default viditelné; skryté
+      se filtrují v `load_listing`).
 
 ### M8 — Stabilizace
 
@@ -593,7 +611,7 @@ triggerů / nových ADR.
 - [ ] Rozhodnutí o dalším směru: (a) více funkcí, (b) začít oddělovat do Ring 3.
       Pro volbu (b) je **transport KI připravený dopředu** (ADR-018: mailbox IPC,
       comptime dispatch, IRQ routing) — implementuje se až tady, ne dřív.
-- [ ] Nové features (zvuk/audio, síť M9, prohlížeč v Luay) se přidávají podle
+- [ ] Nové features (zvuk/audio, síť M9, prohlížeč v Lua) se přidávají podle
       **ADR-020** — jako nové KI moduly na konec enumu, bez úpravy existujících.
 - [ ] **Úroveň 2 — přesun Lua shellu z initrd na disk do `/wm/`** (ADR-025, cíl
       dokumentovaný v `spec/lua-wm.md` §3.1): WM moduly (`wm.lua`, `input.lua`,
@@ -628,7 +646,7 @@ triggerů / nových ADR.
       parser bez faultu na cizím vstupu, síť defaultně vypnutá, fuzz testy
       (bezpečnostní brzda z `non-goals.md` řešena ADR-022).
 - [ ] **Audio:** nový KI modul `sound.*` (ADR-020).
-- [ ] **Prohlížeč v Luay:** klient Graphics/Input/Net API — žádný kernel-specifický kód
+- [ ] **Prohlížeč v Lua:** klient Graphics/Input/Net API — žádný kernel-specifický kód
       (ADR-020).
 - [ ] **WASI vrstva:** mapování WASI syscallů na KI pro cizí wasm aplikace
       (`runtime.md` §7.1) — začíná podmnožinou (stdout, argv, filesystem), ne plná WASI.

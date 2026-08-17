@@ -3,6 +3,13 @@
 **Status:** Accepted
 **Datum:** 2026-08-06
 
+> **Status update (2026-08-17):** implementováno v M7 — `sched/task.zig`, blokující
+> primitiva `sched/sync.zig` (semafor, mutex, event group, message queue), error
+> handler tasků. **SMP:** bring-up AP jader je hotový (MADT, `cpu/smp.zig`), ale
+> **scheduler zůstává BSP-only** — APy po bring-up idlují (`sti; hlt`) a neběží žádnou
+> kernel práci. Původní premisa „single-core, jediný bod přepnutí" tedy drží pro
+> scheduler; další AP práce je výhled (viz `spec/roadmap.md`).
+
 ## Rozhodnutí
 Od M7 běží na jednom jádře **preemptivní round-robin scheduler pro více úkolů**
 (výhledově Lua státy, Wasm instance, nativní tasky) ve sdíleném adresním prostoru.

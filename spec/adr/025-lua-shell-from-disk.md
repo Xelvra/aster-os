@@ -29,7 +29,7 @@ automatickým hot reloadem — ne jen `theme.lua` jako dnes (Úroveň 1).
   `/wm/theme.lua` je už dnes plný Lua kód, ne datový formát. Úroveň 2 je jen
   rozšíření téhož principu na celý shell — není to cizorodý model.
 - **Uživatelská přestavitelnost bez omezení** (viz `spec/lua-wm.md` §1): cíl
-  projektu je okenní WM plně přestavitelný v Luay. Úroveň 1 (config na disku,
+  projektu je okenní WM plně přestavitelný v Lua. Úroveň 1 (config na disku,
   moduly v initrd) přestavitelnost omezuje na theme; Úroveň 2 ji dokončuje.
 - **Fallback chrání determinismus a bootovatelnost.** Rozhodnutí záměrně řeší
   riziko, které by přesun na disk sám přinesl (ADR-014 deterministický build,
@@ -67,7 +67,7 @@ automatickým hot reloadem — ne jen `theme.lua` jako dnes (Úroveň 1).
   stavu. Při syntax/runtime chybě, chybějícím souboru nebo čtení mimo obraz se
   použije **vestavěný modul z initrd** a chyba se nahlásí do REPL přes
   `wm_error` (stejný kanál jako config chyby dnes).
-- `wm_error("wm", ...)` a `on_shell_error` (z Bloku A) se stanou součástí
+- `wm_error("wm", ...)` a `on_shell_error` se stanou součástí
   základního initrd shellu, takže chyba uživatelského modulu je vždy viditelná
   i po hot reloadu.
 - **Chybějící soubor se obnoví klonem z init** (čistý výchozí stav), aby

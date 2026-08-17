@@ -63,6 +63,10 @@ One direction of flow. No duplication.
 
 ### Rules that keep this honest
 
+> **Current state:** the translated layer is **empty** — this site is a single
+> introduction page (`index.md`), which is exempt from the sync check (it is not a
+> translation). The rules below govern any future translation page.
+
 * **`spec/` is canonical.** Every page on this site is a faithful translation of a
   corresponding spec file: same sections, same facts, same structure. It is not a
   marketing summary. When the two disagree, **the spec wins**.

@@ -33,7 +33,7 @@ rozšíření na roky; disciplína + gate + fuzz je rozumný kompromis pro M9.
 ## Důsledky
 
 - Nový KI modul `api/net.zig`; `Syscall` enum dostane novou položku na konec,
-  sub-op čísla zmrazená (pravidla §4.2 v `kernel-interface.md`).
+  sub-op čísla zmrazená (pravidlo §4/2 v `kernel-interface.md`).
 - Driver **virtio-net** (standard QEMU) — analogie virtio-blk (M6); bez závislosti na
   MADT/ACPI nad rámec stávajícího stavu.
 - Roadmapa M9: síť přechází z „vyžaduje ADR" na plánovanou položku.

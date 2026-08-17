@@ -1,6 +1,6 @@
 # Invarianty Aster OS
 
-**Status:** V1 (draft). **Rozhodnutí:** ADR-002, ADR-003, ADR-008, ADR-009, ADR-017.
+**Status:** V1 (draft). **Navazuje na ADR:** 002, 003, 008, 009, 017.
 **Účel:** kontrolní seznam při každém code review. Kód, který porušuje invariant, **není
 hotový**, i kdyby build a testy prošly.
 
@@ -79,8 +79,9 @@ Invarianty proti plýtvání v kritických cestách. Měří se po každém miln
 Invarianty proti rozlezení vrstev. Nejvíce pomáhají při review, protože odhalují
 neviditelné závislosti.
 
-- [ ] **Runtime nesmí záviset na kernel internals.** Runtime volá jen KI. Kernel nezná
-      jméno žádného runtime (Lua/Wasm/Native je za `Runtime.spawn`).
+- [ ] **Runtime nesmí záviset na kernel internals.** Runtime volá jen KI. Zbytek kernelu
+      nezná jméno žádného runtime — konkrétní runtime jméno zná jen `api/runtime`
+      (composition-root výjimka, ADR-006); Lua/Wasm/Native je vždy za `Runtime.spawn`.
 - [ ] **Lua nesmí zapisovat do kernelových struktur.** Veškerý přístup z Lua jde přes
       `api/*` moduly. Žádný přímý import `fb`, `pfa`, `idt` apod. z bindings.
 - [ ] **Renderer nesmí znát Lua VM.** Rendering je čistě Zig; žádná zpětná vazba na
@@ -91,12 +92,14 @@ neviditelné závislosti.
 - [ ] **Concurrency (M0–M6):** single-thread, kooperativní smyčka — **žádné locky
       nejsou potřeba**, protože neběží dva kontexty najednou. Sdílený stav IRQ ↔ loop
       jde jen přes dokumentovaný mechanismus (atomická fronta událostí, `spec/input.md`).
-- [ ] **Concurrency (M7+):** preemptivní RR scheduler na jednom jádře (ADR-017).
-      „Žádné locky“ se transformuje na: **kritické sekce se zakázanou preempcí**
-      (IRQ maska), žádné spinlocky/mutexy/atomy v běžném toku. Single-core — preempce
-      jen v IRQ od timeru, jediný kontext přepnutí. **Kritické sekce pokrývají i sdílené
-      struktury alokátorů** (PFA bitmapa + hinty, heap free-list) — ne jen TCB tabulku
-      scheduleru (`mem/pfa.zig`, `mem/heap.zig`, `cpu/irq.zig`).
+- [ ] **Concurrency (M7+):** preemptivní RR scheduler, **BSP-only** (ADR-017) — APy po
+      bring-up idlují a neběží kernel práci (`cpu/smp.zig`), takže jediný bod přepnutí je
+      IRQ od timeru. „Žádné locky“ se transformuje na: **kritické sekce se zakázanou
+      preempcí** (IRQ maska), žádné spinlocky/mutexy/atomy v kernel-interních kritických
+      sekcích; pro **task-task synchronizaci** existují blokující primitiva
+      (`sched/sync.zig` — semafor, mutex, event group, message queue). **Kritické sekce
+      pokrývají i sdílené struktury alokátorů** (PFA bitmapa + hinty, heap free-list) —
+      ne jen TCB tabulku scheduleru (`mem/pfa.zig`, `mem/heap.zig`, `cpu/irq.zig`).
 - [ ] **Žádný cross-layer import napřímo:** `shell → api/* → (renderer, runtime, ...) →
       (fb, pfa, ...)`. Jakákoli odchylka = porušení KI (viz `kernel-interface.md` §4).
 

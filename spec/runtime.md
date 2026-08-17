@@ -1,6 +1,6 @@
 # Runtime — Spouštění programů
 
-**Status:** V1 (draft). **Rozhodnutí:** ADR-006, ADR-011, ADR-017.
+**Status:** V1 (draft). **Navazuje na ADR:** 006, 011, 017.
 
 ---
 
@@ -27,7 +27,7 @@ Runtime se nesmí rozlézat po kernelu.
 
 ```zig
 pub const RuntimeKind = enum(u8) {
-    Lua = 0,     // jediný reálný kind v M0–M6
+    Lua = 0,     // jediný reálný kind v M0–M6 (Wasm přibyl v M7)
     Wasm = 1,    // M7, wasm3
     Native = 2,  // výhledově: nativní Zig modul
 };
@@ -45,29 +45,32 @@ pub const Program = struct {
 };
 ```
 
-> **M0–M6: `Program` je logický placeholder, ne nezávislý lifecycle model.** V M6
-> existuje **jeden globální `lua_State`** (shell) a `spawn(.Lua, ...)` nevytváří nový
-> program — jen spustí `main.lua` na sdíleném státu a vrátí identifikátor provedení.
-> `kill`/`status` jsou `NotSupported`. **M7:** `Program` se stává schedulable execution
-> context — per-program `lua_State`/Wasm modul, preemptivní scheduler (ADR-017). Do M7
-> se `Program.handle` nesmí interpretovat jako handle na izolovaný program.
+> **M0–M6: `Program` byl logický placeholder, ne nezávislý lifecycle model.** Existoval
+> **jeden globální `lua_State`** (shell) a `spawn(.Lua, ...)` nevytvářel nový program —
+> jen spustil `main.lua` na sdíleném státu a vrátil identifikátor provedení; `kill`/
+> `status` byly `NotSupported`. **Od M7** je `Program` schedulable execution context:
+> `lua.spawnProgram` vytváří **per-program `lua_State`** (program se tickuje přes
+> `tickPrograms()`, chyba/nekonečná smyčka je izolovaná) a `Runtime.spawn(.Wasm)`
+> spouští wasm programy; preemptivní scheduler (ADR-017). `kill`/`status` zůstávají
+> `NotSupported`.
 
 Sub-op čísla pro `Runtime` v KI: `0=spawn`, `1=kill`, `2=status` (rozšiřitelné).
 
 ---
 
-## 3. Životní cyklus (M0–M6 zjednodušený)
+## 3. Životní cyklus
 
-Pro jediný Lua runtime platí:
+Pro shell a spawnuté programy platí:
 
 ```
-boot → runtime.init()          // vytvoří globální lua_State
-     → runtime.spawn(.Lua, "main") → Program
-     → event loop běží uvnitř shellu
+boot → runtime.init()          // vytvoří lua_State shellu
+     → runtime.spawn(.Lua, "main") → Program (shell)
+     → spawn dalších programů → per-program lua_State / Wasm instance (M7)
+     → event loop běží uvnitř shellu; programy tickuje tickPrograms()
 ```
 
-- Zjednodušení: v M6 je Lua **vestavěný a jediný** program (shell). `spawn` je připravené,
-  ale reálně běží jen "main" a nevytváří nezávislý program (§2).
+- Shell je vestavěný program; od M7 existují i spawnuté programy ve vlastních státech
+  (`lua.spawnProgram` / `Runtime.spawn(.Wasm)`), izolované od shellu i navzájem.
 - Kill/restart shellu (hot reload) = re-inicializace Lua státu bez restartu systému.
 
 ---
@@ -158,11 +161,9 @@ Lua běží vestavěně v jádře (Ring 0) — chyba skriptu **nesmí shodit ker
   resetu stroje** neexistuje (single address space; re-init kernelu = reboot) — to je
   smysl F5: levnější než reboot. `Reboot` je **čistě kernel-level** operace — UI je
   always-live (`spec/lua-wm.md` §1) a restart nikdy nevystavuje (`power` binding v Lua
-  neexistuje). **Otevřený bod pro M7 design:** až vzniknou per-program kontexty
-  (ADR-017), kernel/scheduler bude umět rozlišit **dvě úrovně reloadu** — částečný
-  reload shellu (jen UI) vs. plné teardown programů (ukončí se i ostatní běžící
-  programy). Kdo přesně co spouští, se rozhodne v M7; dnes existuje jen jedna úroveň
-  (F5 = celý shell).
+  neexistuje). **Dvě úrovně reloadu (M7):** per-program `lua_State` existuje, ale F5
+  reloaduje jen shell; teardown ostatních běžících programů při reloadu se řeší
+  samostatně (programy se tickují nezávisle, nezávisí na shellu).
 - **Marshalling je bezpečnostní hranice:** bindingy striktně validují typ a rozsah
   hodnot z Lua stacku (viz §4 + fuzz testy v `spec/verification.md` §3).
 - **Chyba v `update()`/`render()` spouští hot reload (M5):** `callUpdate`/`callRender`
@@ -181,13 +182,14 @@ Lua běží vestavěně v jádře (Ring 0) — chyba skriptu **nesmí shodit ker
 `callRender`) má **instrukční rozpočet** (`LUA_MASKCOUNT` count hook, konstanta
 `instruction_budget` v `lua/lua.zig`): překročení vyvolá Lua chybu, kterou **stejný
 `lua_pcall` mechanismus jako runtime chybu** zachytí → `CallResult.err` → event loop
-spustí hot reload. Nekonečná smyčka tak **nezamrazí UI natrvalo** — vyvolá error
+spustí hot reload. Nekonečná smyčka tak **nezamrzí UI natrvalo** — vyvolá error
 containment/reload jako každá jiná chyba skriptu (ověřeno runtime testem „infinite
-loop containment"). **Reziduální omezení:** memory leak z nekonečné alokační smyčky
-rozpočet nezachytí (chyba se jen opakuje po každém reloadu, dokud se skript
-neopraví), a rozpočet běží na sdíleném `lua_State` — izolaci mezi programy zajistí až
-per-program `lua_State` po `spawn` (ADR-017, roadmapa M7). Preemptivní scheduler
-(ADR-017) problém zmírňuje jen částečně, protože shell běží na hlavním kontextu.
+loop containment"). **Per-program izolace (M7):** spawnuté programy běží ve vlastním
+`lua_State` (`lua.spawnProgram`), takže nekonečná smyčka/chyba jednoho programu
+neshodí shell ani ostatní programy (ověřeno runtime testem „per-program isolation").
+**Reziduální omezení:** memory leak z nekonečné alokační smyčky rozpočet nezachytí
+(chyba se jen opakuje po každém reloadu, dokud se skript neopraví); shell samotný
+běží na hlavním kontextu.
 
 ---
 
@@ -308,15 +310,21 @@ způsobit pauzy mimo render — ohrožuje KPI `frame latency (p99) < 16 ms`
 
 ---
 
-## 7. Wasm (M7) — pravidla předem
+## 7. Wasm (M7) — stav a pravidla
 
 - Runtime = wasm3 (vendored, C, MIT).
 - Program v Wasm běží v **sandboxu** — vlastní lineární paměť (izolace je pro Wasm
   přirozená), pasti (OOB, dělení nulou) se zachytí bez shození hostitele; padlý program
-  se zahodí, desktop běží dál.
-- Komunikace s UI přes bindings + sdílené buffery (viz `spec/graphics.md` budoucí cesta).
-- **Kernel nepřijme žádný Wasm-specifický kód.** Vše je za `Runtime.spawn`.
-- Před nasazením: benchmark vs. Lua (kvalitní metriky v `roadmap.md`).
+  se zahodí, desktop běží dál. **Hotovo (Fáze A):** trap containment v `wasm.zig`,
+  ověřeno `fault` programem.
+- Komunikace s UI: domácí wasm programy volají Aster bindings přes wasm importy
+  (marshalling přes lineární paměť; import surface je Fáze B, vlastní ADR v plánu).
+  Dnes má `hello` jen import `debug_write`.
+- **Kernel mimo `api/runtime` nepřijme žádný Wasm-specifický kód.** Vše je za
+  `Runtime.spawn`; konkrétní runtime jméno zná jen `api/runtime` (composition-root
+  výjimka, ADR-006).
+- Benchmark wasm vs Lua je Fáze C (kvalitní metriky v `roadmap.md`); nasazení
+  proběhlo v M7 bez benchmarku, benchmark je dluh před uzavřením M7.
 
 ### 7.1 Dvě úrovně Wasm
 
@@ -333,7 +341,7 @@ Wasm má v Aster OS **dvě odlišné role**, které se nesmí zaměňovat:
 WASI syscall čísla na KI volání (`debug.write`, `net.*`, `storage.*`, ...). Kernel
 nikdy nevidí WASI — vidí jen svá vlastní KI volání. Tím zůstává `non-goals.md`
 pravdivé: **kernel nemá žádná POSIX API**, ale *runtime* může hostit WASI pro cizí
-aplikace — stejně jako hostuje prohlížeč v Luay (ADR-020).
+aplikace — stejně jako hostuje prohlížeč v Lua (ADR-020).
 
 **Nasazení a omezení:**
 - Začíná se **podmnožinou WASI** (stdout, argv, filesystem) — ne plná WASI najednou.

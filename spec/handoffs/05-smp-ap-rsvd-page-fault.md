@@ -113,8 +113,8 @@ Nejlepší bod pro hraní si s trampolinou: `smp.init` (kopie + data) a `smp.bri
 
 ## 6. Důležité artefakty
 
-- `src/kernel/cpu/smp_tramp.s` — trampolina (16/32-bit hotová; paging v ní spouští
-  RSVD; **`lm64`/`ljmp` dosud nedořešené**).
+- `src/kernel/cpu/smp_tramp.s` — trampolina (16/32-bit + `ljmp` do 64-bit long mode;
+  fix dle statusu výše — `smp_lm64` už není mrtvý kód).
 - `src/kernel/cpu/smp.zig` — `init`/`bringUp`/`apEntry`, `ap_ready` atomika,
   `ap_stacks` (16 KiB/AP), marks v bloku trampoliny.
 - `src/kernel/cpu/apic.zig` — IPI (`sendInitIpi` s deassertem, `sendSipi`),
@@ -127,8 +127,9 @@ Nejlepší bod pro hraní si s trampolinou: `smp.init` (kopie + data) a `smp.bri
 ## 7. Omezení a podezřelé okolnosti
 
 - Testováno **jen v QEMU** (KVM i TCG), ne na reálném hardwaru.
-- **64-bit long mode přechod nikdy nebyl dosažen** — AP vždy parkoval v 32-bit
-  compatibility módu (CS=0x8/0x10); hypotéza §4.1 není otestovaná.
+- **64-bit long mode přechod je hotový** (status výše); AP po probuzení načte sdílenou
+  IDT, zapne vlastní LAPIC, `fetchAdd(ap_ready)` a idluje (`sti; hlt`). Hypotéza §4.1
+  je tím vyřešena.
 - **Nahrazení Limine `PML4[0]` bylo odvoláno** (uživatel: příliš odvážné) — vrátit
   se k tomuto řešení jen jako poslední možnost a po dohodě.
 - AP COM1 interference je **druhotný efekt** reset smyčky (firmware re-bootuje OS na
@@ -138,7 +139,7 @@ Nejlepší bod pro hraní si s trampolinou: `smp.init` (kopie + data) a `smp.bri
   žádné sdílené scheduler stavy.
 - `build.zig` byl při ladění přepnut `single_threaded` → `false` a zpět na `true`
   (atomics na AP by při `true` mohly být optimalizované na plain — aktuálně irelevantní,
-  AP se neprobudí).
+  AP sdílí jen `ap_ready` atomiku).
 
 ## 8. Ideální výsledek
 

@@ -1,7 +1,7 @@
 # Aster OS — Architektonický přehled
 
-**Verze:** 1.2 (draft)
-**Status:** Current design — Schváleno k implementaci (M0–M6 hotovo; M7 Runtime rozpracovaný — scheduler, editor/files, koš, zálohy `.lua`, historie REPL)
+**Verze:** 1.3 (konsolidace)
+**Status:** Current design — Schváleno k implementaci (M0–M7 hotovo; M8 Stabilizace — oddělení do Ring 3)
 
 > Tento dokument je **hlavním architektonickým přehledem** projektu. Zachycuje aktuální
 > návrh a jeho rozhodnutí. Slouží jako referenční bod pro konzultaci návrhu architektury a
@@ -11,10 +11,9 @@
 > specifikace v `spec/*.md` (viz index níže). Tento dokument je **přehledový**: čte se
 > celý, dílčí dokumenty až na vyžádání.
 >
-> **Dvě roviny:** §3 popisuje **Current architecture** (co je implementované v M0–M6,
-> `src/`). §4 popisuje **Target architecture** (M7+: Wasm runtime, per-program státy,
-> oddělení do Ring 3). Dokument neprezentuje target jako hotový — kde se Current a Target
-> liší, je to výslovně řečeno.
+> **Dvě roviny:** §3 popisuje **Current architecture** (co je implementované v M0–M7,
+> `src/`). §4 popisuje **Target architecture** (M8+: oddělení do Ring 3). Dokument
+> neprezentuje target jako hotový — kde se Current a Target liší, je to výslovně řečeno.
 
 ---
 
@@ -87,11 +86,11 @@ důsledek manifestu.
 ║         ZIG KERNEL         ║
 ║           RING 0           ║
 ║                            ║
-║       # M0–M6              ║
+║       # M0–M7              ║
 ║                            ║
 ║  CPU / MEMORY / IRQ        ║
-║  STORAGE (M6)              ║
-║  DRIVERS / SCHEDULER (M7+) ║
+║  STORAGE (M6/M7)           ║
+║  DRIVERS / SCHEDULER (M7)  ║
 ║  / IPC (M8+) / CORE SRVS   ║
 ╚═══════════╤════════════════╝
             │
@@ -106,7 +105,7 @@ důsledek manifestu.
   ▼               ▼
 ┌──────────────┐  ┌──────────────────────┐
 │ LUA RUNTIME  │  │     WASM RUNTIME     │
-│     # M4     │  │       # M7/M9        │
+│     # M4     │  │       # M7           │
 └──────┬───────┘  │                      │
        │ ▲        │ ┌──────────────────┐ │
        │ └──────┐ │ │    ASTER APPS    │ │
@@ -121,7 +120,7 @@ důsledek manifestu.
                   └──────────────────────┘
 ```
 
-### 3.1 Current architecture (M0–M6, implementováno)
+### 3.1 Current architecture (M0–M7, implementováno)
 
 > **WM architektura:** desktop shell je „WM jako Lua kód" — architektonický vzor
 > **AwesomeWM** (kernel = primitiva, Lua = WM logika; od 2007 ověřený na X11).
@@ -130,24 +129,29 @@ důsledek manifestu.
 > licence/původ: `THIRD-PARTY-NOTICES.md` §5a.
 
 ```text
-Lua shell (desktop, vendored Lua 5.4)
-   │  KI bindings → sys.dispatch()
-   ▼
-KERNEL ROZHRANÍ (KI) — api/* (dispatch vrstva)
+Lua shell (desktop, vendored Lua 5.4)      Wasm programy (wasm3, M7)
+   │                                            │
+   │  KI bindings → sys.dispatch()              │
+   ▼                                            ▼
+KERNEL ROZHRANÍ (KI) — api/* (dispatch vrstva)   (api/runtime.spawn)
    │
    ├── graphics API ──→ renderer ──→ framebuffer (GOP/Limine)
    ├── input API ─────→ input/service ──→ fronta ← PS/2 IRQ, APIC timer
-   ├── runtime API ───→ lua (jediný vestavěný program)
+   ├── runtime API ───→ lua / wasm (per-program státy)
    ├── timer API ─────→ time.zig (monotónní tick)
    ├── sysmon API ────→ mem.Memory.stats()
    ├── debug API ─────→ serial (privilegovaný diagnostický sink)
    └── power API ─────→ i8042 reset
 
 kernel/main.zig = jediný privileged composition root
-   │  (sestavuje mem, cpu/idt+apic, drivery, fs, renderer, cursor, lua)
+   │  (sestavuje mem, cpu/idt+apic+smp, sched, drivery, fs, renderer, cursor,
+   │   runtime, lua, wasm)
    ▼
-subsystémy: mem/pfa+heap, cpu/idt+apic+time, drivers (ps2, virtio-blk),
-            fs (gpt, ext2, file), render (renderer, font, mouse_cursor)
+subsystémy: mem (pfa, heap, page_map), cpu (idt, apic, acpi, smp), sched (task,
+            sync), drivers (ps2, virtio-blk, block, pci, pic, irq), fs (gpt, ext2,
+            file, tar), render (renderer, font, mouse_cursor), input (service,
+            layout, queue), wasm (hostitel), apps (hello, fault), time/rtc,
+            bootlog, libc, serial
 ```
 
 **Kurzor myši je privilegovaný graphics overlay**, ne součást Rendereru ani Input
@@ -157,33 +161,37 @@ stav do `input/service`; service o framebufferu neví. Framebuffer je interní z
 graphics subsystemu — běžné kreslení jde výhradně přes Renderer, privilegovaný overlay
 přes `mouse_cursor` (viz `spec/graphics.md` §7).
 
-**M6 storage:** `virtio-blk → Block Device API → GPT → ext2 → File API`. File API je
-**ext2-specific adapter** (ADR-023 — backend abstraction až s druhým backendem).
+**Storage (M6/M7):** `virtio-blk → Block Device API → GPT → ext2 → File API` (read-write
+od M7.1). File API je **ext2-specific adapter** (ADR-023 — backend abstraction až
+s druhým backendem).
 
-### 3.2 Target architecture (M7+, oddělení)
-
-Výše popsané rozhraní zůstává; mění se obsah vrstev:
+### 3.2 Runtime (M7, implementováno)
 
 ```text
 Shell / UI (Lua)    Aplikace (Wasm — wasm3, M7)
    │                 │
    └───── KI ────────┘  (aplikace psané pro Aster volají Aster bindings)
    ▼
-Runtime (generický): per-program lua_State/Wasm → scheduler (ADR-017)
+Runtime (generický): per-program lua_State / Wasm instance → scheduler (ADR-017)
    ▼
-Program lifecycle: spawn / kill / status (M7)
+Program lifecycle: spawn / status (M7)
 ```
 
-- **M7:** Runtime přestává být "jeden vestavěný Lua program" — `spawn()` vytváří
-  per-program státy, scheduler preemptuje, `Program` je schedulable execution context
-  (do M6 je to logický placeholder, `spec/runtime.md` §2).
-- **M8+ (oddělení):** subsystémy se stěhují za stabilní KI do Ring 3 (ADR-018); KI
-  volání se z přímých stávají IPC — **bez změny volajícího kódu**. Přibudou
-  memory protection, syscalls a MMU (žádné MMU v M0–M6).
-- **Wasm je hostován za generickým Runtime API** (ADR-011): kernel nepřijme žádný
-  Wasm-specifický kód, vše za `Runtime.spawn`.
+- **M7:** Runtime není "jeden vestavěný Lua program" — `spawn()` vytváří per-program
+  státy, scheduler preemptuje, `Program` je schedulable execution context. Wasm3 je
+  vendored a hostován za generickým Runtime API (ADR-011): konkrétní runtime jméno
+  zná jen `api/runtime` (composition-root výjimka, ADR-006); zbytek kernelu jde vždy
+  přes `Runtime.spawn`.
 
-### 3.3 Čtyři pilíře
+### 3.3 Target architecture (M8+, oddělení do Ring 3)
+
+Výše popsané rozhraní zůstává; mění se obsah vrstev:
+
+- **M8+ (oddělení):** subsystémy se stěhují za stabilní KI do Ring 3 (ADR-018); KI
+  volání se z přímých stávají IPC — **bez změny volajícího kódu**. Přibudou memory
+  protection, syscalls a MMU (žádné MMU v M0–M7).
+
+### 3.4 Čtyři pilíře
 
 1. **Evoluční SASOS** — jeden adresní prostor, Ring 0, žádné MMU/syscall/IPC režie.
    Lua, Wasm, UI = obyčejná volání funkcí.
@@ -209,12 +217,12 @@ aby pozdější konsultace návrhu měla k dispozici *proč*, ne jen *co*.
 | [003](adr/003-stable-interfaces-day-one.md) | Stabilní rozhraní od prvního dne | Accepted |
 | [004](adr/004-kernel-interface-not-abi.md) | Kernel Interface (KI), ne ABI | Accepted |
 | [005](adr/005-renderer-layer.md) | Renderer jako samostatná vrstva | Accepted |
-| [006](adr/006-generic-runtime-api.md) | Generické Runtime API | Accepted |
+| [006](adr/006-generic-runtime-api.md) | Generické Runtime API | Accepted — implementováno (Wasm v M7) |
 | [007](adr/007-lua-5-4-vendored.md) | Lua 5.4 vendored, staticky, ne LuaJIT | Accepted |
-| [008](adr/008-event-loop-not-mlfq.md) | Scheduler: událostní smyčka, ne MLFQ | Accepted |
+| [008](adr/008-event-loop-not-mlfq.md) | Scheduler: událostní smyčka, ne MLFQ | Superseded ADR-017 (pro M7) |
 | [009](adr/009-minimal-rendering-primitives.md) | Minimální renderovací primitiva | Accepted |
-| [010](adr/010-no-filesystem-yet.md) | Žádný souborový systém, dokud nebude potřeba | Accepted |
-| [011](adr/011-wasm3-later.md) | wasm3 později, šev Runtime → Program | Accepted |
+| [010](adr/010-no-filesystem-yet.md) | Žádný souborový systém, dokud nebude potřeba | Superseded ADR-023 |
+| [011](adr/011-wasm3-later.md) | wasm3 později, šev Runtime → Program | Accepted — implementováno (M7) |
 | [012](adr/012-limine-bootloader.md) | Limine bootloader | Accepted |
 | [013](adr/013-zig-version-pinning.md) | Pinning Zigu mimo název projektu (.zig-version) | Accepted |
 | [014](adr/014-deterministic-build.md) | Deterministický build | Accepted |
@@ -245,8 +253,7 @@ Přiznaná dopředu, aby nebyla později "objevem". Rizika se řídí, ne ignoru
 | **Embedded Lua v jádře** | Lua VM běží s plným oprávněním; bug VM nebo bindingů = pád systému. | Vendored stabilní verze, minimální binding plocha, host testy marshallingu. |
 | **Žádná MMU izolace** | Není hardwarová hranice mezi komponentami. | Jazyková izolace: Lua/Wasm v sandboxu (managed runtime); ADR-002; non-goal do budoucna. |
 | **Žádné userspace ovladače** | Ovladače (PS/2, timer) běží v jádře; jejich bug = pád. | Malý, kontrolovaný kód; QEMU smoke test jako záchyt. |
-| **Žádná perzistence před M6** | Nelze uložit konfiguraci/editor do M6. | Vědomé non-goal (`spec/non-goals.md`); embedded assety to kompenzují. |
-| **Jednojadro** | Single-core; SMP by byl zásah do scheduleru a paměti. | Non-goal (`spec/non-goals.md`); architektura jednojadro umožňuje měřit. |
+| **SMP dluh** | SMP bring-up je hotový, ale **scheduler je BSP-only** — APy idlují a neběží kernel práci; paralelní výkon se nevyužije. | Vědomý stav (`spec/non-goals.md`); AP práci na kernel taskách řešit, až to metriky vyžadují (ADR-015). |
 | **Dokumentace těžší než kód** | Přerostení plánování do nekonečna. | Tento dokument je přehledový; detaily až na vyžádání; každé měřitelné rozhodnutí se ověřuje v kódu. |
 
 ---
@@ -257,11 +264,12 @@ Přiznaná dopředu, aby nebyla později "objevem". Rizika se řídí, ne ignoru
 |---|---|
 | **SASOS** | Single Address Space Operating System — jeden adresní prostor, vše Ring 0. **Radikálnější varianta klasických SASOS** (Opal, Nemesis aj.): akademické systémy měly hardwarovou ochranu mezi doménami, Aster žádnou — ochrana je čistě jazyková (Lua/Wasm managed) a sdílený stav se chrání zakázáním preempce (ADR-017). |
 | **KI** | Kernel Interface — stabilní rozhraní mezi jádrem a zbytkem systému. Budoucí základ ABI. |
-| **Renderer** | Vrstva mezi Graphics API a Framebufferem; dnes `fillRect`/`blit`/`glyph`, zítra GPU/IPC. |
+| **Renderer** | Vrstva mezi Graphics API a Framebufferem; dnes `fillRect`/`blit`/`glyph` + rozšířená primitiva (roundRect, rectBorder, gradientBorder, ADR-021), zítra GPU/IPC. |
 | **Runtime** | Vrstva odpovědná za spouštění programů (`Runtime.spawn`), abstrahuje Lua/Wasm/Native. |
 | **Program** | Výsledek `spawn()` — handle na běžící modul. |
+| **Surface** | Technický termín pro **kreslicí target** programu (např. vlastní okno wasm programu); nezaměňovat s barvou `surface` v `theme.lua`. |
 | **Event loop** | Hlavní smyčka `poll() → update() → render()`. |
-| **Embedded asset** | Zdroj (lua skript, font) zakompilovaný do binárky. |
+| **Embedded asset** | Zdroj (lua skript, font) distribuovaný v initrd taru (Limine module). |
 
 ---
 
@@ -269,7 +277,7 @@ Přiznaná dopředu, aby nebyla později "objevem". Rizika se řídí, ne ignoru
 
 ```
 aster-os/
-├── build.zig / build.zig.zon     # `zig build run` → QEMU, `zig build test` → host testy
+├── build.zig                      # `zig build run` → QEMU, `zig build test` → host testy
 ├── .zig-version                  # exaktní verze toolchainu (0.16.0)
 ├── README.md                     # manifest + odkaz na .zig-version
 ├── spec/                         # TENTO SOUBOR + dílčí specifikace
@@ -289,35 +297,43 @@ aster-os/
 │   ├── timer.md                  # čas: tick zdroj (M2), KI timer, kooperativní sleep
 │   ├── memory.md                 # paměť: PFA, heap alokátor, lua_Alloc
 │   ├── invariants.md             # Safety / Performance / Architecture
-│   ├── roadmap.md                # M0–M8 + kvalitní metriky
+│   ├── roadmap.md                # M0–M10 + kvalitní metriky
 │   ├── verification.md           # verifikační pipeline + deterministický build
 │   ├── debugging.md              # Debugging Survival Guide (GDB, serial dump)
-│   ├── troubleshooting.md        # vyřešené pasti a lekce (C1..C43, H1..H7)
+│   ├── troubleshooting.md        # vyřešené pasti a lekce (C1..C51, H1..H7)
 │   ├── 2026-08-15-self-audit.md       # kompletní repo audit
+│   ├── 2026-08-16-re-audit.md        # navazující re-audit (opravené nálezy)
 │   ├── handoff.md                # postup pro nevyřešené problémy
 │   └── handoffs/                 # handoff dokumenty (open/closed)
 ├── src/
-│   ├── kernel/                   # boot/, cpu/ (idt, apic, timer), mem/ (pfa, heap,
-│   │   │                         # page_map), drivers/ (ps2, virtio-blk, block),
-│   │   │                         # fb/ (framebuffer), render/ (renderer, font,
+│   ├── kernel/                   # boot/ (boot, limine, boot_info), cpu/ (idt, apic,
+│   │   │                         # acpi, smp, pic, irq, io), mem/ (pfa, heap, page_map,
+│   │   │                         # mem, cache_attr), drivers/ (ps2, virtio-blk, block,
+│   │   │                         # pci), fb/ (framebuffer), render/ (renderer, font,
 │   │   │                         # mouse_cursor), input/ (service, layout, queue),
 │   │   │                         # fs/ (gpt, ext2, file, tar), sched/ (task, sync),
-│   │   │                         # serial/, lua/ (Lua 5.4 binding + ui/ shell moduly),
-│   │   │                         # api/ (KI dispatch), sys/ (syscalls)
-│   └── kernel/lua/ui/            # desktop shell v Luay: theme, wm, repl, editor,
+│   │   │                         # wasm/ (hostitel), apps/ (hello, fault),
+│   │   │                         # lua/ (Lua 5.4 binding + ui/ shell moduly),
+│   │   │                         # api/ (KI dispatch — vč. sys.zig, storage.zig),
+│   │   │                         # + time.zig, rtc.zig, bootlog.zig, libc.zig, serial.zig
+│   └── kernel/lua/ui/            # desktop shell v Lua: theme, wm, repl, editor,
 │                                 # files, launcher, input, main (concatenované)
 ├── libs/
 │   ├── limine/                   # vendored bootloader + hlavičky
-│   └── lua-5.4/                  # vendored Lua 5.4 zdroj
+│   ├── lua-5.4/                  # vendored Lua 5.4 zdroj
+│   └── wasm3/                    # vendored wasm3 interpreter (M7)
 ├── tests/                        # host unit testy (pfa, heap, graphics, input, fs,
 │                                 # cpu, queue, libc) + tests/lua/ shell regrese
 ├── tools/
 │   ├── qemu-smoke.sh             # serial marker + timeout
 │   ├── qemu-test.sh              # in-QEMU runtime testy (isa-debug-exit 99)
+│   ├── qemu-accel.sh             # KVM/TCG akcelerace pro QEMU běhy
 │   ├── capture-boot.sh           # regenerace boot-log.md
 │   ├── sync-docs.sh              # EN web vs spec timestamp brána
 │   ├── make-test-disk.sh         # deterministický ext2 test disk
 │   ├── lua-shell-test.sh         # host běh tests/lua shell regresí
+│   ├── verify-reproducible.sh    # deterministický build check (ADR-014)
+│   ├── generate-changelog.sh     # generátor CHANGELOG.md
 │   ├── install-hooks.sh          # pre-push hooky
 │   └── bench.sh                  # měření metrik
 └── zig-out/                      # výstup: aster.iso, boot/ (fixní cesta)
@@ -330,9 +346,9 @@ aster-os/
 | Dokument | Obsah |
 |---|---|
 | `manifest.md` | Filozofie projektu — jednoduchost před izolací, evolvabilní rozhraní. |
-| `non-goals.md` | Co systém vědomě nedělá (POSIX, SMP, USB, networking, ...). |
+| `non-goals.md` | Co systém vědomě nedělá (POSIX, USB, networking, práce AP jader, ...). |
 | `code-style.md` | Pravidla struktury kódu a návrhu modulů (kontrolní seznam pro review). |
-| `adr/` | Architektonická rozhodnutí (ADR-001..023), každé v samostatném souboru. |
+| `adr/` | Architektonická rozhodnutí (ADR-001..025), každé v samostatném souboru. |
 | `kernel-interface.md` | KI: sys.dispatch, syscall čísla, interface moduly, pravidla verzování. |
 | `graphics.md` | Graphics API / Renderer / Framebuffer — vrstvy a povolené operace. |
 | `desktop-ui.md` | Desktop UI — port vzhledu/chování z cachyos-hypr-noctalia, reimplementováno (bar, launcher, okna, widgety). |
@@ -343,7 +359,7 @@ aster-os/
 | `timer.md` | Čas: tick zdroj (M2), KI `timer`, kooperativní sleep. |
 | `memory.md` | Paměť: PFA, obecný alokátor, `lua_Alloc`, cache atributy. |
 | `invariants.md` | Bezpečnostní, výkonnostní a architektonické invarianty (kontrolní seznam pro review). |
-| `roadmap.md` | Milníky M0–M8 s kritérii "hotovo" + tabulka kvalitních metrik. |
+| `roadmap.md` | Milníky M0–M10 s kritérii "hotovo" + tabulka kvalitních metrik. |
 | `verification.md` | Verifikační pipeline (Zig), deterministický build, pravidlo bootovatelného commitu. |
 | `debugging.md` | Debugging Survival Guide — GDB+QEMU, čtení serial dumpu, pravidla pro IRQ. |
 | `troubleshooting.md` | Vyřešené pasti a lekce (Zig 0.16, Limine, heap, PS/2 myš). |

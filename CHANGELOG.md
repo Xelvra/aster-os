@@ -43,6 +43,26 @@ This version tracks the milestone after M6 Storage was completed.
   itself — causing infinite tail recursion (troubleshooting C51). Host tests
   cover them, including `rint` ties-to-even and signed zero.
 
+* **Wasm (M7) — Fáze A runtime module and test programs:** `src/kernel/wasm/`
+  hosts wasm3 (`cimport.zig`, `wasm.zig` with `Runtime.spawn(.Wasm)` and trap
+  containment) and the kernel links wasm3 as a sandbox module (PIC, so Debug
+  links like the kernel PIE). The first wasm programs are compiled from Zig to
+  `wasm32-freestanding` and packed into the initrd: `hello` (writes via a
+  `debug_write` import) and `fault` (deliberate trap, proving a crashing wasm
+  program is dropped while the desktop keeps running). Executable `.wasm`
+  files render green in the file browser (`theme.exec`). Next: surface model +
+  calculator (Fáze B), benchmark (Fáze C).
+
+* **C stdio layer over the kernel storage (WIP, handoff H6):** `fopen`/`fread`/
+  `fclose`/`feof`/`ferror`/`getc`/`freopen` map onto the KI storage handles so
+  stock Lua file functions (`dofile`, `loadfile`) read files from the disk.
+  **Broken:** the presence of this code breaks `file.open` in qemu-test
+  (layout-sensitive storage regression) — the dofile test stays disabled until
+  handoff H6 is resolved. `diag_verify_reads` (default off) in the virtio
+  driver repeats every DMA read and compares the copies (`VIO-DIFF`) and
+  sentinel-checks the buffer (`VIO-STALE`) to pinpoint the fault on a failing
+  machine.
+
 * **SMP groundwork — Application Processor bring-up (M2/M7 debt):** the MADT
   parser now collects the Local APIC IDs of the enabled Application Processors
   (`acpi.zig`), the Local APIC driver gains an IPI layer (`sendInitIpi` with
@@ -60,10 +80,10 @@ This version tracks the milestone after M6 Storage was completed.
 
 * **WM configuration directory on the disk (`/wm/`):** the disk config that
   used to sit loose at the filesystem root now lives in a dedicated `/wm/`
-  directory — `/wm/theme.lua` (colors and geometry, hot-reloaded on save),
+  directory —   `/wm/theme.lua` (colors and geometry, hot-reloaded on save),
   `/wm/api.lua` (Lua API reference) and `/wm/.theme.bak` (last valid theme
   backup); the user guide is the root `/README`. The root stays clean (only
-  `apps/`, `.trash/`, `README`, `.repl_history`). Moving the full Lua shell
+  `apps/`, `.trash/`, `wm/`, `README`, `.repl_history`). Moving the full Lua shell
   from the initrd into `/wm/` is planned as a later milestone (Úroveň 2,
   `spec/roadmap.md` M8, `spec/lua-wm.md` §3.1).
 
@@ -87,7 +107,7 @@ This version tracks the milestone after M6 Storage was completed.
 
 * **ext2 file.create (M7.1.11):** the write path can now create new files —
   `file.create` allocates and initializes an inode and links a directory entry
-  (ADR-023, non-crash-safe best effort). Exposed through the thin File API, the
+  (ADR-023, non-crash-safe best effort). Exposed through the thin Aster File API, the
   storage KI (`storage.create`) and the Lua `file.create` binding; covered by
   host and in-QEMU runtime tests.
 
@@ -156,12 +176,13 @@ This version tracks the milestone after M6 Storage was completed.
   backup back; non-Lua files and freshly created files get no backup.
 
 * **Lua shell regression suite:** the real shell modules run on the host
-  against stubbed kernel bindings (`tests/lua/`) — 12 tests covering the UTF-8
+  against stubbed kernel bindings (`tests/lua/`) — 34 tests covering the UTF-8
   helpers, editor typing/cursor, basename backups, the broken-theme save trap,
   protected dirs via the `wm_error` channel, workspace bounds, shared
   bar/launcher geometry, `esc_pending` and history persistence — wired as
-  `zig build shell-test` and run in CI. Host tests gained an SPSC queue suite
-  and a `libc` malloc/realloc bookkeeping suite (145 total).
+  `zig build shell-test` and run in CI. Host tests gained an SPSC queue suite,
+  a `libc` malloc/realloc bookkeeping suite and the wasm libc math tests
+  (160 total).
 
 * **ext2 double/triple indirect:** files larger than the single-indirect span
   (~4 MB at 4 KiB blocks) can now be read and written — `blockForIndex` and the

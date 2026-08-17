@@ -3,6 +3,10 @@
 **Status:** Accepted
 **Datum:** 2026-08-06
 
+> **Status update (2026-08-17):** superseded **pro M7** ADR-017 — od M7 je jádro
+> **preemptivní** (round-robin přes APIC timer). ADR-008 zůstává v platnosti pro
+> M0–M6 kooperativní smyčku.
+
 ## Rozhodnutí
 První verze má jedinou událostní smyčku `while(true) { poll(); update(); render(); }`.
 Žádný preemptivní plánovač, žádné MLFQ.

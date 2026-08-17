@@ -1,7 +1,7 @@
 # Handoff H4: double buffering (Phase 2) — heap corruption with a disk in QEMU runtime tests
 
 **Datum:** 2026-08-09
-**Status:** closed (ISR stub `isr_common` ukládal jen GPR, ne XMM registry — `handleIsrImpl` klaunuje XMM0 přes `movdqu`, takže timer IRQ mezi `movdqu` load/store alloc v kernelMain zničil XMM0 a do arg slotu runAll se zapsala poškozená data; fix XMM save/restore v `isr.s`, viz C33)
+**Status:** closed (ISR stub `isr_common` ukládal jen GPR, ne XMM registry — `handleIsrImpl` klaunuje XMM0 přes `movdqu`, takže timer IRQ mezi `movdqu` load/store alloc v kernelMain zničil XMM0 a do arg slotu runAll se zapsala poškozená data; fix XMM save/restore v `isr.s`, viz C35)
 
 ---
 
@@ -97,13 +97,14 @@ Pro symbolizaci: `zig build -Doptimize=Debug -Druntime-tests=true` →
 - `spec/troubleshooting.md` — vyřešené lekce (C32 low-memory; sem se po fixu přidá nová).
 - Heap kód: `src/kernel/mem/heap.zig` (nový `grow_end` v `BlockHeader`).
 - PFA: `src/kernel/mem/pfa.zig` (globální `pages_storage_global`).
-- Back buffer (Phase 2): v `src/kernel/main.zig` je **dočasně vypnutý** (renderer kreslí do framebufferu) — viz §3#5; při zapnutí je potřeba i fix z §4.
+- Back buffer (Phase 2): v `src/kernel/main.zig` — **hotovo od 2026-08-09** (viz §8
+  „Splněno"); během ladění byl dočasně vypnutý (renderer kreslil přímo do framebufferu).
 
 ## 7. Omezení a podezřelé okolnosti
 
 - Bez disku: všechny runtime testy PASS (vč. Lua reloadů) — takže reload sám o sobě nefaultuje, jen s určitou heap fragmentací.
 - S diskem: fault deterministicky v `testFilesystem` (heap alloc při `gpt.discover`/`readSector`), nezávisle na back bufferu a `max_pages_per_run`.
-- Back buffer (Phase 2) je v pracovním stavu **vypnutý** — render je přímý, present nepřipojen; Phase 2 nelze považovat za hotovou.
+- Back buffer (Phase 2) je od 2026-08-09 **hotový a připojený** (tento řádek je historický z doby ladění).
 
 ## 8. Ideální výsledek
 
@@ -114,6 +115,6 @@ Pro symbolizaci: `zig build -Doptimize=Debug -Druntime-tests=true` →
 
 > **Splněno 2026-08-09:** root cause = ISR klaunoval XMM registry (viz §3#9); qemu-test
 > s diskem vrací exit 99 (Debug i ReleaseSafe, 3× deterministicky), CI krok s diskem
-> vrácen, lekce v `troubleshooting.md` (C33). **Back buffer (Phase 2) hotový 2026-08-09:**
+> vrácen, lekce v `troubleshooting.md` (C35). **Back buffer (Phase 2) hotový 2026-08-09:**
 > renderer + kurzor myši kreslí do PFA back bufferu, `present` kopíruje back→front po
 > každém renderu (viz `spec/graphics.md` §7, `spec/roadmap.md` Fáze 2), myš hladká v QEMU.

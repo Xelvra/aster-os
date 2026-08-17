@@ -88,7 +88,7 @@ mke2fs -t ext2 -O ^dir_index -d <rootfs_dir> -E offset=$((2048 * 512)) <disk>.im
 ## Rozhraní (hranice)
 
 ```text
-Aster file API
+Aster File API
     ├── open(path)
     ├── read(handle, ...)
     └── close(handle)

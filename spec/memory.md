@@ -1,6 +1,6 @@
 # Memory — Správa paměti a alokátory
 
-**Status:** V1 (draft). **Rozhodnutí:** ADR-002, ADR-010, ADR-017.
+**Status:** V1 (draft). **Navazuje na ADR:** 002, 010, 017.
 **Rozsah:** fyzická správa paměti (PFA), obecný alokátor nad ní a vazba na `lua_Alloc`.
 
 ---
@@ -19,7 +19,8 @@
   Performance (`spec/invariants.md`).
 - Heap alokace jen když je nutná; preferuje se stack a statické buffery.
 - Paměť se nealokuje v IRQ kontextu; IRQ handler používá předem alokované struktury.
-- Kernel je jednojadrový do M7; od M7 je alokátor chráněn vypnutím preempce
+- Scheduler je **BSP-only** (SMP APy po bring-up idlují — `cpu/smp.zig`), takže jediný
+  bod preempce je IRQ od timeru na BSP; alokátor je chráněn vypnutím preempce
   (ADR-017), žádné locky. Konkrétně: manipulace se sdílenými strukturami alokátoru
   (PFA bitmapa + `next_free_hint`/`free_pages`, heap `free_list`) běží v kritické sekci
   s maskovanými IRQ — `cpu/irq.zig` (`InterruptGuard`, RFLAGS-based, vnořitelné: restore
@@ -58,11 +59,16 @@ Soubor: `src/kernel/mem/pfa.zig`.
 - **API:**
   ```zig
   pub const PageFrameAllocator = struct {
-      pub fn init(memory_map: LimineMemoryMap, bitmap_budget: usize) PfaError!Pfa;
-      pub fn allocPage(self: *Pfa, zero: bool) PfaError!u64;   // fyzická adresa
-      pub fn freePage(self: *Pfa, addr: u64) PfaError!void;
-      pub fn allocPages(self: *Pfa, count: usize, zero: bool) PfaError![]u64;
-      pub fn freePages(self: *Pfa, addrs: []const u64) void;
+      pub fn init(
+          memory_entries: []const boot_info.MemoryEntry,
+          hhdm_offset: u64,
+          bitmap: []u8,
+          bitmap_phys_page: ?u64,
+      ) PfaError!PageFrameAllocator;
+      pub fn allocPage(self: *PageFrameAllocator, zero: bool) PfaError!u64; // fyzická adresa
+      pub fn freePage(self: *PageFrameAllocator, addr: u64) PfaError!void;
+      pub fn allocPages(self: *PageFrameAllocator, count: usize, zero: bool) PfaError![]u64;
+      pub fn freePages(self: *PageFrameAllocator, addrs: []const u64) PfaError!void;
   };
   ```
 - **Chování:** `allocPage` najde první volný bit od `next_free_hint` (s wrap-around),

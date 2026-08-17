@@ -51,10 +51,10 @@ kterou jde spustit mimo cílový hardware:
   `roundRect` (střed vyplněný, roh oříznutý), `rectBorder` (obrys bez výplně),
   `gradientBorder` (interpolace po obvodu, monotonie),
 - font: fallback glyf, prázdný `space`,
-- console: psaní, wrap, backspace, scroll, clear,
 - input: `KeyCode` → ASCII (lower/upper, číslice, symboly, control → null),
-- binding marshalling,
 - kruhová fronta událostí.
+- (Lua binding marshalling a shell chování se testují v QEMU runtime testech, Krok 4b —
+  viz níže; hostitelský build Lua by duplikoval kernel konfiguraci.)
 
 **Marshalling jako bezpečnostní hranice** (spec `runtime.md` §5): binding testy
 zahrnují **negativní/adversarial vstupy** — špatné typy, záporné souřadnice,
@@ -96,7 +96,7 @@ se přidávají **runtime testy** — hostitelské testy už na ně nestačí:
   běžel věčně a skončil jen timeoutem skriptu (`QEMU_TEST_TIMEOUT`, default 30s).
   Oddělí „test selhal" (97) od „test se zasekl" (timeout).
 - **Rozsah:** věci nehostovatelné host unit testy — PFA na reálné paměti, IDT/fault
-  policy, tick/časovač, vstupní fronta, později Lua bindings a renderer (M4+).
+  policy, tick/časovač, vstupní fronta, Lua bindings a renderer (M4+).
 - DoD milníku zahrnuje zelený runtime test kromě host testů a smoke testu.
 
 > Rozhodnutí pro budoucí fázi: mechanismus se implementuje od M2, ne dřív (M0–M1
@@ -142,8 +142,8 @@ se přidávají **runtime testy** — hostitelské testy už na ně nestačí:
    (pacman může mít zpoždění a jinou verzi).
 3. **Bez timestampů:** build nevkládá aktuální čas do binárky (žádný `__DATE__`/`__TIME__`,
    žádné generované timestampy). Verzování jde přes git hash (pokud je potřeba).
-4. **Žádná generovaná data měnící se napříč běhy:** fonty a assety jsou `@embedFile`
-   ze statických zdrojů.
+4. **Žádná generovaná data měnící se napříč běhy:** fonty a assety pocházejí ze
+   statických zdrojů (initrd taru, ne generované timestampy).
 5. **Vendoring:** Limine, Lua, wasm3 — fixní revize vendored v `libs/`, ne pull z netu při
    buildu.
 
@@ -154,7 +154,7 @@ se přidávají **runtime testy** — hostitelské testy už na ně nestačí:
 ```
 
 Ověření je **závazné** (součást DoD) — ne-obvious porušení determinismu (např. absolutní
-cache cesta v `.debug_str`, viz `spec/troubleshooting.md` D1) se bez něj tiše vrátí.
+cache cesta v `.debug_str`, viz `spec/troubleshooting.md` B1) se bez něj tiše vrátí.
 Kontroluje se na produkčním optimize (`ReleaseSafe`).
 
 ---
@@ -189,8 +189,8 @@ Klon se dělá z pracovní kopie na disku, ne přes síť — testuje se, že re
 |---|---|
 | `zig fmt --check .` | ✅ OK |
 | `zig build` | ✅ OK |
-| `zig build test` | ✅ 145/145 |
-| `zig build shell-test` | ✅ 12/12 (Lua shell regrese) |
+| `zig build test` | ✅ 160/160 |
+| `zig build shell-test` | ✅ 34/34 (Lua shell regrese) |
 | `./tools/qemu-smoke.sh` | ✅ PASS |
 | `./tools/capture-boot.sh --check` | ✅ OK |
 | `./tools/sync-docs.sh --check` | ✅ OK |
@@ -233,7 +233,7 @@ Pravidlo: **každý commit musí zanechat systém spustitelný v QEMU.**
 | `zig` | build, test, fmt (verze v `.zig-version`) |
 | `qemu-system-x86_64` | emulace cíle (BIOS + UEFI); akcelerace KVM, když je k dispozici |
 | `xorriso` / `mtools` | tvorba bootovatelného ISO / FAT image pro Limine |
-| `tools/qemu-accel.sh` | vyecho `-enable-kvm`, pokud je `/dev/kvm` přístupný (jinak TCG) |
+| `tools/qemu-accel.sh` | přidá `-enable-kvm`, pokud je `/dev/kvm` přístupný (jinak TCG) |
 | `tools/qemu-smoke.sh` | automatický boot test (serial marker + timeout; auto KVM) |
 | `tools/qemu-test.sh` | in-QEMU runtime testy (isa-debug-exit; auto KVM) |
 | `tools/bench.sh` | měření metrik z `roadmap.md` |

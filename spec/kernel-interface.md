@@ -44,9 +44,10 @@ Všechna veřejná rozhraní žijí v `src/kernel/api/`:
 > **nesmí** importovat `pfa`, `idt`, `heap`, `fb` apod. (viz §4.7).
 
 > **Výjimka z pravidla:** `Yield` (vzdání se kvanta) je **triviální/interní** — nespravuje
-> ho modul v `api/`, volá přímo `scheduler.yield()`. Nespadá pod plné pravidlo „KI je
-> jediný veřejný povrch“ ve smyslu rozhraní pro Lua/UI; je to vnitřní kooperace se
-> schedulerem (ADR-017).
+> ho modul v `api/`, je to vnitřní kooperace se schedulerem (ADR-017). Zatím vrací
+> `KiStatus.NotSupported` (dobrovolný yield je výhled); až bude implementován, volá
+> přímo scheduler, ne modul v `api/`. Nespadá pod plné pravidlo „KI je jediný veřejný
+> povrch“ ve smyslu rozhraní pro Lua/UI.
 
 **Pravidla:**
 
@@ -96,7 +97,7 @@ pub fn dispatch(num: Syscall, args: SyscallArgs) u64 {
         .Input    => input.dispatch(args),   // api/input.zig
         .Timer    => timer.dispatch(args),   // api/timer.zig
         .Runtime  => runtime.dispatch(args),
-        .Yield    => @intFromEnum(KiStatus.NotSupported), // scheduler.yield() od M7
+        .Yield    => @intFromEnum(KiStatus.NotSupported), // dobrovolný yield (výhled)
         .Sysmon   => sysmon.dispatch(args),
         .Power    => power.dispatch(args),   // api/power.zig
         .Storage  => storage.dispatch(args), // api/storage.zig
@@ -250,8 +251,9 @@ KI_VERSION_MINOR: přidává operace, neporušuje stávající
 KI_VERSION_PATCH: opravy dokumentace/sémantiky
 ```
 
-V dnešní podobě (bez Ring 3) je to čistě deklarativní — číslo se drží v `api/version.zig`.
-Až vznikne skutečné ABI, číslo se přenese do dokumentu specifikace ABI.
+V dnešní podobě (bez Ring 3) je to čistě deklarativní — číslo verze se zatím nikde
+neudržuje (žádný `api/version.zig`). Až vznikne skutečné ABI, číslo se přenese do
+dokumentu specifikace ABI.
 
 ---
 
@@ -264,7 +266,7 @@ Když přijde Ring 3:
 2. Moduly `api/*` se rozdělí: rozhraní (zůstává) + transport (dnes call, zítra IPC).
    **Návrh budoucího transportu je rozhodnutý v ADR-018** (mailbox zprávy, comptime
    dispatch, IRQ routing) — neimplementuje se dřív než ve fázi oddělování.
-3. Čísla z §3.1 zůstávají beze změny — stávají se čísly syscallů / identifikátory
+3. Čísla z §3.4 zůstávají beze změny — stávají se čísly syscallů / identifikátory
    operací v IPC zprávách.
 4. KiStatus se stává syscall návratovým statusem.
 

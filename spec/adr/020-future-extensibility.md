@@ -4,12 +4,12 @@
 **Datum:** 2026-08-06
 
 ## Rozhodnutí
-Budoucí features — zvuk (audio), síť, prohlížeč v Luay apod. — se přidávají **jako
+Budoucí features — zvuk (audio), síť, prohlížeč v Lua apod. — se přidávají **jako
 nové KI moduly přidané na konec enumu**, nikdy úpravou existujících. Kernel nepředpokládá
 žádnou z nich dopředu; vše, co dnes navrhujeme, musí zůstat rozšiřitelné bez bourání.
 
 ## Odůvodnění
-Aster OS má být dlouhodobě živý systém: dnes UI v Luay, zítra i prohlížeč, hudba, připojení
+Aster OS má být dlouhodobě živý systém: dnes UI v Lua, zítra i prohlížeč, hudba, připojení
 k internetu. KI je stabilní šev (ADR-003, ADR-004) a čísla operací jsou zmrazená
 (`kernel-interface.md` §4 pravidlo 2) — jediný udržitelný způsob přidávání je **nový modul
 na konec**. Žádná dnešní struktura se nesmí navrhovat tak, aby budoucí feature vyžadovala
@@ -19,7 +19,7 @@ její přepis („lepení nebo bourání").
 - **Nová feature = nový KI modul** (`sound.zig`, `net.zig`, ...) s vlastními
   sub-op čísly od 0; `Syscall` enum dostane nové položky na konec. Existující moduly
   a čísla se nemění.
-- **Prohlížeč v Luay** je jen další Lua klient Graphics/Input/Net API — nevyžaduje žádný
+- **Prohlížeč v Lua** je jen další Lua klient Graphics/Input/Net API — nevyžaduje žádný
   kernel-specifický kód. Sdílí stejnou cestu jako shell/UI (spawn přes `Runtime.spawn`).
 - **WASI (výhledově M9)** je další cesta k ekosystému: runtime vrstva nad wasm3 mapuje
   WASI syscally na KI (viz `spec/runtime.md` §7.1). Není to změna kernelu ani porušení

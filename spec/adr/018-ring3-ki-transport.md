@@ -30,7 +30,7 @@ skutečný transport provede tímto jednotným návrhem:
 - **Neimplementuje se před Ring-3 fází.** Toto je rozhodnutí o budoucím transportu;
   v M0–M6 (kooperativní smyčka, Ring 0) nic nemění (`spec/non-goals.md`, YAGNI,
   `spec/roadmap.md` M8).
-- Wire formát budoucího IPC se odvodí z tvaru zprávy zde; KI čísla operací (§3.1 v
+- Wire formát budoucího IPC se odvodí z tvaru zprávy zde; KI čísla operací (§3.4 v
   `spec/kernel-interface.md`) se stávají identifikátory operací ve zprávách beze změny.
 - Kód psaný dnes (typované KI funkce) je přímo použitelný pro comptime dispatch zítra —
   žádná dodatečná konverze.

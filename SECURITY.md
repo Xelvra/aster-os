@@ -34,7 +34,7 @@ The following are acknowledged and generally **not** treated as vulnerabilities:
   (see `spec/non-goals.md` and `spec/architecture.md`).
 - Missing mitigations for classes of bugs that are accepted non-goals (e.g. no
   MMU isolation, no ASLR, no SMEP/SMAP enforcement).
-- Issues in third-party components exactly as shipped upstream (Limine, Lua).
+- Issues in third-party components exactly as shipped upstream (Limine, Lua, wasm3).
 - Performance or stability problems without a security impact.
 
 If in doubt, file the report anyway — worse to be told "out of scope" than to

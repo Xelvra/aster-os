@@ -25,7 +25,7 @@
 | 11 | [timer.md](timer.md) | Čas: tick zdroj (M2), KI `timer`, kooperativní sleep. |
 | 12 | [memory.md](memory.md) | Paměť: PFA, obecný heap alokátor, `lua_Alloc`, cache atributy. |
 | 13 | [invariants.md](invariants.md) | Invarianty rozdělené na Safety / Performance / Architecture. |
-| 14 | [roadmap.md](roadmap.md) | Milníky M0–M8 s kritérii "hotovo" a tabulkou kvalitních metrik. |
+| 14 | [roadmap.md](roadmap.md) | Milníky M0–M10 s kritérii "hotovo" a tabulkou kvalitních metrik. |
 | 15 | [verification.md](verification.md) | Verifikační pipeline, deterministický build, pravidlo bootovatelného commitu. |
 | 16 | [debugging.md](debugging.md) | Debugging Survival Guide — GDB+QEMU, čtení serial dumpu, pravidla pro IRQ. |
 | 17 | [troubleshooting.md](troubleshooting.md) | Známé pasti a lekce — build API, protokoly, determinismus, tooling. |

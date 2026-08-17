@@ -1,6 +1,6 @@
 # Troubleshooting — Známé pasti a lekce
 
-**Status:** V1 (draft).
+**Status:** V2.
 **Účel:** zachycovat chyby, které stály čas při vývoji, aby se nemusely znovu objevovat.
 Dokument je **druhý mozek** — piš lekci ve chvíli, kdy je problém vyřešený, ne zpětně.
 
@@ -52,9 +52,9 @@ v kontextu zpožděné.
 
 | Záznam | Symptom | Příčina | Řešení | Ověřit |
 |--------|---------|---------|--------|--------|
-| D1 | dvakrát build → jiný hash | `.debug_str` sekce obsahuje absolutní cestu do build cache (`/home/.../.zig-cache/...`), která se mění | `strip = optimize != .Debug` v module | `tools/verify-reproducible.sh` |
-| D2 | `zig build iso` neprodukuje `zig-out/bin/aster` | iso step nezávisí na install stepu | spustit `zig build` (install) před/po iso; smoke skript buildí iso sám | `zig build && zig build iso` |
-| D3 | smoke failuje, ale kernel běží | `find .zig-cache -name '*.iso' \| head -1` vybírá staré ISO z cache | `find ... -printf '%T@ %p\n' \| sort -rn \| head -1` | smoke dvakrát po sobě |
+| B1 | dvakrát build → jiný hash | `.debug_str` sekce obsahuje absolutní cestu do build cache (`/home/.../.zig-cache/...`), která se mění | `strip = optimize != .Debug` v module | `tools/verify-reproducible.sh` |
+| B2 | `zig build iso` neprodukuje `zig-out/bin/aster` | iso step nezávisí na install stepu | spustit `zig build` (install) před/po iso; smoke skript buildí iso sám | `zig build && zig build iso` |
+| B3 | smoke failuje, ale kernel běží | `find .zig-cache -name '*.iso' \| head -1` vybírá staré ISO z cache | `find ... -printf '%T@ %p\n' \| sort -rn \| head -1` | smoke dvakrát po sobě |
 
 ---
 
@@ -74,13 +74,13 @@ v kontextu zpožděné.
 
 | Záznam | Symptom | Příčina | Řešení | Ověřit |
 |--------|---------|---------|--------|--------|
-| H1 | host heap test: alokace vrací 170 (0xAA) | `std.mem.Allocator.alloc()` **poisonuje** paměť na `undefined` (0xAA v Debug/ReleaseSafe) — `std/mem/Allocator.zig:299` dělá `@memset(byte_ptr, undefined)` po `rawAlloc`; alloc **negarantuje** zeroed paměť | test nesmí očekávat zeroed data z `alloc`; PFA `allocPage(true)` zeroing ověřovat na úrovni PFA, ne heap | PFA test "allocPage returns first free page, zeroed" |
-| H2 | heap test: segfault/crash, stránka má 170 | PFA/bitmapa/ram jsou **lokální proměnné** helperu `setup()`, po `return` zaniknou → dangling pointer; heap držel pointer na PFA uvnitř vraceného structu | alokovat vše v jednom stack frame testu; heap drží PFA **hodnotou** (kopie, bitmap je slice na sdílenou paměť) | `zig build test` |
-| H3 | kernel triple fault, `ud2` (panic) v `grow`, stack s 0xaaaaaaaa | `Memory.init` vracel struct, ale `heap.HeapAllocator.init(&pfa_inst)` ukazoval na **lokální `pfa_inst`** v init → dangling pointer po `return` | inicializovat heap přes `&memory.pfa` (pole v structu) + heap drží PFA hodnotou | boot, "heap alloc test: ok" |
-| H4 | kernel panic/infinite loop, "free pages" nikdy neskončí | memory map obsahuje **1 TB reserved MMIO** entry (`0xfd00000000`); `highestPage` z něj → bitmapa 34 MB a `totalFreePages` iteruje miliardy stránek | `isRamEntry()` filtruje typy (usable, reclaimable, ...); MMIO/reserved se nepočítají do bitmapy | boot, "free pages: ~130k" |
-| H5 | kernel heap alokuje stránku `0x1000` (Limine data) | dangling PFA (H3) → garbage bitmap → alokace z obsazených regionů | H3 fix | boot |
-| H6 | framebuffer cache atribut vrací `other` | `readEntry` maskoval `0x000FFFFFFFFFF000`, čímž smazal PAT/PCD/PWT bity | vracet celý entry; maskovat jen při výpočtu adresy child tabulky | boot, "framebuffer cache: wc" |
-| H7 | `rdmsr` — "inline assembly allows up to one output value" | Zig 0.16 asm povoluje jeden return output | vícenásobné outputy přes `[_] "={eax}" (var)` operandy (vzor `cpuid` v std) | build |
+| P1 | host heap test: alokace vrací 170 (0xAA) | `std.mem.Allocator.alloc()` **poisonuje** paměť na `undefined` (0xAA v Debug/ReleaseSafe) — `std/mem/Allocator.zig:299` dělá `@memset(byte_ptr, undefined)` po `rawAlloc`; alloc **negarantuje** zeroed paměť | test nesmí očekávat zeroed data z `alloc`; PFA `allocPage(true)` zeroing ověřovat na úrovni PFA, ne heap | PFA test "allocPage returns first free page, zeroed" |
+| P2 | heap test: segfault/crash, stránka má 170 | PFA/bitmapa/ram jsou **lokální proměnné** helperu `setup()`, po `return` zaniknou → dangling pointer; heap držel pointer na PFA uvnitř vraceného structu | alokovat vše v jednom stack frame testu; heap drží PFA **hodnotou** (kopie, bitmap je slice na sdílenou paměť) | `zig build test` |
+| P3 | kernel triple fault, `ud2` (panic) v `grow`, stack s 0xaaaaaaaa | `Memory.init` vracel struct, ale `heap.HeapAllocator.init(&pfa_inst)` ukazoval na **lokální `pfa_inst`** v init → dangling pointer po `return` | inicializovat heap přes `&memory.pfa` (pole v structu) + heap drží PFA hodnotou | boot, "heap alloc test: ok" |
+| P4 | kernel panic/infinite loop, "free pages" nikdy neskončí | memory map obsahuje **1 TB reserved MMIO** entry (`0xfd00000000`); `highestPage` z něj → bitmapa 34 MB a `totalFreePages` iteruje miliardy stránek | `isRamEntry()` filtruje typy (usable, reclaimable, ...); MMIO/reserved se nepočítají do bitmapy | boot, "free pages: ~130k" |
+| P5 | kernel heap alokuje stránku `0x1000` (Limine data) | dangling PFA (P3) → garbage bitmap → alokace z obsazených regionů | P3 fix | boot |
+| P6 | framebuffer cache atribut vrací `other` | `readEntry` maskoval `0x000FFFFFFFFFF000`, čímž smazal PAT/PCD/PWT bity | vracet celý entry; maskovat jen při výpočtu adresy child tabulky | boot, "framebuffer cache: wc" |
+| P7 | `rdmsr` — "inline assembly allows up to one output value" | Zig 0.16 asm povoluje jeden return output | vícenásobné outputy přes `[_] "={eax}" (var)` operandy (vzor `cpuid` v std) | build |
 
 ---
 
@@ -92,7 +92,7 @@ v kontextu zpožděné.
 | C3 | APIC timer nestartuje / čte garbage | registry se píší na offsetech 0x320/0x3E0/0x380 (MB), ne 0x32/0x3E/0x38 | konstanty `0x320`, `0x3E0`, `0x380`, `0xB0` | boot, "ticks: 1000/2000..." |
 | C4 | #PF při prvním přístupu na APIC/IOAPIC | Limine HHDM **nemapuje MMIO** (APIC 0xFEE00000, IOAPIC 0xFEC00000); kernel adresy jsou na `0xffffffff80000000+`, HHDM na `0xffff800000000000+` — nelze odečítat `hhdm_offset` od adresy kernelu | `page_map.mapPage(phys + hhdm_offset, phys, 0x1A)` s RW+PWT/PCD bity | boot, apic/ioapic bez #PF |
 | C5 | ISR stubs: vektor 0x80+ generuje 5B instrukci, rozbije uniformní layout | `pushq $imm8` pro vektor ≥ 0x80 sign-extenduje a assembler vybere 5B `68 imm32` místo 2B `6A imm8` | stubs generovat přes `.byte 0x6a` (vynucený 2B push) + `.byte vector` | `objdump` ISR stubs všech 256 × 9 B |
-| C6 | ISR stubs chybí v binárce (fault "no handler") | assembly `.s` soubor se k exe nepřidá, nebo linker DCE-odstraní stubs (nepoužité symboly) | přidat `exe.addAssemblyFile("src/kernel/cpu/isr.s")`; stubs jsou referencované přes `@extern` v `idt.zig`, takže DCE je neodstraní. **NEpoužívat `link_gc_sections = false`** — zruší DCE celé std a nafoukne kernel ~7× (196 KB → 28.8 KB) | `size` kernelu < 100 KB, faults jdou do handlerů |
+| C6 | ISR stubs chybí v binárce (fault "no handler") | assembly `.s` soubor se k exe nepřidá, nebo linker DCE-odstraní stubs (nepoužité symboly) | přidat `exe.addAssemblyFile("src/kernel/cpu/isr.s")`; stubs jsou referencované přes `@extern` v `idt.zig`, takže DCE je neodstraní. **NEpoužívat `link_gc_sections = false`** — zruší DCE celé std a nafoukne kernel ~7× (28.8 KB → 196 KB) | `size` kernelu < 100 KB, faults jdou do handlerů |
 | C7 | IRQ1 (klávesnice) nikdy nedojde; PIC unmask nepomáhá; poll funguje | v APIC režimu jdou ISA IRQ přes **IOAPIC redirection table**, ne přes PIC; bez zapsaného entry je IRQ1 maskovaný | v `apic.init` mapovat IOAPIC a `enableIsaIrq(1, 0x21)` (GSI = IRQ, entry: vektor, dest=0, unmasked, edge) | QEMU `-d int` ukáže `INT=0x21`; `key a down` po sendkey |
 | C8 | po IRQ1 kernel zacyklí/hang, ticker i klávesnice zmrznou | IRQ šel přes IOAPIC→LAPIC, ale handler posílal **PIC EOI**; LAPIC ISR bit zůstává nastavený → po IRET se IRQ okamžitě znovu vyvolá | EOI do **LAPIC** (`writeReg(0xB0, 0)`), ne do PIC | klávesnice funguje, ticker běží dál |
 | C9 | klávesnice odpovídá (poll vidí scancode), ale IRQ nedorazí | i8042 config nemá povolený IRQ1 enable (bit 0) + klávesnice není v scan módu | `ps2.init`: config `0x41` (IRQ1 enable + translation) + `0xF4` (enable scanning); handler filtruje ACK `0xFA`/`0xAA`/`0xFF`/`0x00` | `sendkey` → `key a down/up` |
@@ -170,11 +170,16 @@ okamžitě obnažily bugy, které TCG maskuje — viz C28 a meta-lekce v §11.
 
 ---
 
-## 10. Storage — virtio-blk a PCI (M6, 2026-08-08)
+## 10. Storage — virtio-blk a PCI (M6, 2026-08-08) + pozdější lekce (M6.1–M7)
 
 virtio-blk je postavený na moderním (capability-based) PCI transportu. Debug byl
 zacyklený nebo zařízení request nezpracovalo — obojí mělo překvapivou příčinu, ne ve
 specifikaci na první pohled.
+
+> **Rozsah:** sekce se postupně rozrostla o lekce pozdějších milníků. C29–C36 patří
+> storage (M6); C41–C51 pokrývají i jiné domény — C42/C44/C45 (Lua/WM), C43 (host GTK/
+> Wayland), C46/C47 (čas/RTC), C48/C49 (SMP), C50/C51 (kernel libc exporty). Čísla C-záznamů
+> jsou stabilní identifikátory napříč sekcemi, ne pořadí v sekci.
 
 | Záznam | Symptom | Příčina | Řešení | Ověřit |
 |--------|---------|---------|--------|--------|
@@ -194,7 +199,7 @@ specifikaci na první pohled.
 | C46 | dvojklik na titulku okna nefungoval vůbec; spec tvrdí „tick 1000 Hz" | **APIC tick rate není spolehlivá konstanta:** dvě měření v QEMU TCG dala ~478 Hz a ~3100 Hz (620 ticků/200 ms vs 239 ticků/500 ms) — rate závisí na emulátoru/hardwaru a je nestálý. Práh dvojkliku 30 ticků = ~10 ms (pro člověka nereálný); bar hodiny dělily `t/100` (předpoklad 100 Hz), takže by ukazovaly špatný čas | pro reálné časování nepoužívat `time.ticks()` (jen monotónní pořadí), ale `time.ms()` (TSC, PIT-kalibrováno): dvojklik má práh 300 ms podle `time.ms()`, bar hodiny počítají z `time.ms()/1000` | dvojklik funguje v QEMU, hodiny ukazují reálný čas; lua-shell testy (dvojklik přes `_set_ms`, hodiny) |
 | C47 | bar hodiny ukazovaly špatný čas (např. 20:34, host byl 14:22 UTC); v jiném ladění „zamrzlé" hodiny (minuty se nehýbaly) / `ms()` = 0 | **čtyři chyby:** (1) **invertovaná BCD/binár logika** — `binaryMode()` vrací true pro BINÁRNÍ režim, ale kód to uložil do proměnné `bcd` a použil `if (bcd) fromBcd(...)`: BCD RTC (QEMU default, status B bit 2 = 0) se četl jako binárně → 0x14/0x22 = 20:34 místo BCD 14:22; (2) PIT čtení v `calibrateRealTime` psalo mode slovo **0xB0 místo latch 0x80** → countdown se jevil jako okamžitě hotový → tiny `tsc_delta`; (3) sanity check meze 0.5–8 GHz byl **příliš úzký pro QEMU TCG** (TSC desítky GHz) — správně naměřené se odmítlo → `ms()` = 0 → zamrzlé hodiny; (4) i po opravě mezí mohl PIT měření občas vyjít rozbitě → zamrzlý/pomalý čas | (1) proměnnou nazvat `binary` a `if (binary) raw else fromBcd`; (2) správný PIT latch (0x80); (3) horní mez zrušit — dolní mez jen na okamžitý výstup; (4) **robustní kalibrace: ~50 ms okno, medián z 5 vzorků** + fallback 2.5 GHz, aby `ms()` nikdy nevracelo 0; **a jako definitivní záruka se hodiny resynchronizují s RTC každý frame** v event loopu (`main.zig`) — RTC je hardwarový reálný čas, který běží vždy, takže bar hodiny ukazují správný čas bez ohledu na kalibraci TSC/ms; RTC = **lokální čas** (BIOS/Windows), QEMU `-rtc base=localtime`; hodiny se překreslují při změně sekundy | host test `fromBcd`, runtime test „RTC-seeded wall clock" (plausibilní + postupuje), lua test redrawu hodin, `qemu-test` PASS; `rtc diag` 16:25 = host 16:25 |
 | C48 | SMP: AP po zapnutí `CR0.PG` dostane `#PF(RSVD)` (`e=0x18`) na fetch z trampoliny → double/triple fault → CPU reset → firmware re-bootuje OS na AP → COM1 interference → BSP visí; přitom page tables vypadají čisté (handoff H5) | **nízkopaměťová trampolina používala „getip" trik `call 1f; pop %ebx` před nastavením zásobníku** — AP po INIT-SIPI má `ESP` nedefinované (v QEMU 0), takže `call` zapíše návratovou adresu do nepoužitelné paměti a `pop` načte **odpadky** (`EBX=0x00fc0039`) místo adresy bloku; `movl (smp_cr3-1b)(%ebx),%eax` pak čte CR3 z náhodné fyzické adresy → AP stránkuje přes odpadkovou tabulku → RSVD prakticky ihned po `PG=1`. NXE/CR4/huge-page/PML4 zásahy nic neřešily, protože se root cause nedotkly; marks 0x11–0x14 hlásily OK, protože používaly přímé `tramp_base` adresování | **žádný `call`/`push`/`pop` (cokoli závislé na `%esp`) v trampolině před nastavením stacku** — používat jen přímé `tramp_base + (symbol - smp_trampoline_start)` adresování (stejný styl jako `smp_gdt_ptr`/marks); stack nastavit až v 64-bit (`movq smp_stack_top(%rip), %rsp`) | `qemu-test` s diskem PASS (exit 99, 3×), boot log `smp: 1 ap`, `ASTER BOOT OK`, `ASTER FIRST FRAME` (handoff H5, §3) |
- | C49 | SMP bring-up test visel v nekonečné smyčce (test binary 100 % CPU, QEMU host testy na CI hodiny); zároveň existující MADT test občas selhal `bad_checksum` | **(1)** `continue` uvnitř `switch` větve smyčky **přeskočil `offset += entry_length`** na konci `while` — nová větev `if (flags & 1 == 0) continue;` (disabled processor) se nikdy neposunula a smyčka se točila na stejném offsetu (latentní: původní `continue` větve se nikdy nespustily, dokud test nepřidal disabled entry). **(2)** test helper `writeRsdpV2At` fixoval jen extended checksum (byte 32), ne revision-1 checksum (byte 8), který `readRsdp` kontroluje první — byte 8 zůstal `undefined` (stack slot reuse mezi testy) → nedeterministický `bad_checksum` | (1) **posunovat `offset` PŘED `switch`** (a `entry = entries[offset - entry_length .. offset]`), takže `continue` ve větvích je bezpečné; (2) `writeRsdpV2At` fixuje **oba** checksumy: `fixChecksum(8, 20)` i `fixChecksum(32, 36)` | host testy 153/153 PASS (Debug i ReleaseSafe), qemu-test s diskem PASS (exit 99) |
+| C49 | SMP bring-up test visel v nekonečné smyčce (test binary 100 % CPU, QEMU host testy na CI hodiny); zároveň existující MADT test občas selhal `bad_checksum` | **(1)** `continue` uvnitř `switch` větve smyčky **přeskočil `offset += entry_length`** na konci `while` — nová větev `if (flags & 1 == 0) continue;` (disabled processor) se nikdy neposunula a smyčka se točila na stejném offsetu (latentní: původní `continue` větve se nikdy nespustily, dokud test nepřidal disabled entry). **(2)** test helper `writeRsdpV2At` fixoval jen extended checksum (byte 32), ne revision-1 checksum (byte 8), který `readRsdp` kontroluje první — byte 8 zůstal `undefined` (stack slot reuse mezi testy) → nedeterministický `bad_checksum` | (1) **posunovat `offset` PŘED `switch`** (a `entry = entries[offset - entry_length .. offset]`), takže `continue` ve větvích je bezpečné; (2) `writeRsdpV2At` fixuje **oba** checksumy: `fixChecksum(8, 20)` i `fixChecksum(32, 36)` | host testy 153/153 PASS (Debug i ReleaseSafe), qemu-test s diskem PASS (exit 99) |
 | C50 | kernel po přidání `memcpy`/`memset`/`memmove` exportů do kernel libc zamrzl hned po `ASTER KERNEL ENTRY` (bootlog se netiskl) | **vlastní `memcpy`/`memset`/`memmove` implementované přes `@memcpy`/`@memset`/`copyForwards` jsou samoodkazové:** Zig sám nevytváří kopie s neznámou délkou inline — vygeneruje `call memcpy`/`call memset` (compiler-rt symbol), který po přidání exportů skončí v **vlastní funkci** → nekonečná rekurze (při bootu poprvé v `banner()`/`bufPrint`). Zmizelo to až po odebrání exportů | **nedefinovat `memcpy`/`memset`/`memmove` v kernel libc** — compiler-rt je pro freestanding poskytuje už v základu (stejně `exp`/`log` pro `std.math.pow`); přidáním vlastních verzí vznikne duplicitní samoodkaz. Týká se i `strlen`-podobných symbolů, které Zig interně generuje | smoke PASS; host testy PASS |
 | C51 | přidání `export fn floor/ceil/trunc/sqrt/rint` do kernel libc rozbilo boot: freeze v lua `pcall` (main.lua `math.floor`) — žádná exception, jen CPU točí; QEMU `-d in_asm` odhalil funkci, která dělá `push rbp; mov rsp,rbp; pop rbp; jmp <sama na sebe>` | **`@floor`/`@ceil`/`@trunc`/`@sqrt`/`@rint` builtin se na baseline x86_64 (bez SSE4.1/FMA) nekompiluje inline, ale jako softwarová rutina, která interně volá C symbol se stejným jménem** (`trunc` PLT relokace uvnitř rutiny pro floor atd.). Když kernel exportuje `floor` (pro wasm3 f64 ops), rutina se napojí na **vlastní export** → nekonečná tail-rekurze. Chování je závislé na rozložení binárky (přidání/odebrání ~100 B okolního kódu změnilo výsledek), takže se projevovalo „hraniční" velikostí | **builtin se stejným jménem jako export NIKDY** — math f64 funkce v kernel libc implementovat **bitovým trikem IEEE 754** (floor/ceil/trunc/rint/copysign) a **Newton-Raphsonem s bitovým initial guessem** (`(bits >> 1) + 0x1FF8000000000000`) pro sqrt, vše bez `@floor`/`@ceil`/`@sqrt`; ověřit přesnými host testy v `libc.zig` (vč. ties-to-even `rint` a `±0`) | host testy 6/6 PASS; `qemu-smoke` PASS; wasm3 linknutý do kernelu bootuje |
 
@@ -210,7 +215,7 @@ specifikaci na první pohled.
   zamlžilo příčiny. Jeden faktor na krok.
 - **Po ne-obvious fixu zapiš záznam hned** — kontext vyprchá.
 - **Ověřuj na stejném optimize, jako produkce** — Debug boot nepredikuje ReleaseSafe
-  (L2, D1). Vždy nakonec `-Doptimize=ReleaseSafe` + smoke.
+  (L2, B1). Vždy nakonec `-Doptimize=ReleaseSafe` + smoke.
 - **TCG emulace maskuje chyby reálného hardwaru** — KVM je nevaliduje jemné detaily
   (např. MXCSR rezervované bity, načasování periferií). Od zapojení KVM se boot ověřuje
   **jak** v TCG (rychlý záchyt), **tak** pod KVM (bližší HW); `tools/qemu-accel.sh`
@@ -218,10 +223,10 @@ specifikaci na první pohled.
 - **Nový toolchain (Zig major) = revize všech API předpokladů**, ne jen syntaxe.
 - **Struct vracený hodnotou + pointer na jeho pole = dangling pointer.** Když `init()`
   vrací struct a vnitřní alokátor drží `&lokální_proměnná` z init, po return ukazuje na
-  zaniklý stack frame (H3, H5). Alokátor drží závislost **hodnotou** nebo se struct
+  zaniklý stack frame (P3, P5). Alokátor drží závislost **hodnotou** nebo se struct
   inicializuje na místě.
 - **Limine memory map obsahuje obří MMIO regiony** (řádově TB), které nejsou RAM.
-  Bitmapa PFA a smyčky přes stránky musí filtrovat typy (H4).
+  Bitmapa PFA a smyčky přes stránky musí filtrovat typy (P4).
 - **APIC režim mění cestu ISA IRQ** — s lokálním APIC jdou legacy přerušení (klávesnice IRQ1,
   timer, atd.) přes **IOAPIC redirection table**, ne přes PIC. PIC remap + unmask nestačí;
   EOI se posílá do LAPIC, ne do PIC (C7, C8).

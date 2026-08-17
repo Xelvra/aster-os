@@ -11,7 +11,7 @@ license (`LICENSE`).
 > **Traceability:** this document is maintained manually and must be re-checked
 > against the source tree whenever a dependency, vendored file, or credited
 > reimplementation changes — not just when something is added. Last manually
-> cross-checked against the source tree at commit `49a2237` (2026-08-11): every path,
+> cross-checked against the source tree at commit `4007885` (2026-08-17): every path,
 > file reference, and provenance claim below was verified to exist and read as
 > described. If you find a stale entry, fix it in the same change that caused the
 > drift, per Rule 5 in §4.
@@ -24,7 +24,8 @@ license (`LICENSE`).
 4. [Rules for future dependencies](#4-rules-for-future-dependencies)
 5. [Thematic inspiration](#5-thematic-inspiration)
 6. [VGA 8x16 font](#6-vga-8x16-font)
-7. [Zig](#7-zig)
+7. [Wasm3](#7-wasm3)
+8. [Zig](#8-zig)
 
 ---
 
@@ -71,14 +72,14 @@ code is entirely original (see Rule 4 in §4).
 | File | Standard |
 |---|---|
 | `src/kernel/lua/setjmp.s` | Own freestanding `setjmp`/`longjmp` for x86_64 (SysV ABI) |
-| `src/kernel/lua/libc.zig` + `libs/lua-5.4/include/` | Freestanding libc shim (string/ctype/stdio/math/time, including `vsnprintf`) for Lua, written in Zig — no separate C source file |
+| `src/kernel/libc.zig` + `libs/lua-5.4/include/` | Shared kernel libc (string/ctype/stdio/math/time, including `vsnprintf`), written in Zig — no separate C source file |
 
 ### 3.2 On-disk format parsers based on published specifications
 
 | File | Standard |
 |---|---|
 | `src/kernel/fs/gpt.zig` | GUID Partition Table layout, as documented in the UEFI Specification |
-| `src/kernel/fs/ext2.zig` | ext2 on-disk format (superblock, block group descriptors, inodes, directory entries), read-only subset per ADR-023 |
+| `src/kernel/fs/ext2.zig` | ext2 on-disk format (superblock, block group descriptors, inodes, directory entries), read-write subset per ADR-023 |
 
 ---
 
@@ -153,7 +154,22 @@ glyph set, not console fonts in general.
 
 ---
 
-## 7. Zig
+## 7. Wasm3
+
+| Field | Value |
+|---|---|
+| **What** | wasm3 (WebAssembly interpreter, C), vendored in `libs/wasm3/` |
+| **Author** | wasm3 contributors |
+| **License** | MIT (see `libs/wasm3/LICENSE`) |
+| **Usage** | WebAssembly runtime for `Runtime.spawn(.Wasm)` — hosts Aster wasm programs (Phase A test programs `hello`/`fault`) behind the generic Runtime API (ADR-006, ADR-011); compiled with PIC into the kernel |
+
+**Acknowledgments:** to the wasm3 authors for a small, embeddable WebAssembly
+interpreter that fit the kernel's constraints.
+
+---
+
+---
+## 8. Zig
 
 | Field | Value |
 |---|---|
@@ -161,7 +177,7 @@ glyph set, not console fonts in general.
 | **Author** | Andrew Kelley and contributors (Zig Software Foundation) |
 | **License** | MIT |
 | **Copyright** | Copyright (c) Zig contributors |
-| **Usage** | The Aster OS kernel is written in Zig, with a small amount of freestanding x86_64 assembly where Zig's inline asm cannot express the required construct (`src/kernel/cpu/isr.s`, `src/kernel/lua/setjmp.s` — both original, not third-party, see §3.1); build, tests, deterministic build, and compilation of the vendored Lua C sources are all driven by `build.zig`. |
+| **Usage** | The Aster OS kernel is written in Zig, with a small amount of freestanding x86_64 assembly where Zig's inline asm cannot express the required construct (`src/kernel/cpu/isr.s`, `src/kernel/lua/setjmp.s` — both original, not third-party, see §3.1); build, tests, deterministic build, and compilation of the vendored Lua and wasm3 C sources are all driven by `build.zig`. |
 
 **Acknowledgments:** to the Zig authors for a language that Aster OS is written in —
 safe, deterministic, and excellent for operating system development.
