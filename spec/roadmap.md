@@ -461,9 +461,26 @@ se musí vyřešit **před** spuštěním dalších features, ne až na konci st
 > - **Editor/files odmítnou `.wasm` otevřít jako text** — stejný extension-based
 >   mechanismus jako `.bak`/`.repl_history` (`is_read_only`), rozšířený o binární
 >   `.wasm`.
+> - **Appky píšeme v Zigu, ne v C/Rust.** Target `wasm32-freestanding` — stejný jazyk
+>   i toolchain, který projekt už má pinnený (`.zig-version`), bez zavádění druhého
+>   jazyka (CONTRIBUTING.md povoluje jen Zig, Lua, Assembly). Model je **fantasy
+>   konzole (WASM-4)**: appka se píše od nuly proti tenké sadě host funkcí (draw,
+>   input), **bez libc** — žádné printf/malloc/SDL; vlastní paměť řídí appka sama
+>   (stačí bump allocator nad lineární pamětí).
+> - **WASI je M9, ne teď.** Až WASI vrstva (mapování WASI→KI) umožní znovu
+>   zkompilovat nezměněný zdroják konzolové appky; **binární kompatibilita
+>   (ELF/exe) není nikdy** — rozporuje to manifest a KI (non-goal, trvalé).
+> - **Wasm import surface = stabilní kontrakt (vlastní ADR).** Ekvivalent
+>   `kernel-interface.md` §4 pro Lua: čísla operací se nikdy nemění, marshalling
+>   přes wasm lineární paměť. Teprve po zafixování a zdokumentování kontraktu
+>   (kalkulačka + benchmark) se zve kontributory (M10 Adoption) — jinak by první
+>   příspěvky rozbil vlastní refaktor.
+> - **Trap containment** — wasm3 pasti (traps: OOB, dělení nulou) se zachytí
+>   bez shození hostitele (obdoba `lua_pcall`); padlá appka se zahodí, desktop běží
+>   dál. To je vizuální důkaz izolace z manifestu.
 
 - [ ] wasm3 vendored; `Runtime.spawn(.Wasm, ...)`.
-- [ ] První `.wasm` aplikace (C/Rust → wasm) kreslící do vlastní surface.
+- [ ] První `.wasm` aplikace (Zig → wasm32-freestanding) kreslící do vlastní surface.
 - ~~Sdílené buffery + present~~ — přesunuto do Fáze 2 (render quality před stabilizací).
 - [x] **Preemptivní RR scheduler** pro nativní kernel tasky (ADR-017) — čistě IRQ-driven
       switch přes APIC timer (vektor 0x20), TCB tabulka i stacky statické (žádná alokace),

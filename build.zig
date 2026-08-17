@@ -100,6 +100,39 @@ pub fn build(b: *std.Build) void {
         .files = &lua_sources,
         .flags = &.{ "-std=c99", "-ffreestanding", "-Os" },
     });
+
+    // Wasm runtime (M7): wasm3 WebAssembly interpreter, built as its OWN
+    // sandbox module — the C sources get only their own freestanding headers
+    // (libs/wasm3/include), never the Lua vendor's. malloc/free/realloc/abort
+    // resolve against the shared kernel libc (src/kernel/libc.zig). The wasm
+    // import surface and runtime module live in src/kernel/wasm.
+    const wasm3_sources = [_][]const u8{
+        "libs/wasm3/source/m3_bind.c",
+        "libs/wasm3/source/m3_code.c",
+        "libs/wasm3/source/m3_compile.c",
+        "libs/wasm3/source/m3_core.c",
+        "libs/wasm3/source/m3_emit.c",
+        "libs/wasm3/source/m3_env.c",
+        "libs/wasm3/source/m3_exec.c",
+        "libs/wasm3/source/m3_function.c",
+        "libs/wasm3/source/m3_module.c",
+        "libs/wasm3/source/m3_optimize.c",
+        "libs/wasm3/source/m3_parse.c",
+    };
+    const wasm3_mod = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    wasm3_mod.addIncludePath(b.path("libs/wasm3/source"));
+    wasm3_mod.addIncludePath(b.path("libs/wasm3/include"));
+    wasm3_mod.addCSourceFiles(.{
+        .files = &wasm3_sources,
+        // wasm3 config: cap linear memory (256 pages = 16 MiB, a kernel-usable
+        // budget vs the default 2 GiB), keep 32-bit slots fast and errors terse.
+        .flags = &.{ "-std=c99", "-ffreestanding", "-Os", "-Dd_m3MaxLinearMemoryPages=256", "-Dd_m3Use32BitSlots=1", "-Dd_m3VerboseErrorMessages=0" },
+    });
+    const wasm3_obj = b.addObject(.{ .name = "wasm3", .root_module = wasm3_mod });
+    kernel.root_module.addObject(wasm3_obj);
     b.installArtifact(kernel);
 
     // The shell modules, concatenated by the kernel in this order (the kernel

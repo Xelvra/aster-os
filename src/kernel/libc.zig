@@ -428,7 +428,7 @@ export fn fflush(stream: ?*anyopaque) callconv(.c) c_int {
     return 0;
 }
 
-const serial = @import("../serial.zig");
+const serial = @import("serial.zig");
 
 fn serial_write(byte: u8) void {
     serial.writeChar(byte);
@@ -436,6 +436,91 @@ fn serial_write(byte: u8) void {
 
 export fn fabs(x: f64) callconv(.c) f64 {
     return @abs(x);
+}
+
+pub export fn floor(x: f64) callconv(.c) f64 {
+    // IEEE 754 bit trick. NOTE: must not use @floor — on baseline x86_64
+    // (no SSE4.1) the builtin lowers to a software routine that calls the C
+    // symbol `floor`, i.e. this very export: infinite tail recursion (C51).
+    const bits: u64 = @bitCast(x);
+    const biased: u32 = @intCast((bits >> 52) & 0x7FF);
+    const is_neg = (bits >> 63) != 0;
+    if (x == 0) return x; // ±0 keep the sign
+    if (biased >= 0x3FF + 52) return x;
+    if (biased < 0x3FF) return if (is_neg) -1.0 else 0.0;
+    const shift: u6 = @intCast(52 - (biased - 0x3FF));
+    const mask = (@as(u64, 1) << shift) - 1;
+    if ((bits & mask) == 0) return x;
+    const truncated: f64 = @bitCast(bits & ~mask);
+    return if (is_neg) truncated - 1.0 else truncated;
+}
+
+pub export fn ceil(x: f64) callconv(.c) f64 {
+    // See floor() for the @ceil rationale (C51).
+    const bits: u64 = @bitCast(x);
+    const biased: u32 = @intCast((bits >> 52) & 0x7FF);
+    const is_neg = (bits >> 63) != 0;
+    if (x == 0) return x; // ±0 keep the sign
+    if (biased >= 0x3FF + 52) return x;
+    if (biased < 0x3FF) return if (is_neg) -0.0 else 1.0;
+    const shift: u6 = @intCast(52 - (biased - 0x3FF));
+    const mask = (@as(u64, 1) << shift) - 1;
+    if ((bits & mask) == 0) return x;
+    const truncated: f64 = @bitCast(bits & ~mask);
+    return if (is_neg) truncated else truncated + 1.0;
+}
+
+pub export fn trunc(x: f64) callconv(.c) f64 {
+    // See floor() for the @trunc rationale (C51).
+    const bits: u64 = @bitCast(x);
+    const biased: u32 = @intCast((bits >> 52) & 0x7FF);
+    if (biased >= 0x3FF + 52) return x;
+    if (biased < 0x3FF) return if ((bits >> 63) != 0) -0.0 else 0.0;
+    const shift: u6 = @intCast(52 - (biased - 0x3FF));
+    const mask = (@as(u64, 1) << shift) - 1;
+    return @bitCast(bits & ~mask);
+}
+
+pub export fn rint(x: f64) callconv(.c) f64 {
+    // Round to nearest, ties to even (wasm f64.nearest). Bit trick again:
+    // no @rint builtin exists on baseline, and a naive round() would break
+    // ties-to-even. See floor() for the rationale (C51).
+    const bits: u64 = @bitCast(x);
+    const biased: u32 = @intCast((bits >> 52) & 0x7FF);
+    const is_neg = (bits >> 63) != 0;
+    if (biased >= 0x3FF + 52) return x;
+    if (biased < 0x3FF) return if (is_neg) -0.0 else 0.0;
+    const shift: u6 = @intCast(52 - (biased - 0x3FF));
+    const mask = (@as(u64, 1) << shift) - 1;
+    const frac = bits & mask;
+    if (frac == 0) return x;
+    const truncated: f64 = @bitCast(bits & ~mask);
+    const half = @as(u64, 1) << (shift - 1);
+    if (frac < half) return truncated;
+    if (frac > half) return if (is_neg) truncated - 1.0 else truncated + 1.0;
+    const lsb = (bits >> shift) & 1;
+    if (lsb == 0) return truncated;
+    return if (is_neg) truncated - 1.0 else truncated + 1.0;
+}
+
+pub export fn copysign(a: f64, b: f64) callconv(.c) f64 {
+    const sign_mask: u64 = @as(u64, 1) << 63;
+    return @bitCast((@as(u64, @bitCast(a)) & ~sign_mask) | (@as(u64, @bitCast(b)) & sign_mask));
+}
+
+pub export fn sqrt(x: f64) callconv(.c) f64 {
+    // Newton-Raphson with a bit-level initial guess. @sqrt is forbidden here
+    // for the same self-recursion reason as @floor (C51): on baseline x86_64
+    // it lowers to a call of the C symbol `sqrt`.
+    const bits: u64 = @bitCast(x);
+    const biased = (bits >> 52) & 0x7FF;
+    if (biased == 0x7FF) return x; // inf or nan
+    if ((bits >> 63) != 0) return std.math.nan(f64); // negative
+    if (x == 0) return x;
+    var y: f64 = @bitCast((bits >> 1) + 0x1FF8000000000000); // ±2.4% initial guess
+    var i: usize = 0;
+    while (i < 8) : (i += 1) y = 0.5 * (y + x / y);
+    return y;
 }
 
 export fn pow(base: f64, exp: f64) callconv(.c) f64 {
@@ -527,7 +612,7 @@ export fn strtod(str: [*:0]const u8, endptr: ?*[*:0]const u8) callconv(.c) f64 {
 }
 
 export fn lua_serial_write(c: u8) callconv(.c) void {
-    const serial_mod = @import("../serial.zig");
+    const serial_mod = @import("serial.zig");
     serial_mod.writeChar(c);
 }
 
@@ -727,4 +812,8 @@ export fn fprintf(stream: ?*anyopaque, format: [*:0]const u8, ...) callconv(.c) 
     var i: usize = 0;
     while (i < n) : (i += 1) lua_serial_write(buf[i]);
     return @intCast(n);
+}
+
+export fn strlen(str: [*:0]const u8) callconv(.c) usize {
+    return std.mem.len(str);
 }

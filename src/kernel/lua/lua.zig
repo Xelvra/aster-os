@@ -1,6 +1,6 @@
 const std = @import("std");
 const lua_c = @import("cimport.zig").c;
-const libc = @import("libc.zig");
+const libc = @import("../libc.zig");
 const serial = @import("../serial.zig");
 const bindings = @import("bindings.zig");
 const tar_mod = @import("../fs/tar.zig");
