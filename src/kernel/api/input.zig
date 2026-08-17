@@ -64,7 +64,7 @@ fn setLayoutOp(name_ptr: u64) u64 {
 
 /// input.layout_name(out_ptr, out_cap) — copy the active layout name into the
 /// caller's buffer, truncating (with NUL termination) to the given capacity so
-/// a longer future layout cannot overflow it (audit 2026-08-15).
+/// a longer future layout cannot overflow it (2026-08-15-self-audit).
 fn layoutNameOp(out_ptr: u64, out_cap: u64) u64 {
     const checked = validate.checkPtrMut(out_ptr, u8) orelse return @intFromEnum(sys.KiStatus.InvalidArgument);
     if (out_cap == 0) return @intFromEnum(sys.KiStatus.InvalidArgument);

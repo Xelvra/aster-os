@@ -43,7 +43,7 @@ pub const Renderer = struct {
                 const mask: u8 = @as(u8, 1) << @intCast(7 - bit);
                 if (pixels[row] & mask != 0) {
                     // Widen to i64 before adding so an extreme x/y cannot
-                    // overflow i32 (audit 2026-08-15); negative results are
+                    // overflow i32 (2026-08-15-self-audit); negative results are
                     // off-screen and skipped, setPixel clamps the upper edge.
                     const px = @as(i64, x) + @as(i64, bit);
                     const py = @as(i64, y) + @as(i64, @intCast(row));
@@ -61,7 +61,7 @@ pub const Renderer = struct {
         while (i < text.len) {
             // Decode code points: a multi-byte character renders as ONE glyph
             // (the font's fallback for non-ASCII) instead of drawing each
-            // byte as separate noise glyphs (audit 2026-08-15). The font is
+            // byte as separate noise glyphs (2026-08-15-self-audit). The font is
             // monospace 8px, so every code point advances the cursor the same
             // distance the Lua side assumes (cp_count * glyph_w).
             const cp = nextCodePoint(text, i);

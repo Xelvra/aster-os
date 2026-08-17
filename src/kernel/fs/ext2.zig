@@ -112,14 +112,14 @@ pub const Ext2 = struct {
         const inodes_per_group = bytes.readU32(&sb, 40);
         if (blocks_per_group == 0 or inodes_per_group == 0) return Ext2Error.CorruptSuperblock;
         // A bitmap is one block; per-group counts larger than its capacity
-        // would make the bitmap scans read out of bounds (audit 2026-08-15).
+        // would make the bitmap scans read out of bounds (2026-08-15-self-audit).
         if (blocks_per_group > block_size * 8 or inodes_per_group > block_size * 8) return Ext2Error.CorruptSuperblock;
         const first_ino = bytes.readU32(&sb, 84);
         if (first_ino == 0) return Ext2Error.CorruptSuperblock;
         const blocks_count = bytes.readU32(&sb, 4);
         // The per-group inode table (inode_size * inodes_per_group bytes) must
         // fit inside the filesystem, so inodeTableLocation's block offset can
-        // never exceed u32 (audit 2026-08-15).
+        // never exceed u32 (2026-08-15-self-audit).
         if (@as(u64, inodes_per_group) * inode_size > @as(u64, blocks_count) * block_size) return Ext2Error.CorruptSuperblock;
         const feature_compat = bytes.readU32(&sb, 92);
         const feature_incompat = bytes.readU32(&sb, 96);
@@ -227,7 +227,7 @@ pub const Ext2 = struct {
         // directory spanning several blocks is fully listed; a hole (or the
         // end of the block list) ends the walk. blockForIndex treats a 0
         // pointer as a hole, so an empty directory never reads the superblock
-        // as entries (audit 2026-08-15).
+        // as entries (2026-08-15-self-audit).
         while (try self.blockForIndex(inode, block_index)) |blk| {
             try self.readBlock(blk, block_buf[0..self.block_size]);
             const data = block_buf[0..self.block_size];
@@ -295,7 +295,7 @@ pub const Ext2 = struct {
         if (index < inode_direct_blocks) {
             // A direct pointer of 0 is a hole (sparse file), not block 0 —
             // reading the superblock as file data would leak foreign bytes
-            // (audit 2026-08-15).
+            // (2026-08-15-self-audit).
             const blk = inode.block[index];
             return if (blk == 0) null else blk;
         }
@@ -886,7 +886,7 @@ pub const Ext2 = struct {
         const inode_table = bytes.readU32(desc, 8);
         // All three metadata pointers must point inside the filesystem; an
         // unchecked bitmap would let a crafted GDT write "bitmap" bits over
-        // real metadata (audit 2026-08-15).
+        // real metadata (2026-08-15-self-audit).
         if (block_bitmap >= self.super.blocks_count or
             inode_bitmap >= self.super.blocks_count or
             inode_table >= self.super.blocks_count) return Ext2Error.OutOfBounds;

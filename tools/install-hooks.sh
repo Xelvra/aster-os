@@ -23,5 +23,5 @@ for hook in hooks/*; do
     echo "installed: .git/hooks/$name"
 done
 if [[ "$drift" -eq 1 ]]; then
-    echo "note: a previously installed hook was out of date; reinstall fixes it (audit 2026-08-15)"
+    echo "note: a previously installed hook was out of date; reinstall fixes it (2026-08-15-self-audit)"
 fi

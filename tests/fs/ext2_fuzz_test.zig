@@ -139,7 +139,7 @@ fn corruptBitmap(rng: *SplitMix64, data: []u8) void {
 /// Corrupt several superblock counts together (blocks_count, inodes_count,
 /// blocks_per_group, inodes_per_group). The bitmap-OOB / inode-table-overflow
 /// bugs need such paired extremes, which single-field mutations cannot reach
-/// (audit 2026-08-15).
+/// (2026-08-15-self-audit).
 fn corruptSuperblockPaired(rng: *SplitMix64, data: []u8) void {
     for ([_]u32{ 0, 4, 32, 40 }) |off| {
         const value: u32 = switch (rng.next() % 4) {
@@ -182,7 +182,7 @@ fn exerciseRead(rng: *SplitMix64, img: *ext2_image.Image) void {
     _ = fs.readFile(3, &file_buf) catch return;
     // Follow find() results into readInode so a mutated directory-entry inode
     // number reaches inodeTableLocation (the overflow class that was not
-    // exercised before, audit 2026-08-15).
+    // exercised before, 2026-08-15-self-audit).
     if (fs.find("/hello.txt")) |ino| {
         _ = fs.readInode(ino) catch return;
     } else |_| {}
@@ -214,7 +214,7 @@ fn exerciseWrite(rng: *SplitMix64, img: *ext2_image.Image) void {
         fs.writeAt(3, 4096, &payload) catch return;
     }
     // Exercise the single-indirect write path (block 13 is past the 12 direct
-    // blocks); the indirect allocator was never covered (audit 2026-08-15).
+    // blocks); the indirect allocator was never covered (2026-08-15-self-audit).
     fs.writeAt(3, 13 * 1024, &payload) catch return;
 }
 

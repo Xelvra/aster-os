@@ -112,7 +112,7 @@ pub const Framebuffer = struct {
     /// coordinates address the caller's buffer; a negative source row (a clip
     /// that would read before the buffer) is skipped and the row/byte
     /// arithmetic is done in i64 so extreme coordinates cannot overflow i32
-    /// (audit 2026-08-15).
+    /// (2026-08-15-self-audit).
     pub fn blit(self: *Framebuffer, src: [*]const u8, src_x: i32, src_y: i32, dst_x: i32, dst_y: i32, w: u32, h: u32) void {
         const clipped = clipRect(dst_x, dst_y, w, h, self.width, self.height) orelse return;
         const src_col: i64 = @as(i64, clipped.x0) - @as(i64, dst_x) + @as(i64, src_x);

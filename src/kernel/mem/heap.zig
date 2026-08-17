@@ -19,7 +19,7 @@ const min_block_size: usize = @sizeOf(BlockHeader) * 2 + @sizeOf(BlockFooter);
 /// The heap guarantees 16-byte alignment for every allocation. Larger
 /// alignments (32/64/4096) would need block splitting that the free-list scan
 /// does not provide — no current consumer requests them (documented guarantee,
-/// audit 2026-08-15).
+/// 2026-08-15-self-audit).
 /// Canary written into every block header. If memory corruption ever turns a
 /// foreign buffer into a "block", checkBlock() fires while it is still being
 /// used — pinpointing the corrupter instead of failing three tests later.
@@ -38,7 +38,7 @@ const BlockHeader = struct {
     grow_end: usize,
     /// Start (inclusive) of the grow region this block belongs to. Bounds the
     /// backward merge so adjacent free blocks in one region merge instead of
-    /// fragmenting permanently (audit 2026-08-15).
+    /// fragmenting permanently (2026-08-15-self-audit).
     grow_start: usize,
 };
 
@@ -60,7 +60,7 @@ const BlockFooter = struct {
 
 pub const HeapAllocator = struct {
     /// Pointer to the single PFA, so growing the heap mutates the real
-    /// free_pages/next_free_hint instead of a stale copy (audit 2026-08-15).
+    /// free_pages/next_free_hint instead of a stale copy (2026-08-15-self-audit).
     pfa: *pfa.PageFrameAllocator,
     free_list: ?*BlockHeader,
 
@@ -221,7 +221,7 @@ pub const HeapAllocator = struct {
         // size of the current one (a boundary tag gives the true previous
         // size). Bounded by the grow-region start so adjacent free blocks in
         // one region merge; the old per-page bound left multi-page free
-        // neighbours permanently fragmented (audit 2026-08-15).
+        // neighbours permanently fragmented (2026-08-15-self-audit).
         if (@intFromPtr(block) >= block.grow_start + @sizeOf(BlockFooter)) {
             const prev_footer: *BlockFooter = @ptrFromInt(@intFromPtr(block) - @sizeOf(BlockFooter));
             const prev: *BlockHeader = @ptrFromInt(@intFromPtr(block) - prev_footer.size);

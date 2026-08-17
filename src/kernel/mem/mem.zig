@@ -10,7 +10,7 @@ pub const Memory = struct {
 
     /// Fill `self` in place (not return-by-value) so the heap can hold a
     /// pointer to `self.pfa` that outlives this call — a returned copy would
-    /// leave the pointer dangling (handoff H2/H3 class, audit 2026-08-15).
+    /// leave the pointer dangling (handoff H2/H3 class, 2026-08-15-self-audit).
     pub fn init(self: *Memory, info: *const boot_info.BootInfo) !void {
         const total_pages = highestPage(info.memory_entries);
         const bitmap_bytes = (total_pages + 7) / 8;
@@ -60,7 +60,7 @@ fn reserveBitmap(info: *const boot_info.BootInfo, bytes: usize) !u64 {
         // Never reserve below low_memory_end: the bootloader's direct map does
         // not map it (C32/H3), so zeroing the bitmap there would page-fault at
         // boot; the PFA also refuses to allocate those pages, so the bitmap
-        // accounting stays consistent (audit 2026-08-15).
+        // accounting stays consistent (2026-08-15-self-audit).
         const base = @max(entry.base, pfa.low_memory_end);
         const page_aligned = std.mem.alignForward(u64, base, pfa.page_size);
         const end = entry.base + entry.length;

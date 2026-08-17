@@ -9,7 +9,7 @@ var lua_state: ?*lua_c.lua_State = null;
 var heap_allocator: std.mem.Allocator = undefined;
 var initrd: ?[]const u8 = null;
 
-/// Instruction budget for one kernel → Lua call (brief Task 7b, audit §3.6).
+/// Instruction budget for one kernel → Lua call (brief Task 7b, 2026-08-15-self-audit §3.6).
 /// `lua_pcall` catches runtime errors but not an infinite loop — `while true
 /// do end` in the shell would otherwise monopolize the CPU forever (the
 /// preemptive scheduler only yields at the timer tick and the shell runs on
@@ -182,14 +182,14 @@ pub fn runMain(entry: []const u8) !void {
     if (status != lua_c.LUA_OK) {
         const err = lua_c.lua_tolstring(L, -1, null);
         if (err) |e| serial.writeLine(std.mem.span(e));
-        _ = lua_c.lua_pop(L, 1); // drop the error message (audit 2026-08-15)
+        _ = lua_c.lua_pop(L, 1); // drop the error message (2026-08-15-self-audit)
         return error.LuaLoadFailed;
     }
     const run_status = lua_c.lua_pcallk(L, 0, 0, 0, 0, null);
     if (run_status != lua_c.LUA_OK) {
         const err = lua_c.lua_tolstring(L, -1, null);
         if (err) |e| serial.writeLine(std.mem.span(e));
-        _ = lua_c.lua_pop(L, 1); // drop the error message (audit 2026-08-15)
+        _ = lua_c.lua_pop(L, 1); // drop the error message (2026-08-15-self-audit)
         return error.LuaRunFailed;
     }
 }
@@ -252,7 +252,7 @@ fn callGlobalFunction(name: [*:0]const u8) CallResult {
                 const hook_status = lua_c.lua_pcallk(L, 1, 0, 0, 0, null);
                 if (hook_status != lua_c.LUA_OK) {
                     // The hook itself failed; drop its error too so nothing
-                    // leaks on the stack (audit 2026-08-15).
+                    // leaks on the stack (2026-08-15-self-audit).
                     _ = lua_c.lua_pop(L, 1);
                 }
             } else {
@@ -280,7 +280,7 @@ pub fn callUpdate() CallResult {
 
 /// C function that runs one incremental GC step. Called under `lua_pcall` so a
 /// GC-time allocation failure raises a catchable Lua error instead of aborting
-/// the kernel (audit 2026-08-15: lua_gc outside a protected context would
+/// the kernel (2026-08-15-self-audit: lua_gc outside a protected context would
 /// hit the default panic path on OOM).
 fn luaGcStepC(L: ?*lua_c.lua_State) callconv(.c) c_int {
     const budget: c_int = @intCast(lua_c.luaL_checkinteger(L, 1));

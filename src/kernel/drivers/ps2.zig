@@ -167,7 +167,7 @@ fn initMouse() void {
     // Drain any stale bytes left in the output buffer (e.g. the keyboard's
     // ACK to 0xF4 from initKeyboard) so the port-2 test result below is not
     // confused with leftover data. Bounded so a stuck controller cannot hang
-    // boot (audit 2026-08-15).
+    // boot (2026-08-15-self-audit).
     var drain_spins: u32 = 0;
     while (io.in8(ps2_status) & status_output_full != 0) {
         _ = io.in8(ps2_data);
@@ -250,7 +250,7 @@ fn mouseCommand(cmd: u8) ?u8 {
 
 /// Send a mouse command, resending a bounded number of times on 0xFE so a
 /// device that never ACKs cannot recurse forever (the old "retry once" comment
-/// did not match the unbounded recursion — audit 2026-08-15).
+/// did not match the unbounded recursion — 2026-08-15-self-audit).
 fn mouseCommandRetry(cmd: u8, attempt: u32) ?u8 {
     // Write a command to the mouse: prefix with 0xD4 (write to port 2).
     sendCommand(0xD4);

@@ -90,7 +90,7 @@ pub fn parseEntries(buf: []const u8, header: GptHeader, out: []PartitionEntry) G
         const entry = buf[i * entry_size .. i * entry_size + entry_size];
         if (allZero(entry[0..16])) break;
         // Only fail when a real entry does not fit — an exactly-full buffer of
-        // used entries is valid (audit 2026-08-15).
+        // used entries is valid (2026-08-15-self-audit).
         if (count == out.len) return GptError.BufferTooSmall;
         var type_guid: [16]u8 = undefined;
         var unique_guid: [16]u8 = undefined;
@@ -123,7 +123,7 @@ pub fn discover(alloc: std.mem.Allocator, disk: block.BlockDevice, out: []block.
     try disk.read(1, &header_sector);
     const header = try parseHeader(&header_sector);
     // Cap the entry array before allocating so a crafted num_entries/entry_size
-    // cannot drive a huge heap allocation (audit 2026-08-15).
+    // cannot drive a huge heap allocation (2026-08-15-self-audit).
     if (header.entry_size < entry_size_default or header.entry_size > 512) return GptError.BadEntrySize;
     if (header.num_entries == 0 or header.num_entries > 2048) return GptError.BadEntrySize;
     const entry_size = @as(usize, header.entry_size);
@@ -139,7 +139,7 @@ pub fn discover(alloc: std.mem.Allocator, disk: block.BlockDevice, out: []block.
         if (written == out.len) return GptError.BufferTooSmall;
         // A partition must span a valid, in-range LBA range; an inverted
         // range would underflow PartitionView's bounds check and grant
-        // unbounded disk access (audit 2026-08-15).
+        // unbounded disk access (2026-08-15-self-audit).
         if (e.first_lba > e.last_lba or
             e.first_lba < header.first_usable_lba or
             e.last_lba > header.last_usable_lba) return error.OutOfBounds;

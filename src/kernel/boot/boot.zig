@@ -46,7 +46,7 @@ fn translateMemoryEntries() BootError![]const boot_info.MemoryEntry {
     const memmap = limine.memmap() orelse return BootError.NoMemoryMap;
     // The storage is fixed-size (64 entries); reading past it would walk
     // foreign memory, so the count is clamped to it and the boot log notes a
-    // silently-truncated map (audit 2026-08-15).
+    // silently-truncated map (2026-08-15-self-audit).
     const count = @min(memmap.entry_count, max_memory_entries);
     for (0..count) |i| {
         const entry = memmap.entries[i] orelse continue;
@@ -67,7 +67,7 @@ fn translateMemoryEntries() BootError![]const boot_info.MemoryEntry {
 
 /// Map a bootloader memory-map type to the kernel's own enum. Unknown types
 /// are mapped to reserved — never usable — so a new/unknown type cannot make
-/// the allocator treat random memory as free (audit 2026-08-15).
+/// the allocator treat random memory as free (2026-08-15-self-audit).
 fn translateEntryType(raw: u64) boot_info.MemoryEntryType {
     return switch (raw) {
         0 => .usable,

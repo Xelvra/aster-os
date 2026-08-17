@@ -12,7 +12,7 @@ fn kvmAvailable() bool {
 pub fn build(b: *std.Build) void {
     // ADR-013: pin the exact Zig version. A mismatch would produce a subtly
     // different kernel and silently desync CI and the reproducible gate
-    // (audit 2026-08-15).
+    // (2026-08-15-self-audit).
     const pinned = std.mem.trim(u8, @embedFile(".zig-version"), " \n\r");
     const expected = std.SemanticVersion.parse(pinned) catch {
         std.debug.print("build: cannot parse .zig-version '{s}'\n", .{pinned});
@@ -115,7 +115,7 @@ pub fn build(b: *std.Build) void {
     // the archive would stay stale forever.)
     const tar_cmd = b.addSystemCommand(&.{ "tar", "-cf" });
     const initfs_path = tar_cmd.addOutputFileArg("initfs.tar");
-    // Deterministic archive so the ISO is reproducible (audit 2026-08-15,
+    // Deterministic archive so the ISO is reproducible (2026-08-15-self-audit,
     // ADR-014): stable entry order, zeroed mtime/uid/gid.
     tar_cmd.addArg("--sort=name");
     tar_cmd.addArg("--mtime=@0");
@@ -195,7 +195,7 @@ pub fn build(b: *std.Build) void {
     iso_step.dependOn(&bios_install.step);
     // Install the built ISO at a fixed path (zig-out/aster.iso) so the tools
     // and CI can use a deterministic location instead of guessing by mtime
-    // among the many cached ISOs (audit 2026-08-15).
+    // among the many cached ISOs (2026-08-15-self-audit).
     const iso_install = b.addInstallFileWithDir(iso_path, .{ .custom = "" }, "aster.iso");
     iso_install.step.dependOn(&bios_install.step);
     iso_step.dependOn(&iso_install.step);

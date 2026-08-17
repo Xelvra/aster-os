@@ -61,7 +61,7 @@ local z_counter = 0
 
 -- Centered window/popup geometry below the bar: the float toggle and the
 -- scratchpad picker share the shape, so one helper keeps the size/centering
--- from drifting (audit 2026-08-15: duplicated formulas with magic ratios).
+-- from drifting (2026-08-15-self-audit: duplicated formulas with magic ratios).
 local function centered_rect(ratio_w, ratio_h)
     local w = math.floor(SW * ratio_w)
     local h = math.floor((SH - theme.bar.height) * ratio_h)
@@ -187,7 +187,7 @@ local function layout_pass()
         else
             -- The fullscreen window is gone or on another workspace: leave
             -- fullscreen through the shared path so the restore geometry is
-            -- cleared too (audit 2026-08-15).
+            -- cleared too (2026-08-15-self-audit).
             exit_fullscreen()
         end
     end
@@ -268,7 +268,7 @@ end
 -- ---------------------------------------------------------------------------
 -- Bar geometry (bar_render draws it, handle_mouse hit-tests it): named
 -- constants so the workspace capsules can never drift from the launcher+clock
--- layout (audit 2026-08-15: the capsule start was a magic sum duplicating the
+-- layout (2026-08-15-self-audit: the capsule start was a magic sum duplicating the
 -- draw code).
 local bar_margin = 8        -- left edge of the launcher button
 local launcher_size = 20    -- the launcher square

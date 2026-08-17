@@ -102,7 +102,7 @@ end
 
 -- Persist the last commands (newest last, capped at history_max). Called
 -- after every Enter; the file is created on first use and a missing disk
--- makes it a no-op (audit 2026-08-15: previously the file was never created).
+-- makes it a no-op (2026-08-15-self-audit: previously the file was never created).
 function repl_save_history()
     local h = file.open(history_path)
     if not h then h = file.create(history_path) end

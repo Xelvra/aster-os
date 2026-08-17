@@ -7,7 +7,7 @@ ISO="${1:-}"
 if [[ -z "$ISO" ]]; then
     echo "building ISO..."
     zig build iso
-    ISO="zig-out/aster.iso"  # fixed output path (audit 2026-08-15)
+    ISO="zig-out/aster.iso"  # fixed output path (2026-08-15-self-audit)
 fi
 
 MARKER="${SMOKE_MARKER:-ASTER BOOT OK}"

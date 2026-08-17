@@ -24,7 +24,7 @@ const icr_startup_mode: u32 = 0x6 << 8;
 const ioapic_default_phys: u64 = 0xFEC00000;
 /// The I/O APIC MMIO window the chipset puts at 0xFEC00xxx (reserved, not
 /// RAM). A MADT-supplied address outside this window is corrupt and must not
-/// be mapped/written (audit 2026-08-15).
+/// be mapped/written (2026-08-15-self-audit).
 const ioapic_window_start: u64 = 0xFEC00000;
 const ioapic_window_end: u64 = 0xFEC01000;
 const ioapic_regsel: u32 = 0x00;

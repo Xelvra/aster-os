@@ -13,7 +13,7 @@ fn kernelAllocator() std.mem.Allocator {
 pub export fn malloc(size: usize) callconv(.c) ?*anyopaque {
     // The header stores the original requested size; free() recomputes the
     // block length from it, so a checked add keeps an extreme size from
-    // overflowing the bookkeeping arithmetic (audit 2026-08-15).
+    // overflowing the bookkeeping arithmetic (2026-08-15-self-audit).
     const total = std.math.add(usize, size, @sizeOf(usize) + 7) catch return null;
     const block = kernelAllocator().alloc(u64, total / 8 + 1) catch return null;
     const len_ptr: *usize = @ptrCast(block.ptr);
@@ -45,7 +45,7 @@ pub export fn realloc(ptr: ?*anyopaque, size: usize) callconv(.c) ?*anyopaque {
         // Shrinking keeps the original block: free() recomputes the block
         // length from the stored size, so overwriting it here would make free
         // release the wrong (smaller) length and corrupt the allocator
-        // (audit 2026-08-15). The caller simply uses fewer bytes.
+        // (2026-08-15-self-audit). The caller simply uses fewer bytes.
         return ptr;
     }
     const new_ptr = malloc(size) orelse return null;
@@ -513,7 +513,7 @@ export fn strtod(str: [*:0]const u8, endptr: ?*[*:0]const u8) callconv(.c) f64 {
         }
         while (str[i] >= '0' and str[i] <= '9') : (i += 1) {
             exponent = exponent * 10 + (str[i] - '0');
-            // Saturate so a huge exponent cannot overflow (audit 2026-08-15).
+            // Saturate so a huge exponent cannot overflow (2026-08-15-self-audit).
             if (exponent > 9999) exponent = 9999;
         }
         if (exp_neg) exponent = -exponent;
@@ -618,7 +618,7 @@ export fn vsnprintf(str: ?[*]u8, size: usize, format: [*:0]const u8, ap: *std.bu
         while (format[p] >= '0' and format[p] <= '9') {
             width = width * 10 + (format[p] - '0');
             // Bound the width so a huge field cannot spin the pad loop
-            // forever (audit 2026-08-15).
+            // forever (2026-08-15-self-audit).
             if (width > 512) width = 512;
             p += 1;
         }
@@ -629,7 +629,7 @@ export fn vsnprintf(str: ?[*]u8, size: usize, format: [*:0]const u8, ap: *std.bu
             while (format[p] >= '0' and format[p] <= '9') {
                 prec = prec * 10 + (format[p] - '0');
                 // Saturate so a huge precision cannot overflow i32
-                // (audit 2026-08-15).
+                // (2026-08-15-self-audit).
                 if (prec > 64) prec = 64;
                 p += 1;
             }
@@ -722,7 +722,7 @@ export fn fprintf(stream: ?*anyopaque, format: [*:0]const u8, ...) callconv(.c) 
     defer @cVaEnd(&ap);
     const written = vsnprintf(&buf, buf.len, format, &ap);
     // vsnprintf returns the would-be length; never read past the buffer
-    // (audit 2026-08-15).
+    // (2026-08-15-self-audit).
     const n: usize = @min(@as(usize, @intCast(@max(written, 0))), buf.len);
     var i: usize = 0;
     while (i < n) : (i += 1) lua_serial_write(buf[i]);

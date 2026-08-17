@@ -65,7 +65,7 @@ pub var mounted: ?ext2.Ext2 = null;
 
 const handle_max = 8;
 /// Upper bound for a single read/write/list buffer, so a caller-supplied
-/// length cannot create an absurd slice (audit 2026-08-15).
+/// length cannot create an absurd slice (2026-08-15-self-audit).
 const io_cap: usize = 1024 * 1024;
 /// Open-file handle table, the module's own registry (composition-root
 /// exception, spec/code-style.md §1): per-module state, not a per-feature

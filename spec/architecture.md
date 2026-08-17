@@ -293,7 +293,7 @@ aster-os/
 │   ├── verification.md           # verifikační pipeline + deterministický build
 │   ├── debugging.md              # Debugging Survival Guide (GDB, serial dump)
 │   ├── troubleshooting.md        # vyřešené pasti a lekce (C1..C43, H1..H7)
-│   ├── audit-2026-08-15.md       # kompletní repo audit
+│   ├── 2026-08-15-self-audit.md       # kompletní repo audit
 │   ├── handoff.md                # postup pro nevyřešené problémy
 │   └── handoffs/                 # handoff dokumenty (open/closed)
 ├── src/

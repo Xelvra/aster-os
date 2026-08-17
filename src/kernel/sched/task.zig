@@ -4,7 +4,7 @@ const irq = @import("../cpu/irq.zig");
 const time = @import("../time.zig");
 const serial = @import("../serial.zig");
 
-/// Stack-overflow canary (brief Task 7a, audit §3.5). The task stacks and the
+/// Stack-overflow canary (brief Task 7a, 2026-08-15-self-audit §3.5). The task stacks and the
 /// kernel stack are plain static arrays with no guard pages (the single
 /// address space has no per-task page tables — spec/non-goals.md), so an
 /// overflowing task silently writes into the neighbouring stack. Following
@@ -15,7 +15,7 @@ const serial = @import("../serial.zig");
 /// the next switch, not at the moment of the write.
 const stack_canary_magic: u64 = 0xA57E5CA42C4CA1AE; // "ASTERSTK"
 
-/// Minimum preemptive round-robin scheduler (ADR-017, audit §3.5, brief Task 7).
+/// Minimum preemptive round-robin scheduler (ADR-017, 2026-08-15-self-audit §3.5, brief Task 7).
 ///
 /// Single-core: the switch points are the APIC timer IRQ (vector 0x20) for
 /// preemption and the voluntary `sleepMs` bridge (spec/timer.md §5) for
@@ -195,7 +195,7 @@ pub const SpawnError = error{TaskTableFull};
 /// own static stack. Must be called from normal context (interrupts enabled),
 /// never from an ISR: the TCB table is a critical section and is guarded by
 /// the RFLAGS-based interrupt guard so a caller that already masked
-/// interrupts is not wrongly re-enabled (audit 2026-08-15).
+/// interrupts is not wrongly re-enabled (2026-08-15-self-audit).
 pub fn spawnTask(entry: *const fn () callconv(.c) noreturn) SpawnError!TaskId {
     const guard = irq.begin();
     defer guard.end();

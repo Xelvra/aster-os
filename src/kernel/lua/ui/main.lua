@@ -128,7 +128,7 @@ function render()
         else
             -- The fullscreen window is gone or on another workspace: leave
             -- fullscreen through the shared path (clears the restore geometry
-            -- too; audit 2026-08-15).
+            -- too; 2026-08-15-self-audit).
             exit_fullscreen()
         end
     end

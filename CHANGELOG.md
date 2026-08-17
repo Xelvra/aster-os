@@ -45,7 +45,7 @@ This version tracks the milestone after M6 Storage was completed.
   from the initrd into `/wm/` is planned as a later milestone (Úroveň 2,
   `spec/roadmap.md` M8, `spec/lua-wm.md` §3.1).
 
-* **Preemptive round-robin scheduler for native kernel tasks (audit §3.5, Task 7):**
+* **Preemptive round-robin scheduler for native kernel tasks (2026-08-15-self-audit §3.5, Task 7):**
   new `sched/task.zig` runs multiple kernel tasks on one core, preempted by the
   APIC timer IRQ (vector 0x20). TCB table and all task stacks are static (no
   allocation), the switch lives in the `cpu/isr.s` asm bridge, and the critical
@@ -54,7 +54,7 @@ This version tracks the milestone after M6 Storage was completed.
   advance. Blocking per-task `sleepMs` (`spec/timer.md` §5) is implemented and
   verified by the `testBlockingTaskSleep` runtime test.
 
-* **I/O APIC discovery from ACPI (audit §3.7):** new `cpu/acpi.zig` parses
+* **I/O APIC discovery from ACPI (2026-08-15-self-audit §3.7):** new `cpu/acpi.zig` parses
   RSDP (handed by Limine) → RSDT/XSDT → MADT and reads the I/O APIC address
   from the MADT entry instead of hardcoding `0xFEC00000` for QEMU. The legacy
   address stays as a fallback default; the boot log reports the I/O APIC
@@ -196,12 +196,12 @@ This version tracks the milestone after M6 Storage was completed.
   work), and bounds the group against the block-group count derived from the
   superblock. `Ext2.init` rejects a superblock with `blocks_per_group == 0` or
   `inodes_per_group == 0` as `CorruptSuperblock`, and `readInode` guards the
-  inode-to-group division (audit §3.6).
+  inode-to-group division (2026-08-15-self-audit §3.6).
 * **PFA allocation locality:** the frame allocator keeps a `next_free_hint`
   so allocations scan forward from the last free index (with wrap-around)
   instead of restarting at zero, and a `free_pages` cache makes
-  `totalFreePages()` O(1) instead of a full bitmap scan (audit §3.1).
-* **Global mutable state eliminated (audit §3.2):** the six display globals
+  `totalFreePages()` O(1) instead of a full bitmap scan (2026-08-15-self-audit §3.1).
+* **Global mutable state eliminated (2026-08-15-self-audit §3.2):** the six display globals
   in `main.zig` (`fb_storage`, `back_fb`, `renderer`, `mouse_cursor`,
   `needs_render`, `first_frame_reported`) are merged into one `DisplayState`
   owned by `kernelMain` and threaded through the frame loop by pointer. The
@@ -286,7 +286,7 @@ This version tracks the milestone after M6 Storage was completed.
   read block 0 as entries). Holes now read as zeros and directories walk every
   block (see the double/triple indirect entry above).
 
-* **Kernel hardening (audit 2026-08-15, low/medium):** the bootloader
+* **Kernel hardening (2026-08-15-self-audit, low/medium):** the bootloader
   framebuffer handoff is validated (bpp >= 32, sane dimensions/pitch),
   `drawGlyph` and `blit` use i64 arithmetic, `checkString` guards the
   `lua_tolstring` null, `next_handle` wraps at a ceiling, the boot handoff

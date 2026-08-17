@@ -102,7 +102,7 @@ function launcher_open_app_help(app)
     gfx.invalidate()
 end
 
--- Run-mode popup metrics (named; audit 2026-08-15: the row math was
+-- Run-mode popup metrics (named; 2026-08-15-self-audit: the row math was
 -- duplicated as magic numbers in input.lua's mouse hit-test).
 local run_row_h = 20
 local run_prompt_offset = 30 -- prompt -> first item row
@@ -134,7 +134,7 @@ end
 
 -- Run-mode item row under the mouse y (1-based), or nil when the click is
 -- outside the item list (the header or the padding). Shared with handle_mouse
--- so the click target matches the drawn rows (audit 2026-08-15).
+-- so the click target matches the drawn rows (2026-08-15-self-audit).
 function launcher_item_at(my)
     local lx, ly, lw, lh = launcher_popup()
     local items = launcher_filtered()

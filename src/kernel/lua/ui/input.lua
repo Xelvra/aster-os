@@ -20,7 +20,7 @@ local last_title_click = { t = -math.huge, x = 0, y = 0 }
 -- left to the render path as a side effect, so the state is always coherent.
 local function switch_workspace(ws)
     -- The workspace count comes from theme.ws, so a hardcoded Super+digit
-    -- must never reach past it (audit 2026-08-15: unbounded index).
+    -- must never reach past it (2026-08-15-self-audit: unbounded index).
     if ws < 1 or ws > #theme.ws then return end
     current_ws = ws
     local fs = find_win(fullscreen_win or "")
@@ -125,7 +125,7 @@ local function handle_mouse()
             -- first. The windows list is the tiling order, not the z-order
             -- (set_focus bumps z without reordering it), so a floating window
             -- overlapping a later tiled one would be mis-hit without the sort
-            -- (audit 2026-08-15).
+            -- (2026-08-15-self-audit).
             local z_order = {}
             for _, w in ipairs(windows) do
                 if w.ws == current_ws then z_order[#z_order + 1] = w end
@@ -193,7 +193,7 @@ local function handle_mouse()
             -- topmost window, so typing works right away. The bar owns rows
             -- 0..bar_h-1; the first window row starts at bar_h, so the strict
             -- upper bound keeps a boundary click from hitting both the bar
-            -- and a window (audit 2026-08-15: y == bar_h double-hit).
+            -- and a window (2026-08-15-self-audit: y == bar_h double-hit).
             for _, c in ipairs(ws_capsules()) do
                 if mx >= c.x and mx <= c.x + c.w and my >= 0 and my < theme.bar.height then
                     switch_workspace(c.i)
@@ -576,7 +576,7 @@ local function handle_key(ev)
             if current ~= "" then
                 -- Cap the in-memory history at history_max so a long session
                 -- cannot grow it without bound (repl_save_history already
-                -- caps what it writes to disk; audit 2026-08-15).
+                -- caps what it writes to disk; 2026-08-15-self-audit).
                 table.insert(history, current)
                 if #history > history_max then table.remove(history, 1) end
                 repl_save_history()
@@ -758,7 +758,7 @@ local function handle_key(ev)
             -- (Esc Esc) exits back to the listing; space/enter exit at once.
             -- Any non-Esc key cancels a pending first Esc, so navigating after
             -- the "are you sure" press does not let the next Esc exit straight
-            -- away (audit 2026-08-15: esc_pending was stale across keys).
+            -- away (2026-08-15-self-audit: esc_pending was stale across keys).
             if code ~= "escape" then esc_pending = false end
             if code == "escape" then
                 if esc_pending then

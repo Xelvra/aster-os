@@ -7,7 +7,7 @@ ISO="${1:-}"
 if [[ -z "$ISO" ]]; then
     echo "building ISO with runtime tests..."
     zig build iso -Druntime-tests=true
-    ISO="zig-out/aster.iso"  # fixed output path (audit 2026-08-15)
+    ISO="zig-out/aster.iso"  # fixed output path (2026-08-15-self-audit)
 fi
 
 PASS_CODE="99"
@@ -27,7 +27,7 @@ if [[ -n "$DISK" ]]; then
     disk_args=(-drive "file=$DISK,format=raw,if=none,id=hd0" -device virtio-blk-pci,drive=hd0,disable-legacy=on)
 fi
 
-# Keep the serial stream so a failure is diagnosable (audit 2026-08-15).
+# Keep the serial stream so a failure is diagnosable (2026-08-15-self-audit).
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
 serial_log="$tmpdir/serial.log"

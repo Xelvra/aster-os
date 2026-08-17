@@ -23,7 +23,7 @@ ed_row_h = 18
 -- Code-point aware helpers for horizontal scrolling: the cursor position and
 -- the scroll offset are byte offsets, but the visible window is a character
 -- count — mixing the two can split a multi-byte UTF-8 sequence and misplace
--- the cursor (audit 2026-08-15). The cp_* helpers live in repl.lua (shared
+-- the cursor (2026-08-15-self-audit). The cp_* helpers live in repl.lua (shared
 -- chunk scope).
 
 -- Number of code points from 0-based byte offset `from` up to (not including)
@@ -222,7 +222,7 @@ end
 -- Open a file in the editor, refusing to discard unsaved changes — the same
 -- invariant Super+T keeps ("a dirty buffer is kept so unsaved edits are never
 -- lost"). files_edit and Super+Z route through this so opening another file
--- cannot silently drop the buffer (audit 2026-08-15).
+-- cannot silently drop the buffer (2026-08-15-self-audit).
 function editor_load_safe(path)
     if ed_open and ed_dirty then
         wm_error("editor", "unsaved changes — save first (Ctrl+S)")
@@ -433,7 +433,7 @@ local function editor_render()
         -- Slice the visible part of the line by code points: the focused row
         -- starts at the scroll offset, every other row at the start; always
         -- capped to the window width so a long line never bleeds over the
-        -- window edge or a neighbour (audit 2026-08-15).
+        -- window edge or a neighbour (2026-08-15-self-audit).
         local shown
         if i == ed_row then
             shown = cp_slice(text, ed_scroll_col, max_chars)

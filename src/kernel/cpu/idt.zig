@@ -114,7 +114,7 @@ fn printBacktrace(frame_pointer: u64) void {
         // Only walk a plausible kernel-address frame: 8-aligned and inside the
         // higher-half kernel/direct-map range. A garbage rbp (stack corruption
         // or a fabricated task frame) must not #PF inside the fault handler
-        // (audit 2026-08-15).
+        // (2026-08-15-self-audit).
         if (fp % 8 != 0 or fp < 0xffffffff80000000 or fp >= 0xffffffffffff0000) break;
         const return_addr: u64 = @as(*const u64, @ptrFromInt(fp + 8)).*;
         if (return_addr == 0) break;

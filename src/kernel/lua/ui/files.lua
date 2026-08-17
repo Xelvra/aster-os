@@ -437,7 +437,7 @@ local function files_render()
         -- read-only viewing.
         local lines = files_view_lines()
         -- Keep the cursor visible horizontally (code-point aware, so a UTF-8
-        -- sequence is never split; audit 2026-08-15).
+        -- sequence is never split; 2026-08-15-self-audit).
         if fs_view_col < fs_view_scroll_col then
             fs_view_scroll_col = fs_view_col
         elseif cp_count(lines[fs_view_row], fs_view_scroll_col, fs_view_col) >= max_chars then
@@ -450,7 +450,7 @@ local function files_render()
         end
         -- Scroll so the cursor row is always visible. Rows are always capped
         -- to the window width by code points so a long line cannot bleed over
-        -- a neighbour (audit 2026-08-15).
+        -- a neighbour (2026-08-15-self-audit).
         local first = fs_view_scroll + 1
         for i = first, math.min(#lines, first + content_rows - 1) do
             local shown

@@ -28,7 +28,7 @@ pub fn find(archive: []const u8, name: []const u8) TarError![]const u8 {
 /// Compare an archive entry name against a requested name, ignoring a
 /// leading "./" (GNU tar with `-C dir .` produces "./file"). A leading dot
 /// that is PART of the name is preserved, so a hidden entry like ".theme.bak"
-/// never matches a request for "theme.bak" (audit 2026-08-15).
+/// never matches a request for "theme.bak" (2026-08-15-self-audit).
 fn matchesName(entry: []const u8, name: []const u8) bool {
     var e = entry;
     if (e.len >= 2 and e[0] == '.' and e[1] == '/') e = e[2..];

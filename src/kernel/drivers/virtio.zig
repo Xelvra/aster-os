@@ -140,7 +140,7 @@ const VirtQueue = struct {
 
     /// Read the used ring's idx through a volatile pointer: the device writes
     /// it by DMA, so the compiler must not cache it across a completion spin
-    /// loop (audit 2026-08-15).
+    /// loop (2026-08-15-self-audit).
     fn usedIndex(self: *const VirtQueue) u16 {
         const idx_ptr: *const volatile u16 = @ptrFromInt(@intFromPtr(self.used) + 2); // VirtqUsed.idx
         return idx_ptr.*;
@@ -169,7 +169,7 @@ pub const VirtioBlk = struct {
     queue: VirtQueue,
     /// Device block capacity in 512-byte sectors (from the virtio-blk device
     /// config); a request beyond it is rejected before it reaches the device
-    /// (audit 2026-08-15: readSector did not know the capacity).
+    /// (2026-08-15-self-audit: readSector did not know the capacity).
     capacity: u64,
 
     pub fn init(allocator: std.mem.Allocator, pfa_inst: *pfa.PageFrameAllocator, hhdm_offset: u64) VirtioError!VirtioBlk {
@@ -186,7 +186,7 @@ pub const VirtioBlk = struct {
         const caps_offset = pci.readConfig8(device.bus, device.slot, device.func, 0x34);
         var cap_offset: u8 = caps_offset;
         // Bound the capability chain walk so a cyclic cap_next cannot spin the
-        // CPU forever (audit 2026-08-15).
+        // CPU forever (2026-08-15-self-audit).
         var cap_iter: u32 = 0;
         while (cap_offset != 0 and cap_iter < 256) : (cap_iter += 1) {
             const id = pci.readConfig8(device.bus, device.slot, device.func, cap_offset);
@@ -243,7 +243,7 @@ pub const VirtioBlk = struct {
         const common = self.common;
         common.device_status = 0;
         // Bound the reset wait so a misbehaving device cannot hang boot
-        // (audit 2026-08-15).
+        // (2026-08-15-self-audit).
         var reset_spins: u32 = 0;
         while (common.device_status != 0) : (reset_spins += 1) {
             if (reset_spins > 1_000_000) return VirtioError.IoError;

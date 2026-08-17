@@ -17,7 +17,7 @@ if [[ "$MODE" != "generate" && "$MODE" != "--check" && "$MODE" != "check" ]]; th
 fi
 
 zig build iso >/dev/null
-ISO="zig-out/aster.iso"  # fixed output path (audit 2026-08-15)
+ISO="zig-out/aster.iso"  # fixed output path (2026-08-15-self-audit)
 
 tmpdir="$(mktemp -d)"
 serial_file="$tmpdir/boot.serial"

@@ -260,7 +260,7 @@ const DisplayState = struct {
 fn initGraphics(display: *DisplayState, info: *const boot_info.BootInfo, memory: *mem.Memory) bool {
     const fb_info = info.framebuffer orelse return false;
     // A malformed bootloader handoff (bpp < 32, zero/inverted dimensions) is
-    // rejected here instead of corrupting memory later (audit 2026-08-15).
+    // rejected here instead of corrupting memory later (2026-08-15-self-audit).
     const fb = framebuffer.Framebuffer.init(fb_info) orelse return false;
     display.fb_storage = fb;
 

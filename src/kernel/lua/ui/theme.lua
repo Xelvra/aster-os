@@ -91,7 +91,7 @@ end
 -- still be semantically broken (e.g. `theme.wm = {}`), and applying it would
 -- crash the next layout_pass and loop the hot reload forever. Every field the
 -- shell arithmetic relies on must have the right type before the theme is
--- swapped in (audit 2026-08-15).
+-- swapped in (2026-08-15-self-audit).
 local function theme_valid(t)
     if type(t) ~= "table" then return false end
     local numeric = {

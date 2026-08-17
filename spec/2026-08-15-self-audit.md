@@ -1,4 +1,4 @@
-# Audit — 2026-08-15
+# Self-Audit — 2026-08-15
 
 Kompletní audit repozitáře Aster OS. HEAD `9588b20` (před začátkem oprav).
 

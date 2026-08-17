@@ -31,7 +31,7 @@ pub const EventQueue = struct {
         // SPSC: the producer may only overwrite a slot after the consumer has
         // read it, so read_index is loaded with acquire; the buffer write must
         // be visible before the slot is published, so write_index is stored
-        // with release (audit 2026-08-15 — monotonic ordering is masked by
+        // with release (2026-08-15-self-audit — monotonic ordering is masked by
         // x86 TSO but wrong on weaker memory models).
         const write = self.write_index.load(.monotonic);
         const next = (write + 1) % queue_capacity;

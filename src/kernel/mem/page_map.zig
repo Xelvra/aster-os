@@ -24,7 +24,7 @@ pub fn mapPage(virtual: u64, physical: u64, flags: u64) void {
 
     const pml4 = cr3;
     // Bail out on any table-level failure instead of writing a PTE at the
-    // direct-map base (audit 2026-08-15).
+    // direct-map base (2026-08-15-self-audit).
     const pdpt = ensureTable(alloc, pml4, pml4_idx) orelse return;
     const pd = ensureTable(alloc, pdpt, pdpt_idx) orelse return;
     const pt = ensureTable(alloc, pd, pd_idx) orelse return;
@@ -40,7 +40,7 @@ fn ensureTable(alloc: *pfa.PageFrameAllocator, parent_phys: u64, index: usize) ?
     const entry = entry_ptr[0];
     if (entry & present != 0) {
         // A huge-page entry (PS set) is data, not a table pointer — walking it
-        // as entries would corrupt memory (audit 2026-08-15).
+        // as entries would corrupt memory (2026-08-15-self-audit).
         if (entry & ps != 0) return null;
         return entry & addr_mask;
     }

@@ -33,6 +33,15 @@
 | 19 | [`CHANGELOG.md`](../CHANGELOG.md) | Agregovaný changelog (anglicky) — co systém umí, jedna verze na milník. |
 | 20 | [lua-wm.md](lua-wm.md) | **Lua WM blueprint** — architektura, moduly, tiling engine, grafická pipeline, bindings, design rationale (RFC). |
 | 21 | [editor.md](editor.md) | **Editor okno** — otevření, klávesové a myšové konvence (kolečko = scroll, klik = kurzor), plánovaný zoom. |
+| 22 | [2026-08-15-self-audit.md](2026-08-15-self-audit.md) | **Self-Audit (2026-08-15)** — formální repo audit (kód, bezpečnost, build, CI); nálezy opravené, audit reálně řídí práci. |
+| 23 | [2026-08-16-re-audit.md](2026-08-16-re-audit.md) | **Re-Audit (po M7)** — kontrola, že self-audit nálezy zůstaly opravené, + nová funkcionalita (wasm, SMP, storage) novýma očima. |
+
+> **Auditovací postup:** projekt dělá **pravidelné audity po etapách** — po
+> každém milníku **Self-Audit** (nová funkcionalita + opravy) a před uzavřením
+> milníku **Re-Audit** (kontrola, že předchozí nálezy drží a nepřibyly nové
+> vstupní vektory). Soubory mají pevný název `YYYY-MM-DD-self-audit.md` resp.
+> `YYYY-MM-DD-re-audit.md`; odkazy v kódu/spec na daný audit používají přesně
+> tento název souboru.
 
 ## Jak konzultovat návrh
 

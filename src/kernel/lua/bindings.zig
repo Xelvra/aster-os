@@ -40,7 +40,7 @@ fn checkString(L: ?*lua_c.lua_State, index: c_int, comptime name: []const u8) ?[
     const ptr = lua_c.lua_tolstring(L, index, &len);
     // lua_isstring also accepts numbers (they convert to a string on
     // lua_tolstring), which is expected to succeed — but the pointer can be
-    // null on a conversion failure, so never slice a null (audit 2026-08-15).
+    // null on a conversion failure, so never slice a null (2026-08-15-self-audit).
     if (ptr == null) {
         pushError(L, "expected string for '{s}'", .{name});
         return null;
@@ -50,7 +50,7 @@ fn checkString(L: ?*lua_c.lua_State, index: c_int, comptime name: []const u8) ?[
 
 /// Cast a Lua integer to a binding field type, returning null (with a Lua
 /// error) when it is out of range. Guards the kernel against @intCast panics
-/// that would halt it in ReleaseSafe (audit 2026-08-15, Critical).
+/// that would halt it in ReleaseSafe (2026-08-15-self-audit, Critical).
 fn castChecked(L: ?*lua_c.lua_State, comptime T: type, v: lua_c.lua_Integer, comptime name: []const u8) ?T {
     if (std.math.cast(T, v)) |val| return val;
     pushError(L, "integer out of range for '{s}'", .{name});
