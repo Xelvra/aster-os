@@ -43,7 +43,7 @@ This version tracks the milestone after M6 Storage was completed.
   itself — causing infinite tail recursion (troubleshooting C51). Host tests
   cover them, including `rint` ties-to-even and signed zero.
 
-* **Wasm (M7) — Fáze A runtime module and test programs:** `src/kernel/wasm/`
+* **Wasm (M7) — Phase A runtime module and test programs:** `src/kernel/wasm/`
   hosts wasm3 (`cimport.zig`, `wasm.zig` with `Runtime.spawn(.Wasm)` and trap
   containment) and the kernel links wasm3 as a sandbox module (PIC, so Debug
   links like the kernel PIE). The first wasm programs are compiled from Zig to
@@ -51,7 +51,7 @@ This version tracks the milestone after M6 Storage was completed.
   `debug_write` import) and `fault` (deliberate trap, proving a crashing wasm
   program is dropped while the desktop keeps running). Executable `.wasm`
   files render green in the file browser (`theme.exec`). Next: surface model +
-  calculator (Fáze B), benchmark (Fáze C).
+  calculator (Phase B), benchmark (Phase C).
 
 * **C stdio layer over the kernel storage (WIP, handoff H6):** `fopen`/`fread`/
   `fclose`/`feof`/`ferror`/`getc`/`freopen` map onto the KI storage handles so

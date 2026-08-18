@@ -32,12 +32,12 @@ pre-push hook and CI verify it never drifts from the code
 
 ## Status
 
-- **M7 (Runtime) — wasm Fáze A hotová:** wasm3 vendored, `Runtime.spawn(.Wasm)`,
-  testovací programy hello/fault. Zbývá: surface model + kalkulačka (Fáze B),
-  benchmark (Fáze C), uzavření handoffu H6 (C stdio / storage regrese).
+- **M7 (Runtime) — wasm Phase A done:** wasm3 vendored, `Runtime.spawn(.Wasm)`,
+  hello/fault test programs. Remaining: surface model + calculator (Phase B),
+  benchmark (Phase C), closing handoff H6 (C stdio / storage regression).
   Multi-layout keyboard is done (ADR-024, US/CZ switchable at runtime).
 - **M0–M6 complete:** boot → memory → CPU → graphics → Lua runtime → desktop shell in
-  Lua → disk storage (virtio-blk, GPT, read-write ext2 od M7.1).
+  Lua → disk storage (virtio-blk, GPT, read-write ext2 since M7.1).
 - **Bootable-commit rule:** every commit must leave the system runnable in QEMU
   ([`spec/verification.md`](spec/verification.md)).
 - **Feature history:** per-milestone details (Added/Fixed) in
@@ -142,7 +142,7 @@ If the system crashes or hangs: [`spec/debugging.md`](spec/debugging.md)
 | M4 ✅ | Lua: interactive REPL in kernel, hot reload |
 | M5 ✅ | UI: desktop shell in Lua — tiling WM, bar, launcher, workspace, mouse, error containment, live transformation |
 | M6 ✅ | Storage: initfs, virtio-blk, GPT, filesystem, cooperative reads |
-| M7 🔄 | Runtime: wasm (Fáze A hotová; Fáze B/C zbývá), multitasking, app isolation |
+| M7 🔄 | Runtime: wasm (Phase A done; Phase B/C pending), multitasking, app isolation |
 | M8 ⏳ | Stabilization: invariant audit, metrics, Ring 3 decision |
 | M9 ⏳ | Ecosystem: network, audio, browser, WASI |
 | M10 ⏳ | Adoption: real hardware, installable image, docs, contributors |
