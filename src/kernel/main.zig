@@ -31,6 +31,7 @@ const mouse_cursor_mod = @import("render/mouse_cursor.zig");
 const renderer_mod = @import("render/renderer.zig");
 const sched = @import("sched/task.zig");
 const time = @import("time.zig");
+const wasm = @import("wasm/wasm.zig");
 const runtime_test = @import("runtime_test.zig");
 
 /// Main kernel stack. The bootloader hands the kernel a small stack; switch
@@ -505,6 +506,9 @@ fn update() bool {
     // its own state; a program that errors is dropped without touching the
     // shell.
     lua.tickPrograms();
+    // Wasm programs (spec/adr/026): persistent instances ticked per frame
+    // after the Lua programs; a trap drops the program and the desktop runs on.
+    wasm.tickPrograms();
     lua.gcStep(1024);
     return result == lua.CallResult.err;
 }

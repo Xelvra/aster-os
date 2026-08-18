@@ -137,6 +137,13 @@ pub fn build(b: *std.Build) void {
         .red_zone = false,
         .single_threaded = true,
         .pic = true,
+        // wasm3's threaded-code interpreter dispatches through function
+        // pointers cast to a common visitor/op-handler type (its core
+        // execution model, e.g. ForEachModule's ModuleVisitor); Zig's default
+        // C UBSan (-fsanitize-c=trap, function-type-mismatch check) traps on
+        // that legitimate C idiom. Disabled for this vendored module only —
+        // never patch libs/wasm3 itself for this.
+        .sanitize_c = .off,
     });
     wasm3_mod.addIncludePath(b.path("libs/wasm3/source"));
     wasm3_mod.addIncludePath(b.path("libs/wasm3/include"));
@@ -189,7 +196,7 @@ pub fn build(b: *std.Build) void {
     // Spawned wasm programs (runtime.spawn(.Wasm, ...), M7) are Zig binaries
     // compiled to wasm32-freestanding and packed into the initrd by their flat
     // .wasm name (wasm.loadProgramSource). The kernel keeps the same list.
-    const wasm_app_files = [_][]const u8{ "hello.zig", "fault.zig" };
+    const wasm_app_files = [_][]const u8{ "hello.zig", "fault.zig", "calculator.zig" };
     for (wasm_app_files) |f| {
         const wasm_app = b.addExecutable(.{
             .name = std.fs.path.stem(f),
@@ -202,7 +209,20 @@ pub fn build(b: *std.Build) void {
         });
         // Library-style wasm module: exported start(), no _start entry.
         wasm_app.entry = .disabled;
+        // Zig 0.16 strips `export fn` symbols from wasm modules by default
+        // (dead-code elimination, ziglang/zig#14102); rdynamic keeps the
+        // exports and their imports in the module.
+        wasm_app.rdynamic = true;
         tar_cmd.addFileArg(wasm_app.getEmittedBin());
+        // calculator.wasm is also a disk app (spec/adr/026, 2026-08-18): the
+        // launcher discovers it by scanning /apps/ on disk, not by name — the
+        // initrd copy above stays only as a no-disk fallback (hello/fault use
+        // it exclusively; they are wasm3 smoke tests, not launcher apps).
+        // tools/make-test-disk.sh copies this into the test disk's /apps/.
+        if (std.mem.eql(u8, f, "calculator.zig")) {
+            const install_app = b.addInstallFile(wasm_app.getEmittedBin(), "apps/calculator.wasm");
+            b.getInstallStep().dependOn(&install_app.step);
+        }
     }
 
     const iso_root = b.addWriteFiles();
@@ -357,6 +377,9 @@ pub fn build(b: *std.Build) void {
         .target = b.graph.host,
         .optimize = .Debug,
         .single_threaded = true,
+        // See wasm3_mod above: wasm3's function-pointer dispatch idiom trips
+        // Zig's default C UBSan function-type-mismatch trap.
+        .sanitize_c = .off,
     });
     wasm3_test_mod.addIncludePath(b.path("libs/wasm3/source"));
     wasm3_test_mod.addIncludePath(b.path("libs/wasm3/include"));

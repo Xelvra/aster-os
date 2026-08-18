@@ -988,6 +988,66 @@ fn testSpawnWiring() void {
     expect(missing == error.NotFound, "missing program file fails cleanly, shell untouched");
 }
 
+fn testWasmSpawnTickSurface() void {
+    // Phase B (spec/adr/026): spawn -> tick -> surface end-to-end through the
+    // isolated wasm path. This is the strongest verification of Phase B — a
+    // regression here (e.g. a caller name that does not match the initrd's
+    // flat .wasm entry) fails the runtime test instead of only being caught
+    // by manually opening the calculator.
+    const runtime = @import("api/runtime.zig");
+    const wasm = @import("wasm/wasm.zig");
+    const sys = @import("api/sys.zig");
+    const service = @import("input/service.zig");
+
+    // A caller name without the initrd's flat .wasm extension must fail
+    // cleanly (NotFound), not silently spawn nothing.
+    const missing = runtime.spawn(.{ .kind = .Wasm, .entry = "calculator" });
+    expect(missing == error.NotFound, "entry name without .wasm fails cleanly, no silent mismatch");
+
+    const prog = runtime.spawn(.{ .kind = .Wasm, .entry = "calculator.wasm" }) catch {
+        expect(false, "runtime.spawn launches a wasm program by its initrd entry name");
+        return;
+    };
+    const program = wasm.byHandle(prog.handle) orelse {
+        expect(false, "spawned wasm program is live in its slot");
+        return;
+    };
+    expect(program.surface[0] == 0, "surface is zero-filled before the first render");
+
+    // Spawn is a singleton per program name (spec/adr/026): a repeated spawn
+    // reuses the handle instead of starting a second instance.
+    const prog2 = runtime.spawn(.{ .kind = .Wasm, .entry = "calculator.wasm" }) catch {
+        expect(false, "second spawn of the same name succeeds");
+        return;
+    };
+    expect(prog2.handle == prog.handle, "spawn is a singleton per program name");
+
+    wasm.tickPrograms();
+    const background: u32 = 0x00101827;
+    expect(program.surface[0] == background, "tickPrograms ran update()+render(), surface shows the drawn background");
+
+    // input_mouse_x/y are relative to the last surface_render placement, so
+    // the program lives in its own coordinate space (spec/adr/026).
+    const placed = runtime.surfaceRender(prog.handle, 50, 60);
+    expect(placed == @as(u64, @intFromEnum(sys.KiStatus.Success)), "surface_render accepts a live handle");
+    service.setMouseState(.{ .x = 50 + 24, .y = 60 + 52, .left = true });
+    wasm.tickPrograms();
+    service.setMouseState(.{ .x = 0, .y = 0, .left = false });
+    wasm.tickPrograms();
+    expect(program.surface[0] == background, "program keeps rendering after handling a click (no crash, no trap)");
+
+    const unknown = runtime.surfaceRender(prog.handle + 999, 0, 0);
+    expect(unknown == @as(u64, @intFromEnum(sys.KiStatus.NotFound)), "surface_render reports NotFound for an unknown handle");
+
+    // Trap containment (Phase A, re-verified against the Phase B Program
+    // struct): a program that traps in start() is dropped at spawn and its
+    // slot is freed, without corrupting the table for other live programs.
+    const faulted = runtime.spawn(.{ .kind = .Wasm, .entry = "fault.wasm" });
+    expect(faulted == error.CallFailed, "a program that traps in start() is dropped, not left half-alive");
+    const still_alive = wasm.byHandle(prog.handle) != null;
+    expect(still_alive, "an unrelated live program is unaffected by another program's trap");
+}
+
 fn testGcStepPreservesStack() void {
     // 0a74b69: gcStep called lua_pop after a successful pcall with nresults=0,
     // which already restores the pre-push stack — the extra pop removed a live
@@ -1044,6 +1104,7 @@ const tests = [_]Test{
     .{ .name = "task error handler runs on an errored task", .func = testTaskErrorHandler },
     .{ .name = "per-program isolation (own lua_State, contained)", .func = testPerProgramIsolation },
     .{ .name = "runtime.spawn wires programs to the isolated path", .func = testSpawnWiring },
+    .{ .name = "wasm spawn/tick/surface end-to-end (Phase B, spec/adr/026)", .func = testWasmSpawnTickSurface },
     .{ .name = "SMP AP bring-up (INIT-SIPI-SIPI)", .func = testApCoresUp },
     .{ .name = "gcStep keeps a live stack value (0a74b69)", .func = testGcStepPreservesStack },
 };

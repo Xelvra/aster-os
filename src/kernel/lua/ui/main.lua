@@ -81,6 +81,22 @@ function update()
     end
 end
 
+-- Composite a wasm app's surface into its window body (spec/adr/026): a
+-- generic path for ANY window whose title has a live wasm handle
+-- (wasm_handles, launcher.lua) — the WM never names a specific app. The
+-- surface is 224x160 and fully opaque; a window larger than the surface
+-- keeps its body background around it.
+local function wasm_app_render(title)
+    local w = find_win(title)
+    if not w or w.ws ~= current_ws then return end
+    local handle = wasm_handles[title]
+    if not handle then return end
+    local cx = w.x + theme.wm.border
+    local cy = w.y + theme.wm.border + theme.wm.title_h
+    -- A dead program (trap) reports false and simply leaves the body background.
+    runtime.surface_render(handle, cx, cy)
+end
+
 -- Draw the content of a window whose frame was just rendered. Every content
 -- function resolves its own window (find_win) and returns early when the
 -- window is absent or on another workspace, so calling it per-window in
@@ -95,6 +111,8 @@ local function render_window_content(title)
         editor_render()
     elseif title == "files" then
         files_render()
+    elseif wasm_handles[title] then
+        wasm_app_render(title)
     end
 end
 

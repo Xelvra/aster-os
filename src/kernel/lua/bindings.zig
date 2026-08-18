@@ -381,6 +381,9 @@ const SysmonFuncs = [_]lua_c.luaL_Reg{
 
 const RuntimeFuncs = [_]lua_c.luaL_Reg{
     .{ .name = "reload", .func = runtimeReload },
+    .{ .name = "spawn", .func = runtimeSpawn },
+    .{ .name = "surface_render", .func = runtimeSurfaceRender },
+    .{ .name = "key_input", .func = runtimeKeyInput },
     .{ .name = null, .func = null },
 };
 
@@ -591,6 +594,64 @@ fn sysmonRamFreeMb(L: ?*lua_c.lua_State) callconv(.c) c_int {
 fn runtimeReload(L: ?*lua_c.lua_State) callconv(.c) c_int {
     _ = sys.dispatch(.Runtime, .{ .a = @intFromEnum(api_runtime.RuntimeOp.reload) });
     lua_c.lua_pushinteger(L, 0);
+    return 1;
+}
+
+/// runtime.spawn(name): spawn (or reuse) the wasm program `name` and return its
+/// handle. The spawn op reports `(status << 32) | handle`, mirroring the
+/// storage KI; a zero status is success. Programs are singletons per name, so
+/// repeated calls return the same handle (spec/adr/026).
+fn runtimeSpawn(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    const name = checkString(L, 1, "name") orelse return 2;
+    const opts = api_runtime.SpawnOptions{ .kind = .Wasm, .entry = name };
+    const result = sys.dispatch(.Runtime, .{
+        .a = @intFromEnum(api_runtime.RuntimeOp.spawn),
+        .b = @intFromPtr(&opts),
+    });
+    if (result >> 32 == 0) {
+        lua_c.lua_pushinteger(L, @intCast(result & 0xFFFFFFFF));
+        return 1;
+    }
+    pushError(L, "runtime.spawn failed", .{});
+    return 2;
+}
+
+/// runtime.surface_render(handle, x, y): composite a program's surface into the
+/// render target at (x, y). Returns whether the program is still live (false
+/// after a trap); the WM treats a dead program as an empty window body.
+fn runtimeSurfaceRender(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    const handle = checkInteger(L, 1, "handle") orelse return 2;
+    const x = checkInteger(L, 2, "x") orelse return 2;
+    const y = checkInteger(L, 3, "y") orelse return 2;
+    const args = api_runtime.SurfaceRenderArgs{
+        .handle = castChecked(L, u64, handle, "handle") orelse return 2,
+        .x = castChecked(L, i32, x, "x") orelse return 2,
+        .y = castChecked(L, i32, y, "y") orelse return 2,
+    };
+    const status = sys.dispatch(.Runtime, .{
+        .a = @intFromEnum(api_runtime.RuntimeOp.surface_render),
+        .b = @intFromPtr(&args),
+    });
+    const ok = status == @intFromEnum(sys.KiStatus.Success);
+    lua_c.lua_pushboolean(L, if (ok) 1 else 0);
+    return 1;
+}
+
+/// runtime.key_input(handle, char): forward a resolved key character (the WM
+/// has already applied layout/shift) to a wasm program's input_key() latch.
+fn runtimeKeyInput(L: ?*lua_c.lua_State) callconv(.c) c_int {
+    const handle = checkInteger(L, 1, "handle") orelse return 2;
+    const char = checkInteger(L, 2, "char") orelse return 2;
+    const args = api_runtime.KeyInputArgs{
+        .handle = castChecked(L, u64, handle, "handle") orelse return 2,
+        .char = castChecked(L, u8, char, "char") orelse return 2,
+    };
+    const status = sys.dispatch(.Runtime, .{
+        .a = @intFromEnum(api_runtime.RuntimeOp.key_input),
+        .b = @intFromPtr(&args),
+    });
+    const ok = status == @intFromEnum(sys.KiStatus.Success);
+    lua_c.lua_pushboolean(L, if (ok) 1 else 0);
     return 1;
 }
 

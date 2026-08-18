@@ -108,10 +108,19 @@ end
 windows[#windows + 1] = window("repl", 1)
 windows[#windows + 1] = window("sysmon", 1)
 
+-- The last tiled (non-floating) window that held focus. A floating popup
+-- (e.g. the calculator, spec/adr/026) taking focus must not disturb the
+-- tiled 60/40 split underneath it — layout_pass reads this to keep the
+-- pre-popup split's wide side stable instead of resetting to the master
+-- window (2026-08-18: opening the calculator was visibly resetting the
+-- repl/sysmon split back to its default, "as if F5").
+local last_tiled_focus = nil
+
 local function set_focus(title)
     local w = find_win(title)
     if not w then return end
     focused = title
+    if not w.floating then last_tiled_focus = title end
     -- Raise to top (z-order) without reordering `windows`: the list order
     -- is the tiling order, so focus must never shuffle the layout.
     z_counter = z_counter + 1
@@ -198,6 +207,20 @@ local function layout_pass()
     for _, w in ipairs(ws_windows(current_ws)) do
         if not w.floating then tiled[#tiled + 1] = w end
     end
+    -- Focus can belong to a floating window (e.g. the calculator popup,
+    -- spec/adr/026) that is not in `tiled` at all; without a fallback, no
+    -- tiled window would match `focused == w.title` below and BOTH would
+    -- collapse to the narrow 40% share instead of keeping the last stable
+    -- split. When focus isn't any tiled window, the split stays exactly as
+    -- it was before the popup took focus (last_tiled_focus), so opening a
+    -- floating popup never visibly reflows the windows underneath it.
+    local focused_is_tiled = false
+    for _, w in ipairs(tiled) do
+        if w.title == focused then
+            focused_is_tiled = true
+            break
+        end
+    end
     local n = #tiled
     for i, w in ipairs(tiled) do
         if n == 1 then
@@ -212,6 +235,8 @@ local function layout_pass()
                 -- shows its own 2px border at the shared edge, never a gap or a
                 -- double border.
                 local f = (focused == w.title)
+                    or (not focused_is_tiled and w.title == last_tiled_focus)
+                    or (not focused_is_tiled and not last_tiled_focus and i == 1)
                 if i == 1 then
                     w.x = area_x
                     w.y = area_y

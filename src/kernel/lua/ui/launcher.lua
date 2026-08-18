@@ -1,19 +1,39 @@
 -- launcher.lua - application launcher (Super+Space): search box + filtered list.
 
--- Applications the launcher can run. Each entry is { title, id }; the id
--- maps to a shell action (open a window, toggle something). Apps come first,
--- then window actions.
+-- WM-intrinsic windows the launcher can open. Each entry is { title, id };
+-- the id maps to a shell action. These are desktop chrome, not sandboxed
+-- programs — they live in the shell's own Lua modules, not in /apps/.
 local apps = {
-    { title = "repl",        id = "repl" },
-    { title = "sysmon",      id = "sysmon" },
-    { title = "files",       id = "files" },
-    { title = "editor",      id = "editor" },
+    { title = "repl",   id = "repl" },
+    { title = "sysmon", id = "sysmon" },
+    { title = "files",  id = "files" },
+    { title = "editor", id = "editor" },
 }
 local actions = {
     { title = "help",            id = "help" },
     { title = "toggle fullscreen", id = "fullscreen" },
     { title = "close",       id = "close" },
 }
+
+-- Wasm apps under /apps/ on disk (spec/adr/026): the launcher does not know
+-- any app by name — it scans the directory each time it opens, so adding or
+-- deleting a .wasm file there is picked up on the next Super+Space, no
+-- restart needed. The WM stays independent of any specific app (M7 pulled
+-- forward from the M8/ADR-025 plan): it only knows "a wasm app has a title
+-- and a spawn handle", never "calculator" by name.
+local function scan_disk_apps()
+    local out = {}
+    local entries = file.dir("/apps")
+    if not entries then return out end
+    for _, e in ipairs(entries) do
+        if not e.dir and e.name:sub(-5) == ".wasm" then
+            local title = e.name:sub(1, -6)
+            out[#out + 1] = { title = title, id = "wasm:" .. e.name, wasm_file = e.name }
+        end
+    end
+    table.sort(out, function(a, b) return a.title < b.title end)
+    return out
+end
 
 -- Launcher state (declared before the render/input functions that use it,
 -- so a local in Lua is visible from the first render).
@@ -22,6 +42,12 @@ local launcher_input = ""
 local launcher_sel = 1
 local launcher_mode = "run" -- "run" (app list) or "help" (keybinding cheat sheet)
 local mouse_was_down = false
+
+-- Handles of running wasm app programs (spec/adr/026), keyed by window title.
+-- Spawn is a singleton per name, so a handle is cached at first open and
+-- reused; main.lua reads this table generically for any wasm app window,
+-- never naming a specific app.
+local wasm_handles = {}
 
 -- Global WM cheat sheet (help popup outside a window). Only window-manager
 -- functions that apply to all windows belong here; per-application keys
@@ -64,6 +90,7 @@ local function launcher_filtered()
         end
     end
     add(apps)
+    add(scan_disk_apps())
     -- The scratchpad picker offers applications only — window actions
     -- (help/fullscreen/close) are not windows, so they cannot be scratchpads.
     if launcher_mode ~= "scratchpad" then add(actions) end
@@ -263,6 +290,40 @@ local function launcher_run(id)
         if not ed_open or not ed_dirty then editor_load(nil) end
         app_win = find_win("editor")
         set_focus("editor")
+    elseif id:sub(1, 5) == "wasm:" then
+        -- Generic wasm app window (spec/adr/026): the WM never names a
+        -- specific app — any /apps/*.wasm file the launcher found opens the
+        -- same way. The wasm surface is a fixed 224x160 buffer, not resizable
+        -- content like the editor/files listing, so unlike those this is a
+        -- floating window sized to fit the surface exactly (border + surface
+        -- + border, border + title_h + surface + border) and centered on
+        -- screen, popping up like the launcher instead of stretching into
+        -- the tiled layout.
+        local wasm_file = id:sub(6)
+        local title = wasm_file:sub(1, -6)
+        local w = find_win(title)
+        if not w then
+            w = window(title, current_ws)
+            w.floating = true
+            local cw = 2 * theme.wm.border + 224
+            local ch = 2 * theme.wm.border + theme.wm.title_h + 160
+            w.x, w.y, w.w, w.h = math.floor((SW - cw) / 2), theme.bar.height + math.floor(((SH - theme.bar.height) - ch) / 2), cw, ch
+            windows[#windows + 1] = w
+        else
+            w.ws = current_ws
+        end
+        -- Spawn the wasm program once; spawn is a singleton per name, so the
+        -- cached handle survives F5 reloads (the program is kernel-side).
+        if not wasm_handles[title] then
+            local h, err = runtime.spawn(wasm_file)
+            if h then
+                wasm_handles[title] = h
+            else
+                wm_error(title, err or "spawn failed")
+            end
+        end
+        app_win = find_win(title)
+        set_focus(title)
     elseif id == "help" then
         launcher_mode = "help"
         launcher_input = ""

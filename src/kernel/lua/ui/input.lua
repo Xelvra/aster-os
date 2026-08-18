@@ -128,12 +128,24 @@ local function handle_mouse()
             -- first. The windows list is the tiling order, not the z-order
             -- (set_focus bumps z without reordering it), so a floating window
             -- overlapping a later tiled one would be mis-hit without the sort
-            -- (2026-08-15-self-audit).
-            local z_order = {}
+            -- (2026-08-15-self-audit). Floating windows are always drawn last
+            -- (on top of every tiled one, see render()'s tiled-then-floating
+            -- order), so they must also always hit-test first — sorting by a
+            -- single z value is not enough: after a tiled window is clicked
+            -- and its z bumped past a floating popup's (e.g. the calculator,
+            -- spec/adr/026), the popup would render on top but the tiled
+            -- window underneath would still catch the click.
+            local z_tiled, z_floating = {}, {}
             for _, w in ipairs(windows) do
-                if w.ws == current_ws then z_order[#z_order + 1] = w end
+                if w.ws == current_ws then
+                    if w.floating then z_floating[#z_floating + 1] = w else z_tiled[#z_tiled + 1] = w end
+                end
             end
-            table.sort(z_order, function(a, b) return a.z > b.z end)
+            table.sort(z_tiled, function(a, b) return a.z > b.z end)
+            table.sort(z_floating, function(a, b) return a.z > b.z end)
+            local z_order = {}
+            for _, w in ipairs(z_floating) do z_order[#z_order + 1] = w end
+            for _, w in ipairs(z_tiled) do z_order[#z_order + 1] = w end
             for _, w in ipairs(z_order) do
                 if is_in_window(w) then
                     -- The close "x" is drawn only on the focused window and
@@ -839,6 +851,27 @@ local function handle_key(ev)
                 esc_pending = false
             end
         end
+        gfx.invalidate()
+        return
+    end
+
+    -- Wasm app input (spec/adr/026): a generic forward, not a files/editor/
+    -- repl-style dedicated block — the WM does not know what any wasm app
+    -- does with a key, only that the focused window has one. ev.char is
+    -- already layout/shift-resolved; Enter and Backspace get conventional
+    -- ASCII control codes (CR/BS) since they carry no ev.char of their own.
+    if wasm_handles[focused] then
+        local ch = nil
+        if ev.char then
+            ch = ev.char:byte(1)
+        elseif code == "enter" then
+            ch = 13
+        elseif code == "backspace" then
+            ch = 8
+        elseif code == "escape" then
+            ch = 27
+        end
+        if ch then runtime.key_input(wasm_handles[focused], ch) end
         gfx.invalidate()
     end
 end

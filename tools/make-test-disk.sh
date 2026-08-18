@@ -22,10 +22,21 @@ if [[ ! -d "$ROOTFS" ]]; then
     exit 1
 fi
 
+# Disk apps (spec/adr/026): the launcher discovers wasm apps by scanning
+# /apps/ on disk, so the test disk needs the freshly built calculator.wasm
+# there too — a build artifact, so it is staged in, not committed under
+# tools/test-disk-root/ (that tree is the source-controlled fixture).
+zig build >/dev/null
+STAGING="$(mktemp -d)"
+trap 'rm -rf "$STAGING"' EXIT
+cp -r "$ROOTFS"/. "$STAGING"/
+mkdir -p "$STAGING/apps"
+cp zig-out/apps/calculator.wasm "$STAGING/apps/calculator.wasm"
+
 rm -f "$OUT"
 dd if=/dev/zero of="$OUT" bs=1M count=$SIZE status=none
 parted -s "$OUT" mklabel gpt
 parted -s "$OUT" mkpart primary ext2 "${PART_START}s" 100%
-mke2fs -q -t ext2 -O ^dir_index -d "$ROOTFS" -E offset=$OFFSET "$OUT"
+mke2fs -q -t ext2 -O ^dir_index -d "$STAGING" -E offset=$OFFSET "$OUT"
 
 echo "test disk: $OUT (${SIZE} MiB, GPT + ext2, ^dir_index)"
