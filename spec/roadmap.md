@@ -251,7 +251,8 @@ binding marshallingu zelené.
 
 > **Stav:** Lua 5.4.8 běží v kernelu. Otevřeny liby `base`, `coroutine`, `table`,
 > `string`, `utf8`, `math` (io/os/package vyřazeny — dynamic loading výhled (M8+),
-> C stdio vrstva je WIP (handoff H6); `debug` → `dbg` dle M6.1.9; integer-only KI).
+> C stdio vrstva je WIP (handoff H6 uzavřen 2026-08-18 — stale test disk, ne kód);
+> `debug` → `dbg` dle M6.1.9; integer-only KI).
 > Freestanding libc shim (`libs/lua-5.4/include/` +
 > `src/kernel/lua/libc.zig`): string/ctype/snprintf/strtod/pow/acos/asin/atan2 +
 > `setjmp`/`longjmp` (asm), deterministické `time`/`clock`, file stubs pro

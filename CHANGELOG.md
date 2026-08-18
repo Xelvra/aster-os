@@ -53,12 +53,13 @@ This version tracks the milestone after M6 Storage was completed.
   files render green in the file browser (`theme.exec`). Next: surface model +
   calculator (Phase B), benchmark (Phase C).
 
-* **C stdio layer over the kernel storage (WIP, handoff H6):** `fopen`/`fread`/
+* **C stdio layer over the kernel storage (WIP):** `fopen`/`fread`/
   `fclose`/`feof`/`ferror`/`getc`/`freopen` map onto the KI storage handles so
   stock Lua file functions (`dofile`, `loadfile`) read files from the disk.
-  **Broken:** the presence of this code breaks `file.open` in qemu-test
-  (layout-sensitive storage regression) — the dofile test stays disabled until
-  handoff H6 is resolved. `diag_verify_reads` (default off) in the virtio
+  The dofile test stays disabled until the dofile work lands. **Handoff H6 is
+  closed** (2026-08-18): the storage regression was a stale test-disk artifact
+  (reusing the image across runs after `file.remove` deleted `/README`), not the
+  stdio code. `diag_verify_reads` (default off) in the virtio
   driver repeats every DMA read and compares the copies (`VIO-DIFF`) and
   sentinel-checks the buffer (`VIO-STALE`) to pinpoint the fault on a failing
   machine.

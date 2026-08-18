@@ -34,7 +34,7 @@ pre-push hook and CI verify it never drifts from the code
 
 - **M7 (Runtime) — wasm Phase A done:** wasm3 vendored, `Runtime.spawn(.Wasm)`,
   hello/fault test programs. Remaining: surface model + calculator (Phase B),
-  benchmark (Phase C), closing handoff H6 (C stdio / storage regression).
+  benchmark (Phase C).
   Multi-layout keyboard is done (ADR-024, US/CZ switchable at runtime).
 - **M0–M6 complete:** boot → memory → CPU → graphics → Lua runtime → desktop shell in
   Lua → disk storage (virtio-blk, GPT, read-write ext2 since M7.1).

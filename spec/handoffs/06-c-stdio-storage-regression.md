@@ -1,7 +1,7 @@
 # Handoff H6: funkční C stdio vrstva v kernel libc rozbíjí storage (file.open selže)
 
-**Datum:** 2026-08-17
-**Status:** open
+**Datum:** 2026-08-17 (uzavřeno 2026-08-18)
+**Status:** closed — kořenová příčina = artefakt opakovaně použitého test disku; C stdio vrstva není viník
 
 ---
 
@@ -46,7 +46,7 @@ je v tom, že **samotná přítomnost stdio kódu** (importy `sys`+`api_storage`
 | 2 | Atrapy (původní `fopen` vrací `null` atd., stdio kód odstraněn) | `qemu-test` PASS (99) | rozbíjí to funkční stdio kód |
 | 3 | Debug print v `fopen` | print se nikdy neobjevil | `fopen` se nevolá → není to logika stdio |
 | 4 | `testDofile()` vypnutý v `runAll` | stále FAIL | není to interference dofile testu |
-| 5 | Čerstvý disk (`make-test-disk.sh`) | stále FAIL | není to persistentní/stale disk |
+| 5 | Čerstvý disk (`make-test-disk.sh`) | stále FAIL | tehdy posouzeno jako „není stale disk" — ale viz řádky 14–15: mezi srovnávanými běhy (funkční vs atrapy) mohl být disk znovu použit, takže tento závěr je překonaný |
 | 6 | Diagnostika scriptu (`pcall(file.remove)`) | bez `remove-err`, vráceno `open-failed` | selhává už `file.open("/README")` (storage.open → ext2.find NotFound) |
 | 7 | Reprodukce na čistém klonu (pin Zig 0.16.0, HEAD `69182a6` = H6 stav, `testDofile` vypnutý) | `file.remove` **prošel** (3/3 `ok`), pak **hang** (timeout) po „create/lookup/remove across a multi-block directory" | H6 stav se přesně nereprodukuje → silně environment/layout citlivé |
 | 8 | Stejná reprodukce na parent commitu `85b4029` („atrapy" — bez stdio kódu) | **taky FAIL**, ale jiné symptomy: `FAIL: read returns the theme config table` + `FAIL: file.remove frees a multi-block file`, pak hang na stejném multi-block místě | i bez stdio kódu selhává → potvrzuje layout citlivost, ne stdio logiku |
@@ -55,10 +55,38 @@ je v tom, že **samotná přítomnost stdio kódu** (importy `sys`+`api_storage`
 | 11 | Vynucený TCG (`-accel tcg`, bez KVM) | PASS (48 s) | závislost na stroji NENÍ rozdíl KVM vs TCG |
 | 12 | 4× paralelní QEMU instance (host zátěž → silnější timing jitter) | všechny PASS | jitter zátěže flake nevyvolá spolehlivě |
 | 13 | `e2fsck -fn` na image po úspěšném běhu | jen očekávané non-POSIX artefakty zápisové cesty (uvolněné inody nejsou nulované → „orphaned inodes"; `i_blocks` se nepíše; rozdíly bitmap odpovídají stale inode záznamům) — žádná korupce, kterou by kernel sám viděl | zápisová cesta při PASS disk viditelně nekontaminuje; e2fsck nálezy nejsou kořenová příčina |
+| 14 | **Definitivní běh na čistém disku** (origin/main HEAD, čerstvý `make-test-disk.sh`, bez KVM → TCG) | **RUNTIME TESTS PASS, 0 FAIL** po ~9,5 min reálného času | na čistém disku se bug nereprodukuje → funkční C stdio vrstva storage nerozbíjí |
+| 15 | **Reuse téhož `/tmp/aster-h6.img` přes více běhů bez regenerace** | přesně `open-failed` na `file.open("/README")`; `debugfs` před bootem potvrdil, že README už z předchozího běhu (`file.remove`) **neexistuje** | artefakt stale disku sám o sobě vysvětluje pozorovaný rozdíl PASS/FAIL beze změny v `libc.zig` |
+| 16 | Instrumentace `allocBlock`/`ensureIndirect` + běh s `diag_verify_reads=true` | lineární progrese `block_index` 0→67 (žádné opakování / smyčka); žádný `VIO-DIFF` / `VIO-STALE`; heap canary nikdy nenahlásil `HEAP CORRUPTION` | **NENÍ hang** (jen extrémní pomalost TCG), **NENÍ** korupce DMA read-cesty |
 
-## 4. Hypotézy
+## 4. Závěr a hypotézy
 
-1. **Transientní korupce sektorových dat v DMA cestě** (nová, nejpravděpodobnější).
+### Kořenová příčina (uzavřeno 2026-08-18)
+
+**Bug není v kódu — je v opakovaném použití test disku.** `testFileRemove` při
+PASS běhu smaže `/README` z disku; když se pak stejná cesta (`/tmp/aster-h6.img`)
+použije pro další běh **bez regenerace**, `file.open("/README")` správně vrátí
+`nil` (README už neexistuje) a test skončí `open-failed` (§3 řádky 14–15).
+Rozdíl PASS/FAIL mezi funkčním stdio a atrapami tedy může být čistě pořadí
+běhů + nepoužitý čerstvý disk, ne změna v `libc.zig`. Definitivní běh na
+čerstvém disku (HEAD, bez instrumentace) je **plný PASS**.
+
+Druhý pozorovaný „hang" je ve skutečnosti **extrémní pomalost bez KVM**: TCG +
+4096B bloky (každý = 8× 512B sektorové I/O přes virtio s alloc/submit/poll/free)
++ `testDirMultiBlock` (~340 operací) = minuty; `diag_verify_reads=true` běh
+zdvojnásobí. Na stroji s KVM to není vidět.
+
+Vyloučeno definitivně: DMA read korupce (`diag_verify_reads` nikdy nehlásil
+`VIO-DIFF`/`VIO-STALE`), heap korupce (canary nikdy nefir), alokační logika
+`allocBlock`/`ensureIndirect` (dynamicky správná i pro 4096B bloky).
+
+Hypotézy 1–4 níže zůstávají jako historie šetření; hlavní podezření byla
+vyvrácena. Lekce pro reprodukci: **vždy čerstvý disk těsně před každým během**.
+
+Hypotézy (šetření, uzavřeno):
+
+1. **Transientní korupce sektorových dat v DMA cestě** (vyvráceno §3 řádek 16:
+   VIO-DIFF / VIO-STALE se nikdy neobjevily).
    Čtení/čtení-čtení občas vrátí nekonzistentní data (race dokončení used-ringu vs
    zápis data/status, nebo zaházené DMA buffer), čímž ext2 dostane cizí bajty —
    `file.open` → `NotFound`, přečtení starého obsahu („theme config table"),
@@ -68,7 +96,7 @@ je v tom, že **samotná přítomnost stdio kódu** (importy `sys`+`api_storage`
    - Potvrzení: `diag_verify_reads` v `drivers/virtio.zig` (viz níže) — VIO-DIFF /
      VIO-STALE přesně určí sektor a typ (transientní vs nedoručená data).
    - Vyvrácení: ani při vypnutém ověřování (a víc bězích) nikdy VIO-DIFF.
-2. **Hraniční rozložení binárky** (dříve #1, oslabeno): přidání stdio kódu posune
+2. **Hraniční rozložení binárky** (oslabeno): přidání stdio kódu posune
    layout a rozbije něco v `storage.open`/`ext2.find` — ale parent commit bez stdio
    kódu selhává na jiném stroji stejně, takže stdio kód není příčina, jen posouvá
    „která operace se rozbije".
@@ -129,22 +157,23 @@ Interpretace:
 
 ## 5. Reprodukce
 
-Od čistého stavu (HEAD `69182a6` — H6 stav s funkčním stdio, `testDofile` vypnutý):
+Od čistého stavu (HEAD — `testDofile` vypnutý):
+
+> **Pozor (příčina uzavřeného FAILu):** vždy čerstvý disk těsně před každým
+> během — `make-test-disk.sh` dělá `rm -f "$OUT"`, ale jen když se spustí.
+> Nikdy nepoužívej stejnou cestu napříč běhy bez regenerace (`testFileRemove`
+> maže `/README`, další běh pak správně hlásí `open-failed`). Na stroji bez
+> KVM (čistý TCG) počítej s minutami, ne se 150 s — `QEMU_TEST_TIMEOUT` musí
+> být ≥ ~600 s, jinak se „pomalost" tváří jako hang.
 
 1. `zig build`
-2. `tools/make-test-disk.sh /tmp/aster-h6.img`
-3. `QEMU_TEST_TIMEOUT=150 QEMU_TEST_DISK=/tmp/aster-h6.img tools/qemu-test.sh`
-4. Všimni si `file.remove returned 'open-failed'` v serial výstupu.
+2. `tools/make-test-disk.sh /tmp/aster-h6.img`   (spustit PŘED KAŽDÝM během)
+3. `QEMU_TEST_TIMEOUT=600 QEMU_TEST_DISK=/tmp/aster-h6.img tools/qemu-test.sh`
 
-Pro kontrolu PASS: nahradit v `src/kernel/libc.zig` stdio implementaci atrapami
-(`fopen` vrací `null`, `fread` vrací `0` atd.) a kroky 1–3 opakovat → exit 99.
+Očekávaný výsledek: `qemu-test: PASS (exit 99)`, 0 FAIL (na TCG ~9,5 min).
 
-> **Pozor:** bug je citlivý na prostředí. Na stroji s jinými verzemi
-> QEMU/mke2fs/parted než u původní reprodukce se projev jiný (file.remove prošel,
-> hang později; nebo i parent commit bez stdio selhává s jinými symptomy). Když se
-> daný stroj nereprodukuje přesně, je potřeba nejdřív vyloučit divergenci testovacího
-> disku (`mke2fs -E offset=` vs GPT partition, `udevadm` varování) a až pak hodnotit
-> PASS/FAIL.
+Pro kontrolu starého symptomu: běh 2–3 zopakovat s tímtéž diskem **bez**
+regenerace → `file.remove returned 'open-failed'` (README už neexistuje).
 
 ## 6. Důležité artefakty
 
@@ -187,5 +216,17 @@ Pro kontrolu PASS: nahradit v `src/kernel/libc.zig` stdio implementaci atrapami
 
 Funkční C stdio vrstva (dofile/loadfile standardně čte soubory z disku přes KI
 storage) s **plným PASS**: `qemu-test` exit 99 vč. `testDofile` (dofile načte a
-spustí soubor z disku) a `testFileRemove`. Bez regrese `file.open`. Lekce (když
-se najde příčina) → `spec/troubleshooting.md`.
+spustí soubor z disku) a `testFileRemove`. Bez regrese `file.open`. Lekce
+(příčina = stale test disk) → `spec/troubleshooting.md`.
+
+## 9. Vedlejší nález (nezávisle na H6)
+
+`testFileMultiBlock` (dříve `testFileDoubleIndirect`) v `runtime_test.zig`
+neotestuje double-indirect hranici, jak původně tvrdil: komentář uvnitř Lua
+scriptu předpokládal 1 KiB bloky (hranice = blok 268), ale `make-test-disk.sh`
+produkuje **4096B** bloky — hranice je blok 1036 (12 direct + 1024
+single-indirect pointerů), test zapisuje jen 275 456 B = 68 bloků, tedy
+**zůstává v single-indirect pásmu**. Rozhodnutí: test přejmenován na
+multi-block a komentáře/`expect` zprávy opraveny (bez navýšení velikosti —
+double-indirect skutečně otestuje až větší soubor > 4,25 MiB / blok 1037, což
+prodlužuje TCG běhy).

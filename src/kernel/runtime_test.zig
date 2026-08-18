@@ -1488,11 +1488,13 @@ fn testDirMultiBlock() void {
     _ = L.lua_pop(lua_state, 1);
 }
 
-fn testFileDoubleIndirect() void {
-    // Write a file larger than the single-indirect span (12 direct + 1024
-    // indirect blocks at 4 KiB = block 1035) so the write path allocates
-    // through a double-indirect chain, then read it all back and verify the
-    // byte at the double-indirect boundary. Skipped when no disk is attached.
+fn testFileMultiBlock() void {
+    // Write a multi-block file (275456 B = 68 blocks of 4096 B) and read it
+    // back, verifying a mid-file byte. NOTE: with 4096 B blocks the
+    // single-indirect span is 12 direct + 1024 indirect = 1036 blocks
+    // (~4.25 MiB), so this file stays within single-indirect — the
+    // double-indirect boundary is NOT exercised (handoff H6 §9). Skipped when
+    // no disk is attached.
     const lua = @import("lua/lua.zig");
     const storage = @import("api/storage.zig");
     if (!storage.isMounted()) {
@@ -1505,11 +1507,12 @@ fn testFileDoubleIndirect() void {
         return;
     };
     const script =
-        \\-- The test disk uses 1 KiB blocks: 12 direct + 256 single-indirect
-        \\-- pointers, so logical block 268 is the first double-indirect block.
-        \\-- A 269-block file (275456 B) crosses the boundary. Write in chunks
-        \\-- so no single heap allocation is huge, read it all back and verify
-        \\-- the byte at the double-indirect boundary.
+        \\-- The test disk uses 4 KiB blocks: 12 direct + 1024 single-indirect
+        \\-- pointers span blocks 0-1035; the double-indirect boundary (block
+        \\-- 1036, ~4.25 MiB) is NOT reached by this 68-block file — the test
+        \\-- exercises multi-block write/read inside the single-indirect span
+        \\-- (handoff H6 §9). Write in chunks so no single heap allocation is
+        \\-- huge, read it all back and verify a mid-file byte.
         \\local h = file.open("/big_test.txt")
         \\if h then file.close(h); file.remove("/big_test.txt") end
         \\h = file.create("/big_test.txt")
@@ -1565,7 +1568,7 @@ fn testFileDoubleIndirect() void {
     const str = L.lua_tolstring(lua_state, -1, &len);
     const result: []const u8 = @as([*]const u8, @ptrCast(str))[0..len];
     const ok = len == 4 and std.mem.eql(u8, result, "PASS");
-    expect(ok, "write/read round-trips a file across the double-indirect boundary");
+    expect(ok, "write/read round-trips a file across multiple 4 KiB blocks");
     _ = L.lua_pop(lua_state, 1);
 }
 
@@ -1867,8 +1870,8 @@ pub fn runAll(alloc: std.mem.Allocator, memory: *mem.Memory) noreturn {
     testFileCreate();
     serial.writeLine("file.rename relink inode (rename)");
     testFileRename();
-    serial.writeLine("file write/read across double-indirect blocks");
-    testFileDoubleIndirect();
+    serial.writeLine("file write/read across multiple 4 KiB blocks");
+    testFileMultiBlock();
     serial.writeLine("create/lookup/remove across a multi-block directory");
     testDirMultiBlock();
     serial.writeLine("editor app (M7.1.5)");
