@@ -37,6 +37,7 @@ samostatný soubor. Pravidla:
 | [024](024-keyboard-layout-registry.md) | Registr klávesových rozložení (per-session layout) | Přijato |
 | [025](025-lua-shell-from-disk.md) | Lua shell z disku do `/wm/` s initrd fallbackem (Úroveň 2) | Přijato |
 | [026](026-wasm-import-surface.md) | Wasm import surface a surface model (Fáze B) | Přijato |
+| [027](027-wasm-apps-from-disk.md) | Wasm aplikace z disku, WM/aplikace decoupling, klávesnice | Přijato |
 
 ## Šablona nového ADR
 

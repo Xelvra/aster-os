@@ -318,13 +318,17 @@ způsobit pauzy mimo render — ohrožuje KPI `frame latency (p99) < 16 ms`
   se zahodí, desktop běží dál. **Hotovo (Fáze A):** trap containment v `wasm.zig`,
   ověřeno `fault` programem.
 - Komunikace s UI: domácí wasm programy volají Aster bindings přes wasm importy
-  (marshalling přes lineární paměť; import surface je Fáze B, vlastní ADR v plánu).
-  Dnes má `hello` jen import `debug_write`.
+  (marshalling přes lineární paměť). **Hotovo (Fáze B, ADR-026 + ADR-027):** stabilní
+  import surface (`debug_write`, `draw_rect`, `draw_text`, `surface_width`/`height`,
+  `input_mouse_x`/`y`/`left`, `input_key`) a persistentní program (`start`/`update`/
+  `render`, fixní 224×160 surface kompozitovaná přes `api/runtime.surface_render`).
+  Kalkulačka (`src/kernel/apps/calculator.zig`) je první GUI wasm aplikace, spouští se
+  z disku `/apps/*.wasm`, launcher je skenuje dynamicky (WM nezná aplikaci jménem).
 - **Kernel mimo `api/runtime` nepřijme žádný Wasm-specifický kód.** Vše je za
   `Runtime.spawn`; konkrétní runtime jméno zná jen `api/runtime` (composition-root
   výjimka, ADR-006).
 - Benchmark wasm vs Lua je Fáze C (kvalitní metriky v `roadmap.md`); nasazení
-  proběhlo v M7 bez benchmarku, benchmark je dluh před uzavřením M7.
+  proběhlo v M7 bez benchmarku, benchmark zůstává dluh před uzavřením M7.
 
 ### 7.1 Dvě úrovně Wasm
 

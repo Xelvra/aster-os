@@ -161,7 +161,9 @@ Jinak má bar správné rozložení.
 ### 4.7 Aplikace (🔶 základ)
 - **sysmon** (RAM used/total, %, ticks) — ✅ základ, ⏳ CPU graf.
 - **files** — ✅ hotovo (M7.1: listing, koš, rename, hidden toggle; viz §4.6b).
-- **calculator** — ⏳ (Lua `math` evaluace přes REPL).
+- **calculator** — ✅ hotovo (M7 Fáze B, ADR-026/027): wasm sandboxovaná aplikace s
+  vlastní offscreen surface, ne Lua/REPL evaluace. Floating okno fixní velikosti,
+  spouští se z `/apps/calculator.wasm` na disku (launcher ji skenuje dynamicky).
 - Model: každá aplikace = okno + `render` funkce, spouštěná z launcheru.
 
 ### 4.8 Sysmon — systémový monitor (🔶)

@@ -232,5 +232,6 @@ Při podezření na pád v IRQ:
 > [`troubleshooting.md`](troubleshooting.md).
 >
 > Problém, který se nedaří vyřešit v rozumném čase, se předává přes formální postup
-> [`handoff.md`](handoff.md) — šablona a seznam otevřených handoffů, ne improvizace.
+> [`handoff.md`](handoff.md) — proces a šablona, ne improvizace; jednotlivé handoffy
+> (otevřené i uzavřené) žijí jako samostatné soubory v `spec/handoffs/`.
 

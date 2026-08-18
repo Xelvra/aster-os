@@ -1,7 +1,8 @@
 # Aster OS — Architektonický přehled
 
 **Verze:** 1.3 (konsolidace)
-**Status:** Current design — Schváleno k implementaci (M0–M7 hotovo; M8 Stabilizace — oddělení do Ring 3)
+**Status:** Current design — Schváleno k implementaci (M0–M6 hotovo; M7 Fáze A+B hotové,
+Fáze C — benchmark wasm vs Lua — zbývá jako dluh; M8 Stabilizace — oddělení do Ring 3)
 
 > Tento dokument je **hlavním architektonickým přehledem** projektu. Zachycuje aktuální
 > návrh a jeho rozhodnutí. Slouží jako referenční bod pro konzultaci návrhu architektury a
@@ -36,7 +37,7 @@ a vyžádal by si vlastní změnu rozsahu (`spec/non-goals.md`).
 
 | Metrika | Cíl |
 |---|---|
-| Velikost kernel image | < 512 KB (s Lua; viz `roadmap.md` §2) |
+| Velikost kernel image | < 512 KB (s Lua; viz `roadmap.md` §2) — původní cíl; per-milník se rozvolňuje (M7 cíl < 1 MB, wasm3 přibyl), viz `roadmap.md` tabulka metrik |
 | Kernel Entry → First Frame (z Limine handoff) | < 40 ms (cíl M4/M5; v QEMU TCG měřeno ≈ 90 ms — viz `roadmap.md` pozn. ³) |
 | GUI paměť (idle) | < 32 MB RAM |
 | UI kreslení | 0 syscallů, 1 kopie framebufferu za frame *(Phase 2 present, `main.zig`; kurzor myši navíc ukládá/obnovuje 12×19 px. Platí pro fázi Ring 0; od Ring 3 — M8+ — se přidávají ring přechody, viz `roadmap.md`)* |
@@ -237,6 +238,8 @@ aby pozdější konsultace návrhu měla k dispozici *proč*, ne jen *co*.
 | [023](adr/023-filesystem-ext2-non-posix.md) | Persistence: ext2 backend, non-POSIX sémantika, tenké rozhraní | Accepted |
 | [024](adr/024-keyboard-layout-registry.md) | Multi-layout klávesnice: KL registry + přepínání za běhu (`input.set_layout`) | Accepted |
 | [025](adr/025-lua-shell-from-disk.md) | Lua shell z disku do `/wm/` s initrd fallbackem (Úroveň 2) | Accepted |
+| [026](adr/026-wasm-import-surface.md) | Wasm import surface a surface model (Fáze B) | Accepted |
+| [027](adr/027-wasm-apps-from-disk.md) | Wasm aplikace z disku, WM/aplikace decoupling, klávesnice | Accepted |
 
 **Pravidla ADR:** rozhodnutí se nemění dodatečně — změna názoru = nový ADR odkazující na
 starý. Čísla se nepřehazují a nemazají.
@@ -286,7 +289,7 @@ aster-os/
 │   ├── manifest.md
 │   ├── non-goals.md              # co systém vědomě nedělá
 │   ├── code-style.md             # filozofie a pravidla kódu
-│   ├── adr/                      # architektonická rozhodnutí (ADR-001..025)
+│   ├── adr/                      # architektonická rozhodnutí (ADR-001..027)
 │   ├── kernel-interface.md       # KI: sys.dispatch + interface moduly
 │   ├── graphics.md               # Graphics API → Renderer → Framebuffer
 │   ├── desktop-ui.md            # desktop UI port (bar, launcher, okna, widgety)
@@ -348,7 +351,7 @@ aster-os/
 | `manifest.md` | Filozofie projektu — jednoduchost před izolací, evolvabilní rozhraní. |
 | `non-goals.md` | Co systém vědomě nedělá (POSIX, USB, networking, práce AP jader, ...). |
 | `code-style.md` | Pravidla struktury kódu a návrhu modulů (kontrolní seznam pro review). |
-| `adr/` | Architektonická rozhodnutí (ADR-001..025), každé v samostatném souboru. |
+| `adr/` | Architektonická rozhodnutí (ADR-001..027), každé v samostatném souboru. |
 | `kernel-interface.md` | KI: sys.dispatch, syscall čísla, interface moduly, pravidla verzování. |
 | `graphics.md` | Graphics API / Renderer / Framebuffer — vrstvy a povolené operace. |
 | `desktop-ui.md` | Desktop UI — port vzhledu/chování z cachyos-hypr-noctalia, reimplementováno (bar, launcher, okna, widgety). |

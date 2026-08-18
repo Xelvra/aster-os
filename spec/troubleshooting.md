@@ -88,6 +88,7 @@ v kontextu zpožděné.
 ## 6. IDT, APIC, IOAPIC, PS/2 (M2)
 
 | Záznam | Symptom | Příčina | Řešení | Ověřit |
+|--------|---------|---------|--------|--------|
 | C1 | lidt způsobí GP/triple fault, kernel ani nezačne | `IdtRegister = extern struct { limit: u16, base: u64 }` má v ABI velikost **16 B** (padding za `u16`), ale `lidt` čte **10 B** — načte base z offsetu 2, kde je padding, ne z offsetu 8 | descriptor držet jako `[10]u8` buffer a vstřelit base na offset 2; nebo `@alignCast` + vědomý layout | boot, IDT load bez GP |
 | C2 | `lidt` v ReleaseSafe čte špatný pointer; v Debug OK | operandy `"m"(reg)` nechá kompilátor udělat pointer indirection přes registr, který v ReleaseSafe nemusí být ten, co čekáš; `lidt (%reg)` sám dereferencuje | constrain na `"r"(reg)` a v asm použít `lidt (%[reg])` — předá se *hodnota* adresy | boot, `lidt` OK v ReleaseSafe |
 | C3 | APIC timer nestartuje / čte garbage | registry se píší na offsetech 0x320/0x3E0/0x380 (MB), ne 0x32/0x3E/0x38 | konstanty `0x320`, `0x3E0`, `0x380`, `0xB0` | boot, "ticks: 1000/2000..." |
@@ -109,7 +110,9 @@ v kontextu zpožděné.
 ---
 
 ## 7. Grafika a event loop (M3)
+
 | Záznam | Symptom | Příčina | Řešení | Ověřit |
+|--------|---------|---------|--------|--------|
 | C14 | #GP (vec 0x0d) v renderu/fillRect jen když event loop běží; s breakpointem OK | `isr_common` **ukládal jen callee-saved registry**, `%rax` (caller-saved) nechal zničit — timer IRQ (1 kHz) přeruší render, handler přes `callq handle_isr` přepíše `%rax`, smyčka pak zapisuje na kontaminovanou adresu | `isr_common` push/pop i `%rax`; `InterruptFrame` dostane pole `rax` (na konci, před `vector`) | render běží stabilně, žádný #GP v event loop |
 | C15 | framebuffer zápis "nefunguje" (screendump ukazuje starý obsah), ale gdb vidí data v paměti | screendump zachycen uprostřed/po rychlém event loop renderu, nebo z VGA bufferu místo GOP; framebuffer `address` z Limine je **už v hhdm prostoru** (`0xffff8000fd000000`) — přičtení hhdm offsetu podruhé přeteče (safety trap) | psát přímo na `info.address` bez hhdm offsetu; renderovat jen když je stav `dirty`; ověřovat screendump po dostatečné prodlevě | `screendump` ukáže text, žádný fault |
 | C16 | text psaný z klávesnice se neobjeví / obrazovka jen černá | event loop renderuje každou iteraci (`fillScreen` + text) — QEMU screendump zachytí stav uprostřed `fillScreen` (černý); nebo konzole není "dirty" | `Console.dirty` flag: render jen při změně stavu; `fillScreen` + `console.render` až tehdy | screendump po stisku klávesy ukáže text |

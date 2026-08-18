@@ -16,7 +16,7 @@
 | 2 | [manifest.md](manifest.md) | Manifest projektu — jednoduchost před izolací, evolvabilní rozhraní. |
 | 3 | [non-goals.md](non-goals.md) | Co systém vědomě nedělá (POSIX, SMP, USB, networking, ...). |
 | 4 | [code-style.md](code-style.md) | Filozofie a pravidla kódu — struktura modulů, kontrakty, paměť, review checklist. |
-| 5 | [adr/](adr/README.md) | Architektonická rozhodnutí (ADR-001..025), každé v samostatném souboru. |
+| 5 | [adr/](adr/README.md) | Architektonická rozhodnutí (ADR-001..027), každé v samostatném souboru. |
 | 6 | [kernel-interface.md](kernel-interface.md) | **Kernel Interface (KI):** `sys.dispatch`, syscall čísla, moduly rozhraní, pravidla. |
 | 7 | [graphics.md](graphics.md) | Grafická podvrstva: Graphics API → Renderer → Framebuffer. |
 | 8 | [desktop-ui.md](desktop-ui.md) | Desktop UI — port vzhledu/chování z cachyos-hypr-noctalia, reimplementováno (bar, launcher, okna, widgety). |
@@ -55,7 +55,8 @@
 ## Stav
 
 - **Verze specifikace:** 1.0 (draft)
-- **Schváleno k implementaci:** Milníky M0–M6; M7 (Runtime) rozpracovaný
+- **Schváleno k implementaci:** Milníky M0–M6; M7 (Runtime) Fáze A+B hotové, Fáze C
+  (benchmark wasm vs Lua) zbývá jako dluh před uzavřením M7
 - **Aktualizace:** nová architektonická rozhodnutí se zapisují do `spec/adr/` (každé
   samostatný soubor); přehled se udržuje v `architecture.md`. Rozhodnutí se nemění
   dodatečně — doplňují se nová.
