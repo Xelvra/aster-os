@@ -157,7 +157,7 @@ Interpretace:
 
 ## 5. Reprodukce
 
-Od čistého stavu (HEAD — `testDofile` vypnutý):
+Od čistého stavu (HEAD):
 
 > **Pozor (příčina uzavřeného FAILu):** vždy čerstvý disk těsně před každým
 > během — `make-test-disk.sh` dělá `rm -f "$OUT"`, ale jen když se spustí.
@@ -180,9 +180,8 @@ regenerace → `file.remove returned 'open-failed'` (README už neexistuje).
 - Změna stdio vrstvy: `src/kernel/libc.zig` (sekce „C stdio over the kernel
   storage" — `stdio_table`, `stdioSlot`, `fopen`, `freopen`, `fclose`, `feof`,
   `ferror`, `fread`, `getc`; importy `api/sys.zig` + `api/storage.zig`).
-- Test: `src/kernel/runtime_test.zig` (`testDofile` — dočasně vypnutý,
-  `// testDofile();`; `testFileRemove` s dočasným debug printem
-  `file.remove returned '{s}'`).
+- Test: `src/kernel/runtime_test.zig` (`testDofile` zapnutý — stock `dofile`
+  načte a spustí soubor z disku napsaný přes `file.*`; `testFileRemove`).
 - Rozpracovaná wasm Fáze A (souvisí jen kontextově): `src/kernel/wasm/`
   (`cimport.zig`, `wasm.zig`, `inttypes.h`, `endian.h`), `src/kernel/apps/`
   (`hello.zig`, `fault.zig`), změny v `build.zig` a `api/runtime.zig`.
@@ -194,10 +193,9 @@ regenerace → `file.remove returned 'open-failed'` (README už neexistuje).
 
 ## 7. Omezení a podezřelé okolnosti
 
-- Dofile/loadfile NEJSOU v commitnutém stavu — je to rozpracovaná práce na
-  standardizaci Lua („dofile má fungovat jako stock Lua"), která narazila na tento
-  blokující bug. C stdio vrstva je to, co má `dofile`/`loadfile` (a případně
-  `io.*`) zpřístupnit.
+- C stdio vrstva je commitnutá a `testDofile` je zapnutý (2026-08-18): stock
+  `dofile`/`loadfile` čtou soubory z disku přes KI storage; `io.*` zůstává
+  vyřazené (dynamic loading výhled M8+).
 - Chování na původním stroji je deterministické (FAIL opakovaně), ne flaky. **Na
   jiném stroji se reprodukce liší** (viz §3 řádky 7–8): HEAD `69182a6` tam
   file.remove prošel a běh hangl později; parent `85b4029` selhal s jinými
@@ -217,7 +215,7 @@ regenerace → `file.remove returned 'open-failed'` (README už neexistuje).
 Funkční C stdio vrstva (dofile/loadfile standardně čte soubory z disku přes KI
 storage) s **plným PASS**: `qemu-test` exit 99 vč. `testDofile` (dofile načte a
 spustí soubor z disku) a `testFileRemove`. Bez regrese `file.open`. Lekce
-(příčina = stale test disk) → `spec/troubleshooting.md`.
+(příčina = stale test disk) → `spec/troubleshooting.md`. **Dosaženo 2026-08-18.**
 
 ## 9. Vedlejší nález (nezávisle na H6)
 

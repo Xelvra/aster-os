@@ -53,10 +53,11 @@ This version tracks the milestone after M6 Storage was completed.
   files render green in the file browser (`theme.exec`). Next: surface model +
   calculator (Phase B), benchmark (Phase C).
 
-* **C stdio layer over the kernel storage (WIP):** `fopen`/`fread`/
+* **C stdio layer over the kernel storage:** `fopen`/`fread`/
   `fclose`/`feof`/`ferror`/`getc`/`freopen` map onto the KI storage handles so
-  stock Lua file functions (`dofile`, `loadfile`) read files from the disk.
-  The dofile test stays disabled until the dofile work lands. **Handoff H6 is
+  stock Lua file functions (`dofile`, `loadfile`) read files from the disk;
+  the `testDofile` runtime test is enabled and passes (a file written with the
+  `file.*` API is loaded and run by plain `dofile`). **Handoff H6 is
   closed** (2026-08-18): the storage regression was a stale test-disk artifact
   (reusing the image across runs after `file.remove` deleted `/README`), not the
   stdio code. `diag_verify_reads` (default off) in the virtio

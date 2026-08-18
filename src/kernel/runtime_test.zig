@@ -1863,7 +1863,7 @@ pub fn runAll(alloc: std.mem.Allocator, memory: *mem.Memory) noreturn {
     serial.writeLine("lua file bindings (M7.1.4)");
     testFileBindings();
     serial.writeLine("lua dofile loads a disk file (stock stdio)");
-    // testDofile(); // blocked by handoff H6: the C stdio layer breaks storage
+    testDofile();
     serial.writeLine("file.remove + config backup protection (M7.1.9)");
     testFileRemove();
     serial.writeLine("file.create new file (M7.1.11)");

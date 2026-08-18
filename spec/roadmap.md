@@ -58,7 +58,7 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 | M5 (cíl) | < 512 KB | ≤ 16 MB | < 40 ms | < 16 ms | TBD |
 | **M6 (měřeno)** | **362 KiB** | **2 MiB**⁴ | **≈ 26 ms**⁶ (KVM) | TBD | TBD |
 | M6 (cíl) | < 768 KB | ≤ 24 MB | < 50 ms | < 16 ms | TBD |
-| **M7 (měřeno)** | **664 KiB** | **5 MiB**⁸ | **≈ 42 ms**⁸ (KVM) | TBD | TBD |
+| **M7 (měřeno)** | **661 KiB** | **5 MiB**⁸ | **≈ 29 ms**⁸ (KVM) | TBD | TBD |
 | M7 (cíl) | < 1 MB | ≤ 32 MB | < 50 ms | < 16 ms | TBD |
 | M8 | TBD | TBD | TBD | TBD | TBD |
 | M9 | TBD | TBD | TBD | TBD | TBD |
@@ -134,8 +134,9 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 > žádný rozdíl na boot path). Kernel image 405 744 B (ReleaseSafe). **S přidanými stack
 > canary + Lua budgetem (brief Task 7):** Kernel Entry → First Frame ≈ 92 ms (TCG),
 > kernel image 407 152 B.
-> ⁸ **M7 měření (2026-08-17, KVM, `boot-log.md` commit `4007885`):** kernel image
-> **664 KiB** (narostl o wasm runtime), Kernel Entry → First Frame **≈ 42 ms**
+> ⁸ **M7 měření (2026-08-18, KVM, `boot-log.md` commit `0e3c773`):** kernel image
+> **661 KiB** (wasm runtime; pokles z 664 KiB po návratu `vsnprintf.c` z Zig portu
+> zpět na C originál), Kernel Entry → First Frame **≈ 29 ms**
 > (jitter viz ⁷ — `capture-boot.sh` normalizuje), RAM idle **≈ 5 MiB** (boot log
 > „508 MiB usable · 5 MiB used"). Cíle M7 (< 1 MB, ≤ 32 MB, < 50 ms) drží; frame
 > latency p99 stále TBD.
@@ -250,12 +251,14 @@ první runtime testy v QEMU zelené (exit kód 0).
 binding marshallingu zelené.
 
 > **Stav:** Lua 5.4.8 běží v kernelu. Otevřeny liby `base`, `coroutine`, `table`,
-> `string`, `utf8`, `math` (io/os/package vyřazeny — dynamic loading výhled (M8+),
-> C stdio vrstva je WIP (handoff H6 uzavřen 2026-08-18 — stale test disk, ne kód);
+> `string`, `utf8`, `math` (io/os/package vyřazeny — dynamic loading výhled (M8+);
+> C stdio vrstva hotová — `fopen`/`fread`/`fclose`/`feof`/`ferror`/`getc`/`freopen`
+> mapují na KI storage, takže stock `dofile`/`loadfile` fungují (ověřeno `testDofile`,
+> handoff H6 uzavřen 2026-08-18 — stale test disk, ne kód);
 > `debug` → `dbg` dle M6.1.9; integer-only KI).
 > Freestanding libc shim (`libs/lua-5.4/include/` +
 > `src/kernel/lua/libc.zig`): string/ctype/snprintf/strtod/pow/acos/asin/atan2 +
-> `setjmp`/`longjmp` (asm), deterministické `time`/`clock`, file stubs pro
+> `setjmp`/`longjmp` (asm), deterministické `time`/`clock`, C stdio nad storage pro
 > `luaL_loadfilex`. Hot reload přes F5. Po startu běží **interaktivní Lua REPL** (banner
 > + `> ` prompt, `load`/`pcall`, `print` na obrazovku). **Layout klávesnice** je
 > infrastruktura (`input/layout.zig`, US 105+) — binding posílá `char`, Lua nemapuje.
