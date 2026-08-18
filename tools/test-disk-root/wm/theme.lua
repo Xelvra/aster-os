@@ -37,6 +37,8 @@ theme = {
     accent_dark = 0x007D6F,
     inactive   = 0x798BB2,
     red        = 0xFF6B6B, -- read-only files (files browser), error
+    exec       = 0x6BCF6B, -- executable .wasm files (files browser)
+    trash      = 0x4A90D9, -- everything inside /.trash (files browser)
 
     wm = {
         gap_out = 0,
