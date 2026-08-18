@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# pre-commit hook: runs a local, untracked cleanup script before every
+# commit, if one is configured on this machine.
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+local_cleanup=".clean.sh"
+if [[ -x "$local_cleanup" ]]; then
+    echo "pre-commit: running local cleanup ($local_cleanup)..."
+    "./$local_cleanup"
+fi
