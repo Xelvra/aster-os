@@ -128,8 +128,12 @@ end
 -- Unified shell error channel: every UI module reports failures through this
 -- single formatter, so the REPL scrollback always shows "<source>: <message>".
 -- Keeping one entry point guarantees a consistent format as the shell grows.
+-- Errors are mirrored to the serial terminal (debug.write), so a headless
+-- boot captures them in the boot log / QEMU serial output too.
 function wm_error(source, message)
-    add_line(source .. ": " .. tostring(message))
+    local line = source .. ": " .. tostring(message)
+    add_line(line)
+    debug.write(line)
     gfx.invalidate()
 end
 
