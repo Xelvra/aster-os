@@ -172,19 +172,31 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap) {
         size_t written = pos - start;
         if (width > 0 && written < (size_t)width) {
             size_t pad = (size_t)width - written;
+            size_t i;
             if (!left) {
-                size_t i;
+                /* Right-align: shift the content right by 'pad' (backwards so
+                   no byte is read after being overwritten), then fill the
+                   prefix with the pad character. */
+                if (str != NULL) {
+                    for (i = written; i > 0; i--) {
+                        if (start + pad + i - 1 < size)
+                            str[start + pad + i - 1] = str[start + i - 1];
+                    }
+                }
                 for (i = 0; i < pad; i++) {
                     if (str != NULL && start + i < size)
                         str[start + i] = zero ? '0' : ' ';
                 }
+            } else {
+                /* Left-align: the content stays at 'start'; pad the tail. */
                 if (str != NULL) {
-                    for (i = 0; i < written; i++) {
-                        if (start + pad + i < size)
-                            str[start + pad + i] = str[start + i];
+                    for (i = 0; i < pad; i++) {
+                        if (start + written + i < size)
+                            str[start + written + i] = ' ';
                     }
                 }
             }
+            pos += pad;
         }
     }
     if (str != NULL && size > 0) {

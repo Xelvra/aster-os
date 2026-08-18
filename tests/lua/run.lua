@@ -372,16 +372,27 @@ test("directories render with a leading slash", function()
     assert(texts[3] == "b.txt", "file renders without a slash, got " .. tostring(texts[3]))
 end)
 
-test("bar clock shows the RTC time of day", function()
+test("bar clock shows the RTC time of day, zero-padded", function()
+    -- The clock must keep both digits: single-digit minutes and hours used to
+    -- render as "17:0" when the vsnprintf padding was broken (regression).
     fullscreen_win = nil
     fullscreen_restore = nil
-    _set_of_day_ms((14 * 3600 + 32 * 60) * 1000)
-    local texts = {}
-    gfx.draw_text = function(t) texts[#texts + 1] = t end
-    bar_render()
-    local found = false
-    for _, t in ipairs(texts) do if t == "14:32" then found = true end end
-    assert(found, "clock renders 14:32 from of_day_ms")
+    local cases = {
+        { ms = (14 * 3600 + 32 * 60) * 1000, want = "14:32" },
+        { ms = (17 * 3600 + 5 * 60) * 1000, want = "17:05" },
+        { ms = (7 * 3600 + 9 * 60) * 1000, want = "07:09" },
+        { ms = (0 * 3600 + 0 * 60) * 1000, want = "00:00" },
+        { ms = (23 * 3600 + 59 * 60) * 1000, want = "23:59" },
+    }
+    for _, c in ipairs(cases) do
+        _set_of_day_ms(c.ms)
+        local texts = {}
+        gfx.draw_text = function(t) texts[#texts + 1] = t end
+        bar_render()
+        local found = false
+        for _, t in ipairs(texts) do if t == c.want then found = true end end
+        assert(found, "clock renders " .. c.want .. " from of_day_ms")
+    end
 end)
 
 test("the bar clock requests a redraw when the second changes", function()

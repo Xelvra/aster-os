@@ -113,3 +113,64 @@ test "sqrt" {
     try std.testing.expect(f64Eq(libc.sqrt(1e30), 1e15));
     try std.testing.expect(std.math.isNan(libc.sqrt(-1.0)));
 }
+
+extern "c" fn snprintf(buf: [*]u8, size: usize, format: [*:0]const u8, ...) c_int;
+
+fn expectSnprintf(expected: []const u8, comptime fmt: [:0]const u8, args: anytype) !void {
+    var buf: [64]u8 = undefined;
+    const n = switch (@typeInfo(@TypeOf(args))) {
+        .@"struct" => blk: {
+            switch (args.len) {
+                1 => break :blk snprintf(&buf, buf.len, fmt, args[0]),
+                2 => break :blk snprintf(&buf, buf.len, fmt, args[0], args[1]),
+                3 => break :blk snprintf(&buf, buf.len, fmt, args[0], args[1], args[2]),
+                else => @compileError("unsupported arg count"),
+            }
+        },
+        else => @compileError("expected a tuple of arguments"),
+    };
+    try std.testing.expectEqual(expected.len, @as(usize, @intCast(n)));
+    try std.testing.expectEqualStrings(expected, buf[0..@intCast(n)]);
+}
+
+test "snprintf zero-pads a single digit" {
+    // Regression: the pad loop overwrote the content before shifting it, so
+    // %02lld produced "0" instead of "05" (the WM bar clock showed "17:0").
+    try expectSnprintf("05", "%02lld", .{@as(c_longlong, 5)});
+    try expectSnprintf("00", "%02lld", .{@as(c_longlong, 0)});
+    try expectSnprintf("0042", "%04lld", .{@as(c_longlong, 42)});
+}
+
+test "snprintf pads both clock fields" {
+    // The WM clock formats "%02d:%02d"; the minute must keep both digits.
+    try expectSnprintf("17:05", "%02lld:%02lld", .{ @as(c_longlong, 17), @as(c_longlong, 5) });
+}
+
+test "snprintf zero-pads every clock minute and hour" {
+    // Guards the WM bar clock: the "%02d:%02d" formatting must never drop a
+    // leading zero (the padding bug rendered 17:05 as "17:0"). Sweeps all
+    // 24*60 combinations against a hand-built reference.
+    var buf: [64]u8 = undefined;
+    var hh: c_longlong = 0;
+    while (hh < 24) : (hh += 1) {
+        var mm: c_longlong = 0;
+        while (mm < 60) : (mm += 1) {
+            const n = snprintf(&buf, buf.len, "%02lld:%02lld", hh, mm);
+            const h: u8 = @intCast(hh);
+            const m: u8 = @intCast(mm);
+            var expected_buf: [6]u8 = undefined;
+            expected_buf[0] = '0' + h / 10;
+            expected_buf[1] = '0' + h % 10;
+            expected_buf[2] = ':';
+            expected_buf[3] = '0' + m / 10;
+            expected_buf[4] = '0' + m % 10;
+            try std.testing.expectEqual(@as(usize, 5), @as(usize, @intCast(n)));
+            try std.testing.expectEqualStrings(expected_buf[0..5], buf[0..@intCast(n)]);
+        }
+    }
+}
+
+test "snprintf space and left padding" {
+    try expectSnprintf("   42", "%5lld", .{@as(c_longlong, 42)});
+    try expectSnprintf("42   |", "%-5lld|", .{@as(c_longlong, 42)});
+}
