@@ -3,7 +3,12 @@
 # GPT with one ext2 partition populated from a fixed root filesystem tree.
 #
 # The exact mke2fs invocation is the ADR-023 contract: ext2, no dir_index
-# (HTree unsupported), files from ./tools/test-disk-root/.
+# (HTree unsupported), files from ./tools/test-disk-root/, 1024 B blocks
+# (explicit -b 1024: mke2fs's own default block-size heuristic differs by
+# e2fsprogs version/host — CI picked 4096 B for the same 15 MiB filesystem
+# where local dev machines picked 1024 B, and 4096 B blocks hang the ext2
+# driver, spec/troubleshooting.md C54. Pinning it keeps every build
+# identical regardless of host, per ADR-014, and avoids the bug entirely).
 #
 # Usage: tools/make-test-disk.sh <output.img>
 set -euo pipefail
@@ -37,6 +42,6 @@ rm -f "$OUT"
 dd if=/dev/zero of="$OUT" bs=1M count=$SIZE status=none
 parted -s "$OUT" mklabel gpt
 parted -s "$OUT" mkpart primary ext2 "${PART_START}s" 100%
-mke2fs -q -t ext2 -O ^dir_index -d "$STAGING" -E offset=$OFFSET "$OUT"
+mke2fs -q -t ext2 -b 1024 -O ^dir_index -d "$STAGING" -E offset=$OFFSET "$OUT"
 
 echo "test disk: $OUT (${SIZE} MiB, GPT + ext2, ^dir_index)"
