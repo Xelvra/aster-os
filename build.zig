@@ -336,17 +336,45 @@ pub fn build(b: *std.Build) void {
         rt_step.dependOn(&b.addFail("runtime tests need '-Druntime-tests=true'").step);
     }
 
+    const kernel_test_module = b.createModule(.{
+        .root_source_file = b.path("src/kernel/test_support.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    kernel_test_module.addIncludePath(b.path("libs/lua-5.4/src"));
+    kernel_test_module.addIncludePath(b.path("libs/lua-5.4/include"));
+    kernel_test_module.addIncludePath(b.path("libs/wasm3/source"));
+    kernel_test_module.addIncludePath(b.path("src/kernel/wasm"));
+    kernel_test_module.addCSourceFiles(.{
+        .files = &lua_sources,
+        .flags = &.{ "-std=c99", "-ffreestanding", "-Os" },
+    });
+    kernel_test_module.addCSourceFile(.{
+        .file = b.path("src/kernel/lua/vsnprintf.c"),
+        .flags = &.{ "-std=c99", "-ffreestanding", "-Os" },
+    });
+    const wasm3_test_mod = b.createModule(.{
+        .target = b.graph.host,
+        .optimize = .Debug,
+        .single_threaded = true,
+    });
+    wasm3_test_mod.addIncludePath(b.path("libs/wasm3/source"));
+    wasm3_test_mod.addIncludePath(b.path("libs/wasm3/include"));
+    wasm3_test_mod.addCSourceFiles(.{
+        .files = &wasm3_sources,
+        .flags = &.{ "-std=c99", "-ffreestanding", "-Os", "-Dd_m3MaxLinearMemoryPages=256", "-Dd_m3Use32BitSlots=1", "-Dd_m3VerboseErrorMessages=0" },
+    });
+    const wasm3_test_obj = b.addObject(.{ .name = "wasm3", .root_module = wasm3_test_mod });
+    kernel_test_module.addObject(wasm3_test_obj);
+
     const tests = b.addTest(.{
         .root_module = b.createModule(.{
             .root_source_file = b.path("tests/root.zig"),
             .target = b.graph.host,
             .optimize = .Debug,
+            .link_libc = true,
             .imports = &.{
-                .{ .name = "kernel", .module = b.createModule(.{
-                    .root_source_file = b.path("src/kernel/test_support.zig"),
-                    .target = b.graph.host,
-                    .optimize = .Debug,
-                }) },
+                .{ .name = "kernel", .module = kernel_test_module },
             },
         }),
     });
