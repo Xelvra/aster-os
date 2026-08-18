@@ -760,7 +760,7 @@ prvků). Platí „přidá se, až to jde" — ne „placeholder v UI".
 
 | Kombinace | Upstream akce | Backend, který to odblokuje |
 |---|---|---|
-| Super+C | calculator | app systém |
+| Super+C | calculator dedicated bind | **calculator přes launcher hotovo (M7 Fáze B, ADR-026/027)**; dedicated Super+C bind zatím ne |
 | Super+W | browser | app systém (net, M9) |
 | Super+X | control center | panel systém |
 | Super+V | clipboard | clipboard služba |
@@ -798,9 +798,13 @@ věčně živé a obnova stavu jde hot reloadem.
 ### 7a.4 Aplikace (editor, calculator, browser, files)
 
 Upstream spouští cizí aplikace (kitty, dolphin, gnome-calc, ...). U nás jsou to
-Lua app okna, spouštěné z launcheru (Super+Space) nebo přes rezervované zkratky.
-**Hotovo (M7.1):** `editor` (Super+T) a `files` (Super+E). calculator/browser
-se přidají s app systémem / net (M9).
+Lua app okna (editor/files) nebo wasm sandbox aplikace (calculator), spouštěné z
+launcheru (Super+Space) nebo přes rezervované zkratky.
+**Hotovo (M7.1):** `editor` (Super+T) a `files` (Super+E).
+**Hotovo (M7 Fáze B, 2026-08-18, ADR-026/027):** `calculator` — wasm sandbox
+aplikace, floating okno s fixní velikostí (surface 224×160), spouští se z
+`/apps/calculator.wasm` na disku, launcher ji najde dynamickým skenem `/apps/`
+(žádné hardcoded jméno v WM kódu). browser se přidá s net (M9).
 
 Navigační konvence:
 
@@ -1195,12 +1199,13 @@ Viz také `spec/invariants.md` (Safety / Performance / Architecture) a
   uživatelsky přidávané moduly s automatickým hot reloadem (stejně jako dnes
   `/wm/theme.lua`). Rozdělení a vyřešení sdíleného stavu je **součást Úrovně 2**,
   ne samostatný úkol.
-- **M7 programy (částečně hotovo):** `Program` je schedulable kontext (ADR-017);
+- **M7 programy (hotovo 2026-08-18):** `Program` je schedulable kontext (ADR-017);
   spawnuté programy mají vlastní `lua_State` (`lua.spawnProgram`) / Wasm modul
-  (`Runtime.spawn(.Wasm)`). **Zbývá:** okna dnes sdílí jediný shell — obsah okna
-  programu (surface model pro wasm programy) je Fáze B, ne z `repl/sysmon_render`.
-- **Aplikace:** model „okno + render funkce" (`spec/desktop-ui.md` §4.7) se rozšiřuje
-  o calculator (wasm Fáze B), systémové widgety.
+  (`Runtime.spawn(.Wasm)`). Surface model pro wasm programy (Fáze B, ADR-026) je
+  hotový: wasm okno kompozituje vlastní surface generickým `wasm_app_render`
+  (`main.lua`), ne `repl/sysmon_render` — WM nezná aplikaci jménem (ADR-027).
+- **Aplikace:** model „okno + render funkce" (`spec/desktop-ui.md` §4.7) se
+  rozšířil o calculator (wasm Fáze B, hotovo); systémové widgety zůstávají.
 - **Animace:** fade přes interpolaci barev v renderu (bez GPU), vyhrazeno.
 
 ---

@@ -444,6 +444,18 @@ se musí vyřešit **před** spuštěním dalších features, ne až na konci st
 > zbývá Fáze B (surface model + kalkulačka) a Fáze C (benchmark).
 > Wasm se dělal na konec milníku (věci spojené přímo s wasm se odkládaly,
 > ostatní se dotažely před ním).
+>
+> **Stav (2026-08-18):** wasm Fáze B **hotová** — surface model + kalkulačka
+> (ADR-026), ověřeno reálným QEMU runtime testem (`testWasmSpawnTickSurface`,
+> spawn/tick/surface/singleton/trap containment). Živé testování kalkulačky
+> odhalilo tři reálné bugy mimo wasm samotný (WM layout-fallback při focusu na
+> floating okno, z-order hit-testing pro floating vs tiled, `formatInt`
+> right-aligned konvence v `calculator.zig`) a jedno UBSan/wasm3 nekompatibilitu
+> (`.sanitize_c = .off` pro `wasm3_mod`) — všechny opraveny. Zároveň se
+> **pullnul dopředu** kus M8/ADR-025 plánu (viz bullet níže): launcher skenuje
+> `/apps/*.wasm` z disku dynamicky místo hardcoded entry, a přidala se
+> klávesnice pro wasm programy (ADR-026 ji nechávala jako výhled). Detaily
+> **ADR-027**. Zbývá jen Fáze C (benchmark).
 
 > **Jak jsme wasm dělali (2026-08-16, korigováno 2026-08-17):**
 > - **První programy jsou záměrně jednoduché — PRÁVĚ proto, že infrastruktura je složitá.**
@@ -474,7 +486,12 @@ se musí vyřešit **před** spuštěním dalších features, ne až na konci st
 >   na disku je až součást Úrovně 2 (ADR-025).
 > - **Launcher `/apps/` dynamicky neskenuje** (hardcoded `apps` tabulka) — dynamický
 >   scan a spouštění z disku je **samostatný úkol (M8)**, pro první programy stačí
->   hardcoded entry.
+>   hardcoded entry. **Pullnuto dopředu (2026-08-18, ADR-027):** hardcoded
+>   `calculator` entry se v živém testu ukázala v přímém rozporu s vlastní
+>   sandbox filosofií (WM nesmí znát aplikaci jménem) — launcher teď skenuje
+>   `/apps/*.wasm` dynamicky při každém otevření, `api/runtime.spawn` čte bajty
+>   z disku (initrd zůstává jen fallback pro `hello`/`fault`). Zbytek M8 plánu
+>   (spouštění Lua appek z disku stejnou cestou, ADR-025) je pořád budoucí.
 > - **Editor/files odmítnou `.wasm` otevřít jako text** — stejný extension-based
 >   mechanismus jako `.bak`/`.repl_history` (`is_read_only`), rozšířený o binární
 >   `.wasm`. Ve files browseru se `.wasm` **nekreslí červeně** jako read-only
@@ -494,7 +511,9 @@ se musí vyřešit **před** spuštěním dalších features, ne až na konci st
 >   přes wasm lineární paměť. **ADR zatím neexistuje** — je to Fáze B (před
 >   kalkulačkou). Teprve po zafixování a zdokumentování kontraktu
 >   (kalkulačka + benchmark) se zve kontributory (M10 Adoption) — jinak by první
->   příspěvky rozbil vlastní refaktor.
+>   příspěvky rozbil vlastní refaktor. **Hotovo (2026-08-18): ADR-026** (surface
+>   model, import surface tabulka) **+ ADR-027** (disk apps, WM decoupling,
+>   klávesnice — `input_key` append na konec importní tabulky).
 > - **Trap containment** — wasm3 pasti (traps: OOB, dělení nulou) se zachytí
 >   bez shození hostitele (obdoba `lua_pcall`); padlý program se zahodí, desktop běží
 >   dál. To je vizuální důkaz izolace z manifestu. **Hotovo (Fáze A, `fault` program).**
@@ -503,7 +522,17 @@ se musí vyřešit **před** spuštěním dalších features, ne až na konci st
       `libs/wasm3/`, `src/kernel/wasm/`, `Runtime.spawn(.Wasm)`.
 - [x] První `.wasm` programy (Zig → wasm32-freestanding): `hello`/`fault` testovací
       programy bez surface (`hello` = `debug_write`, `fault` = trap containment).
-      **Surface model + kalkulačka je Fáze B (nezahájeno).**
+- [x] **Surface model + kalkulačka — Fáze B (hotovo 2026-08-18, ADR-026 + ADR-027):**
+      persistentní program (`start`/`update`/`render`, singleton per jméno), fixní
+      224×160 surface, `api/runtime.surface_render` composite do render targetu,
+      import surface (`draw_rect`/`draw_text`/`surface_width/height`/
+      `input_mouse_x/y/left`/`input_key`). Kalkulačka (`src/kernel/apps/calculator.zig`):
+      desetinná čísla (`f64`), 5×4 grid s `.` tlačítkem, klávesnice (číslice,
+      operátory, `.`, `=` přes hlavní i numpad Enter, `C`). Wasm aplikace se spouští
+      z disku `/apps/*.wasm`, launcher je skenuje dynamicky — initrd zůstává jen
+      fallback pro `hello`/`fault` (M8/ADR-025 plán pullnutý dopředu, ADR-027).
+      Ověřeno runtime testem `testWasmSpawnTickSurface` (spawn/tick/surface/
+      singleton/trap containment) a živě přes QEMU+QMP (screendump + input).
 - ~~Sdílené buffery + present~~ — přesunuto do Fáze 2 (render quality před stabilizací).
 - [x] **Preemptivní RR scheduler** pro nativní kernel tasky (ADR-017) — čistě IRQ-driven
       switch přes APIC timer (vektor 0x20), TCB tabulka i stacky statické (žádná alokace),

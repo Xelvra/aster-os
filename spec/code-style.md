@@ -17,6 +17,10 @@ Zigu, ale doplňují je o projektovou disciplínu.
 - **Interní specifikace (`spec/*.md`): v češtině** (druhý mozek autora). Výjimkou
   jsou zavedené konvence — názvy souborů, adresářů, služeb, technické termíny
   (framebuffer, syscall, Renderer, Runtime, ADR statusy apod.).
+- **„aplikace", ne „appka"/„appky"** — hovorová zkratka nepatří do dokumentace
+  (`spec/*.md`), i když se běžně používá v mluvené řeči. V kódu/identifikátorech
+  zůstává anglické `app`/`apps`, kde je zavedené (`spec/roadmap.md` `/apps/`,
+  `is_read_only` apod.) — pravidlo platí pro český prozaický text.
 - Komentář v kódu, který vysvětluje "proč", je v angličtině. Český text do kódu nepatří.
 
 ### Pojmenování dokumentů (`spec/*.md`, kořenové soubory)

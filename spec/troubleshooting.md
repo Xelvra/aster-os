@@ -210,7 +210,24 @@ specifikaci na první pohled.
 
 ---
 
-## 11. Jak předcházet (meta-lekce)
+## 11. Wasm — wasm3 interpreter (M7 Fáze B, 2026-08-18)
+
+První reálné spuštění wasm programu skrz automatizovaný QEMU test (ne jen ruční
+smoke) odhalilo dvě chyby, které manuální boot log Fáze A nechytil.
+
+| Záznam | Symptom | Příčina | Řešení | Ověřit |
+|--------|---------|---------|--------|--------|
+| C52 | `ASTER FAULT vec=0x6` (#UD) při prvním reálném spuštění wasm programu skrz `m3_FindFunction`/`ForEachModule` — disassembly ukázal typovou kontrolu proti dvěma fixním konstantám (`0xc105cafe`, `0xaccf07e2`) před indirect callem, `ud1` při neshodě | **Zig defaultně zapíná C UBSan (`-fsanitize-c=trap`) na C zdrojácích** v Debug/ReleaseSafe (`std.Build.Module.sanitize_c`). wasm3ho threaded-code interpret staví celý dispatch na castování různě typovaných C funkcí na společný typ pointeru (`ModuleVisitor`, op-handler tabulka) — legitimní, ABI-bezpečný C idiom, který UBSan `-fsanitize=function` bere jako mismatch a trapuje | `.sanitize_c = .off` na `wasm3_mod` (a `wasm3_test_mod`) v `build.zig` — omezené jen na vendored modul, `libs/wasm3` se nepatchuje | `zig build runtime-test -Druntime-tests=true` s testem, co skutečně spawnuje a tickuje wasm program (ne jen linkuje) |
+| C53 | `linkImports(module)` volané **před** `m3_LoadModule(runtime, module)` fungovalo pro `hello.zig` (1 import) při ručním Fáze A smoke testu, ale UB se nikdy nemanifestovalo deterministicky | **`m3_LinkRawFunction` (přes `AcquireCodePageWithCapacity`) dereferencuje `module->runtime`**, které nastavuje až `m3_LoadModule` — link před loadem nechává ten pointer `NULL`. wasm3ho vlastní komentář v `m3_env.c` to říká přímo: „Start func might use imported functions, which are not linked here yet" — implikuje pořadí load→link, ne link→load | prohodit pořadí: `m3_LoadModule` **před** `linkImports` ve `wasm.zig` `spawn` | stejný test jako C52 (spawn skutečně proběhne bez UB, ne jen zkompiluje) |
+
+> **Meta:** ruční/jednorázový smoke test (Fáze A boot log) neodhalí UB, které se
+> projeví jen za určitého paměťového layoutu — automatizovaný test, co program
+> skutečně **spawnuje a tickuje** (ne jen builduje), je jediný spolehlivý důkaz
+> pro managed-runtime kód (viz `spec/verification.md` DoD).
+
+---
+
+## 12. Jak předcházet (meta-lekce)
 
 - **Měň jednu věc a ověřuj** — při M0 se střídaly strip/linker.ld/optimize současně, což
   zamlžilo příčiny. Jeden faktor na krok.
@@ -242,7 +259,7 @@ specifikaci na první pohled.
 
 ---
 
-## 12. Nevyřešené problémy → handoff
+## 13. Nevyřešené problémy → handoff
 
 Problém, který se nepodaří vyřešit v čase (viz `spec/handoff.md` §1), **se nezapisuje do
 této tabulky** (ta je jen pro vyřešené lekce). Použije se šablona v `spec/handoff.md` a
