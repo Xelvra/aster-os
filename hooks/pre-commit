@@ -6,7 +6,7 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
-local_cleanup=".clean.sh"
+local_cleanup="tools/.clean.sh"
 if [[ -x "$local_cleanup" ]]; then
     echo "pre-commit: running local cleanup ($local_cleanup)..."
     "./$local_cleanup"
