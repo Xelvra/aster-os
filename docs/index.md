@@ -4,7 +4,7 @@ title: Home
 nav_order: 1
 ---
 
-# Aster OS — Web
+# Hello, World!
 
 **Aster OS** is an experimental desktop operating system written in Zig. This site is the
 introduction to the project's complete English documentation.

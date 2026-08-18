@@ -36,6 +36,7 @@ samostatný soubor. Pravidla:
 | [023](023-filesystem-ext2-non-posix.md) | Persistence: ext2 backend (read-write od M7.1, M6 read-only), non-POSIX sémantika, tenké rozhraní | Přijato |
 | [024](024-keyboard-layout-registry.md) | Registr klávesových rozložení (per-session layout) | Přijato |
 | [025](025-lua-shell-from-disk.md) | Lua shell z disku do `/wm/` s initrd fallbackem (Úroveň 2) | Přijato |
+| [026](026-wasm-import-surface.md) | Wasm import surface a surface model (Fáze B) | Přijato |
 
 ## Šablona nového ADR
 
