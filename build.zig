@@ -104,6 +104,10 @@ pub fn build(b: *std.Build) void {
         .files = &lua_sources,
         .flags = &.{ "-std=c99", "-ffreestanding", "-Os" },
     });
+    kernel.root_module.addCSourceFile(.{
+        .file = b.path("src/kernel/lua/vsnprintf.c"),
+        .flags = &.{ "-std=c99", "-ffreestanding", "-Os" },
+    });
 
     // Wasm runtime (M7): wasm3 WebAssembly interpreter, built as its OWN
     // sandbox module — the C sources get only their own freestanding headers

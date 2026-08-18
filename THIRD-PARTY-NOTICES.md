@@ -72,7 +72,7 @@ code is entirely original (see Rule 4 in §4).
 | File | Standard |
 |---|---|
 | `src/kernel/lua/setjmp.s` | Own freestanding `setjmp`/`longjmp` for x86_64 (SysV ABI) |
-| `src/kernel/libc.zig` + `libs/lua-5.4/include/` | Shared kernel libc (string/ctype/stdio/math/time, including `vsnprintf`), written in Zig — no separate C source file |
+| `src/kernel/libc.zig` + `libs/lua-5.4/include/` | Shared kernel libc (string/ctype/stdio/math/time), written in Zig; `vsnprintf`/`snprintf`/`sprintf`/`fprintf` live in `src/kernel/lua/vsnprintf.c` (taken-over, tested C) |
 
 ### 3.2 On-disk format parsers based on published specifications
 
