@@ -13,6 +13,10 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    # Safety net: without this, a hung step runs to GitHub's own 360-minute
+    # default instead of failing fast. The full suite normally finishes in
+    # well under 10 minutes with a warm Zig cache.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:

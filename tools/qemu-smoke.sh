@@ -56,6 +56,12 @@ qemu_pid=$!
 
 found=""
 log=""
+# Reading from the FIFO must go through its own `timeout`-wrapped process
+# substitution, not a bare `<"$tmpdir/serial.out"` redirection: opening a
+# FIFO for read blocks until something opens it for write, and if QEMU dies
+# before it reaches chardev init (bad CLI arg, runner resource issue), that
+# open() never returns — the outer `timeout` on the qemu process above does
+# not bound this wait at all, so the step hangs indefinitely.
 while IFS= read -r line; do
     clean="$(sed $'s/\x1b\[[0-9;]*m//g' <<<"$line")"
     log+="$clean"$'\n'
@@ -63,7 +69,7 @@ while IFS= read -r line; do
         found="$clean"
         break
     fi
-done <"$tmpdir/serial.out"
+done < <(timeout "$TIMEOUT" cat "$tmpdir/serial.out")
 
 kill "$qemu_pid" 2>/dev/null || true
 wait "$qemu_pid" 2>/dev/null || true
