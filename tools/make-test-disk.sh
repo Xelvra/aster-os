@@ -6,9 +6,10 @@
 # (HTree unsupported), files from ./tools/test-disk-root/, 1024 B blocks
 # (explicit -b 1024: mke2fs's own default block-size heuristic differs by
 # e2fsprogs version/host — CI picked 4096 B for the same 15 MiB filesystem
-# where local dev machines picked 1024 B, and 4096 B blocks hang the ext2
-# driver, spec/troubleshooting.md C54. Pinning it keeps every build
-# identical regardless of host, per ADR-014, and avoids the bug entirely).
+# where local dev machines picked 1024 B. 4096 B blocks are NOT a bug in the
+# ext2 driver (verified on fresh disks, spec/troubleshooting.md C54 → H6), but
+# pinning the size keeps every build identical regardless of host, per
+# ADR-014, and avoids slow TCG runs without KVM).
 #
 # Usage: tools/make-test-disk.sh <output.img>
 set -euo pipefail
