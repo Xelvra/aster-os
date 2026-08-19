@@ -1,5 +1,7 @@
 # Self-Audit — 2026-08-15
 
+> **Historický záznam — neupravovat; nálezy se řeší v aktuálních dokumentech.**
+
 Kompletní audit repozitáře Aster OS. HEAD `9588b20` (před začátkem oprav).
 
 **Dynamicky ověřeno:** `zig fmt --check` ✅ · `zig build` (ReleaseSafe) ✅ · `zig build test` 128/128 ✅ · `qemu-smoke` PASS ✅ · `qemu-test` (čerstvý disk) PASS ✅ · `capture-boot --check` OK ✅ · `verify-reproducible.sh` PASS ✅ · `bench` 413 KiB / 390 ms wall / 101 ms kernel ✅.

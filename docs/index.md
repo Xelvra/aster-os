@@ -7,7 +7,7 @@ nav_order: 1
 # Hello, World!
 
 **Aster OS** is an experimental desktop operating system written in Zig. This site is the
-introduction to the project's complete English documentation.
+introduction to the project's English documentation.
 
 ## Documentation language
 
@@ -101,5 +101,3 @@ in the repository README (`README.md`) and the internal specification
 developer's language.
 
 ---
-
-Last audited on **2026-08-16**.

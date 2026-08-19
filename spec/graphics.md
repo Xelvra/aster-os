@@ -107,7 +107,7 @@ renderer.zig
 - Prezentace (Phase 2, hotovo): render do offscreen back bufferu (PFA stránky),
   `present` kopíruje celý back buffer do framebufferu najednou — žádný tearing
   uprostřed snímku. Renderer, Lua scéna i kurzor myši kreslí do back bufferu;
-  `present` volá event loop po každém renderu (viz `graphics.md` §7 a handoff H4).
+  `present` volá event loop po každém renderu (viz §2 op 5 `present` a [handoff H4](handoffs/04-double-buffering-heap-corruption.md)).
 
 ### Primitiva (povolená minimální sada)
 

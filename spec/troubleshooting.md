@@ -4,6 +4,9 @@
 **Účel:** zachycovat chyby, které stály čas při vývoji, aby se nemusely znovu objevovat.
 Dokument je **druhý mozek** — piš lekci ve chvíli, kdy je problém vyřešený, ne zpětně.
 
+**Index řad ID:** `C` = kód/toolchain (C1–C54), `B` = build/determinismus (B1–B4),
+`H` = handoffy (H1–H6, uzavřené diagnózy — seznam viz [handoff.md §6](handoff.md)).
+
 ---
 
 ## Pravidla použití

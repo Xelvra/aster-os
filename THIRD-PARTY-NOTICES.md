@@ -158,7 +158,7 @@ glyph set, not console fonts in general.
 
 | Field | Value |
 |---|---|
-| **What** | wasm3 (WebAssembly interpreter, C), vendored in `libs/wasm3/` |
+| **What** | wasm3 v0.5.0 (WebAssembly interpreter, C), vendored in `libs/wasm3/` |
 | **Author** | wasm3 contributors |
 | **License** | MIT (see `libs/wasm3/LICENSE`) |
 | **Usage** | WebAssembly runtime for `Runtime.spawn(.Wasm)` — hosts Aster wasm programs (test programs `hello`/`fault`, the calculator app) behind the generic Runtime API (ADR-006, ADR-011, ADR-026); compiled with PIC into the kernel |
@@ -168,7 +168,6 @@ interpreter that fit the kernel's constraints.
 
 ---
 
----
 ## 8. Zig
 
 | Field | Value |

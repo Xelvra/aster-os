@@ -18,3 +18,6 @@ echo "pre-push: checking boot log is current (tools/capture-boot.sh --check)..."
 
 echo "pre-push: checking docs are synced (tools/sync-docs.sh --check)..."
 ./tools/sync-docs.sh --check
+
+echo "pre-push: checking KI docs match the code (tools/check-ki-docs.sh --check)..."
+./tools/check-ki-docs.sh --check

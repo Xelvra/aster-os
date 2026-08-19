@@ -264,11 +264,12 @@ aster-os/
 ├── boot-log.md                    # generovaný, CI-vynucený záznam bootu (capture-boot.sh)
 ├── limine.conf                    # konfigurace Limine bootloaderu
 ├── docs/                          # anglická webová vrstva (entry point, index.md)
-├── hooks/                         # git hooky (pre-push: capture-boot + sync-docs)
+├── hooks/                         # git hooky (pre-push: capture-boot + sync-docs + check-ki-docs)
 ├── .github/                       # CI workflow (ci.yml, release.yml)
 ├── spec/                         # TENTO SOUBOR + dílčí specifikace
 │   ├── README.md
 │   ├── architecture.md           # tento dokument
+│   ├── onboarding.md             # první den: čtení v pořadí, boot, první chyba
 │   ├── manifest.md
 │   ├── non-goals.md              # co systém vědomě nedělá
 │   ├── code-style.md             # filozofie a pravidla kódu
@@ -318,6 +319,7 @@ aster-os/
 │   ├── qemu-accel.sh             # KVM/TCG akcelerace pro QEMU běhy
 │   ├── capture-boot.sh           # regenerace boot-log.md
 │   ├── sync-docs.sh              # EN web vs spec timestamp brána
+│   ├── check-ki-docs.sh          # KI docs vs kód: ops, syscally, statusy, bindings
 │   ├── make-test-disk.sh         # deterministický ext2 test disk
 │   ├── lua-shell-test.sh         # host běh tests/lua shell regresí
 │   ├── verify-reproducible.sh    # deterministický build check (ADR-014)

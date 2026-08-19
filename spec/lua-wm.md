@@ -1,6 +1,11 @@
 # Lua WM — Architecture Blueprint / Design Doc
 
 **Status:** V1 (draft).
+**Implementováno:** §1–§13 popisují běžící WM — tiling (splith/splitv), workspaces 1–3,
+floating okna, fullscreen, scratchpad, taskbar, launcher (Super+Space), REPL jako okno,
+systémový monitor, editor/files/koš (M7.1), wasm programy s vlastním surface (M7, ADR-026).
+**Návrh (RFC):** §14 (design rationale) a §15 (budoucí směr) — mimo jiné Úroveň 2
+(ADR-025), animace, schránka, rozpad jednoho chunku.
 **Zdroj:** `src/kernel/lua/ui/` + `src/kernel/lua/*.zig` + KI grafika/vstup.
 **Navazuje na:** `spec/architecture.md`, `spec/runtime.md`, `spec/graphics.md`,
 `spec/input.md`, `spec/desktop-ui.md`, `spec/kernel-interface.md`, `spec/invariants.md`.

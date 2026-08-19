@@ -89,3 +89,6 @@ jobs:
 
       - name: Docs must be synced with their spec sources (14 days)
         run: ./tools/sync-docs.sh --check
+
+      - name: KI docs must match the code (ops, syscalls, statuses, bindings)
+        run: ./tools/check-ki-docs.sh --check

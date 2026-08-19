@@ -140,13 +140,26 @@ normalizuje (jitter). Vynucuje pre-push hook i CI.
 Překladová vrstva (`docs/`) je spárovaná s českým zdrojem přes git historii;
 stránka, jejíž zdroj se změnil před více než `SYNC_DAYS` (default 14), blokuje push.
 
+### Krok 7b — KI dokumentace odpovídá kódu
+
+```bash
+./tools/check-ki-docs.sh --check
+```
+
+Každý KI identifikátor v kódu (`GraphicsOp`/`InputOp`/`TimerOp`/`RuntimeOp`/
+`StorageOp`, syscall čísla a `KiStatus` v `api/sys.zig`, Lua binding názvy v
+`bindings.zig`) musí být zdokumentovaný v příslušné spec. Dělá z pravidla
+`kernel-interface.md` §4/6 („Dokumentace KI je ABI-pravda") vymahatelný invariant —
+op nebo binding přidaný do kódu bez zapsání do spec selže.
+
 ### Co z pipeline vynucuje CI
 
 `.github/workflows/ci.yml` běží: fmt (Krok 1), build default + Debug + ReleaseFast
 (Krok 2), host testy (Krok 3), shell-test (Krok 3b), smoke testy (Krok 4), runtime
 testy vč. s test diskem (Krok 4b, na TCG runnerech s `QEMU_TEST_TIMEOUT=90`),
-`verify-reproducible.sh` (Krok 5), `capture-boot.sh --check` (Krok 6) a
-`sync-docs.sh --check` (Krok 7). Je to nejsilnější vynucení verifikačního řetězce —
+`verify-reproducible.sh` (Krok 5), `capture-boot.sh --check` (Krok 6),
+`sync-docs.sh --check` (Krok 7) a `check-ki-docs.sh --check` (Krok 7b). Je to
+nejsilnější vynucení verifikačního řetězce —
 lokální vývoj je rychlá iterace, CI je brána. Co CI neběží: test čistého klonu
 (§3a) a `bench.sh` (Krok ad hoc při měření metrik, ADR-015).
 
@@ -179,6 +192,7 @@ lokální vývoj je rychlá iterace, CI je brána. Co CI neběží: test čisté
 - [ ] **Systém je bootovatelný** (ADR-016).
 - [ ] `./tools/capture-boot.sh --check` — boot log (`boot-log.md`) odpovídá kódu.
 - [ ] `./tools/sync-docs.sh --check` — anglická vrstva (`docs/`) nezaostává za spec.
+- [ ] `./tools/check-ki-docs.sh --check` — KI operace, syscall čísla, statusy a Lua bindings jsou zdokumentované.
 
 ---
 
@@ -229,6 +243,7 @@ zig build test
 ./tools/qemu-smoke.sh
 ./tools/capture-boot.sh --check
 ./tools/sync-docs.sh --check
+./tools/check-ki-docs.sh --check
 ./tools/verify-reproducible.sh
 ```
 
@@ -291,6 +306,7 @@ Pravidlo: **každý commit musí zanechat systém spustitelný v QEMU.**
 | `tools/make-test-disk.sh` | deterministický ext2 test disk (ADR-023 invokace, `-b 1024`) |
 | `tools/capture-boot.sh` | regenerace `boot-log.md`; `--check` ověří, že log odpovídá kódu |
 | `tools/sync-docs.sh` | překladová vrstva (`docs/`) vs spec přes git historii; `--check` blokuje push |
+| `tools/check-ki-docs.sh` | KI dokumentace vs kód: ops, syscall čísla, statusy, Lua bindings; `--check` blokuje push |
 | `tools/lua-shell-test.sh` | host běh shell regresí (`tests/lua/`; interpret `lua5.4`) |
 | `tools/verify-reproducible.sh` | deterministický build check (ADR-014) |
 | `tools/generate-changelog.sh` | generátor surové historie commitů (`CHANGELOG-commits.md`) |
@@ -299,7 +315,7 @@ Pravidlo: **každý commit musí zanechat systém spustitelný v QEMU.**
 
 ---
 
-## 6. Závislosti (nástroje) — stav k datu konsolidace specifikace
+## 6. Závislosti (nástroje) — stav k 2026-08-19
 
 | Nástroj | Stav | Poznámka |
 |---|---|---|

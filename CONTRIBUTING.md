@@ -9,6 +9,9 @@ details live in the internal specifications (`spec/*.md`), referenced below.
 Read first:
 
 - [`README.md`](README.md) — what the project is and where it stands.
+- [`spec/onboarding.md`](spec/onboarding.md) — first day: reading order, how
+  to get the system to boot, how to verify the environment, where to look on
+  the first error (Czech).
 - [`spec/architecture.md`](spec/architecture.md) — design overview and
   terminology (Czech).
 - [`spec/roadmap.md`](spec/roadmap.md) — milestones M0–M10 and quality
@@ -53,6 +56,7 @@ zig build shell-test
 ./tools/verify-reproducible.sh
 ./tools/capture-boot.sh --check
 ./tools/sync-docs.sh --check
+./tools/check-ki-docs.sh --check
 ```
 
 A task is done only when all of the above pass and the report includes the
