@@ -192,14 +192,20 @@ fn testMouseFloodDoesNotStarveKeys() void {
     }
     input_service.pushKeyEvent(.{ .code = .a, .pressed = true });
 
-    const ev = input_service.popKernelEvent() orelse {
-        expect(false, "key reachable despite mouse flood");
-        return;
-    };
-    switch (ev) {
-        .key => expect(true, "key survives behind a flood of mouse packets"),
-        else => expect(false, "global queue still holds a key, not a mouse packet"),
+    // The APIC timer keeps firing behind the test and pushes timer_tick
+    // events into the global queue; skip them until the key surfaces. The
+    // loop is bounded by the queue itself — an empty queue means the key
+    // was lost, which is exactly what this test must not allow.
+    while (input_service.popKernelEvent()) |ev| {
+        switch (ev) {
+            .key => {
+                expect(true, "key survives behind a flood of mouse packets");
+                return;
+            },
+            .timer_tick, .mouse => {},
+        }
     }
+    expect(false, "key reachable despite mouse flood");
 }
 
 fn testMouseCursor() void {
