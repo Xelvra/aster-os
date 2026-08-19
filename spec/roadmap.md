@@ -324,8 +324,16 @@ binding marshallingu zelené.
       suspendace (spec `kernel-interface.md` §6.2, `timer.md` §3). — **uzavřeno principem
       (2026-08-09):** v M6 se FS čte výhradně mimo event loop (boot probe + runtime testy),
       žádné pomalé čtení neběží uvnitř `update()`/`render()` — event loop nemá co blokovat.
-      Plná kooperativní suspendace (deadline fronta, resume) se implementuje s tasky
-      v **M7** (ADR-017 scheduler); viz `kernel-interface.md` §6.2.
+      Plná kooperativní suspendace (deadline fronta, resume) se měla implementovat s tasky
+      v **M7** (ADR-017 scheduler); viz `kernel-interface.md` §6.2. — **status (2026-08-19):
+      zůstává vědomým dluhem, neimplementováno.** Tasky a blokující `sleepMs` úkolu
+      existují (`sched/task.zig`, `timer.md` §5), ale pomalé FS operace se stále vykonávají
+      **synchronně** uvnitř `update()`/`render()` (virtio-blk je synchronní spin na used
+      ring, `drivers/virtio.zig`; editor čte soubor v jednom ticku, `lua/ui/editor.lua`).
+      Důvod odkladu: v QEMU je I/O ~µs, takže event loop reálně neblokuje a žádný
+      konzument není; reálné pomalé čtení (velké soubory, pomalý disk) by vyžadovalo
+      async I/O cestu + propojení s tasky — aktivuje se, až to metriky/hardware vyžadují
+      (obdoba SMP BSP-only, ADR-015).
 - ~~**Auto-reload na uložení:** uložení `theme.lua`/config souboru → automatické
       překreslení prostředí bez klávesy (spec `runtime.md` §5a spouštěč 2)~~ —
       **přesunuto do M7.1.6** (čekalo na zápis na disk).

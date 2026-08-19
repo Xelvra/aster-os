@@ -318,6 +318,15 @@ sémantika zůstává stejná, řeší se jinak:
 > request/reply kontrakt (dvě místa pokračování, ordering, reentrancy) a zbytečně
 > mění rozhraní. Kooperativní suspendace zachovává jednoznačný tok řízení i sémantiku.
 
+> **Status (2026-08-19):** kooperativní suspendace pomalých FS operací **není
+> implementovaná — vědomý dluh.** Tasky a blokující `sleepMs` úkolu existují (ADR-017,
+> `sched/task.zig`, `timer.md` §5), ale pomalé operace se dnes vykonávají **synchronně**
+> v rámci `update()`/`render()` (virtio-blk čte spinem na used ring, `drivers/virtio.zig`;
+> `lua/ui/editor.lua` čte soubor v jednom ticku). Odklad: v QEMU je I/O ~µs, event loop
+> reálně neblokuje a neexistuje konzument; plná suspendace vyžaduje async I/O cestu +
+> propojení s tasky a aktivuje se, až to metriky/hardware vyžadují (obdoba SMP BSP-only,
+> `spec/roadmap.md`). Kontrakt níže zůstává cílovým stavem.
+
 ### 6.3 Pointerové argumenty přes `dispatch` — kontrakt (dočasný pro Ring 0)
 
 `SyscallArgs` nese tři `u64` sloty (`a`, `b`, `c`). Tento kontrakt určuje, který slot smí
