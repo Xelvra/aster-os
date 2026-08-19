@@ -74,13 +74,23 @@ watchlist). Existence kandidátů není závazek je implementovat.
 | **`dir_index` (compat)** | **0x0020** | **reject — HTree se nečte** |
 | cokoli neznámé | — | **reject** |
 
+> **Status update (2026-08-19):** invokace níže byla neúplná — chyběl explicitní
+> `-b 1024`. Bez něj volí `mke2fs` velikost bloku heuristicky podle verze
+> e2fsprogs a hosta; 4096B bloky zavěsí ext2 driver (`spec/troubleshooting.md`
+> C54) a porušují ADR-014. Závazná invokace je nyní ta v
+> `tools/make-test-disk.sh`.
+
 ### Přesná invokace (testovací obrazy, `tools/make-test-disk.sh`)
 
 ```bash
 parted -s <disk>.img mklabel gpt
 parted -s <disk>.img mkpart primary ext2 2048s 100%
-mke2fs -t ext2 -O ^dir_index -d <rootfs_dir> -E offset=$((2048 * 512)) <disk>.img
+mke2fs -q -t ext2 -b 1024 -O ^dir_index -d <rootfs_dir> \
+       -E offset=$((2048 * 512)) <disk>.img
 ```
+
+`-b 1024` je součást kontraktu, ne detail: bez něj se velikost bloku liší
+host od hosta (ADR-014) a 4096B varianta zavěsí driver (C54).
 
 - Čtenář dat: direct bloky + single indirect (`i_block[12]`); double/triple indirect se
   odmítají (`UnsupportedIndirect`).

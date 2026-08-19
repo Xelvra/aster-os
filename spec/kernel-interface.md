@@ -35,7 +35,7 @@ Všechna veřejná rozhraní žijí v `src/kernel/api/`:
 | `runtime.zig` | Spouštění programů: `spawn`, `RuntimeKind` | `spec/runtime.md` |
 | `sysmon.zig` | Systémové metriky: RAM usage pro shell | tento soubor |
 | `power.zig` | Napájení: reboot (i8042 reset) | kernel-level, M5 |
-| `storage.zig` | Soubory: open/read/write/close/truncate/list/remove/create/rename | `spec/roadmap.md` M7.1, `spec/lua-wm.md` |
+| `storage.zig` | Soubory: open/read/write/close/truncate/list/remove/create/rename | `spec/storage.md` |
 
 > **Střední vrstvy:** API moduly volají existující middle-layer moduly, ne nízké
 > kernel internals přímo — `graphics → renderer`, `runtime → lua`, `timer → time`

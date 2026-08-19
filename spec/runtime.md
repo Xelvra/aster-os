@@ -54,7 +54,8 @@ pub const Program = struct {
 > spouští wasm programy; preemptivní scheduler (ADR-017). `kill`/`status` zůstávají
 > `NotSupported`.
 
-Sub-op čísla pro `Runtime` v KI: `0=spawn`, `1=kill`, `2=status` (rozšiřitelné).
+Sub-op čísla pro `Runtime` v KI: `0=spawn`, `1=kill`, `2=status`, `3=reload`,
+`4=surface_render`, `5=key_input` (rozšiřitelné, čísla zmrazená — `kernel-interface.md` §4/2).
 
 ---
 
@@ -82,16 +83,17 @@ Veškerý přístup z Lua jde přes KI, nikdy přímo do kernel struktur.
 | KI modul | Lua funkce |
 |---|---|
 | `graphics` | `gfx.draw_rect(x, y, w, h, color)`, `gfx.round_rect(x, y, w, h, radius, color)`, `gfx.rect_border(x, y, w, h, thickness, color)`, `gfx.gradient_border(x, y, w, h, thickness, color_a, color_b)`, `gfx.draw_text(str, x, y, color)`, `gfx.fill_screen(color)`, `gfx.invalidate()`, `gfx.present()`, `gfx.width()`, `gfx.height()` |
-| `input` | `input.next_event()`, `input.mouse_x()`, `input.mouse_y()`, `input.mouse_left()`, `input.mouse_right()`, `input.mouse_middle()`, `input.set_layout(name)`, `input.layout_name()` |
-| `timer` | `time.ticks()` |
-| `runtime` | `runtime.reload()` (restart shellu, M5; `spawn` se neexponuje do M7) |
+| `input` | `input.next_event()`, `input.mouse_x()`, `input.mouse_y()`, `input.mouse_left()`, `input.mouse_right()`, `input.mouse_middle()`, `input.mouse_wheel()`, `input.set_layout(name)`, `input.layout_name()` |
+| `timer` | `time.ticks()`, `time.ms()`, `time.of_day_ms()` |
+| `runtime` | `runtime.reload()` (restart shellu, M5), `runtime.spawn(kind, name)` (M7), `runtime.surface_render(...)` a `runtime.key_input(...)` (surface model, M7 Fáze B — ADR-026) |
 | `sysmon` | `sysmon.ram_total_mb()`, `sysmon.ram_free_mb()` |
 | `debug` | `debug.write(str)` (výpis na serial, přidává `\n`) |
 | `storage` | `file.open(path)`, `file.read(h, len)`, `file.write(h, data)`, `file.close(h)`, `file.truncate(h, size)`, `file.dir(path)`, `file.remove(path)`, `file.create(path)`, `file.rename(old, new)` |
 
 **Neexponované KI operace:** `gfx.blit`, `gfx.draw_glyph` (KI ops, `graphics.md` §2) a `timer.sleep_ms`
-(zmrazený sub-op, kooperativní sleep přijde s M7) jsou deklarované, ale **Lua binding zatím nemají** —
-přidají se s reálným použitím. To, co Lua skutečně volá, je v tabulce výše a vše jde přes
+(zmrazený sub-op) jsou deklarované, ale **Lua binding zatím nemá** (KI sub-op
+`sleep_ms` existuje, kooperativní sleep viz `timer.md` §3) — přidají se s reálným
+použitím. To, co Lua skutečně volá, je v tabulce výše a vše jde přes
 `sys.dispatch` → `api/*` moduly.
 
 **Konvence marshallingu:**

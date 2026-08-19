@@ -299,6 +299,7 @@ aster-os/
 │   ├── runtime.md                # Runtime.spawn + RuntimeKind
 │   ├── timer.md                  # čas: tick zdroj (M2), KI timer, kooperativní sleep
 │   ├── memory.md                 # paměť: PFA, heap alokátor, lua_Alloc
+│   ├── storage.md                # storage: KI file API → ext2 → gpt → block device
 │   ├── invariants.md             # Safety / Performance / Architecture
 │   ├── roadmap.md                # M0–M10 + kvalitní metriky
 │   ├── verification.md           # verifikační pipeline + deterministický build
@@ -361,6 +362,7 @@ aster-os/
 | `runtime.md` | Runtime.spawn, RuntimeKind, vazba Runtime → Program, error containment. |
 | `timer.md` | Čas: tick zdroj (M2), KI `timer`, kooperativní sleep. |
 | `memory.md` | Paměť: PFA, obecný alokátor, `lua_Alloc`, cache atributy. |
+| `storage.md` | Storage: KI file API → ext2 → gpt → block device (virtio-blk); handle model, non-POSIX sémantika, chování bez disku, initfs vs disk, testovací obrazy. |
 | `invariants.md` | Bezpečnostní, výkonnostní a architektonické invarianty (kontrolní seznam pro review). |
 | `roadmap.md` | Milníky M0–M10 s kritérii "hotovo" + tabulka kvalitních metrik. |
 | `verification.md` | Verifikační pipeline (Zig), deterministický build, pravidlo bootovatelného commitu. |

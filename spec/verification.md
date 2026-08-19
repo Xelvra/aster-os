@@ -64,6 +64,15 @@ Od M4 se uvažuje fuzz harness na vstupy z Lua strany (jádro běží v Ring 0,
 od M4 testuje v QEMU runtime testech (reálný `lua_State` + volání bindingů), protože
 hostitelský build Lua by duplikoval kernel konfiguraci.
 
+### Krok 3b — Lua shell regrese (host)
+
+```bash
+zig build shell-test
+```
+
+Lua shell testy (`tests/lua/`) běží na hostiteli (interpret `lua5.4`) a pokrývají
+regrese shell modulů (files, editor, wm, launcher, ...).
+
 ### Krok 4 — QEMU smoke test
 
 ```bash
@@ -102,6 +111,45 @@ se přidávají **runtime testy** — hostitelské testy už na ně nestačí:
 > Rozhodnutí pro budoucí fázi: mechanismus se implementuje od M2, ne dřív (M0–M1
 > stačí smoke test). Forma je pevná už teď, aby se `tools/` nepsalo dvakrát.
 
+### Krok 5 — Deterministický build (ADR-014)
+
+```bash
+./tools/verify-reproducible.sh
+```
+
+Build dvakrát na produkčním optimize (`ReleaseSafe`), porovnání hashe binárky.
+Závazné — ne-obvious porušení determinismu (např. absolutní cache cesta
+v `.debug_str`, viz `spec/troubleshooting.md` B1) se bez něj tiše vrátí.
+
+### Krok 6 — Boot log odpovídá kódu
+
+```bash
+./tools/capture-boot.sh --check
+```
+
+Boot log (`boot-log.md`) je doklad „boot proof of work" a nesmí zastarat vůči
+kódu — velikost kernelu je deterministická a porovnává se přesně; čas se
+normalizuje (jitter). Vynucuje pre-push hook i CI.
+
+### Krok 7 — Anglická vrstva nezaostává za spec
+
+```bash
+./tools/sync-docs.sh --check
+```
+
+Překladová vrstva (`docs/`) je spárovaná s českým zdrojem přes git historii;
+stránka, jejíž zdroj se změnil před více než `SYNC_DAYS` (default 14), blokuje push.
+
+### Co z pipeline vynucuje CI
+
+`.github/workflows/ci.yml` běží: fmt (Krok 1), build default + Debug + ReleaseFast
+(Krok 2), host testy (Krok 3), shell-test (Krok 3b), smoke testy (Krok 4), runtime
+testy vč. s test diskem (Krok 4b, na TCG runnerech s `QEMU_TEST_TIMEOUT=90`),
+`verify-reproducible.sh` (Krok 5), `capture-boot.sh --check` (Krok 6) a
+`sync-docs.sh --check` (Krok 7). Je to nejsilnější vynucení verifikačního řetězce —
+lokální vývoj je rychlá iterace, CI je brána. Co CI neběží: test čistého klonu
+(§3a) a `bench.sh` (Krok ad hoc při měření metrik, ADR-015).
+
 ---
 
 ## 2. Definition of Done (DoD)
@@ -112,7 +160,9 @@ se přidávají **runtime testy** — hostitelské testy už na ně nestačí:
 - [ ] `zig fmt --check .` — žádné změny.
 - [ ] `zig build` — projde.
 - [ ] `zig build test` — 100 % zelené.
+- [ ] `zig build shell-test` — Lua shell regrese zelené.
 - [ ] `./tools/qemu-smoke.sh` — systém bootuje (serial marker).
+- [ ] `./tools/verify-reproducible.sh` — deterministický build (ADR-014).
 - [ ] Ke každé nové logice existuje test (host unit test) nebo zdůvodnění, proč ne.
 - [ ] Invarianty (`spec/invariants.md`) zkontrolovány bod po bodu.
 - [ ] Kvalitní metrika zapsaná do `spec/roadmap.md`, pokud milník ovlivňuje boot/RAM/velikost.
@@ -127,6 +177,8 @@ se přidávají **runtime testy** — hostitelské testy už na ně nestačí:
 - [ ] Ne-obvious chyba vyřešená během vývoje je zapsaná v `spec/troubleshooting.md`
       (symptom → příčina → řešení → ověření).
 - [ ] **Systém je bootovatelný** (ADR-016).
+- [ ] `./tools/capture-boot.sh --check` — boot log (`boot-log.md`) odpovídá kódu.
+- [ ] `./tools/sync-docs.sh --check` — anglická vrstva (`docs/`) nezaostává za spec.
 
 ---
 
@@ -236,6 +288,13 @@ Pravidlo: **každý commit musí zanechat systém spustitelný v QEMU.**
 | `tools/qemu-accel.sh` | přidá `-enable-kvm`, pokud je `/dev/kvm` přístupný (jinak TCG) |
 | `tools/qemu-smoke.sh` | automatický boot test (serial marker + timeout; auto KVM) |
 | `tools/qemu-test.sh` | in-QEMU runtime testy (isa-debug-exit; auto KVM) |
+| `tools/make-test-disk.sh` | deterministický ext2 test disk (ADR-023 invokace, `-b 1024`) |
+| `tools/capture-boot.sh` | regenerace `boot-log.md`; `--check` ověří, že log odpovídá kódu |
+| `tools/sync-docs.sh` | překladová vrstva (`docs/`) vs spec přes git historii; `--check` blokuje push |
+| `tools/lua-shell-test.sh` | host běh shell regresí (`tests/lua/`; interpret `lua5.4`) |
+| `tools/verify-reproducible.sh` | deterministický build check (ADR-014) |
+| `tools/generate-changelog.sh` | generátor surové historie commitů (`CHANGELOG-commits.md`) |
+| `tools/install-hooks.sh` | instalace pre-push hooků |
 | `tools/bench.sh` | měření metrik z `roadmap.md` |
 
 ---
@@ -248,5 +307,8 @@ Pravidlo: **každý commit musí zanechat systém spustitelný v QEMU.**
 | `clang`, `lld`, `gcc` | ✅ nainstalováno | |
 | `zig` | ✅ nainstalováno (0.16.0) | instalace: oficiální tarball / distro, viz `.zig-version` |
 | `xorriso` / `mtools` | ✅ nainstalováno | ISO build ověřen v M0 |
+| `parted`, `e2fsprogs` (`mke2fs`) | ✅ nainstalováno | `tools/make-test-disk.sh` (ADR-023 invokace, `-b 1024`) |
+| `lua5.4` (host interpret) | ✅ nainstalováno | jen pro `zig build shell-test` (`tools/lua-shell-test.sh`); kernel má vlastní vendored Lua |
 | `limine` | ✅ vendor | `libs/limine/` (12.5.2) |
 | `lua 5.4.8` | ✅ vendor | `libs/lua-5.4/` |
+| `wasm3` | ✅ vendor | `libs/wasm3/` (v0.5.0), M7 |

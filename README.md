@@ -32,9 +32,9 @@ pre-push hook and CI verify it never drifts from the code
 
 ## Status
 
-- **M7 (Runtime) — wasm Phase A done:** wasm3 vendored, `Runtime.spawn(.Wasm)`,
-  hello/fault test programs. Remaining: surface model + calculator (Phase B),
-  benchmark (Phase C).
+- **M7 (Runtime) — wasm Phase B done:** wasm3 vendored, `Runtime.spawn(.Wasm)`,
+  surface model + calculator app loaded from disk (ADR-026, ADR-027).
+  Remaining: benchmark wasm vs Lua (Phase C).
   Multi-layout keyboard is done (ADR-024, US/CZ switchable at runtime).
 - **M0–M6 complete:** boot → memory → CPU → graphics → Lua runtime → desktop shell in
   Lua → disk storage (virtio-blk, GPT, read-write ext2 since M7.1).
@@ -55,17 +55,20 @@ pre-push hook and CI verify it never drifts from the code
 | M4 | Lua       | 336 KiB | ≈ 60 ms |
 | M5 | UI        | 371 KiB | ≈ 24 ms |
 | M6 | Storage   | 362 KiB | ≈ 26 ms |
-| M7* | Runtime | 661 KiB | ≈ 29 ms |
+| M7* | Runtime | 578 KiB | ≈ 25 ms |
 
 Boot times from `tools/bench.sh`: the M0–M3 rows are
 approximated kernel-only times (the bootloader is subtracted); M4+ are
-kernel-only on KVM. The current kernel is **661 KiB** (see `spec/roadmap.md`
-for the full metrics table).
+kernel-only on KVM. The current kernel is **578 KiB** — the authoritative,
+CI-verified value is always the one in [`boot-log.md`](boot-log.md), which the
+pre-push hook regenerates.
 
 \* M7 numbers are **not from an optimization pass** — they are the current
 mid-milestone measurements after the audit fixes (which added safety checks
 and parsing hardening) and the wasm runtime, so they are not directly
-comparable with the optimized M0–M6 rows.
+comparable with the optimized M0–M6 rows. The kernel size (578 KiB) is the
+deterministic, CI-verified value from `boot-log.md`; the First Frame time is
+jitter-sensitive and `capture-boot.sh --check` normalizes it.
 
 ## Quick start
 
@@ -105,9 +108,12 @@ sources are always compiled with `-Os` regardless of the mode.
 
 - **Zig** — exact version in [`.zig-version`](.zig-version) (0.16.0), not a distro package.
 - **QEMU** (`qemu-system-x86_64`) — target emulation.
-- **Build tools:** xorriso / mtools; Limine, Lua 5.4.8 and wasm3 are vendored in `libs/`.
+- **ISO tools:** xorriso, mtools.
+- **Test-disk tools:** parted, e2fsprogs (`mke2fs`) — required by `tools/make-test-disk.sh`.
+- **Lua 5.4 interpreter** (`lua5.4`) — host-side only, required by `zig build shell-test`.
+- Limine, Lua 5.4.8 and wasm3 are vendored in `libs/` — no system packages needed.
 
-Full tool table and dependency status: [`spec/verification.md`](spec/verification.md) §6.
+Full tool table and dependency status: [`spec/verification.md`](spec/verification.md) §5–6.
 
 ## Architecture at a glance
 
@@ -142,7 +148,7 @@ If the system crashes or hangs: [`spec/debugging.md`](spec/debugging.md)
 | M4 ✅ | Lua: interactive REPL in kernel, hot reload |
 | M5 ✅ | UI: desktop shell in Lua — tiling WM, bar, launcher, workspace, mouse, error containment, live transformation |
 | M6 ✅ | Storage: initfs, virtio-blk, GPT, filesystem, cooperative reads |
-| M7 🔄 | Runtime: wasm (Phase A done; Phase B/C pending), multitasking, app isolation |
+| M7 🔄 | Runtime: wasm (Phase A+B done; Phase C benchmark pending), multitasking, app isolation |
 | M8 ⏳ | Stabilization: invariant audit, metrics, Ring 3 decision |
 | M9 ⏳ | Ecosystem: network, audio, browser, WASI |
 | M10 ⏳ | Adoption: real hardware, installable image, docs, contributors |

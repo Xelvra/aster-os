@@ -25,6 +25,10 @@ See [`spec/verification.md`](spec/verification.md):
 
 - Zig pinned in `.zig-version` (official tarball, not a distro package).
 - QEMU (`qemu-system-x86_64`), xorriso, mtools.
+- Test-disk tools: parted, e2fsprogs (`mke2fs`) — required by
+  `tools/make-test-disk.sh`.
+- Lua 5.4 interpreter (`lua5.4`) — host-side only, required by
+  `zig build shell-test`.
 - Limine, Lua 5.4.8 and wasm3 are vendored in `libs/` — no system packages.
 
 After cloning, install the git hooks:

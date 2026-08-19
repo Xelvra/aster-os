@@ -58,7 +58,7 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 | M5 (cíl) | < 512 KB | ≤ 16 MB | < 40 ms | < 16 ms | TBD |
 | **M6 (měřeno)** | **362 KiB** | **2 MiB**⁴ | **≈ 26 ms**⁶ (KVM) | TBD | TBD |
 | M6 (cíl) | < 768 KB | ≤ 24 MB | < 50 ms | < 16 ms | TBD |
-| **M7 (měřeno)** | **661 KiB** | **5 MiB**⁸ | **≈ 29 ms**⁸ (KVM) | TBD | TBD |
+| **M7 (měřeno)** | **578 KiB** | **5 MiB**⁸ | **≈ 25 ms**⁸ (KVM) | TBD | TBD |
 | M7 (cíl) | < 1 MB | ≤ 32 MB | < 50 ms | < 16 ms | TBD |
 | M8 | TBD | TBD | TBD | TBD | TBD |
 | M9 | TBD | TBD | TBD | TBD | TBD |
@@ -134,12 +134,15 @@ frame latency bez zdůvodnění, musí přednost dostat optimalizace, ne další
 > žádný rozdíl na boot path). Kernel image 405 744 B (ReleaseSafe). **S přidanými stack
 > canary + Lua budgetem (brief Task 7):** Kernel Entry → First Frame ≈ 92 ms (TCG),
 > kernel image 407 152 B.
-> ⁸ **M7 měření (2026-08-18, KVM, `boot-log.md` commit `0e3c773`):** kernel image
-> **661 KiB** (wasm runtime; pokles z 664 KiB po návratu `vsnprintf.c` z Zig portu
-> zpět na C originál), Kernel Entry → First Frame **≈ 29 ms**
+> ⁸ **M7 měření (2026-08-19, KVM, `boot-log.md` commit `710df51`):** kernel image
+> **578 KiB** (wasm runtime; pokles z 664 KiB po návratu `vsnprintf.c` z Zig portu
+> zpět na C originál a po audit fixech, které přidaly safety checks),
+> Kernel Entry → First Frame **≈ 25 ms**
 > (jitter viz ⁷ — `capture-boot.sh` normalizuje), RAM idle **≈ 5 MiB** (boot log
 > „508 MiB usable · 5 MiB used"). Cíle M7 (< 1 MB, ≤ 32 MB, < 50 ms) drží; frame
-> latency p99 stále TBD.
+> latency p99 stále TBD. Velikost kernelu je deterministická a CI-vynucená
+> (`boot-log.md`); čas First Frame se měří a `capture-boot.sh --check` ho
+> normalizuje.
 
 ---
 

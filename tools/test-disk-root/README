@@ -1,6 +1,7 @@
 Aster OS test disk
 
-Deterministic image built by tools/make-test-disk.sh (GPT + ext2 read-only, ^dir_index).
+Deterministic image built by tools/make-test-disk.sh (GPT + ext2 read-write,
+^dir_index, 1024 B blocks).
 
 The disk carries the user-facing configuration surface for the desktop shell.
 The whole shell is written in Lua and lives inside the kernel; these files
@@ -10,6 +11,14 @@ customize it at runtime (loaded from the disk, applied live).
   theme.lua    colors and geometry (hot-reloadable, see below)
   api.lua      the Lua API reference the shell exposes
   .theme.bak   manual backup of the last Ctrl+S (read-only, never loaded)
+
+/apps/ directory (applications)
+  calculator.wasm   WebAssembly calculator, discovered at boot
+
+  The launcher (Super+Space) scans /apps/ at runtime, so applications ship
+  and update independently of the kernel image. Executable .wasm files are
+  shown in green in the file browser. A wasm app that traps is dropped
+  without taking the desktop down.
 
 Hot reload
   Edit /wm/theme.lua and save it (Ctrl+S in the editor, Super+Z opens it) —

@@ -50,8 +50,18 @@ This version tracks the milestone after M6 Storage was completed.
   `wasm32-freestanding` and packed into the initrd: `hello` (writes via a
   `debug_write` import) and `fault` (deliberate trap, proving a crashing wasm
   program is dropped while the desktop keeps running). Executable `.wasm`
-  files render green in the file browser (`theme.exec`). Next: surface model +
-  calculator (Phase B), benchmark (Phase C).
+  files render green in the file browser (`theme.exec`). Next: Phase B
+  (surface model + calculator).
+
+* **Wasm (M7) — Phase B surface model and the calculator app:** wasm programs
+  render through a fixed 224×160 surface composited by the WM via the new
+  `runtime.surface_render` KI op, and receive keystrokes through
+  `runtime.key_input` — the WM no longer needs to know which runtime backs a
+  window (ADR-026). The calculator (`src/kernel/apps/calculator.zig`, built to
+  `wasm32-freestanding`) is the first real wasm application; it is staged onto
+  the test disk as `/apps/calculator.wasm` and discovered by the launcher
+  scanning `/apps/` at runtime, so applications ship independently of the
+  kernel image (ADR-027). Next: benchmark wasm vs Lua (Phase C).
 
 * **C stdio layer over the kernel storage:** `fopen`/`fread`/
   `fclose`/`feof`/`ferror`/`getc`/`freopen` map onto the KI storage handles so
