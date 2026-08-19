@@ -260,7 +260,7 @@ binding marshallingu zelené.
 > handoff H6 uzavřen 2026-08-18 — stale test disk, ne kód);
 > `debug` → `dbg` dle M6.1.9; integer-only KI).
 > Freestanding libc shim (`libs/lua-5.4/include/` +
-> `src/kernel/lua/libc.zig`): string/ctype/snprintf/strtod/pow/acos/asin/atan2 +
+> `src/kernel/libc.zig`): string/ctype/snprintf/strtod/pow/acos/asin/atan2 +
 > `setjmp`/`longjmp` (asm), deterministické `time`/`clock`, C stdio nad storage pro
 > `luaL_loadfilex`. Hot reload přes F5. Po startu běží **interaktivní Lua REPL** (banner
 > + `> ` prompt, `load`/`pcall`, `print` na obrazovku). **Layout klávesnice** je
@@ -442,23 +442,19 @@ se musí vyřešit **před** spuštěním dalších features, ne až na konci st
 
 > **Pořadí M7 (2026-08-16):** bylo dotaženo vše kolem — preemptivní scheduler,
 > sync primitiva, per-program Lua izolace, zápis na disk + editor/files/koš.
-> **Stav (2026-08-17):** wasm Fáze A **hotová** (wasm3 vendored,
-> `Runtime.spawn(.Wasm)` + testovací programy `hello`/`fault`, `c486dee`);
-> zbývá Fáze B (surface model + kalkulačka) a Fáze C (benchmark).
-> Wasm se dělal na konec milníku (věci spojené přímo s wasm se odkládaly,
-> ostatní se dotažely před ním).
->
-> **Stav (2026-08-18):** wasm Fáze B **hotová** — surface model + kalkulačka
-> (ADR-026), ověřeno reálným QEMU runtime testem (`testWasmSpawnTickSurface`,
-> spawn/tick/surface/singleton/trap containment). Živé testování kalkulačky
-> odhalilo tři reálné bugy mimo wasm samotný (WM layout-fallback při focusu na
-> floating okno, z-order hit-testing pro floating vs tiled, `formatInt`
-> right-aligned konvence v `calculator.zig`) a jedno UBSan/wasm3 nekompatibilitu
-> (`.sanitize_c = .off` pro `wasm3_mod`) — všechny opraveny. Zároveň se
-> **pullnul dopředu** kus M8/ADR-025 plánu (viz bullet níže): launcher skenuje
-> `/apps/*.wasm` z disku dynamicky místo hardcoded entry, a přidala se
-> klávesnice pro wasm programy (ADR-026 ji nechávala jako výhled). Detaily
-> **ADR-027**. Zbývá jen Fáze C (benchmark).
+> **Stav (2026-08-19):** wasm Fáze A i B **hotové** — Fáze A (wasm3 vendored,
+> `Runtime.spawn(.Wasm)` + testovací programy `hello`/`fault`, `c486dee`), Fáze B
+> (surface model + kalkulačka, ADR-026 + ADR-027, ověřeno runtime testem
+> `testWasmSpawnTickSurface`). Zbývá jen **Fáze C (benchmark)**. Wasm se dělal na
+> konec milníku (věci spojené přímo s wasm se odkládaly, ostatní se dotažely před
+> ním). Živé testování kalkulačky (2026-08-18) odhalilo tři reálné bugy mimo wasm
+> samotný (WM layout-fallback při focusu na floating okno, z-order hit-testing pro
+> floating vs tiled, `formatInt` right-aligned konvence v `calculator.zig`) a
+> jednu UBSan/wasm3 nekompatibilitu (`.sanitize_c = .off` pro `wasm3_mod`) — všechny
+> opraveny. Zároveň se **pullnul dopředu** kus M8/ADR-025 plánu (viz bullet níže):
+> launcher skenuje `/apps/*.wasm` z disku dynamicky místo hardcoded entry, a
+> přidala se klávesnice pro wasm programy (ADR-026 ji nechávala jako výhled).
+> Detaily **ADR-027**.
 
 > **Jak jsme wasm dělali (2026-08-16, korigováno 2026-08-17):**
 > - **První programy jsou záměrně jednoduché — PRÁVĚ proto, že infrastruktura je složitá.**

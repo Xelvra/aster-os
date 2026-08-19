@@ -84,7 +84,7 @@ Druhý pilíř: parsování nedůvěryhodného disku (GPT/ext2) má díry umož�
 - `renderer.zig:46` drawGlyph x+bit i32 overflow; `libc.zig:14,36-41` malloc header bookkeeping.
 - `repl.lua` `esc_pending` stale, historie bez capu, `repl_visible` mrtvý stav, `repl_save_history` nevytváří soubor.
 - `wm.lua` bar geometrie duplikovaná, `fullscreen_win=nil` mimo exit_fullscreen (3×), `input.lua` launcher geometrie duplikovaná, Super+digit bez boundu, y=bar_h double-hit, magic numbers.
-- `docs/code-style.md` vynechává 2 výjimky; `sync-docs.sh` jen timestamp, ne obsah.
+- `spec/code-style.md` vynechává 2 výjimky; `sync-docs.sh` jen timestamp, ne obsah.
 - `spec/architecture.md` ADR tabulka do 024, stale repo-struktura, missing editor/files; `spec/kernel-interface.md` chybí Storage; `spec/graphics.md` chybí width/height; `spec/runtime.md` chybí file.*; `spec/timer.md` tvrdí time.sleep_ms; `spec/roadmap.md` 366 vs 371 KiB, target <256 KB; `CHANGELOG` M5 session menu odstraněno, sleepMs "still open" (hotovo); `SECURITY.md` verze 0.6; `README` metrika končí M6 (aktuálně 413 KiB), caption "incl. bootloader" opačně; `boot-log.md` Commit stale; `verification.md` test count stale; `CONTRIBUTING.md` chybí sync/capture příkazy; `hooks/pre-push` komentář o README bloku.
 
 ---
@@ -108,7 +108,7 @@ Druhý pilíř: parsování nedůvěryhodného disku (GPT/ext2) má díry umož�
 ### 3.3 Dokumentační audit
 
 - **Vysoká kvalita**, ale M7/M7.1 předběhlo dokumentaci: spec README/architecture "M0–M6 approved" (stale), CHANGELOG "sleepMs still open" (implementováno), chybí Storage KI / `file.*` / `width`/`height` v KI spec, session menu v CHANGELOG M5 popisuje odstraněnou funkci, SECURITY.md verze 0.6 vs 0.7, README metrika končí na M6 (362 KiB) bez aktuálního 413 KiB, README caption "incl. bootloader" je opačně, roadmap "opaque backend" kontradikce s ADR-023.
-- **EN web (docs/) vs spec:** `docs/code-style.md` vynechává 2 ze 3 výjimek "no global mutable state"; sync brána kontroluje jen timestamps, ne obsah.
+- **EN web (docs/) vs spec:** `spec/code-style.md` vynechává 2 ze 3 výjimek "no global mutable state"; sync brána kontroluje jen timestamps, ne obsah.
 - **Invariant "0 kopií framebufferu"** (`spec/invariants.md:60`, `architecture.md:43`) **porušen** Phase 2 `present()` — plný byte-by-byte copy každý frame; spec si vnitřně protiřečí.
 
 ### 3.4 Testing & CI/CD

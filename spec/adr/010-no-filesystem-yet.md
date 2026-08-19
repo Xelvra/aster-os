@@ -1,6 +1,6 @@
 # ADR-010 — Žádný souborový systém, dokud nebude potřeba
 
-**Status:** Accepted
+**Status:** Superseded by ADR-023
 **Datum:** 2026-08-06
 
 > **Status update (2026-08-17):** ADR-010 je **dokončen a superseded ADR-023**.

@@ -125,3 +125,18 @@ Co přesně považujeme za vyřešení (definice „hotovo" pro tento problém).
   a dosavadní pokusy.
 - **Ne k nekonečnému předávání** — kdo problém převezme, je zodpovědný za jeho posun
   (zavřít, vyloučit hypotézu, nebo vrátit zpět s novými poznatky), ne za další opisování.
+
+---
+
+## 6. Seznam handoffů
+
+| ID | Problém | Datum | Status |
+|---|---|---|---|
+| [H1](handoffs/01-xorriso-failed-command.md) | Falešné `failed command: xorriso`, cache neinvaliduje výstup | 2026-08-07 | closed |
+| [H2](handoffs/02-debug-invalid-memory-operand.md) | Debug build: `invalid memory operand` u `lidtq`/`invlpg` | 2026-08-08 | closed |
+| [H3](handoffs/03-runtime-fs-test-fault.md) | Page fault v reload testu s diskem (low-memory stránky mimo hhdm) | 2026-08-09 | closed |
+| [H4](handoffs/04-double-buffering-heap-corruption.md) | Heap corruption při double bufferingu (ISR neukládal XMM) | 2026-08-09 | closed |
+| [H5](handoffs/05-smp-ap-rsvd-page-fault.md) | SMP: `#PF(RSVD)` na AP po zapnutí pagingu (`getip` trik v trampolíně) | 2026-08-16 | closed |
+| [H6](handoffs/06-c-stdio-storage-regression.md) | `file.open` selhává — artefakt opakovaně použitého test disku | 2026-08-17 | closed (2026-08-18) |
+
+Otevřené handoffy: **žádné.**

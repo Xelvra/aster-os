@@ -36,7 +36,7 @@ SYNC_DAYS="${SYNC_DAYS:-14}"
 fail=0
 warned=0
 
-for page in docs/*.md; do
+for page in $(find docs -name '*.md' | sort); do
     src="$(sed -n 's/^source: //p' "$page" | head -1)"
     if [[ -z "$src" ]]; then
         # Pages without source: are not translations of a Czech spec —

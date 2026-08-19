@@ -241,8 +241,8 @@ Klon se dělá z pracovní kopie na disku, ne přes síť — testuje se, že re
 |---|---|
 | `zig fmt --check .` | ✅ OK |
 | `zig build` | ✅ OK |
-| `zig build test` | ✅ 160/160 |
-| `zig build shell-test` | ✅ 34/34 (Lua shell regrese) |
+| `zig build test` | ✅ vše zelené |
+| `zig build shell-test` | ✅ vše zelené (Lua shell regrese) |
 | `./tools/qemu-smoke.sh` | ✅ PASS |
 | `./tools/capture-boot.sh --check` | ✅ OK |
 | `./tools/sync-docs.sh --check` | ✅ OK |

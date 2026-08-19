@@ -1239,7 +1239,7 @@ Viz také `spec/invariants.md` (Safety / Performance / Architecture) a
 | `src/kernel/lua/ui/main.lua` | §5.6 |
 | `src/kernel/lua/lua.zig` | §3.2, §11 |
 | `src/kernel/lua/bindings.zig` | §8.1, §10 |
-| `src/kernel/lua/libc.zig` | §11 |
+| `src/kernel/libc.zig` | §11 |
 | `src/kernel/lua/cimport.zig` | §4 |
 | `src/kernel/main.zig` | §8.4, §8.6, §11, §12 |
 | `build.zig` | §3.1 |

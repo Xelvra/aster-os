@@ -358,6 +358,69 @@ aplikace — stejně jako hostuje prohlížeč v Lua (ADR-020).
 - Design domácích Wasm bindings v M7 se navrhuje tak, aby šlo WASI vrstvu přidat
   bez přepisu (Wasm importy oddělené od přímého volání KI).
 
+### 7.2 Wasm runtime (M7) — jak to funguje
+
+Rozhodnutí (import surface, surface model, apps z disku) jsou ADR-026 a ADR-027;
+tato sekce popisuje, jak mechanismus dnes funguje v kódu. Kód: `src/kernel/wasm/
+wasm.zig` (hostitel nad wasm3), `src/kernel/apps/*.zig` (programy).
+
+**Hostitelský runtime.** `Runtime.spawn(.Wasm, ...)` routuje do `wasm.zig`
+(composition-root výjimka, ADR-006) — kernel mimo `api/runtime` žádný wasm-specifický
+kód nevidí. Programy běží v sandboxu s vlastní lineární pamětí; **trap containment**
+(OOB, dělení nulou) zachytí pasti bez shození hostitele — padlý program se zahodí,
+desktop běží dál (viz `fault` test program).
+
+**Import surface (modul `env`).** Domácí wasm programy volají Aster bindings přes
+stabilní importy — ekvivalent KI pro Lua. Marshalling textu přes lineární paměť
+(offset, ne pointer). Kontrakt je **zmrazený**: názvy a signatury se nikdy nemění,
+rozšíření = nová funkce na konec tabulky (ADR-026/027):
+
+| funkce | wasm3 signature | popis |
+|---|---|---|
+| `debug_write` | `v(i)` | NUL string offset → serial (Fáze A) |
+| `draw_rect` | `v(iiiii)` | `(x, y, w, h, color)` → surface, souřadnice relativní k surface |
+| `draw_text` | `v(iiii)` | `(str_offset, x, y, color)` → surface, monospace glyfy |
+| `surface_width` | `i()` | šířka surface v px |
+| `surface_height` | `i()` | výška surface v px |
+| `input_mouse_x` | `i()` | X myši relativně k surface origin (i32) |
+| `input_mouse_y` | `i()` | Y myši relativně k surface origin (i32) |
+| `input_mouse_left` | `i()` | stav levého tlačítka (0/1) |
+| `input_key` | `i()` | další přeposlaný znak (0 = žádný od posledního volání), read-and-clear (ADR-027) |
+
+**Surface model.** GUI program má vlastní offscreen surface (fixní 224×160 px,
+32bpp, alokace z heapu při spawn — ne v render path), kreslí do ní přes importy
+`draw_rect`/`draw_text`, kernel ji kompozituje do render targetu na pozici určené
+WM (`RuntimeOp.surface_render`, ADR-026). Program je **persistentní** — `start`
+jednou, pak per-frame `update` (vstup, stav) a `render` (kresba do surface) — a
+**singleton per jméno** (spawn stejného jména vrací běžící instanci).
+
+**Lifecycle.** `wasm.spawn(source, name)` dedup per jméno, najde volný slot ve
+statické tabulce, vytvoří runtime, alokuje surface, zavolá `start` pod trap
+containment. `wasm.tickPrograms()` (z kernel `update()` fáze) volá per program
+`update()`/`render()` pod trap containment. Program bez `update`/`render` exportů
+(hello/fault) se po `start` nechá idle. `kill` je mimo — close okna program nechává
+živý (dedup ho při znovuotevření vrací).
+
+**Kompilace aplikací.** Programy se píšou v Zigu a kompilují na
+`wasm32-freestanding` (bez libc, `ReleaseSmall`), jako knihovní moduly:
+`entry = .disabled` (žádný `_start`) a `rdynamic = true` — Zig 0.16 defaultně
+stripuje `export fn` symboly z wasm modulů (dead-code elimination, ziglang#14102),
+`rdynamic` je zachová. Přesně takto `build.zig` (M7) buildí `hello`/`fault`/
+`calculator`.
+
+**Distribuce.** initrd tar obsahuje flat `.wasm` jména (smoke testy Fáze A);
+`calculator.wasm` je navíc **build artefakt** instalovaný do
+`zig-out/apps/calculator.wasm` a `tools/make-test-disk.sh` ho stage-uje do `/apps/`
+testovacího disku (binárka se nikdy necommituje do source-tracked fixture stromu,
+ADR-023/027). `api/runtime.spawn` čte bajty **přednostně z disku** (`/apps/<jméno>`),
+initrd je jen fallback pro `hello`/`fault`.
+
+**Launcher.** Launcher skenuje `/apps/` **dynamicky při každém otevření**
+(`file.dir("/apps")`, žádná cache — smazání souboru se projeví hned). WM nezná
+žádnou aplikaci jménem: wasm okno je generický typ (floating, fixní velikost dle
+surface, centrované), libovolná `/apps/*.wasm` dostane identické zacházení bez
+zásahu do WM kódu (ADR-027).
+
 ---
 
 ## 8. Invarianty

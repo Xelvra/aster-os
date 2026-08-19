@@ -208,41 +208,12 @@ Výše popsané rozhraní zůstává; mění se obsah vrstev:
 ## 4. Rozhodovací protokol (ADR)
 
 Každé rozhodnutí má číslo, verdikt, odůvodnění a důsledky. Plné znění každého ADR je
-samostatný soubor v [`spec/adr/`](adr/README.md) — zde je jen přehled. Zapisováno proto,
+samostatný soubor v [`spec/adr/`](adr/README.md) — **kanonický index a plné znění je
+`spec/adr/README.md`**, zde je jen odkaz, ne duplicitní tabulka. Zapisováno proto,
 aby pozdější konsultace návrhu měla k dispozici *proč*, ne jen *co*.
 
-| ADR | Rozhodnutí | Stav |
-|-----|------------|------|
-| [001](adr/001-evolutionary-sasos.md) | Evoluční architektura (SASOS → mikrojádro později) | Accepted |
-| [002](adr/002-single-address-space-ring0.md) | Single Address Space, Ring 0 | Accepted |
-| [003](adr/003-stable-interfaces-day-one.md) | Stabilní rozhraní od prvního dne | Accepted |
-| [004](adr/004-kernel-interface-not-abi.md) | Kernel Interface (KI), ne ABI | Accepted |
-| [005](adr/005-renderer-layer.md) | Renderer jako samostatná vrstva | Accepted |
-| [006](adr/006-generic-runtime-api.md) | Generické Runtime API | Accepted — implementováno (Wasm v M7) |
-| [007](adr/007-lua-5-4-vendored.md) | Lua 5.4 vendored, staticky, ne LuaJIT | Accepted |
-| [008](adr/008-event-loop-not-mlfq.md) | Scheduler: událostní smyčka, ne MLFQ | Superseded ADR-017 (pro M7) |
-| [009](adr/009-minimal-rendering-primitives.md) | Minimální renderovací primitiva | Accepted |
-| [010](adr/010-no-filesystem-yet.md) | Žádný souborový systém, dokud nebude potřeba | Superseded ADR-023 |
-| [011](adr/011-wasm3-later.md) | wasm3 později, šev Runtime → Program | Accepted — implementováno (M7) |
-| [012](adr/012-limine-bootloader.md) | Limine bootloader | Accepted |
-| [013](adr/013-zig-version-pinning.md) | Pinning Zigu mimo název projektu (.zig-version) | Accepted |
-| [014](adr/014-deterministic-build.md) | Deterministický build | Accepted |
-| [015](adr/015-measure-every-milestone.md) | Měření po každém milníku | Accepted |
-| [016](adr/016-bootable-commit.md) | Bootovatelný commit | Accepted |
-| [017](adr/017-concurrency-model-m7.md) | Concurrency model M7 (preemptivní RR, kritické sekce bez locků) | Accepted |
-| [018](adr/018-ring3-ki-transport.md) | Transport KI v Ring 3: mailbox IPC, comptime dispatch, IRQ routing | Accepted |
-| [019](adr/019-bootloader-gate.md) | Bootloader gate: kernel nezávisí na typech bootloaderu (BootInfo) | Accepted |
-| [020](adr/020-future-extensibility.md) | Rozšiřitelnost: nové features jako nové KI moduly na konec | Accepted |
-| [021](adr/021-extended-rendering-primitives.md) | Rozšířená renderovací primitiva pro UI (roundRect, border, gradient) | Accepted |
-| [022](adr/022-network.md) | Síť jako KI modul `net.*` — minimální stack (virtio-net, ARP/IPv4/ICMP/UDP), M9 | Accepted |
-| [023](adr/023-filesystem-ext2-non-posix.md) | Persistence: ext2 backend, non-POSIX sémantika, tenké rozhraní | Accepted |
-| [024](adr/024-keyboard-layout-registry.md) | Multi-layout klávesnice: KL registry + přepínání za běhu (`input.set_layout`) | Accepted |
-| [025](adr/025-lua-shell-from-disk.md) | Lua shell z disku do `/wm/` s initrd fallbackem (Úroveň 2) | Accepted |
-| [026](adr/026-wasm-import-surface.md) | Wasm import surface a surface model (Fáze B) | Accepted |
-| [027](adr/027-wasm-apps-from-disk.md) | Wasm aplikace z disku, WM/aplikace decoupling, klávesnice | Accepted |
-
 **Pravidla ADR:** rozhodnutí se nemění dodatečně — změna názoru = nový ADR odkazující na
-starý. Čísla se nepřehazují a nemazají.
+starý. Čísla se nepřehazují a nemazají. Stavy: `Proposed` / `Accepted` / `Superseded by ADR-0YY`.
 
 ---
 
@@ -281,8 +252,20 @@ Přiznaná dopředu, aby nebyla později "objevem". Rizika se řídí, ne ignoru
 ```
 aster-os/
 ├── build.zig                      # `zig build run` → QEMU, `zig build test` → host testy
-├── .zig-version                  # exaktní verze toolchainu (0.16.0)
-├── README.md                     # manifest + odkaz na .zig-version
+├── .zig-version                   # exaktní verze toolchainu (0.16.0)
+├── .version                       # verze projektu (ČÍTANÁ release workflowem, ne ručně)
+├── .gitattributes                 # linguist-vendored / linguist-documentation (language stats)
+├── README.md                      # manifest + odkaz na .zig-version
+├── CHANGELOG.md                   # agregovaný changelog (anglicky, jedna verze na milník)
+├── CONTRIBUTING.md                # jak přispívat (build, workflow, pravidla)
+├── SECURITY.md                    # bezpečnostní politika
+├── CODE_OF_CONDUCT.md             # kodex chování
+├── THIRD-PARTY-NOTICES.md         # vendored závislosti (Lua 5.4.8, wasm3 v0.5.0, Limine)
+├── boot-log.md                    # generovaný, CI-vynucený záznam bootu (capture-boot.sh)
+├── limine.conf                    # konfigurace Limine bootloaderu
+├── docs/                          # anglická webová vrstva (entry point, index.md)
+├── hooks/                         # git hooky (pre-push: capture-boot + sync-docs)
+├── .github/                       # CI workflow (ci.yml, release.yml)
 ├── spec/                         # TENTO SOUBOR + dílčí specifikace
 │   ├── README.md
 │   ├── architecture.md           # tento dokument
@@ -299,16 +282,17 @@ aster-os/
 │   ├── runtime.md                # Runtime.spawn + RuntimeKind
 │   ├── timer.md                  # čas: tick zdroj (M2), KI timer, kooperativní sleep
 │   ├── memory.md                 # paměť: PFA, heap alokátor, lua_Alloc
+│   ├── scheduler.md              # scheduler + SMP: preemptivní RR, task model, SMP BSP-only
 │   ├── storage.md                # storage: KI file API → ext2 → gpt → block device
 │   ├── invariants.md             # Safety / Performance / Architecture
 │   ├── roadmap.md                # M0–M10 + kvalitní metriky
 │   ├── verification.md           # verifikační pipeline + deterministický build
 │   ├── debugging.md              # Debugging Survival Guide (GDB, serial dump)
-│   ├── troubleshooting.md        # vyřešené pasti a lekce (C1..C51, H1..H7)
+│   ├── troubleshooting.md        # vyřešené pasti a lekce (C1..C54, B1..B4, H1..H6)
 │   ├── 2026-08-15-self-audit.md       # kompletní repo audit
 │   ├── 2026-08-16-re-audit.md        # navazující re-audit (opravené nálezy)
 │   ├── handoff.md                # postup pro nevyřešené problémy
-│   └── handoffs/                 # handoff dokumenty (open/closed)
+│   └── handoffs/                 # handoff dokumenty H1–H6 (viz handoff.md §6)
 ├── src/
 │   ├── kernel/                   # boot/ (boot, limine, boot_info), cpu/ (idt, apic,
 │   │   │                         # acpi, smp, pic, irq, io), mem/ (pfa, heap, page_map,
@@ -316,7 +300,7 @@ aster-os/
 │   │   │                         # pci), fb/ (framebuffer), render/ (renderer, font,
 │   │   │                         # mouse_cursor), input/ (service, layout, queue),
 │   │   │                         # fs/ (gpt, ext2, file, tar), sched/ (task, sync),
-│   │   │                         # wasm/ (hostitel), apps/ (hello, fault),
+│   │   │                         # wasm/ (hostitel), apps/ (hello, fault, calculator),
 │   │   │                         # lua/ (Lua 5.4 binding + ui/ shell moduly),
 │   │   │                         # api/ (KI dispatch — vč. sys.zig, storage.zig),
 │   │   │                         # + time.zig, rtc.zig, bootlog.zig, libc.zig, serial.zig
@@ -347,25 +331,6 @@ aster-os/
 
 ## 8. Index specifikací
 
-| Dokument | Obsah |
-|---|---|
-| `manifest.md` | Filozofie projektu — jednoduchost před izolací, evolvabilní rozhraní. |
-| `non-goals.md` | Co systém vědomě nedělá (POSIX, USB, networking, práce AP jader, ...). |
-| `code-style.md` | Pravidla struktury kódu a návrhu modulů (kontrolní seznam pro review). |
-| `adr/` | Architektonická rozhodnutí (ADR-001..027), každé v samostatném souboru. |
-| `kernel-interface.md` | KI: sys.dispatch, syscall čísla, interface moduly, pravidla verzování. |
-| `graphics.md` | Graphics API / Renderer / Framebuffer — vrstvy a povolené operace. |
-| `desktop-ui.md` | Desktop UI — port vzhledu/chování z cachyos-hypr-noctalia, reimplementováno (bar, launcher, okna, widgety). |
-| `lua-wm.md` | Lua WM blueprint — architektura, moduly, tiling engine, grafická pipeline, bindings, design rationale (RFC). |
-| `editor.md` | Editor okno — otevření, klávesové a myšové konvence (kolečko = scroll, klik = kurzor), plánovaný zoom. |
-| `input.md` | Vstupní události: PS/2 klávesnice, fronta, mapování na Lua. |
-| `runtime.md` | Runtime.spawn, RuntimeKind, vazba Runtime → Program, error containment. |
-| `timer.md` | Čas: tick zdroj (M2), KI `timer`, kooperativní sleep. |
-| `memory.md` | Paměť: PFA, obecný alokátor, `lua_Alloc`, cache atributy. |
-| `storage.md` | Storage: KI file API → ext2 → gpt → block device (virtio-blk); handle model, non-POSIX sémantika, chování bez disku, initfs vs disk, testovací obrazy. |
-| `invariants.md` | Bezpečnostní, výkonnostní a architektonické invarianty (kontrolní seznam pro review). |
-| `roadmap.md` | Milníky M0–M10 s kritérii "hotovo" + tabulka kvalitních metrik. |
-| `verification.md` | Verifikační pipeline (Zig), deterministický build, pravidlo bootovatelného commitu. |
-| `debugging.md` | Debugging Survival Guide — GDB+QEMU, čtení serial dumpu, pravidla pro IRQ. |
-| `troubleshooting.md` | Vyřešené pasti a lekce (Zig 0.16, Limine, heap, PS/2 myš). |
-| `handoff.md` | Formální postup pro nevyřešené problémy + seznam handoffů. |
+Kanonický index specifikací a jejich obsah je [`spec/README.md`](README.md). Zde není
+duplicitní tabulka — každý duplicitně udržovaný index reálně driftuje (ADR přehled v §4
+odstraněn 2026-08-19 z téhož důvodu).

@@ -25,17 +25,19 @@
 | 11 | [timer.md](timer.md) | Čas: tick zdroj (M2), KI `timer`, kooperativní sleep. |
 | 12 | [memory.md](memory.md) | Paměť: PFA, obecný heap alokátor, `lua_Alloc`, cache atributy. |
 | 13 | [invariants.md](invariants.md) | Invarianty rozdělené na Safety / Performance / Architecture. |
-| 14 | [storage.md](storage.md) | Storage: vrstvy (KI → file → ext2 → gpt → block), handle model, non-POSIX sémantika, chování bez disku, initfs vs disk, testovací obrazy. |
-| 15 | [roadmap.md](roadmap.md) | Milníky M0–M10 s kritérii "hotovo" a tabulkou kvalitních metrik. |
-| 16 | [verification.md](verification.md) | Verifikační pipeline, deterministický build, pravidlo bootovatelného commitu. |
-| 17 | [debugging.md](debugging.md) | Debugging Survival Guide — GDB+QEMU, čtení serial dumpu, pravidla pro IRQ. |
-| 18 | [troubleshooting.md](troubleshooting.md) | Známé pasti a lekce — build API, protokoly, determinismus, tooling. |
-| 19 | [handoff.md](handoff.md) | Formální postup pro nevyřešené problémy — šablona, kdy ji spustit, jak ji zavřít. |
-| 20 | [`CHANGELOG.md`](../CHANGELOG.md) | Agregovaný changelog (anglicky) — co systém umí, jedna verze na milník. |
-| 21 | [lua-wm.md](lua-wm.md) | **Lua WM blueprint** — architektura, moduly, tiling engine, grafická pipeline, bindings, design rationale (RFC). |
-| 22 | [editor.md](editor.md) | **Editor okno** — otevření, klávesové a myšové konvence (kolečko = scroll, klik = kurzor), plánovaný zoom. |
-| 23 | [2026-08-15-self-audit.md](2026-08-15-self-audit.md) | **Self-Audit (2026-08-15)** — formální repo audit (kód, bezpečnost, build, CI); nálezy opravené, audit reálně řídí práci. |
-| 24 | [2026-08-16-re-audit.md](2026-08-16-re-audit.md) | **Re-Audit (po M7)** — kontrola, že self-audit nálezy zůstaly opravené, + nová funkcionalita (wasm, SMP, storage) novýma očima. |
+| 14 | [scheduler.md](scheduler.md) | Scheduler a SMP: preemptivní RR tasků, task model, blokující primitiva, kritické sekce bez locků, stav SMP (BSP-only). |
+| 15 | [storage.md](storage.md) | Storage: vrstvy (KI → file → ext2 → gpt → block), handle model, non-POSIX sémantika, chování bez disku, initfs vs disk, testovací obrazy. |
+| 16 | [roadmap.md](roadmap.md) | Milníky M0–M10 s kritérii "hotovo" a tabulkou kvalitních metrik. |
+| 17 | [verification.md](verification.md) | Verifikační pipeline, deterministický build, pravidlo bootovatelného commitu. |
+| 18 | [debugging.md](debugging.md) | Debugging Survival Guide — GDB+QEMU, čtení serial dumpu, pravidla pro IRQ. |
+| 19 | [troubleshooting.md](troubleshooting.md) | Známé pasti a lekce — build API, protokoly, determinismus, tooling. |
+| 20 | [handoff.md](handoff.md) | Formální postup pro nevyřešené problémy — šablona, kdy ji spustit, jak ji zavřít. |
+| 21 | [`CHANGELOG.md`](../CHANGELOG.md) | Agregovaný changelog (anglicky) — co systém umí, jedna verze na milník. |
+| 22 | [lua-wm.md](lua-wm.md) | **Lua WM blueprint** — architektura, moduly, tiling engine, grafická pipeline, bindings, design rationale (RFC). |
+| 23 | [editor.md](editor.md) | **Editor okno** — otevření, klávesové a myšové konvence (kolečko = scroll, klik = kurzor), plánovaný zoom. |
+| 24 | [2026-08-15-self-audit.md](2026-08-15-self-audit.md) | **Self-Audit (2026-08-15)** — formální repo audit (kód, bezpečnost, build, CI); nálezy opravené, audit reálně řídí práci. |
+| 25 | [2026-08-16-re-audit.md](2026-08-16-re-audit.md) | **Re-Audit (po M7)** — kontrola, že self-audit nálezy zůstaly opravené, + nová funkcionalita (wasm, SMP, storage) novýma očima. |
+| 26 | [handoffs/](handoffs/) | Handoff dokumenty H1–H6 (uzavřené diagnózy nevyřešených problémů), index v `handoff.md` §6. |
 
 > **Auditovací postup:** projekt dělá **pravidelné audity po etapách** — po
 > každém milníku **Self-Audit** (nová funkcionalita + opravy) a před uzavřením

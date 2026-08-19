@@ -1,6 +1,6 @@
 # ADR-008 — Scheduler: událostní smyčka, ne MLFQ
 
-**Status:** Accepted
+**Status:** Superseded by ADR-017 (pro M7; platí pro M0–M6)
 **Datum:** 2026-08-06
 
 > **Status update (2026-08-17):** superseded **pro M7** ADR-017 — od M7 je jádro
