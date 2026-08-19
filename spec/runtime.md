@@ -329,8 +329,9 @@ způsobit pauzy mimo render — ohrožuje KPI `frame latency (p99) < 16 ms`
 - **Kernel mimo `api/runtime` nepřijme žádný Wasm-specifický kód.** Vše je za
   `Runtime.spawn`; konkrétní runtime jméno zná jen `api/runtime` (composition-root
   výjimka, ADR-006).
-- Benchmark wasm vs Lua je Fáze C (kvalitní metriky v `roadmap.md`); nasazení
-  proběhlo v M7 bez benchmarku, benchmark zůstává dluh před uzavřením M7.
+- **Benchmark wasm vs Lua — Fáze C, hotovo (2026-08-19):** identická Mandelbrot
+  mřížka spuštěná jako wasm program i jako Lua program, metriky a metodika v
+  `roadmap.md` §M7.
 
 ### 7.1 Dvě úrovně Wasm
 

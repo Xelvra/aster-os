@@ -37,11 +37,13 @@ pub fn build(b: *std.Build) void {
         .ReleaseSafe;
 
     const runtime_tests = b.option(bool, "runtime-tests", "Build kernel with in-QEMU runtime tests") orelse false;
+    const bench = b.option(bool, "bench", "Build kernel with the M7 wasm-vs-Lua benchmark (spec/roadmap.md Fáze C)") orelse false;
     const use_kvm = b.option(bool, "kvm", "Run QEMU with KVM acceleration (-enable-kvm); auto-detects /dev/kvm when omitted") orelse kvmAvailable();
     const disk_path = b.option([]const u8, "disk", "Attach a raw disk image to QEMU (enables virtio-blk storage, visible as '[ OK ] storage' in the boot log)");
 
     const kernel_options = b.addOptions();
     kernel_options.addOption(bool, "runtime_tests", runtime_tests);
+    kernel_options.addOption(bool, "bench", bench);
     kernel_options.addOption([]const u8, "version", @embedFile(".version"));
 
     const kernel = b.addExecutable(.{
@@ -188,7 +190,7 @@ pub fn build(b: *std.Build) void {
     // Spawned Lua programs (runtime.spawn beyond the shell bootstrap, M7) are
     // packed next to the shell modules; the kernel looks them up by their flat
     // file name (lua.loadProgramSource).
-    const program_files = [_][]const u8{"probe.lua"};
+    const program_files = [_][]const u8{ "probe.lua", "bench.lua" };
     for (program_files) |f| {
         tar_cmd.addFileArg(b.path(b.fmt("src/kernel/lua/programs/{s}", .{f})));
     }
@@ -196,7 +198,7 @@ pub fn build(b: *std.Build) void {
     // Spawned wasm programs (runtime.spawn(.Wasm, ...), M7) are Zig binaries
     // compiled to wasm32-freestanding and packed into the initrd by their flat
     // .wasm name (wasm.loadProgramSource). The kernel keeps the same list.
-    const wasm_app_files = [_][]const u8{ "hello.zig", "fault.zig", "calculator.zig" };
+    const wasm_app_files = [_][]const u8{ "hello.zig", "fault.zig", "calculator.zig", "bench.zig" };
     for (wasm_app_files) |f| {
         const wasm_app = b.addExecutable(.{
             .name = std.fs.path.stem(f),

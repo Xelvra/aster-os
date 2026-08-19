@@ -450,19 +450,22 @@ se musí vyřešit **před** spuštěním dalších features, ne až na konci st
 
 > **Pořadí M7 (2026-08-16):** bylo dotaženo vše kolem — preemptivní scheduler,
 > sync primitiva, per-program Lua izolace, zápis na disk + editor/files/koš.
-> **Stav (2026-08-19):** wasm Fáze A i B **hotové** — Fáze A (wasm3 vendored,
-> `Runtime.spawn(.Wasm)` + testovací programy `hello`/`fault`, `c486dee`), Fáze B
-> (surface model + kalkulačka, ADR-026 + ADR-027, ověřeno runtime testem
-> `testWasmSpawnTickSurface`). Zbývá jen **Fáze C (benchmark)**. Wasm se dělal na
-> konec milníku (věci spojené přímo s wasm se odkládaly, ostatní se dotažely před
-> ním). Živé testování kalkulačky (2026-08-18) odhalilo tři reálné bugy mimo wasm
-> samotný (WM layout-fallback při focusu na floating okno, z-order hit-testing pro
-> floating vs tiled, `formatInt` right-aligned konvence v `calculator.zig`) a
-> jednu UBSan/wasm3 nekompatibilitu (`.sanitize_c = .off` pro `wasm3_mod`) — všechny
-> opraveny. Zároveň se **pullnul dopředu** kus M8/ADR-025 plánu (viz bullet níže):
-> launcher skenuje `/apps/*.wasm` z disku dynamicky místo hardcoded entry, a
-> přidala se klávesnice pro wasm programy (ADR-026 ji nechávala jako výhled).
-> Detaily **ADR-027**.
+> **Stav (2026-08-19): M7 uzavřeno** — wasm Fáze A, B i C **hotové**. Fáze A
+> (wasm3 vendored, `Runtime.spawn(.Wasm)` + testovací programy `hello`/`fault`,
+> `c486dee`), Fáze B (surface model + kalkulačka, ADR-026 + ADR-027, ověřeno
+> runtime testem `testWasmSpawnTickSurface`), Fáze C (benchmark wasm vs Lua,
+> `src/kernel/apps/bench.zig` + `src/kernel/lua/programs/bench.lua`, identická
+> Mandelbrot escape-time mřížka 64×64/50 iterací, `tools/bench-wasm-vs-lua.sh`)
+> — viz bod níže pro metriky. Wasm se dělal na konec milníku (věci spojené
+> přímo s wasm se odkládaly, ostatní se dotažely před ním). Živé testování
+> kalkulačky (2026-08-18) odhalilo tři reálné bugy mimo wasm samotný (WM
+> layout-fallback při focusu na floating okno, z-order hit-testing pro floating
+> vs tiled, `formatInt` right-aligned konvence v `calculator.zig`) a jednu
+> UBSan/wasm3 nekompatibilitu (`.sanitize_c = .off` pro `wasm3_mod`) — všechny
+> opraveny. Zároveň se **pullnul dopředu** kus M8/ADR-025 plánu (viz bullet
+> níže): launcher skenuje `/apps/*.wasm` z disku dynamicky místo hardcoded
+> entry, a přidala se klávesnice pro wasm programy (ADR-026 ji nechávala jako
+> výhled). Detaily **ADR-027**.
 
 > **Jak jsme wasm dělali (2026-08-16, korigováno 2026-08-17):**
 > - **První programy jsou záměrně jednoduché — PRÁVĚ proto, že infrastruktura je složitá.**
@@ -567,7 +570,22 @@ se musí vyřešit **před** spuštěním dalších features, ne až na konci st
       (wait/signal, čekatelé pod interrupt maskou, FIFO handoff, granted flag),
       `spawnTaskChecked` pro error handler. Ověřeno runtime testy (semaphore /
       mutex / event group / message queue / task error handler).
-- [ ] Benchmark wasm vs Lua; metriky do tabulky.
+- [x] **Benchmark wasm vs Lua — hotovo (2026-08-19):** identická Mandelbrot
+      escape-time mřížka (64×64 bodů, strop 50 iterací, souřadnice `[-2,1]×[-1.5,1.5]`)
+      spočtená jednou ve wasm (`src/kernel/apps/bench.zig`, spawne se přes initrd
+      jméno `bench.wasm`) a jednou v Lua (`src/kernel/lua/programs/bench.lua`,
+      `lua.spawnProgram`, běží pod standardním instrukčním rozpočtem
+      10 000 000, `lua.zig`). Kernel měří dobu volání `runtime.spawn` vlastními
+      hodinami (`time.ms()`, `src/kernel/bench.zig`, `-Dbench=true`,
+      `tools/bench-wasm-vs-lua.sh`) a ověřuje, že obě implementace dají stejný
+      checksum (kontrola korektnosti, ne jen rychlosti). **Naměřeno (TCG, tento
+      stroj, 4 běhy):** wasm3 **0–3 ms**, Lua 5.4 **3–10 ms** — checksum shodný
+      (50956) ve všech bězích. Rozptyl je dán hrubostí kernelové milisekundové
+      hodiny na tak malé zátěži, ne nedeterminismem výpočtu. Potvrzuje se
+      předpoklad z designové poznámky výše: **wasm3 je bytecode interpreter, ne
+      JIT**, takže jde o Lua 5.4 vs wasm3 (oba interpretované) — wasm3 vychází
+      rychlejší na čistě aritmetické smyčce, ale hodnota wasm pro Aster OS je
+      primárně **izolace a deterministická sémantika**, ne výkon.
 
 ### M7.1 — Zápis na disk + editor (ADR-023)
 

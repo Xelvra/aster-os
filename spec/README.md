@@ -62,8 +62,8 @@
 ## Stav
 
 - **Verze specifikace:** 1.0 (draft)
-- **Schváleno k implementaci:** Milníky M0–M6; M7 (Runtime) Fáze A+B hotové, Fáze C
-  (benchmark wasm vs Lua) zbývá jako dluh před uzavřením M7
+- **Schváleno k implementaci:** Milníky M0–M7 (M7 „Runtime" uzavřen 2026-08-19,
+  Fáze A/B/C hotové — `spec/roadmap.md` §M7)
 - **Aktualizace:** nová architektonická rozhodnutí se zapisují do `spec/adr/` (každé
   samostatný soubor); přehled se udržuje v `architecture.md`. Rozhodnutí se nemění
   dodatečně — doplňují se nová.

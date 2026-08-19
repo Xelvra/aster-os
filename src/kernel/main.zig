@@ -33,6 +33,7 @@ const sched = @import("sched/task.zig");
 const time = @import("time.zig");
 const wasm = @import("wasm/wasm.zig");
 const runtime_test = @import("runtime_test.zig");
+const bench = @import("bench.zig");
 
 /// Main kernel stack. The bootloader hands the kernel a small stack; switch
 /// to a large one before kernelMain — deep call chains (Lua) and large stack
@@ -241,6 +242,9 @@ fn kernelMain() !void {
     asm volatile ("sti" ::: .{ .memory = true });
     if (comptime runtime_test.enabled) {
         runtime_test.runAll(alloc, &memory);
+    }
+    if (comptime bench.enabled) {
+        bench.runAll();
     }
     eventLoop(&display);
 }

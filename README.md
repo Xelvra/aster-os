@@ -1,8 +1,8 @@
 # Aster OS
 
 [![status](https://img.shields.io/badge/status-alpha-orange.svg)](spec/roadmap.md)
-[![version](https://img.shields.io/badge/version-0.7.0--alpha.2-orange.svg)](.version)
-[![milestone](https://img.shields.io/badge/milestone-M7%20Runtime-informational.svg)](spec/roadmap.md)
+[![version](https://img.shields.io/badge/version-0.8.0--alpha.1-orange.svg)](.version)
+[![milestone](https://img.shields.io/badge/milestone-M8%20Stabilization-informational.svg)](spec/roadmap.md)
 [![Zig](https://img.shields.io/badge/Zig-0.16.0-f7a41d.svg)](.zig-version)
 [![architecture](https://img.shields.io/badge/arch-x86__64-blue.svg)](spec/architecture.md)
 [![bootloader](https://img.shields.io/badge/bootloader-Limine-808080.svg)](libs/limine)
@@ -32,11 +32,11 @@ pre-push hook and CI verify it never drifts from the code
 
 ## Status
 
-- **M7 (Runtime) — wasm Phase B done:** wasm3 vendored, `Runtime.spawn(.Wasm)`,
-  surface model + calculator app loaded from disk (ADR-026, ADR-027).
-  Remaining: benchmark wasm vs Lua (Phase C).
+- **M7 (Runtime) complete:** wasm3 vendored, `Runtime.spawn(.Wasm)`, surface
+  model + calculator app loaded from disk (ADR-026, ADR-027), and the wasm vs
+  Lua benchmark (Phase C) — see [`spec/roadmap.md`](spec/roadmap.md) §M7.
   Multi-layout keyboard is done (ADR-024, US/CZ switchable at runtime).
-- **M0–M6 complete:** boot → memory → CPU → graphics → Lua runtime → desktop shell in
+- **M0–M7 complete:** boot → memory → CPU → graphics → Lua runtime → desktop shell in
   Lua → disk storage (virtio-blk, GPT, read-write ext2 since M7.1).
 - **Bootable-commit rule:** every commit must leave the system runnable in QEMU
   ([`spec/verification.md`](spec/verification.md)).
@@ -63,10 +63,10 @@ kernel-only on KVM. The current kernel is **578 KiB** — the authoritative,
 CI-verified value is always the one in [`boot-log.md`](boot-log.md), which the
 pre-push hook regenerates.
 
-\* M7 numbers are **not from an optimization pass** — they are the current
-mid-milestone measurements after the audit fixes (which added safety checks
-and parsing hardening) and the wasm runtime, so they are not directly
-comparable with the optimized M0–M6 rows. The kernel size (578 KiB) is the
+\* M7 numbers are **not from an optimization pass** — they are the closing
+measurements after the audit fixes (which added safety checks and parsing
+hardening) and the wasm runtime, so they are not directly comparable with the
+optimized M0–M6 rows. The kernel size (578 KiB) is the
 deterministic, CI-verified value from `boot-log.md`; the First Frame time is
 jitter-sensitive and `capture-boot.sh --check` normalizes it.
 
@@ -148,8 +148,8 @@ If the system crashes or hangs: [`spec/debugging.md`](spec/debugging.md)
 | M4 ✅ | Lua: interactive REPL in kernel, hot reload |
 | M5 ✅ | UI: desktop shell in Lua — tiling WM, bar, launcher, workspace, mouse, error containment, live transformation |
 | M6 ✅ | Storage: initfs, virtio-blk, GPT, filesystem, cooperative reads |
-| M7 🔄 | Runtime: wasm (Phase A+B done; Phase C benchmark pending), multitasking, app isolation |
-| M8 ⏳ | Stabilization: invariant audit, metrics, Ring 3 decision |
+| M7 ✅ | Runtime: wasm (Phase A/B/C done), multitasking, app isolation |
+| M8 🔄 | Stabilization: invariant audit, metrics, Ring 3 decision |
 | M9 ⏳ | Ecosystem: network, audio, browser, WASI |
 | M10 ⏳ | Adoption: real hardware, installable image, docs, contributors |
 

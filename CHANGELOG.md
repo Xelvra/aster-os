@@ -5,8 +5,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-The version number matches the project milestone (0.0.0 = M0 Boot, 0.7.0 = M7
-Runtime). Newer versions are listed first.
+The version number matches the project milestone (0.0.0 = M0 Boot, 0.8.0 = M8
+Stabilization). Newer versions are listed first.
 
 > This file is **hand-curated** (what the system can do). The raw commit
 > history is regenerated separately by `tools/generate-changelog.sh` — never
@@ -15,9 +15,14 @@ Runtime). Newer versions are listed first.
 
 ---
 
-## [0.7.0-alpha.2] — Milestone M7 — Runtime (in progress)
+## [0.8.0-alpha.1] — Milestone M8 — Stabilization (in progress)
 
-This version tracks the milestone after M6 Storage was completed.
+This version tracks the milestone after M7 Runtime was completed. No additions
+yet.
+
+---
+
+## [0.7.0] — Milestone M7 — Runtime
 
 ### Added
 
@@ -61,7 +66,20 @@ This version tracks the milestone after M6 Storage was completed.
   `wasm32-freestanding`) is the first real wasm application; it is staged onto
   the test disk as `/apps/calculator.wasm` and discovered by the launcher
   scanning `/apps/` at runtime, so applications ship independently of the
-  kernel image (ADR-027). Next: benchmark wasm vs Lua (Phase C).
+  kernel image (ADR-027).
+
+* **Wasm (M7) — Phase C benchmark, wasm vs Lua (M7 closed):** an identical
+  Mandelbrot escape-time grid (64×64 points, 50-iteration cap) is spawned once
+  as a wasm program (`src/kernel/apps/bench.zig`) and once as a Lua program
+  (`src/kernel/lua/programs/bench.lua`, under the normal 10M-instruction
+  budget), timed by the kernel around the `runtime.spawn` call
+  (`src/kernel/bench.zig`, `-Dbench=true`) and checked for an identical result
+  checksum. `tools/bench-wasm-vs-lua.sh` boots the benchmark build and reports
+  both timings. Measured (TCG, 4 runs): wasm3 0–3 ms, Lua 5.4 3–10 ms,
+  checksum identical every run — wasm3 is a bytecode interpreter, not a JIT,
+  so this is interpreter vs interpreter; wasm's value for Aster OS is
+  isolation and deterministic semantics, not raw speed. This closes milestone
+  M7.
 
 * **C stdio layer over the kernel storage:** `fopen`/`fread`/
   `fclose`/`feof`/`ferror`/`getc`/`freopen` map onto the KI storage handles so

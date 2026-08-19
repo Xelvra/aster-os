@@ -1,8 +1,8 @@
 # Aster OS — Architektonický přehled
 
 **Verze:** 1.3 (konsolidace)
-**Status:** Current design — Schváleno k implementaci (M0–M6 hotovo; M7 Fáze A+B hotové,
-Fáze C — benchmark wasm vs Lua — zbývá jako dluh; M8 Stabilizace — oddělení do Ring 3)
+**Status:** Current design — Schváleno k implementaci (M0–M7 hotovo; M8 Stabilizace —
+oddělení do Ring 3)
 
 > Tento dokument je **hlavním architektonickým přehledem** projektu. Zachycuje aktuální
 > návrh a jeho rozhodnutí. Slouží jako referenční bod pro konzultaci návrhu architektury a
